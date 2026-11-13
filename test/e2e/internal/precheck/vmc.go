@@ -63,7 +63,8 @@ func (c *vmcPrecheck) Run(ctx context.Context, f *framework.Framework) error {
 	}
 
 	var requiredClass map[string]interface{} // VMClass with requiredVMClassName
-	var defaultClass map[string]interface{}  // VMClass with is-default-class annotation
+
+	var defaultClass map[string]interface{} // VMClass with is-default-class annotation
 
 	// Single pass through all VMClasses
 	for i := range vmClasses.Items {
@@ -89,6 +90,7 @@ func (c *vmcPrecheck) Run(ctx context.Context, f *framework.Framework) error {
 		if !ok {
 			continue
 		}
+
 		if _, isDefault := annotations[defaultClassAnnotation]; isDefault {
 			defaultClass = vmClass
 		}
@@ -133,11 +135,14 @@ func getVMClassName(m map[string]interface{}) string {
 	if m == nil {
 		return ""
 	}
+
 	metadata, ok := m["metadata"].(map[string]interface{})
 	if !ok {
 		return ""
 	}
+
 	name, _ := metadata["name"].(string)
+
 	return name
 }
 

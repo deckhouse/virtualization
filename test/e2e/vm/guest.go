@@ -33,6 +33,7 @@ const guestPingExternalCommand = `for h in flant.ru google.com ya.ru; do ping -c
 // at least one well-known external host, probing with ping as root.
 func expectExternalConnectivityAsRoot(f *framework.Framework, vmName, namespace string) {
 	GinkgoHelper()
+
 	reachableHost, err := f.SSHCommand(vmName, namespace, guestPingExternalCommand, framework.WithSSHUser("root"))
 	Expect(err).NotTo(HaveOccurred(), "VM %s should have outbound connectivity", vmName)
 	Expect(reachableHost).NotTo(BeEmpty())

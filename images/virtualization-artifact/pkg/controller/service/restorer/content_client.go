@@ -47,7 +47,9 @@ func InitContentClient(cfg *rest.Config) error {
 
 	contentClientMu.Lock()
 	defer contentClientMu.Unlock()
+
 	contentClient = cc
+
 	return nil
 }
 
@@ -59,5 +61,6 @@ func sharedContentClient() (*ContentClient, error) {
 	if contentClient == nil {
 		return nil, errors.New("state-snapshotter content client is not initialized: call restorer.InitContentClient at startup")
 	}
+
 	return contentClient, nil
 }

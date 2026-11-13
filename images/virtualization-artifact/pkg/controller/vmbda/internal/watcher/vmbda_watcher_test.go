@@ -34,6 +34,7 @@ func newAttachment(name, vmName string, kind v1alpha2.VMBDAObjectRefKind, bdName
 	obj.Namespace = "ns"
 	obj.Spec.VirtualMachineName = vmName
 	obj.Spec.BlockDeviceRef = v1alpha2.VMBDAObjectRef{Kind: kind, Name: bdName}
+
 	return obj
 }
 
@@ -42,6 +43,7 @@ func requestNames(requests []reconcile.Request) []types.NamespacedName {
 	for _, r := range requests {
 		names = append(names, r.NamespacedName)
 	}
+
 	return names
 }
 

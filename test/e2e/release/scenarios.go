@@ -88,7 +88,9 @@ func findVMScenario(name string) vmScenario {
 			return s
 		}
 	}
+
 	Expect(name).To(BeElementOf(listVMScenarioNames()), "unknown virtual machine scenario")
+
 	return vmScenario{}
 }
 
@@ -97,16 +99,19 @@ func listVMScenarioNames() []string {
 	for _, s := range vmScenarios {
 		names = append(names, s.name)
 	}
+
 	return names
 }
 
 func findDataDisks(vmName string) []dataDiskScenario {
 	var disks []dataDiskScenario
+
 	for _, d := range dataDiskScenarios {
 		if d.vm == vmName {
 			disks = append(disks, d)
 		}
 	}
+
 	return disks
 }
 
@@ -170,6 +175,7 @@ func listDiskRefs(s vmScenario) []crclient.Object {
 	for _, d := range findDataDisks(s.name) {
 		objects = append(objects, d.newDiskRef())
 	}
+
 	return objects
 }
 
@@ -178,5 +184,6 @@ func listAttachmentRefs(disks []dataDiskScenario) []crclient.Object {
 	for _, d := range disks {
 		objects = append(objects, d.newAttachmentRef())
 	}
+
 	return objects
 }

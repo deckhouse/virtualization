@@ -85,17 +85,21 @@ func (h *USBDeviceAttachHandler) Handle(ctx context.Context, s state.VirtualMach
 	}
 
 	statusByName := make(map[string]*v1alpha2.USBDeviceStatusRef)
+
 	for i := range changed.Status.USBDevices {
 		device := &changed.Status.USBDevices[i]
 		statusByName[device.Name] = device
 	}
 
-	var kvvmiLoaded bool
-	var kvvmi *virtv1.VirtualMachineInstance
-	var hostDeviceReadyByName map[string]struct{}
-	var hostDeviceExistsByName map[string]struct{}
+	var (
+		kvvmiLoaded            bool
+		kvvmi                  *virtv1.VirtualMachineInstance
+		hostDeviceReadyByName  map[string]struct{}
+		hostDeviceExistsByName map[string]struct{}
+	)
 
 	var nextStatusRefs []v1alpha2.USBDeviceStatusRef
+
 	for _, usbDeviceRef := range vm.Spec.USBDevices {
 		deviceName := usbDeviceRef.Name
 		existingStatus := statusByName[deviceName]
@@ -128,6 +132,7 @@ func (h *USBDeviceAttachHandler) Handle(ctx context.Context, s state.VirtualMach
 			// Both are ordinary states, not failures.
 			log.Info("ResourceClaimTemplate for the USB device does not exist yet, the device stays detached", "usbDevice", deviceName)
 			nextStatusRefs = append(nextStatusRefs, h.buildDetachedStatus(nil, deviceName, isReady))
+
 			continue
 		}
 
@@ -142,6 +147,7 @@ func (h *USBDeviceAttachHandler) Handle(ctx context.Context, s state.VirtualMach
 			if err != nil {
 				return reconcile.Result{}, fmt.Errorf("failed to get KVVMI: %w", err)
 			}
+
 			kvvmi = fetchedKVVMI
 			kvvmiLoaded = true
 		}
@@ -164,6 +170,7 @@ func (h *USBDeviceAttachHandler) Handle(ctx context.Context, s state.VirtualMach
 			} else {
 				nextStatusRefs = append(nextStatusRefs, h.buildAttachedStatus(deviceName, isReady, address, isHotplugged))
 			}
+
 			continue
 		}
 
@@ -175,20 +182,24 @@ func (h *USBDeviceAttachHandler) Handle(ctx context.Context, s state.VirtualMach
 				if apierrors.IsNotFound(err) {
 					log.Debug("node not found while checking free USBIP ports", "device", deviceName, "node", vm.Status.Node)
 					nextStatusRefs = append(nextStatusRefs, h.buildDetachedStatus(existingStatus, deviceName, isReady))
+
 					continue
 				}
 
 				return reconcile.Result{RequeueAfter: 5 * time.Second}, fmt.Errorf("failed to check free USBIP ports for device %s on node %s: %w", deviceName, vm.Status.Node, err)
 			}
+
 			if !hasFreePort {
 				log.Info("no free USBIP ports available", "device", deviceName, "speed", usbDevice.Status.Attributes.Speed, "node", vm.Status.Node)
 				nextStatusRefs = append(nextStatusRefs, h.buildDetachedStatus(existingStatus, deviceName, isReady))
 				changed.Status.USBDevices = nextStatusRefs
+
 				return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 			}
 		}
 
 		requestName := h.getResourceClaimRequestName(deviceName)
+
 		err := h.attachUSBDevice(ctx, vm, deviceName, templateName, requestName)
 		if err != nil && !apierrors.IsAlreadyExists(err) && !strings.Contains(err.Error(), "already exists") {
 			return reconcile.Result{RequeueAfter: 5 * time.Second}, fmt.Errorf("failed to attach USB device %s: %w", deviceName, err)

@@ -54,6 +54,7 @@ func (w *VirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Contro
 	); err != nil {
 		return fmt.Errorf("error setting watch on pool member VirtualMachines: %w", err)
 	}
+
 	return nil
 }
 
@@ -70,6 +71,7 @@ func ownerKey(vm *v1alpha2.VirtualMachine) *types.NamespacedName {
 	if ref == nil || ref.Kind != v1alpha2.VirtualMachinePoolKind || ref.APIVersion != v1alpha2.SchemeGroupVersion.String() {
 		return nil
 	}
+
 	return &types.NamespacedName{Namespace: vm.GetNamespace(), Name: ref.Name}
 }
 
@@ -78,6 +80,7 @@ func (m *memberEventHandler) Create(_ context.Context, e event.TypedCreateEvent[
 	if key == nil {
 		return
 	}
+
 	m.exp.CreationObserved(key.String())
 	q.Add(reconcile.Request{NamespacedName: *key})
 }
@@ -87,6 +90,7 @@ func (m *memberEventHandler) Delete(_ context.Context, e event.TypedDeleteEvent[
 	if key == nil {
 		return
 	}
+
 	m.exp.DeletionObserved(key.String(), e.Object.GetUID())
 	q.Add(reconcile.Request{NamespacedName: *key})
 }

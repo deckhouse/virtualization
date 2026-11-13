@@ -43,6 +43,7 @@ const (
 // Returns nil if no default StorageClass is found.
 func FindDefaultStorageClass(scList *storagev1.StorageClassList) *storagev1.StorageClass {
 	var defaultClasses []storagev1.StorageClass
+
 	for i := range scList.Items {
 		sc := &scList.Items[i]
 		if sc.Annotations["storageclass.kubernetes.io/is-default-class"] == "true" {
@@ -60,6 +61,7 @@ func FindDefaultStorageClass(scList *storagev1.StorageClassList) *storagev1.Stor
 		if defaultClasses[i].CreationTimestamp.UnixNano() == defaultClasses[j].CreationTimestamp.UnixNano() {
 			return defaultClasses[i].Name < defaultClasses[j].Name
 		}
+
 		return defaultClasses[i].CreationTimestamp.UnixNano() > defaultClasses[j].CreationTimestamp.UnixNano()
 	})
 
@@ -90,12 +92,15 @@ func ResolveLocalStorageClass(scList *storagev1.StorageClassList) (*storagev1.St
 	if !ok {
 		return nil, nil
 	}
+
 	if scName == "" {
 		return nil, fmt.Errorf("%s env is set but empty", LocalStorageClassNameEnv)
 	}
+
 	if sc := findStorageClassInList(scList, scName); sc != nil {
 		return sc, nil
 	}
+
 	return nil, fmt.Errorf("StorageClass %q from %s env not found", scName, LocalStorageClassNameEnv)
 }
 
@@ -107,9 +112,11 @@ func ResolveDefaultStorageClass(scList *storagev1.StorageClassList) (*storagev1.
 		if scName == "" {
 			return nil, fmt.Errorf("%s env is set but empty", StorageClassNameEnv)
 		}
+
 		if sc := findStorageClassInList(scList, scName); sc != nil {
 			return sc, nil
 		}
+
 		return nil, fmt.Errorf("StorageClass %q from %s env not found", scName, StorageClassNameEnv)
 	}
 
@@ -129,12 +136,14 @@ func (c *Config) SetStorageClasses(ctx context.Context, k8sClient client.Client)
 	if err != nil {
 		return err
 	}
+
 	c.StorageClass.DefaultStorageClass = defaultSC
 
 	localSC, err := ResolveLocalStorageClass(&scList)
 	if err != nil {
 		return err
 	}
+
 	c.StorageClass.LocalStorageClass = localSC
 
 	return nil
@@ -146,5 +155,6 @@ func findStorageClassInList(scList *storagev1.StorageClassList, name string) *st
 			return &scList.Items[i]
 		}
 	}
+
 	return nil
 }

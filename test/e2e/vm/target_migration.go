@@ -151,6 +151,7 @@ func newTargetMigrationVMOP(virtualMachine *v1alpha2.VirtualMachine, nodeSelecto
 
 func defineTargetNodeSelector(ctx context.Context, f *framework.Framework, currentNodeName string) (map[string]string, error) {
 	nodes := &corev1.NodeList{}
+
 	err := f.Clients.GenericClient().List(
 		ctx,
 		nodes,
@@ -186,12 +187,15 @@ func defineTargetNodeSelector(ctx context.Context, f *framework.Framework, curre
 
 func getVirtualMachineInstanceMigration(ctx context.Context, f *framework.Framework, name string) (*virtv1.VirtualMachineInstanceMigration, error) {
 	obj := &rewrite.VirtualMachineInstanceMigration{}
+
 	err := f.RewriteClient().Get(ctx, name, obj, rewrite.InNamespace(f.Namespace().Name))
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil, nil
 		}
+
 		return nil, err
 	}
+
 	return obj.VirtualMachineInstanceMigration, nil
 }

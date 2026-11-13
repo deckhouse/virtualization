@@ -53,11 +53,13 @@ type vmopTestArgs struct {
 }
 
 var _ = Describe("VMOP Events", func() {
-	var event *audit.Event
-	var vmop *v1alpha2.VirtualMachineOperation
-	var vm *v1alpha2.VirtualMachine
-	var vd *v1alpha2.VirtualDisk
-	var node *corev1.Node
+	var (
+		event *audit.Event
+		vmop  *v1alpha2.VirtualMachineOperation
+		vm    *v1alpha2.VirtualMachine
+		vd    *v1alpha2.VirtualDisk
+		node  *corev1.Node
+	)
 
 	currentTime := time.Now()
 
@@ -206,6 +208,7 @@ var _ = Describe("VMOP Events", func() {
 			if args.shouldLostVMOP || args.shouldLostVM || args.shouldCorruptVMOPBytes {
 				err := eventLog.Fill()
 				Expect(err).NotTo(BeNil())
+
 				return
 			}
 
@@ -245,10 +248,13 @@ var _ = Describe("VMOP Events", func() {
 			// Temporary redirect stdout to /dev/null
 			devNull, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
 			Expect(err).To(BeNil())
+
 			defer func(stdout *os.File) {
 				os.Stdout = stdout
+
 				Expect(devNull.Close()).To(Succeed())
 			}(os.Stdout)
+
 			os.Stdout = devNull
 
 			err = eventLog.Log()

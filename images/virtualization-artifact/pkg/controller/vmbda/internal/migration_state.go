@@ -37,6 +37,7 @@ var migrationQueueReasons = sets.New(
 
 func migrationIsQueued(ctx context.Context, c client.Client, namespace, vmName string) (bool, error) {
 	vmops := &v1alpha2.VirtualMachineOperationList{}
+
 	err := c.List(ctx, vmops,
 		client.InNamespace(namespace),
 		client.MatchingFields{indexer.IndexFieldVMOPByVM: vmName},
@@ -46,12 +47,14 @@ func migrationIsQueued(ctx context.Context, c client.Client, namespace, vmName s
 	}
 
 	found := false
+
 	for _, vmop := range vmops.Items {
 		if !commonvmop.IsMigration(&vmop) || !commonvmop.IsInProgressOrPending(&vmop) {
 			continue
 		}
 
 		found = true
+
 		if !operationIsQueued(&vmop) {
 			return false, nil
 		}

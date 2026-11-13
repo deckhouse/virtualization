@@ -51,6 +51,7 @@ func (w *NodesWatcher) Watch(mgr manager.Manager, ctr controller.Controller) err
 				var result []reconcile.Request
 
 				classList := &v1alpha2.VirtualMachineClassList{}
+
 				err := mgr.GetClient().List(ctx, classList)
 				if err != nil {
 					log.Error("failed to list VMClasses", "error", err)
@@ -62,6 +63,7 @@ func (w *NodesWatcher) Watch(mgr manager.Manager, ctr controller.Controller) err
 						result = append(result, reconcile.Request{
 							NamespacedName: object.NamespacedName(&class),
 						})
+
 						continue
 					}
 
@@ -96,6 +98,7 @@ func (w *NodesWatcher) Watch(mgr manager.Manager, ctr controller.Controller) err
 						NamespacedName: object.NamespacedName(&class),
 					})
 				}
+
 				return result
 			}),
 			predicate.Or(
@@ -105,12 +108,15 @@ func (w *NodesWatcher) Watch(mgr manager.Manager, ctr controller.Controller) err
 						if !maps.Equal(e.ObjectOld.Annotations, e.ObjectNew.Annotations) {
 							return true
 						}
+
 						if !e.ObjectOld.Status.Allocatable[corev1.ResourceCPU].Equal(e.ObjectNew.Status.Allocatable[corev1.ResourceCPU]) {
 							return true
 						}
+
 						if !e.ObjectOld.Status.Allocatable[corev1.ResourceMemory].Equal(e.ObjectNew.Status.Allocatable[corev1.ResourceMemory]) {
 							return true
 						}
+
 						return false
 					},
 				},
@@ -119,5 +125,6 @@ func (w *NodesWatcher) Watch(mgr manager.Manager, ctr controller.Controller) err
 	); err != nil {
 		return fmt.Errorf("error setting watch on Nodes: %w", err)
 	}
+
 	return nil
 }

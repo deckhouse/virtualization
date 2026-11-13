@@ -85,6 +85,7 @@ func TestSetMemoryMaxGuest(t *testing.T) {
 			if memory == nil || memory.Guest == nil || memory.Guest.Cmp(resource.MustParse(tt.memorySize)) != 0 {
 				t.Fatalf("expected guest memory %s, got %+v", tt.memorySize, memory)
 			}
+
 			switch {
 			case tt.expectedMaxGuest == nil && memory.MaxGuest != nil:
 				t.Fatalf("expected maxGuest unset, got %s", memory.MaxGuest.String())

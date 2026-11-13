@@ -138,8 +138,10 @@ func (s StatService) CheckPod(pod *corev1.Pod) error {
 			if strings.HasPrefix(pod.Name, "d8v-vd-") {
 				return fmt.Errorf("%w: %w", ErrProvisioningFailed, ErrDVCRNoSpaceDiskError)
 			}
+
 			return fmt.Errorf("%w: %w", ErrProvisioningFailed, ErrDVCRNoSpaceImageError)
 		}
+
 		return terminationMessageError{fmt.Errorf("%w: Pod %s/%s reported: %s", ErrProvisioningFailed, pod.Namespace, pod.Name, report.ErrMessage)}
 	}
 
@@ -250,6 +252,7 @@ func CapProgressBelow(progress string, high float64) string {
 	if math.IsNaN(value) || value < high {
 		return progress
 	}
+
 	return percent.Format(high - 0.1)
 }
 
@@ -304,13 +307,16 @@ func (s StatService) GetProgress(ownerUID types.UID, pod *corev1.Pod, prevProgre
 // percentage, next is returned unchanged.
 func maxProgress(prev, next string) string {
 	prevVal := percent.ExtractPercentageFloat(prev)
+
 	nextVal := percent.ExtractPercentageFloat(next)
 	if math.IsNaN(prevVal) || math.IsNaN(nextVal) {
 		return next
 	}
+
 	if prevVal > nextVal {
 		return prev
 	}
+
 	return next
 }
 
@@ -384,6 +390,7 @@ func isInClusterUploaderReady(svc *corev1.Service) bool {
 	}
 
 	client := &http.Client{Timeout: 5 * time.Second}
+
 	response, err := client.Get(fmt.Sprintf("http://%s/upload", svc.Spec.ClusterIP))
 	if err != nil {
 		return false

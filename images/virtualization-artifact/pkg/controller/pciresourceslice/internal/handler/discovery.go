@@ -52,6 +52,7 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.ResourceSliceStat
 	if resourceSlice == nil {
 		return reconcile.Result{}, nil
 	}
+
 	if resourceSlice.Spec.Driver != draDriverName {
 		return reconcile.Result{}, nil
 	}
@@ -74,17 +75,21 @@ func (h *DiscoveryHandler) createNodePCIDevice(ctx context.Context, attributes v
 	name := h.sanitizeName(attributes.Name)
 
 	existing := &v1alpha2.NodePCIDevice{}
+
 	err := h.client.Get(ctx, client.ObjectKey{Name: name}, existing)
 	if err == nil {
 		if existing.Status.Attributes != attributes || existing.Status.NodeName != attributes.NodeName {
 			existing.Status.Attributes = attributes
+
 			existing.Status.NodeName = attributes.NodeName
 			if err := h.client.Status().Update(ctx, existing); err != nil {
 				return fmt.Errorf("failed to update NodePCIDevice status: %w", err)
 			}
 		}
+
 		return nil
 	}
+
 	if !apierrors.IsNotFound(err) {
 		return fmt.Errorf("failed to check if NodePCIDevice exists: %w", err)
 	}
@@ -98,6 +103,7 @@ func (h *DiscoveryHandler) createNodePCIDevice(ctx context.Context, attributes v
 		if apierrors.IsAlreadyExists(err) {
 			return nil
 		}
+
 		return fmt.Errorf("failed to create NodePCIDevice: %w", err)
 	}
 

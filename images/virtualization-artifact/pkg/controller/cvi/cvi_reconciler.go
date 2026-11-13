@@ -113,12 +113,14 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 	}
 
 	cviFromVIEnqueuer := watchers.NewClusterVirtualImageRequestEnqueuer(mgr.GetClient(), &v1alpha2.VirtualImage{}, v1alpha2.ClusterVirtualImageObjectRefKindVirtualImage)
+
 	viWatcher := watchers.NewObjectRefWatcher(watchers.NewVirtualImageFilter(), cviFromVIEnqueuer)
 	if err := viWatcher.Run(mgr, ctr); err != nil {
 		return fmt.Errorf("error setting watch on VIs: %w", err)
 	}
 
 	cviFromCVIEnqueuer := watchers.NewClusterVirtualImageRequestEnqueuer(mgr.GetClient(), &v1alpha2.ClusterVirtualImage{}, v1alpha2.ClusterVirtualImageObjectRefKindClusterVirtualImage)
+
 	cviWatcher := watchers.NewObjectRefWatcher(watchers.NewClusterVirtualImageFilter(), cviFromCVIEnqueuer)
 	if err := cviWatcher.Run(mgr, ctr); err != nil {
 		return fmt.Errorf("error setting watch on CVIs: %w", err)

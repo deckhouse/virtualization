@@ -41,12 +41,14 @@ func NewBaseStorageClassService(client client.Client) *BaseStorageClassService {
 
 func (s BaseStorageClassService) GetDefaultStorageClass(ctx context.Context) (*storagev1.StorageClass, error) {
 	var scs storagev1.StorageClassList
+
 	err := s.client.List(ctx, &scs, &client.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
 
 	var defaultClasses []*storagev1.StorageClass
+
 	for idx := range scs.Items {
 		if scs.Items[idx].Annotations[annotations.AnnDefaultStorageClass] == "true" {
 			defaultClasses = append(defaultClasses, &scs.Items[idx])
@@ -63,6 +65,7 @@ func (s BaseStorageClassService) GetDefaultStorageClass(ctx context.Context) (*s
 		if defaultClasses[i].CreationTimestamp.UnixNano() == defaultClasses[j].CreationTimestamp.UnixNano() {
 			return defaultClasses[i].Name < defaultClasses[j].Name
 		}
+
 		return defaultClasses[i].CreationTimestamp.UnixNano() > defaultClasses[j].CreationTimestamp.UnixNano()
 	})
 

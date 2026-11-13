@@ -48,6 +48,7 @@ func TestResolveDefaultStorageClass(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ResolveDefaultStorageClass() error = %v", err)
 		}
+
 		if got == nil || got.Name != "default-sc" {
 			t.Fatalf("ResolveDefaultStorageClass() = %#v, want default-sc", got)
 		}
@@ -61,6 +62,7 @@ func TestResolveDefaultStorageClass(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ResolveDefaultStorageClass() with env error = %v", err)
 		}
+
 		if got == nil || got.Name != "other-sc" {
 			t.Fatalf("ResolveDefaultStorageClass() with env = %#v, want other-sc", got)
 		}
@@ -86,6 +88,7 @@ func TestResolveDefaultStorageClass(t *testing.T) {
 
 	t.Run("returns nil without default and env", func(t *testing.T) {
 		unsetStorageClassNameEnv(t)
+
 		scListWithoutDefault := &storagev1.StorageClassList{Items: []storagev1.StorageClass{{
 			ObjectMeta:  metav1.ObjectMeta{Name: "other-sc"},
 			Provisioner: "local.csi.storage.deckhouse.io",
@@ -95,6 +98,7 @@ func TestResolveDefaultStorageClass(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ResolveDefaultStorageClass() without default error = %v", err)
 		}
+
 		if got != nil {
 			t.Fatalf("ResolveDefaultStorageClass() without default = %#v, want nil", got)
 		}
@@ -110,6 +114,7 @@ func unsetStorageClassNameEnv(t *testing.T) {
 	} else {
 		t.Setenv(StorageClassNameEnv, "")
 	}
+
 	if err := os.Unsetenv(StorageClassNameEnv); err != nil {
 		t.Fatalf("failed to unset %s: %v", StorageClassNameEnv, err)
 	}

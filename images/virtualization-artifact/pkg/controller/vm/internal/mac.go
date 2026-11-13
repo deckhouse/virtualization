@@ -61,6 +61,7 @@ func (h *MACHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 	if s.VirtualMachine().IsEmpty() {
 		return reconcile.Result{}, nil
 	}
+
 	vm := s.VirtualMachine().Changed()
 
 	if isDeletion(vm) {
@@ -92,11 +93,13 @@ func (h *MACHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 		cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonMACAddressNotReady).Message(fmt.Sprintf("Failed to get KVVM: %s", err))
 		return reconcile.Result{}, err
 	}
+
 	kvvmi, err := s.KVVMI(ctx)
 	if err != nil {
 		cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonMACAddressNotReady).Message(fmt.Sprintf("Failed to get KVVMI: %s", err))
 		return reconcile.Result{}, err
 	}
+
 	expectedMACAddresses := countMACAddresses(vm, kvvmi)
 	// A VM receiving a migration takes the MAC addresses of the source from the domain of its KubeVirt VM:
 	// addresses allocated before it exists would replace them at the next rebuild.
@@ -104,13 +107,16 @@ func (h *MACHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 		cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonMACAddressNotReady).Message("Waiting for the MAC addresses of the source cluster.")
 		return reconcile.Result{}, nil
 	}
+
 	if len(vmmacs) < expectedMACAddresses {
 		createdCount := 0
+
 		if kvvm != nil && len(vmmacs) == 0 {
 			for _, iface := range kvvm.Spec.Template.Spec.Domain.Devices.Interfaces {
 				if strings.HasPrefix(iface.Name, "veth_") {
 					err = h.macManager.CreateMACAddress(ctx, vm, h.client, iface.MacAddress)
 					createdCount++
+
 					if err != nil {
 						cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonMACAddressNotReady).Message(fmt.Sprintf("Failed to create VirtualMachineMACAddress: %s", err))
 						return reconcile.Result{}, err
@@ -118,11 +124,13 @@ func (h *MACHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 				}
 			}
 		}
+
 		if createdCount < expectedMACAddresses {
 			macsToCreate := expectedMACAddresses - len(vmmacs) - createdCount
 			if macsToCreate < 0 {
 				macsToCreate = 0
 			}
+
 			for i := 0; i < macsToCreate; i++ {
 				err = h.macManager.CreateMACAddress(ctx, vm, h.client, "")
 				if err != nil {
@@ -133,13 +141,16 @@ func (h *MACHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 		}
 
 		cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonMACAddressNotReady).Message(fmt.Sprintf("Waiting for the MAC address to be created %d/%d.", len(vmmacs), expectedMACAddresses))
+
 		return reconcile.Result{}, nil
 	}
 
 	var notReadyMessages []string
+
 	allReady := true
 
 	log := logger.FromContext(ctx).With(logger.SlogHandler(nameMACHandler))
+
 	for _, macAddress := range vmmacs {
 		// 1. OK: already bound.
 		if h.macManager.IsBound(vm.GetName(), macAddress) {
@@ -153,7 +164,9 @@ func (h *MACHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 			msg := fmt.Sprintf("VirtualMachineMACAddress %s: is not available to be bound (%v)", macAddress.Name, err)
 			log.Info(msg)
 			notReadyMessages = append(notReadyMessages, msg)
+
 			h.recorder.Event(vm, corev1.EventTypeWarning, vmcondition.ReasonMACAddressNotAvailable.String(), err.Error())
+
 			continue
 		}
 
@@ -162,6 +175,7 @@ func (h *MACHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 			msg := fmt.Sprintf("The requested VirtualMachineMACAddress (%s) attached to VirtualMachine '%s': please remove VirtualMachine '%s' or reconfigure it", macAddress.Name, macAddress.Status.VirtualMachine, macAddress.Status.VirtualMachine)
 			log.Info(msg)
 			notReadyMessages = append(notReadyMessages, msg)
+
 			continue
 		}
 
@@ -183,6 +197,7 @@ func (h *MACHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 
 func countMACAddresses(vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) int {
 	count := 0
+
 	for _, network := range vm.Spec.Networks {
 		if network.Type != v1alpha2.NetworksTypeMain {
 			count++
@@ -194,6 +209,7 @@ func countMACAddresses(vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachine
 			count++
 		}
 	}
+
 	return count
 }
 

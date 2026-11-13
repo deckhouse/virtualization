@@ -64,12 +64,14 @@ func (c *USBGatewayController) Attach(ctx context.Context, deviceName string) er
 	}
 
 	log.Info("Exporting USB device")
+
 	err = c.usbIP.Export(host, busID, port)
 	if err != nil {
 		return fmt.Errorf("failed to export device %s: %w", deviceName, err)
 	}
 
 	log.Info("Attaching USB device")
+
 	rhport, err := c.usbIP.Attach(host, busID, port)
 	if err != nil {
 		return fmt.Errorf("failed to attach device %s: %w", deviceName, err)
@@ -106,16 +108,19 @@ func (c *USBGatewayController) Detach(deviceName string) error {
 		log.Info("Device is already detached")
 	} else {
 		log.Info("Detaching USB device")
+
 		err = c.usbIP.Detach(entry.Rhport)
 		if err != nil && !errors.Is(err, usbip.ErrPortAlreadyDetached) {
 			return fmt.Errorf("failed to detach device %s: %w", deviceName, err)
 		}
+
 		if err != nil {
 			log.Info("USB device was already taken back by its node, only unexporting")
 		}
 	}
 
 	log.Info("Unexporting USB device")
+
 	err = c.usbIP.Unexport(host, busID, port)
 	if err != nil {
 		return fmt.Errorf("failed to unexport device %s: %w", deviceName, err)
@@ -200,14 +205,18 @@ func (c *USBGatewayController) getVirtualizationDraResourceSlices() ([]resourcev
 	if err != nil {
 		return nil, err
 	}
+
 	var slices []resourcev1.ResourceSlice
+
 	for _, obj := range slicesObj {
 		slice, ok := obj.(*resourcev1.ResourceSlice)
 		if !ok {
 			return nil, fmt.Errorf("unexpected type of resource slice: %T", obj)
 		}
+
 		slices = append(slices, *slice.DeepCopy())
 	}
+
 	return slices, nil
 }
 
@@ -215,6 +224,7 @@ func (c *USBGatewayController) getBusID(device *resourcev1.Device) (string, erro
 	if attr, ok := device.Attributes[consts.AttrBusID]; ok && attr.StringValue != nil {
 		return *attr.StringValue, nil
 	}
+
 	return "", fmt.Errorf("busID attribute is not exist")
 }
 
@@ -231,6 +241,7 @@ func (c *USBGatewayController) resolveRemoteAddress(pool string) (string, int, e
 	if err != nil {
 		return "", -1, fmt.Errorf("failed to split host and port: %w", err)
 	}
+
 	port, err := strconv.Atoi(portStr)
 	if err != nil {
 		return "", -1, fmt.Errorf("failed to parse port: %w", err)
@@ -250,6 +261,7 @@ func (c *USBGatewayController) storeAttachRecordOrDetach(deviceName, busID strin
 
 	for range maxRetries {
 		c.log.Info("Adding entry to attach record", slog.Any("entry", entry))
+
 		err = c.attachRecordManager.AddEntry(entry)
 		if err == nil {
 			return nil
@@ -260,6 +272,7 @@ func (c *USBGatewayController) storeAttachRecordOrDetach(deviceName, busID strin
 
 	for range maxRetries {
 		c.log.Info("Detaching device", slog.Any("deviceName", deviceName))
+
 		err = c.usbIP.Detach(rhport)
 		if err == nil {
 			return fmt.Errorf("failed to store attach record: %w", err)
@@ -277,6 +290,7 @@ func (c *USBGatewayController) findEntry(deviceName string) *AttachEntry {
 			return &entry
 		}
 	}
+
 	return nil
 }
 
@@ -286,18 +300,22 @@ func (c *USBGatewayController) waitUsbAttachInfo(ctx context.Context, rhport int
 
 	err := wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (bool, error) {
 		c.log.Info("Get attach info for store localBusID")
+
 		info, err := c.usbIP.GetAttachInfo()
 		if err != nil {
 			c.log.Info("Failed to get used info", slog.String("error", err.Error()))
 			return false, nil
 		}
+
 		for _, item := range info.Items {
 			if item.Port == rhport {
 				usedInfo = &item
 				return true, nil
 			}
 		}
+
 		c.log.Info("Usb are not attached yet")
+
 		return false, nil
 	})
 

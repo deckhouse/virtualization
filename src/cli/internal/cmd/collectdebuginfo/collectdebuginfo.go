@@ -47,6 +47,7 @@ func NewCommand() *cobra.Command {
 	}
 
 	cmd.SetUsageTemplate(templates.UsageTemplate())
+
 	return cmd
 }
 
@@ -77,6 +78,7 @@ func (b *DebugBundle) Run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+
 	if namespace == "" {
 		namespace = defaultNamespace
 	}
@@ -85,7 +87,9 @@ func (b *DebugBundle) Run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to get REST config: %w", err)
 	}
+
 	b.restConfig = config
+
 	b.dynamicClient, err = dynamic.NewForConfig(config)
 	if err != nil {
 		return fmt.Errorf("failed to create dynamic client: %w", err)
@@ -98,15 +102,19 @@ func (b *DebugBundle) Run(cmd *cobra.Command, args []string) error {
 	if term.IsTerminal(int(os.Stdout.Fd())) {
 		_, _ = fmt.Fprintf(b.stderr, "Error: Output is being written to terminal. Please redirect to a file:\n")
 		_, _ = fmt.Fprintf(b.stderr, "  %s collect-debug-info %s > debug-info.tar.gz\n", cmd.CommandPath(), args[0])
+
 		return fmt.Errorf("output must be redirected to a file")
 	}
 
 	// Initialize archive writers
 	b.gzipWriter = gzip.NewWriter(b.stdout)
+
 	defer func() {
 		_ = b.gzipWriter.Close()
 	}()
+
 	b.tarWriter = tar.NewWriter(b.gzipWriter)
+
 	defer func() {
 		_ = b.tarWriter.Close()
 	}()
@@ -125,9 +133,11 @@ func (b *DebugBundle) collectResources(ctx context.Context, client kubeclient.Cl
 		if errors.IsNotFound(err) {
 			return fmt.Errorf("VirtualMachine %q not found in namespace %q", vmName, namespace)
 		}
+
 		if errors.IsForbidden(err) || errors.IsUnauthorized(err) {
 			return fmt.Errorf("not allowed to read VirtualMachine %q in namespace %q; check your RBAC permissions", vmName, namespace)
 		}
+
 		return fmt.Errorf("failed to read VirtualMachine %q in namespace %q: %w", vmName, namespace, err)
 	}
 
@@ -153,6 +163,7 @@ func (b *DebugBundle) skipError(resourceType, resourceName string, err error) bo
 	if resourceName != "" {
 		target = fmt.Sprintf("%s %q", resourceType, resourceName)
 	}
+
 	switch {
 	case errors.IsForbidden(err) || errors.IsUnauthorized(err):
 		_, _ = fmt.Fprintf(b.stderr, "Warning: cannot read %s: access denied (check your RBAC permissions).\n", target)
@@ -163,5 +174,6 @@ func (b *DebugBundle) skipError(resourceType, resourceName string, err error) bo
 		_, _ = fmt.Fprintf(b.stderr, "Warning: %s not found.\n", target)
 		return true
 	}
+
 	return false
 }

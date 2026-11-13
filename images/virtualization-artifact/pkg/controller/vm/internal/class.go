@@ -54,6 +54,7 @@ func (h *ClassHandler) Handle(ctx context.Context, s state.VirtualMachineState) 
 	if s.VirtualMachine().IsEmpty() {
 		return reconcile.Result{}, nil
 	}
+
 	current := s.VirtualMachine().Current()
 	changed := s.VirtualMachine().Changed()
 
@@ -85,25 +86,33 @@ func (h *ClassHandler) Handle(ctx context.Context, s state.VirtualMachineState) 
 				Status(metav1.ConditionFalse).
 				Condition())
 			changed.Status.Conditions = mgr.Generate()
+
 			return reconcile.Result{RequeueAfter: 2 * time.Second}, nil
 		}
+
 		mgr.Update(cb.Reason(vmcondition.ReasonClassReady).Status(metav1.ConditionTrue).Condition())
 		changed.Status.Conditions = mgr.Generate()
+
 		return reconcile.Result{}, nil
 	}
+
 	className := current.Spec.VirtualMachineClassName
 	msg := fmt.Sprintf("VirtualMachineClass %q is not ready yet.", className)
 	reason := vmcondition.ReasonClassNotReady
+
 	if class == nil {
 		msg = fmt.Sprintf("VirtualMachineClass %q not found. Specify an existing VirtualMachineClass in spec.virtualMachineClassName.", className)
+
 		h.recorder.Event(changed, corev1.EventTypeWarning, reason.String(), "VirtualMachineClass not available: waiting for the VirtualMachineClass")
 		log.Info("VirtualMachineClass not available: waiting for the VirtualMachineClass")
 	}
+
 	mgr.Update(cb.Status(metav1.ConditionFalse).
 		Message(msg).
 		Reason(reason).
 		Condition())
 	changed.Status.Conditions = mgr.Generate()
+
 	return reconcile.Result{RequeueAfter: 2 * time.Second}, nil
 }
 

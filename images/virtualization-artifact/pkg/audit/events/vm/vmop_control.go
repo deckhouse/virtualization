@@ -87,6 +87,7 @@ func (m *VMOPControl) Fill() error {
 	m.eventLog.Type = "Control VM"
 
 	var response vmopResponseObject
+
 	err := json.Unmarshal(m.event.ResponseObject.Raw, &response)
 	if err != nil {
 		return fmt.Errorf("fail to unmarshal event ResponseObject: %w", err)

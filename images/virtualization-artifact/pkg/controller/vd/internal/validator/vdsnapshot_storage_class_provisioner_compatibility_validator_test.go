@@ -52,6 +52,7 @@ var _ = Describe("VirtualDiskSnapshotStorageClassValidator", func() {
 		Expect(storagev1.AddToScheme(scheme)).To(Succeed())
 		Expect(corev1.AddToScheme(scheme)).To(Succeed())
 		Expect(vsv1.AddToScheme(scheme)).To(Succeed())
+
 		return scheme
 	}
 
@@ -67,6 +68,7 @@ var _ = Describe("VirtualDiskSnapshotStorageClassValidator", func() {
 				annotations.AnnDefaultStorageClass: "true",
 			}
 		}
+
 		return sc
 	}
 
@@ -75,6 +77,7 @@ var _ = Describe("VirtualDiskSnapshotStorageClassValidator", func() {
 		if vsSC != "" {
 			vsAnnotations[annotations.AnnStorageClassName] = vsSC
 		}
+
 		return []client.Object{
 			&v1alpha2.VirtualDiskSnapshot{
 				ObjectMeta: metav1.ObjectMeta{
@@ -128,6 +131,7 @@ var _ = Describe("VirtualDiskSnapshotStorageClassValidator", func() {
 			},
 		}
 		vd.Status.StorageClassName = statusSC
+
 		return vd
 	}
 
@@ -135,6 +139,7 @@ var _ = Describe("VirtualDiskSnapshotStorageClassValidator", func() {
 		k8sClient := fake.NewClientBuilder().WithScheme(newScheme()).WithObjects(objs...).Build()
 		baseSCService := basevc.NewBaseStorageClassService(k8sClient)
 		vdSCService := intsvc.NewVirtualDiskStorageClassService(baseSCService, config.VirtualDiskStorageClassSettings{})
+
 		return NewVirtualDiskSnapshotStorageClassValidator(k8sClient, vdSCService)
 	}
 

@@ -184,18 +184,23 @@ type Owner struct {
 // StartController constructs a new controller and starts it.
 func StartController(ctx context.Context, options Options) (*Controller, error) {
 	logger := klog.FromContext(ctx)
+
 	c, err := newController(ctx, options)
 	if err != nil {
 		return nil, fmt.Errorf("create controller: %w", err)
 	}
 
 	logger.V(3).Info("Starting")
+
 	c.wg.Add(1)
+
 	go func() {
 		defer c.wg.Done()
 		defer logger.V(3).Info("Stopping")
+
 		c.run(ctx)
 	}()
+
 	return c, nil
 }
 
@@ -275,6 +280,7 @@ func (err *DroppedFieldsError) Error() string {
 		// If we get here, DisabledFeatures needs to be updated.
 		disabled = []string{"unknown"}
 	}
+
 	return fmt.Sprintf("pool %q, slice #%d: some fields were dropped by the apiserver, probably because these features are disabled: %s", err.PoolName, err.SliceIndex, strings.Join(disabled, " "))
 }
 
@@ -323,6 +329,7 @@ func (c *Controller) Stop() {
 	if c == nil {
 		return
 	}
+
 	c.cancel(errors.New("ResourceSlice controller was asked to stop"))
 	c.wg.Wait()
 }
@@ -390,6 +397,7 @@ func (c *Controller) GetStats() Stats {
 		NumUpdates: atomic.LoadInt64(&c.numUpdates),
 		NumDeletes: atomic.LoadInt64(&c.numDeletes),
 	}
+
 	return s
 }
 
@@ -407,6 +415,7 @@ func newController(ctx context.Context, options Options) (*Controller, error) {
 	if options.KubeClient == nil {
 		return nil, errors.New("KubeClient is nil")
 	}
+
 	if options.DriverName == "" {
 		return nil, errors.New("DRA driver name is empty")
 	}
@@ -432,11 +441,13 @@ func newController(ctx context.Context, options Options) (*Controller, error) {
 			workqueue.TypedRateLimitingQueueConfig[string]{Name: "node_resource_slices"},
 		)
 	}
+
 	if c.errorHandler == nil {
 		c.errorHandler = func(ctx context.Context, err error, msg string) {
 			utilruntime.HandleErrorWithContext(ctx, err, msg)
 		}
 	}
+
 	if err := c.initInformer(ctx); err != nil {
 		return nil, err
 	}
@@ -471,6 +482,7 @@ func (c *Controller) initInformer(ctx context.Context) error {
 			if !ok {
 				return []string{}, nil
 			}
+
 			return []string{slice.Spec.Pool.Name}, nil
 		},
 	}
@@ -478,6 +490,7 @@ func (c *Controller) initInformer(ctx context.Context) error {
 		&cache.ListWatch{
 			ListWithContextFunc: func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
 				tweakListOptions(&options)
+
 				slices, err := c.resourceClient.ResourceSlices().List(ctx, options)
 				if err == nil {
 					logger.V(5).Info("Listed ResourceSlices", "resourceAPI", c.resourceClient.CurrentAPI(), "numSlices", len(slices.Items), "listMeta", slices.ListMeta)
@@ -487,13 +500,16 @@ func (c *Controller) initInformer(ctx context.Context) error {
 
 				if c.reconcileOnlyPoolName != "" {
 					var newItems []resourcev1.ResourceSlice
+
 					for i := range slices.Items {
 						if slices.Items[i].Spec.Pool.Name == c.reconcileOnlyPoolName {
 							newItems = append(newItems, slices.Items[i])
 							break
 						}
 					}
+
 					slices.Items = newItems
+
 					return slices, nil
 				}
 
@@ -523,12 +539,14 @@ func (c *Controller) initInformer(ctx context.Context) error {
 		indexers,
 	)
 	c.sliceStore = cache.NewIntegerResourceVersionMutationCache(logger, informer.GetStore(), informer.GetIndexer(), c.mutationCacheTTL, true /* includeAdds */)
+
 	handler, err := informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
 			slice, ok := obj.(*resourcev1.ResourceSlice)
 			if !ok {
 				return
 			}
+
 			logger.V(5).Info("ResourceSlice add", "slice", klog.KObj(slice))
 			c.queue.AddAfter(slice.Spec.Pool.Name, c.syncDelay)
 			logger.V(5).Info("Scheduled sync", "poolName", slice.Spec.Pool.Name, "at", time.Now().Add(c.syncDelay))
@@ -538,17 +556,21 @@ func (c *Controller) initInformer(ctx context.Context) error {
 			if !ok {
 				return
 			}
+
 			newSlice, ok := new.(*resourcev1.ResourceSlice)
 			if !ok {
 				return
 			}
+
 			if loggerV := logger.V(6); loggerV.Enabled() {
 				loggerV.Info("ResourceSlice update", "slice", klog.KObj(newSlice), "diff", diff.Diff(oldSlice, newSlice))
 			} else {
 				logger.V(5).Info("ResourceSlice update", "slice", klog.KObj(newSlice))
 			}
+
 			c.queue.AddAfter(oldSlice.Spec.Pool.Name, c.syncDelay)
 			logger.V(5).Info("Scheduled sync", "pool", oldSlice.Spec.Pool.Name, "at", time.Now().Add(c.syncDelay))
+
 			if oldSlice.Spec.Pool.Name != newSlice.Spec.Pool.Name {
 				c.queue.AddAfter(newSlice.Spec.Pool.Name, c.syncDelay)
 				logger.V(5).Info("Scheduled sync", "poolName", newSlice.Spec.Pool.Name, "at", time.Now().Add(c.syncDelay))
@@ -558,10 +580,12 @@ func (c *Controller) initInformer(ctx context.Context) error {
 			if tombstone, ok := obj.(cache.DeletedFinalStateUnknown); ok {
 				obj = tombstone.Obj
 			}
+
 			slice, ok := obj.(*resourcev1.ResourceSlice)
 			if !ok {
 				return
 			}
+
 			logger.V(5).Info("ResourceSlice delete", "slice", klog.KObj(slice))
 			c.queue.AddAfter(slice.Spec.Pool.Name, c.syncDelay)
 			logger.V(5).Info("Scheduled sync", "poolName", slice.Spec.Pool.Name, "at", time.Now().Add(c.syncDelay))
@@ -572,13 +596,17 @@ func (c *Controller) initInformer(ctx context.Context) error {
 	}
 	// Start informer and wait for our cache to be populated.
 	logger.V(3).Info("Starting ResourceSlice informer and waiting for it to sync")
+
 	c.wg.Add(1)
+
 	go func() {
 		defer c.wg.Done()
 		defer logger.V(3).Info("ResourceSlice informer has stopped")
 		defer c.queue.ShutDown() // Once we get here, we must have been asked to stop.
+
 		informer.Run(ctx.Done())
 	}()
+
 	for !handler.HasSynced() {
 		select {
 		case <-time.After(time.Second):
@@ -586,7 +614,9 @@ func (c *Controller) initInformer(ctx context.Context) error {
 			return fmt.Errorf("sync ResourceSlice informer: %w", context.Cause(ctx))
 		}
 	}
+
 	logger.V(3).Info("ResourceSlice informer has synced")
+
 	return nil
 }
 
@@ -602,6 +632,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 		return false
 	}
 	defer c.queue.Done(poolName)
+
 	logger := klog.FromContext(ctx)
 
 	err := c.syncPool(klog.NewContext(ctx, klog.LoggerWithValues(logger, "poolName", poolName)), poolName)
@@ -615,6 +646,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	}
 
 	c.queue.Forget(poolName)
+
 	return true
 }
 
@@ -627,16 +659,20 @@ func (c *Controller) syncPool(ctx context.Context, poolName string) error {
 
 	// Gather information about the actual and desired state.
 	var slices []*resourcev1.ResourceSlice
+
 	objs, err := c.sliceStore.ByIndex(poolNameIndex, poolName)
 	if err != nil {
 		return fmt.Errorf("retrieve ResourceSlice objects: %w", err)
 	}
+
 	for _, obj := range objs {
 		if slice, ok := obj.(*resourcev1.ResourceSlice); ok {
 			slices = append(slices, slice)
 		}
 	}
+
 	var resources *DriverResources
+
 	c.mutex.RLock()
 	resources = c.resources
 	c.mutex.RUnlock()
@@ -646,6 +682,7 @@ func (c *Controller) syncPool(ctx context.Context, poolName string) error {
 		if len(slices) > 0 {
 			// All are obsolete, pool does not exist anymore.
 			logger.V(5).Info("Removing resource slices after pool removal")
+
 			if err := c.removeSlices(ctx, slices); err != nil {
 				return fmt.Errorf("remove slices: %w", err)
 			}
@@ -658,10 +695,12 @@ func (c *Controller) syncPool(ctx context.Context, poolName string) error {
 	// The result gets cached and is expected to not change while
 	// the controller runs.
 	var nodeName string
+
 	if c.owner != nil && c.owner.APIVersion == "v1" && c.owner.Kind == "Node" {
 		if c.reconcileOnlyPoolName == "" {
 			nodeName = c.owner.Name
 		}
+
 		if c.owner.UID == "" {
 			node, err := c.coreClient.Nodes().Get(ctx, c.owner.Name, metav1.GetOptions{})
 			if err != nil {
@@ -691,6 +730,7 @@ func (c *Controller) syncPool(ctx context.Context, poolName string) error {
 			currentSlices = append(currentSlices, slice)
 		}
 	}
+
 	logger.V(5).Info("Existing slices", "obsolete", klog.KObjSlice(obsoleteSlices), "current", klog.KObjSlice(currentSlices))
 
 	// Match each existing slice against the desired slices.
@@ -726,18 +766,23 @@ func (c *Controller) syncPool(ctx context.Context, poolName string) error {
 	} else {
 		for _, currentSlice := range currentSlices {
 			matched := false
+
 			for i := range pool.Slices {
 				if _, ok := currentSliceForDesiredSlice[i]; ok {
 					// Already has a match.
 					continue
 				}
+
 				if sameSlice(currentSlice, &pool.Slices[i]) {
 					currentSliceForDesiredSlice[i] = currentSlice
 					logger.V(5).Info("Matched existing slice", "slice", klog.KObj(currentSlice), "matchIndex", i)
+
 					matched = true
+
 					break
 				}
 			}
+
 			if !matched {
 				obsoleteSlices = append(obsoleteSlices, currentSlice)
 				logger.V(5).Info("Unmatched existing slice", "slice", klog.KObj(currentSlice))
@@ -758,6 +803,7 @@ func (c *Controller) syncPool(ctx context.Context, poolName string) error {
 
 	// Now for each desired slice, figure out which of them are changed.
 	changedDesiredSlices := sets.New[int]()
+
 	for i, currentSlice := range currentSliceForDesiredSlice {
 		// Reordering entries is a difference and causes an update even if the
 		// entries are the same.
@@ -771,6 +817,7 @@ func (c *Controller) syncPool(ctx context.Context, poolName string) error {
 			logger.V(5).Info("Need to update slice", "slice", klog.KObj(currentSlice), "matchIndex", i)
 		}
 	}
+
 	logger.V(5).Info("Completed comparison",
 		"numObsolete", len(obsoleteSlices),
 		"numMatchedSlices", len(currentSliceForDesiredSlice),
@@ -779,20 +826,24 @@ func (c *Controller) syncPool(ctx context.Context, poolName string) error {
 	)
 
 	bumpedGeneration := false
+
 	switch {
 	case pool.Generation > generation:
 		// Bump up the generation if the driver asked for it, or
 		// start with a non-zero generation.
 		generation = pool.Generation
 		bumpedGeneration = true
+
 		logger.V(5).Info("Bumped generation to driver-provided generation", "generation", generation)
 	case numNewSlices == 0 && len(changedDesiredSlices) <= 1:
 		logger.V(5).Info("Kept generation because at most one update API call is necessary", "generation", generation)
 	default:
 		generation++
 		bumpedGeneration = true
+
 		logger.V(5).Info("Bumped generation by one", "generation", generation)
 	}
+
 	desiredPool.Generation = generation
 
 	// First delete obsolete slices. If the desired slices are faulty, then it's still better to
@@ -814,6 +865,7 @@ func (c *Controller) syncPool(ctx context.Context, poolName string) error {
 		if !changedDesiredSlices.Has(i) && !bumpedGeneration {
 			continue
 		}
+
 		slice := currentSlice.DeepCopy()
 		slice.Spec.Pool = desiredPool
 		// No need to set the node name. If it was different, we wouldn't
@@ -831,9 +883,12 @@ func (c *Controller) syncPool(ctx context.Context, poolName string) error {
 		if err != nil {
 			return fmt.Errorf("update resource slice: %w", err)
 		}
+
 		logger.V(5).Info("Updated existing resource slice", "slice", klog.KObj(slice))
 		atomic.AddInt64(&c.numUpdates, 1)
+
 		added = true
+
 		c.sliceStored(ctx, "update ResourceSlice", poolName, pool, i, slice, actualSlice)
 	}
 
@@ -843,6 +898,7 @@ func (c *Controller) syncPool(ctx context.Context, poolName string) error {
 			// Was handled above through an update.
 			continue
 		}
+
 		var ownerReferences []metav1.OwnerReference
 		if c.owner != nil {
 			ownerReferences = append(ownerReferences,
@@ -855,10 +911,12 @@ func (c *Controller) syncPool(ctx context.Context, poolName string) error {
 				},
 			)
 		}
+
 		generateName := c.driverName + "-"
 		if c.owner != nil {
 			generateName = c.owner.Name + "-" + generateName
 		}
+
 		slice := &resourcev1.ResourceSlice{
 			ObjectMeta: metav1.ObjectMeta{
 				OwnerReferences: ownerReferences,
@@ -889,15 +947,19 @@ func (c *Controller) syncPool(ctx context.Context, poolName string) error {
 		if err != nil {
 			return fmt.Errorf("create resource slice: %w", err)
 		}
+
 		logger.V(5).Info("Created new resource slice", "slice", klog.KObj(actualSlice))
 		atomic.AddInt64(&c.numCreates, 1)
+
 		added = true
+
 		c.sliceStored(ctx, "create ResourceSlice", poolName, pool, i, slice, actualSlice)
 	}
 
 	now := time.Now()
 	if added {
 		c.lastAddByPool[poolName] = now
+
 		logger.V(5).Info("Added slices")
 	} else if lastAdd, ok := c.lastAddByPool[poolName]; ok && start.After(lastAdd.Add(c.mutationCacheTTL)) {
 		// This sync started after the last add expired from the cache,
@@ -905,6 +967,7 @@ func (c *Controller) syncPool(ctx context.Context, poolName string) error {
 		delete(c.lastAddByPool, poolName)
 		logger.V(5).Info("Done with re-syncing")
 	}
+
 	if lastAdd, ok := c.lastAddByPool[poolName]; ok {
 		// Need to check again.
 		//
@@ -1002,10 +1065,12 @@ func copyServerDefaults(desiredSlice, actualSlice *resourcev1.ResourceSlice) boo
 					desiredSlice.Spec = *desiredSlice.Spec.DeepCopy()
 					copied = true
 				}
+
 				desiredSlice.Spec.Devices[i].Taints[e].TimeAdded = actualSlice.Spec.Devices[i].Taints[e].TimeAdded
 			}
 		}
 	}
+
 	return copied
 }
 
@@ -1018,6 +1083,7 @@ func sameSlice(existingSlice *resourcev1.ResourceSlice, desiredSlice *Slice) boo
 	for _, device := range existingSlice.Spec.Devices {
 		existingDevices.Insert(device.Name)
 	}
+
 	for _, device := range desiredSlice.Devices {
 		if !existingDevices.Has(device.Name) {
 			return false
@@ -1041,7 +1107,9 @@ func copyTaintTimeAdded(from, to []resourcev1.Device) []resourcev1.Device {
 			// No matching device.
 			continue
 		}
+
 		fromDevice := from[index]
+
 		for j, toTaint := range toDevice.Taints {
 			if toTaint.TimeAdded != nil {
 				// Already set.
@@ -1064,6 +1132,7 @@ func copyTaintTimeAdded(from, to []resourcev1.Device) []resourcev1.Device {
 			to[i].Taints[j].TimeAdded = fromDevice.Taints[index].TimeAdded
 		}
 	}
+
 	return to
 }
 
@@ -1081,6 +1150,7 @@ var devicesSemantic = func() conversion.Equalities {
 	if err := semantic.AddFunc(deviceTaintEqual); err != nil {
 		panic(err)
 	}
+
 	return semantic
 }()
 
@@ -1091,6 +1161,7 @@ func deviceTaintEqual(a, b resourcev1.DeviceTaint) bool {
 			return false
 		}
 	}
+
 	return a.Key == b.Key &&
 		a.Value == b.Value &&
 		a.Effect == b.Effect
@@ -1101,5 +1172,6 @@ func refIfNotZero[T comparable](t T) *T {
 	if t == zero {
 		return nil
 	}
+
 	return &t
 }

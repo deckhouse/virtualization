@@ -35,6 +35,7 @@ func NewManager(driverName, nodeName string, kubeClient kubernetes.Interface, al
 	if err != nil {
 		return nil, err
 	}
+
 	m.driver = driver
 
 	if healthAddr != "" {
@@ -48,12 +49,14 @@ func (m *Manager) Run(ctx context.Context) error {
 	if err := m.driver.Start(ctx); err != nil {
 		return err
 	}
+
 	if m.checker != nil {
 		if err := m.checker.Start(); err != nil {
 			m.driver.Shutdown()
 			return err
 		}
 	}
+
 	m.driver.Wait()
 	m.driver.Shutdown()
 

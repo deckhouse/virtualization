@@ -63,7 +63,9 @@ var _ = Describe("ReadyPersistentVolumeClaimStep", func() {
 		}
 
 		vi := &v1alpha2.VirtualImage{}
+
 		var recorder *eventrecord.EventRecorderLoggerMock
+
 		recorder = &eventrecord.EventRecorderLoggerMock{
 			EventFunc: noopEvent,
 			WithLoggingFunc: func(logger eventrecord.InfoLogger) eventrecord.EventRecorderLogger {
@@ -100,7 +102,9 @@ var _ = Describe("ReadyPersistentVolumeClaimStep", func() {
 		}
 
 		vi := &v1alpha2.VirtualImage{}
+
 		var recorder *eventrecord.EventRecorderLoggerMock
+
 		recorder = &eventrecord.EventRecorderLoggerMock{
 			EventFunc: noopEvent,
 			WithLoggingFunc: func(logger eventrecord.InfoLogger) eventrecord.EventRecorderLogger {

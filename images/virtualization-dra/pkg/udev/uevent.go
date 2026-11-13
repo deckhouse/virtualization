@@ -111,6 +111,7 @@ func ParseUEvent(raw []byte) (*UEvent, error) {
 		if len(envs) == 0 {
 			continue
 		}
+
 		key, value, found := strings.Cut(string(envs), "=")
 		if found {
 			e.Env[key] = value

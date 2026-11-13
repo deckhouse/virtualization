@@ -69,6 +69,7 @@ func handleDiscoveryService(ctx context.Context, input *pkg.HookInput) error {
 	if err != nil {
 		return err
 	}
+
 	if !canRun {
 		return nil
 	}
@@ -78,6 +79,7 @@ func handleDiscoveryService(ctx context.Context, input *pkg.HookInput) error {
 	if clusterIP == "" {
 		input.Logger.Info(fmt.Sprintf("ClusterIP of service dvcr not found. Delete value from %s", serviceIPValuePath))
 		input.Values.Remove(serviceIPValuePath)
+
 		return nil
 	}
 
@@ -86,6 +88,7 @@ func handleDiscoveryService(ctx context.Context, input *pkg.HookInput) error {
 		input.Logger.Info(fmt.Sprintf("Set ip %s to %s", clusterIP, serviceIPValuePath))
 		input.Values.Set(serviceIPValuePath, clusterIP)
 	}
+
 	return nil
 }
 
@@ -94,5 +97,6 @@ func getClusterIP(input *pkg.HookInput) string {
 	if len(snapshots) > 0 {
 		return strings.Trim(snapshots[0].String(), `"`)
 	}
+
 	return ""
 }

@@ -85,6 +85,7 @@ func (p *Progress) Forget(uid types.UID) {
 	if p == nil || p.store == nil || uid == "" {
 		return
 	}
+
 	p.store.Delete(uid)
 }
 
@@ -100,6 +101,7 @@ func (p *Progress) SyncProgress(record Record) int32 {
 	if elapsed < 0 {
 		elapsed = 0
 	}
+
 	elapsedSec := elapsed.Seconds()
 
 	iterative := isIterative(record)
@@ -125,10 +127,12 @@ func (p *Progress) SyncProgress(record Record) int32 {
 
 	cap := stageCap(iterative)
 	progress := math.Max(float64(prev), math.Min(target, cap))
+
 	next := clampPercent(progress)
 	if next < prev {
 		next = prev
 	}
+
 	if next > prev+maxStep {
 		next = prev + maxStep
 	}
@@ -138,6 +142,7 @@ func (p *Progress) SyncProgress(record Record) int32 {
 		if lastIncrease.IsZero() {
 			lastIncrease = record.StartedAt
 		}
+
 		stallWin := stallWindow(record, &state, iterative)
 		if record.Now.Sub(lastIncrease).Seconds() >= stallWin {
 			next++
@@ -191,6 +196,7 @@ func (p *Progress) getState(record Record) State {
 	if p == nil || p.store == nil || record.OperationUID == "" {
 		return State{Progress: clampSyncRange(record.PreviousProgress), LastMetricAt: record.Now}
 	}
+
 	state, ok := p.store.Load(record.OperationUID)
 	if !ok {
 		state = State{
@@ -198,6 +204,7 @@ func (p *Progress) getState(record Record) State {
 			LastMetricAt: record.Now,
 		}
 	}
+
 	return state
 }
 
@@ -206,9 +213,11 @@ func (p *Progress) initIterative(record Record, state *State, _ float64) {
 	if total <= 0 {
 		total = 1
 	}
+
 	if total > state.InitialTotal {
 		state.InitialTotal = total
 	}
+
 	if state.InitialTotal <= 0 {
 		state.InitialTotal = total
 	}
@@ -233,9 +242,11 @@ func observeRemaining(record Record, state *State) {
 	if remaining < state.SmoothedRemaining {
 		alpha = smoothAlphaDown
 	}
+
 	if record.Throttle >= 0.80 {
 		alpha += 0.08
 	}
+
 	if alpha > 0.90 {
 		alpha = 0.90
 	}
@@ -270,21 +281,26 @@ func iterativeTarget(record Record, state *State, elapsedSec float64) float64 {
 	metricPct := iterativeFloor + (iterativeCeiling-5-iterativeFloor)*metricRatio
 
 	throttle := record.Throttle
+
 	iterSince := state.IterativeSince
 	if iterSince.IsZero() {
 		iterSince = record.Now
 	}
+
 	iterElapsed := math.Max(0, elapsedSec-record.Now.Sub(iterSince).Seconds()+record.Now.Sub(iterSince).Seconds())
 	iterElapsedSec := math.Max(0, record.Now.Sub(iterSince).Seconds())
 
 	timeRate := iterBaseTimeRate + throttle*iterThrottleRate
+
 	timePct := iterativeFloor + iterElapsedSec*timeRate
 	if timePct > iterativeCeiling {
 		timePct = iterativeCeiling
 	}
+
 	_ = iterElapsed
 
 	target := iterMetricWeight*metricPct + iterTimeWeight*timePct
+
 	return math.Min(target, iterativeCeiling)
 }
 
@@ -295,12 +311,14 @@ func iterativeMetricRatio(state *State) float64 {
 
 	current := math.Max(state.SmoothedRemaining, state.Threshold)
 	initial := math.Max(state.InitialRemaining, state.Threshold)
+
 	base := math.Log(initial / state.Threshold)
 	if base <= 0 {
 		return 1
 	}
 
 	ratio := 1 - math.Log(current/state.Threshold)/base
+
 	return clampFloat(ratio, 0, 1)
 }
 
@@ -308,6 +326,7 @@ func stageCap(iterative bool) float64 {
 	if !iterative {
 		return bulkCeiling
 	}
+
 	return iterativeCeiling
 }
 
@@ -319,9 +338,11 @@ func stallWindow(record Record, state *State, iterative bool) float64 {
 	if state.Progress >= int32(iterativeCeiling)-2 {
 		return 24.0
 	}
+
 	if state.Progress >= int32(iterativeCeiling)-5 {
 		return 14.0
 	}
+
 	if state.SmoothedRemaining > 0 && state.SmoothedRemaining <= state.Threshold {
 		return finalStallSeconds
 	}
@@ -330,6 +351,7 @@ func stallWindow(record Record, state *State, iterative bool) float64 {
 	if window < finalStallSeconds {
 		return finalStallSeconds
 	}
+
 	return window
 }
 
@@ -341,12 +363,14 @@ func maxRemaining(record Record) float64 {
 	if record.DataRemainingMiB > 0 {
 		return record.DataRemainingMiB
 	}
+
 	if record.DataTotalMiB > 0 && record.DataProcessedMiB >= 0 {
 		r := record.DataTotalMiB - record.DataProcessedMiB
 		if r > 0 {
 			return r
 		}
 	}
+
 	return 0
 }
 
@@ -355,6 +379,7 @@ func updateMinRemaining(record Record, state *State) {
 	if remaining <= 0 {
 		return
 	}
+
 	if state.MinRemaining <= 0 || remaining < state.MinRemaining {
 		state.MinRemaining = remaining
 		state.MinRemainingAt = record.Now
@@ -365,6 +390,7 @@ func isAtMaxThrottle(record Record) bool {
 	if !record.AutoConverge {
 		return true
 	}
+
 	return record.HasThrottle && record.Throttle >= 0.99
 }
 
@@ -372,6 +398,7 @@ func updateMetricState(record Record, state *State) {
 	if !metricChanged(record, state) {
 		return
 	}
+
 	state.LastMetricAt = record.Now
 	state.LastProcessedMiB = record.DataProcessedMiB
 	state.LastRemainingMiB = record.DataRemainingMiB
@@ -381,12 +408,15 @@ func metricChanged(record Record, state *State) bool {
 	if state.LastMetricAt.IsZero() {
 		return true
 	}
+
 	if record.DataProcessedMiB >= 0 && !almostEqual(record.DataProcessedMiB, state.LastProcessedMiB) {
 		return true
 	}
+
 	if record.DataRemainingMiB >= 0 && !almostEqual(record.DataRemainingMiB, state.LastRemainingMiB) {
 		return true
 	}
+
 	return false
 }
 
@@ -399,9 +429,11 @@ func clampPercent(v float64) int32 {
 	if i < SyncRangeMin {
 		return SyncRangeMin
 	}
+
 	if i > SyncRangeMax {
 		return SyncRangeMax
 	}
+
 	return i
 }
 
@@ -409,9 +441,11 @@ func clampFloat(v, minV, maxV float64) float64 {
 	if v < minV {
 		return minV
 	}
+
 	if v > maxV {
 		return maxV
 	}
+
 	return v
 }
 
@@ -419,8 +453,10 @@ func clampSyncRange(v int32) int32 {
 	if v < SyncRangeMin {
 		return SyncRangeMin
 	}
+
 	if v > SyncRangeMax {
 		return SyncRangeMax
 	}
+
 	return v
 }

@@ -57,11 +57,13 @@ func (w *SecretWatcher) Watch(mgr manager.Manager, ctr controller.Controller) er
 	); err != nil {
 		return fmt.Errorf("error setting watch on Secret: %w", err)
 	}
+
 	return nil
 }
 
 func (w *SecretWatcher) enqueue(ctx context.Context, secret *corev1.Secret) []reconcile.Request {
 	var vms v1alpha2.VirtualMachineList
+
 	err := w.client.List(ctx, &vms, &client.ListOptions{
 		Namespace:     secret.Namespace,
 		FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVMByProvisioningSecret, secret.Name),

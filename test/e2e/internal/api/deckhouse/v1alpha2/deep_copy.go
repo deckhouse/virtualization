@@ -26,8 +26,10 @@ func (p *Project) DeepCopy() *Project {
 	if p == nil {
 		return nil
 	}
+
 	newObj := Project{}
 	p.DeepCopyInto(&newObj)
+
 	return &newObj
 }
 
@@ -42,8 +44,10 @@ func (p *ProjectSpec) DeepCopy() *ProjectSpec {
 	if p == nil {
 		return nil
 	}
+
 	newObj := new(ProjectSpec)
 	p.DeepCopyInto(newObj)
+
 	return newObj
 }
 
@@ -51,6 +55,7 @@ func (p *ProjectSpec) DeepCopyInto(newObj *ProjectSpec) {
 	*newObj = *p
 	newObj.Description = p.Description
 	newObj.ProjectTemplateName = p.ProjectTemplateName
+
 	newObj.Parameters = make(map[string]interface{})
 	for key, value := range p.Parameters {
 		newObj.Parameters[key] = value
@@ -61,8 +66,10 @@ func (in *ProjectList) DeepCopyInto(out *ProjectList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ListMeta.DeepCopyInto(&out.ListMeta)
+
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
+
 		*out = make([]Project, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
@@ -74,8 +81,10 @@ func (in *ProjectList) DeepCopy() *ProjectList {
 	if in == nil {
 		return nil
 	}
+
 	out := new(ProjectList)
 	in.DeepCopyInto(out)
+
 	return out
 }
 
@@ -83,5 +92,6 @@ func (in *ProjectList) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}
+
 	return nil
 }

@@ -47,6 +47,7 @@ func fixtureEntries() []Entry {
 	url := func(iid int) string {
 		return fmt.Sprintf("https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/%d", iid)
 	}
+
 	return []Entry{
 		{
 			Section: "vm", Type: "feature", Summary: "Virtual machines can be migrated to a chosen node.",
@@ -102,12 +103,15 @@ func TestGoldenFiles(t *testing.T) {
 			if err := os.WriteFile(golden, []byte(got), 0o644); err != nil {
 				t.Fatal(err)
 			}
+
 			continue
 		}
+
 		want, err := os.ReadFile(golden)
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		if got != string(want) {
 			t.Errorf("%s does not match the golden file:\n--- got ---\n%s", name, got)
 		}
@@ -130,12 +134,14 @@ func TestRenderedYAMLIsReadable(t *testing.T) {
 		PullRequest string `yaml:"pull_request"`
 		Impact      string `yaml:"impact"`
 	}
+
 	rendered := RenderYAML(entries, nil)
 	if err := yaml.Unmarshal([]byte(rendered), &parsed); err != nil {
 		t.Fatalf("the rendered file is not valid YAML: %v\n%s", err, rendered)
 	}
 
 	published := map[string]string{}
+
 	for _, buckets := range parsed {
 		for _, items := range buckets {
 			for _, item := range items {
@@ -143,15 +149,18 @@ func TestRenderedYAMLIsReadable(t *testing.T) {
 			}
 		}
 	}
+
 	for _, entry := range entries {
 		if _, ok := typeBuckets[entry.Type]; !ok {
 			continue
 		}
+
 		impact, ok := published[entry.Summary]
 		if !ok {
 			t.Errorf("summary %q did not survive the round trip", entry.Summary)
 			continue
 		}
+
 		if impact != entry.Impact {
 			t.Errorf("impact of %q: got %q, want %q", entry.Summary, impact, entry.Impact)
 		}
@@ -163,6 +172,7 @@ func TestRenderYAML(t *testing.T) {
 		if got := RenderYAML(nil, nil); got != "{}\n\n" {
 			t.Errorf("got %q, want %q", got, "{}\n\n")
 		}
+
 		chore := []Entry{{Section: "vm", Type: "chore", Summary: "noise", MRIID: 1}}
 		if got := RenderYAML(chore, nil); got != "{}\n\n" {
 			t.Errorf("got %q, want the types that are not published to be left out", got)
@@ -175,10 +185,12 @@ func TestRenderYAML(t *testing.T) {
 			{Section: "core", Type: "fix", Summary: "unrelated", MRIID: 6, MRURL: "url"},
 			{Section: "vm", Type: "fix", Summary: "newer", MRIID: 9, MRURL: "url"},
 		}
+
 		got := RenderYAML(entries, nil)
 		if strings.Index(got, "core:") > strings.Index(got, "vm:") {
 			t.Errorf("sections are not sorted:\n%s", got)
 		}
+
 		if strings.Index(got, "newer") > strings.Index(got, "older") {
 			t.Errorf("entries are not newest first:\n%s", got)
 		}
@@ -186,8 +198,10 @@ func TestRenderYAML(t *testing.T) {
 
 	t.Run("an entry of a type nobody publishes is reported", func(t *testing.T) {
 		var warnings []string
+
 		RenderYAML([]Entry{{Section: "vm", Type: "chore", Summary: "noise", MRIID: 7}},
 			func(message string) { warnings = append(warnings, message) })
+
 		if len(warnings) != 1 || !strings.Contains(warnings[0], "!7") {
 			t.Errorf("got %v, want one warning naming the merge request", warnings)
 		}
@@ -200,10 +214,12 @@ func TestRenderReleaseMarkdown(t *testing.T) {
 	t.Run("what to know before updating comes first", func(t *testing.T) {
 		got := RenderReleaseMarkdown(fixtureEntries(), sections, fixtureMilestone)
 		know := strings.Index(got, "## Know before update")
+
 		features := strings.Index(got, "## Features")
 		if know < 0 || features < 0 || know > features {
 			t.Errorf("got:\n%s", got)
 		}
+
 		if !strings.Contains(got, " - Every node restarts once during the update.") {
 			t.Errorf("the note of the high-impact entry is missing:\n%s", got)
 		}
@@ -214,6 +230,7 @@ func TestRenderReleaseMarkdown(t *testing.T) {
 		if strings.Contains(got, "runs the suite in parallel") {
 			t.Errorf("a low-impact entry reached the description:\n%s", got)
 		}
+
 		if strings.Contains(got, "lists the new setting") {
 			t.Errorf("a documentation entry reached the description:\n%s", got)
 		}
@@ -224,6 +241,7 @@ func TestRenderReleaseMarkdown(t *testing.T) {
 		if !strings.Contains(got, "\n   - CVE-2026-46600") {
 			t.Errorf("a continuation line left the list:\n%s", got)
 		}
+
 		if strings.Contains(got, "\n- CVE-2026-46600") {
 			t.Errorf("a continuation line is at column zero:\n%s", got)
 		}
@@ -293,33 +311,42 @@ func TestRendersTheReleasedFilesUnchanged(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	sort.Strings(paths)
 
 	checked := 0
+
 	for _, path := range paths {
 		if strings.HasSuffix(path, ".ru.yml") {
 			continue
 		}
+
 		raw, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		if strings.Contains(string(raw), ": >-") {
 			continue
 		}
+
 		entries, err := entriesOfReleasedFile(raw)
 		if err != nil {
 			t.Errorf("%s: %v", path, err)
 			continue
 		}
+
 		if got := RenderYAML(entries, nil); got != string(raw) {
 			t.Errorf("%s is rendered differently:\n--- got ---\n%s", path, got)
 		}
+
 		checked++
 	}
+
 	if checked == 0 {
 		t.Fatal("no released changelog was checked")
 	}
+
 	t.Logf("rendered %d released changelogs unchanged", checked)
 }
 
@@ -338,6 +365,7 @@ func entriesOfReleasedFile(raw []byte) ([]Entry, error) {
 	}
 
 	var entries []Entry
+
 	for _, section := range sortedKeys(parsed) {
 		for bucket, changeType := range map[string]string{"features": "feature", "fixes": "fix"} {
 			for _, item := range parsed[section][bucket] {
@@ -345,6 +373,7 @@ func entriesOfReleasedFile(raw []byte) ([]Entry, error) {
 				if index := strings.LastIndex(item.PullRequest, "/"); index >= 0 {
 					iid, _ = strconv.Atoi(item.PullRequest[index+1:])
 				}
+
 				entries = append(entries, Entry{
 					Section: section, Type: changeType, Summary: item.Summary,
 					Impact: item.Impact, MRIID: iid, MRURL: item.PullRequest,
@@ -352,5 +381,6 @@ func entriesOfReleasedFile(raw []byte) ([]Entry, error) {
 			}
 		}
 	}
+
 	return entries, nil
 }

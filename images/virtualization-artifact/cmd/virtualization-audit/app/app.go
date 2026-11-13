@@ -77,6 +77,7 @@ func NewAuditCommand() *cobra.Command {
 		SilenceErrors: true,
 	}
 	opts.Flags(cmd.Flags())
+
 	return cmd
 }
 
@@ -105,6 +106,7 @@ func run(c *cobra.Command, opts Options) error {
 	}
 
 	eventHandler := handler.NewEventHandler(c.Context(), client, informerList, ttlCache)
+
 	srv, err := server.NewServer(fmt.Sprintf(":%d", opts.Port), eventHandler)
 	if err != nil {
 		log.Fatal("failed to create server", log.Err(err))

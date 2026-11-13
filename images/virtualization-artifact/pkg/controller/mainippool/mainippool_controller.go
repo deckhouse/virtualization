@@ -75,5 +75,6 @@ func SetupController(ctx context.Context, mgr manager.Manager, lg *log.Logger, v
 	}
 
 	lg.Info("Initialized mainippool controller")
+
 	return nil
 }

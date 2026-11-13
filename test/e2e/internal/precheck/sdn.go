@@ -111,6 +111,7 @@ func isClusterIPAddressPoolExists(ctx context.Context, f *framework.Framework, n
 	if err != nil && !k8serrors.IsNotFound(err) {
 		_, _ = fmt.Fprintf(GinkgoWriter, "error checking ClusterIPAddressPool %s: %v\n", name, err)
 	}
+
 	return err == nil || !k8serrors.IsNotFound(err)
 }
 
@@ -128,13 +129,16 @@ func getClusterNetworkIPAMPoolName(ctx context.Context, f *framework.Framework, 
 	if err != nil {
 		return "", err
 	}
+
 	poolName, found, err := unstructured.NestedString(obj.Object, "spec", "ipam", "ipAddressPoolRef", "name")
 	if err != nil {
 		return "", err
 	}
+
 	if !found {
 		return "", nil
 	}
+
 	return poolName, nil
 }
 
@@ -160,6 +164,7 @@ func IsClusterNetworkExists(ctx context.Context, f *framework.Framework, vlanID 
 	GinkgoHelper()
 
 	name := ClusterNetworkName(vlanID)
+
 	_, err := getClusterNetwork(ctx, f, name)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		_, _ = fmt.Fprintf(GinkgoWriter, "error checking ClusterNetwork %s: %v\n", name, err)
@@ -183,6 +188,7 @@ func (r requiredClusterNetwork) createCommand() string {
 	if r.poolName == "" {
 		return ClusterNetworkCreateCommand(r.vlanID)
 	}
+
 	return ClusterNetworkCreateCommandWithIPAM(r.vlanID, r.poolName)
 }
 
@@ -202,26 +208,32 @@ func (r requiredClusterNetwork) verify(ctx context.Context, f *framework.Framewo
 		return fmt.Errorf("%s=no to disable this precheck: ClusterIPAddressPool %q does not exist. Create it first: %s",
 			sdnModuleCheckEnvName, r.poolName, fmt.Sprintf(clusterIPAddressPoolCreateCommand, r.poolName))
 	}
+
 	if !IsClusterNetworkExists(ctx, f, r.vlanID) {
 		return fmt.Errorf("%s=no to disable this precheck: ClusterNetwork %q does not exist. Create it first: %s",
 			sdnModuleCheckEnvName, r.getName(), r.createCommand())
 	}
+
 	if r.poolName == "" {
 		return nil
 	}
+
 	poolName, err := getClusterNetworkIPAMPoolName(ctx, f, r.getName())
 	if err != nil {
 		return fmt.Errorf("%s=no to disable this precheck: failed to check IPAM pool on ClusterNetwork %q: %w",
 			sdnModuleCheckEnvName, r.getName(), err)
 	}
+
 	if poolName == "" {
 		return fmt.Errorf("%s=no to disable this precheck: ClusterNetwork %q has no IPAM pool configured. spec.ipam is immutable, delete and recreate the network with the expected pool: %s",
 			sdnModuleCheckEnvName, r.getName(), r.recreateCommand())
 	}
+
 	if poolName != r.poolName {
 		return fmt.Errorf("%s=no to disable this precheck: ClusterNetwork %q is bound to IPAM pool %q, expected %q. spec.ipam is immutable, delete and recreate the network with the expected pool: %s",
 			sdnModuleCheckEnvName, r.getName(), poolName, r.poolName, r.recreateCommand())
 	}
+
 	return nil
 }
 
@@ -243,10 +255,12 @@ func (s *sdnPrecheck) Run(ctx context.Context, f *framework.Framework) error {
 	}
 
 	sdnModule := &dv1alpha1.Module{}
+
 	err := f.GenericClient().Get(ctx, client.ObjectKey{Name: sdnModuleName}, sdnModule)
 	if err != nil {
 		return fmt.Errorf("%s=no to disable this precheck: failed to check SDN module status: %w", sdnModuleCheckEnvName, err)
 	}
+
 	if sdnModule.Status.Phase != modulePhaseReady {
 		return fmt.Errorf("%s=no to disable this precheck: SDN module should be ready; current status: %s", sdnModuleCheckEnvName, sdnModule.Status.Phase)
 	}

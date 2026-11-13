@@ -57,11 +57,13 @@ func (w VirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Control
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualMachine: %w", err)
 	}
+
 	return nil
 }
 
 func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, vm *v1alpha2.VirtualMachine) (requests []reconcile.Request) {
 	vdByName := make(map[string]struct{})
+
 	for _, bdr := range vm.Status.BlockDeviceRefs {
 		if bdr.Kind != v1alpha2.DiskDevice {
 			continue
@@ -75,6 +77,7 @@ func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, vm *v1alpha2
 	}
 
 	var vdSnapshots v1alpha2.VirtualDiskSnapshotList
+
 	err := w.client.List(ctx, &vdSnapshots, &client.ListOptions{
 		Namespace: vm.GetNamespace(),
 	})

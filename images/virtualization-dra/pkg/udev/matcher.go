@@ -63,6 +63,7 @@ func (m *AndMatcher) Match(event *UEvent) bool {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -78,6 +79,7 @@ func (m *OrMatcher) Match(event *UEvent) bool {
 			return true
 		}
 	}
+
 	return false
 }
 

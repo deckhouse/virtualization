@@ -48,6 +48,7 @@ var _ = SynchronizedBeforeSuite(func() {
 	// Initialize test resources BEFORE running prechecks
 	// This ensures resources are available even if prechecks fail
 	controller.NewBeforeProcess1Body()
+
 	if err := framework.InitStorageClasses(); err != nil {
 		Fail("failed to read StorageClasses: " + err.Error())
 	}

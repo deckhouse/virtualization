@@ -45,7 +45,9 @@ func (h *LifeCycleHandler) Handle(_ context.Context, s state.VirtualMachineClass
 	if s.VirtualMachineClass().IsEmpty() {
 		return reconcile.Result{}, nil
 	}
+
 	current := s.VirtualMachineClass().Current()
+
 	changed := s.VirtualMachineClass().Changed()
 	if isDeletion(current) {
 		changed.Status.Phase = v1alpha2.ClassPhaseTerminating
@@ -54,6 +56,7 @@ func (h *LifeCycleHandler) Handle(_ context.Context, s state.VirtualMachineClass
 
 	cb := conditions.NewConditionBuilder(vmclasscondition.TypeReady).
 		Generation(current.GetGeneration())
+
 	var phase v1alpha2.VirtualMachineClassPhase
 
 	switch current.Spec.CPU.Type {
@@ -61,41 +64,56 @@ func (h *LifeCycleHandler) Handle(_ context.Context, s state.VirtualMachineClass
 		cb.Message("").
 			Reason(vmclasscondition.ReasonSuitableNodesFound).
 			Status(metav1.ConditionTrue)
+
 		phase = v1alpha2.ClassPhaseReady
 	case v1alpha2.CPUTypeDiscovery:
 		var notReady bool
+
 		if len(changed.Status.AvailableNodes) == 0 {
 			cb.Message("No matching nodes found.")
 			cb.Reason(vmclasscondition.ReasonNoSuitableNodesFound)
+
 			notReady = true
 		}
+
 		if len(changed.Status.CpuFeatures.Enabled) == 0 {
 			cb.Message("No CPU features enabled.")
 			cb.Reason(vmclasscondition.ReasonNoCpuFeaturesEnabled)
+
 			notReady = true
 		}
+
 		if notReady {
 			phase = v1alpha2.ClassPhasePending
+
 			cb.Status(metav1.ConditionFalse)
+
 			break
 		}
+
 		phase = v1alpha2.ClassPhaseReady
+
 		cb.Message("").
 			Reason(vmclasscondition.ReasonSuitableNodesFound).
 			Status(metav1.ConditionTrue)
 	default:
 		if len(changed.Status.AvailableNodes) == 0 {
 			phase = v1alpha2.ClassPhasePending
+
 			cb.Message("No matching nodes found.").
 				Reason(vmclasscondition.ReasonNoSuitableNodesFound).
 				Status(metav1.ConditionFalse)
+
 			break
 		}
+
 		phase = v1alpha2.ClassPhaseReady
+
 		cb.Message("").
 			Reason(vmclasscondition.ReasonSuitableNodesFound).
 			Status(metav1.ConditionTrue)
 	}
+
 	conditions.SetCondition(cb, &changed.Status.Conditions)
 	changed.Status.Phase = phase
 

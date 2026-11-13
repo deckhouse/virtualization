@@ -63,6 +63,7 @@ func untilVMOPCompleted(ctx context.Context, vmop *v1alpha2.VirtualMachineOperat
 		if predicateErr != nil {
 			return predicateErr
 		}
+
 		if ok {
 			return nil
 		}

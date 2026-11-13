@@ -48,9 +48,11 @@ func For(gvk schema.GroupVersionKind, status any) (client.Patch, error) {
 		"kind":       gvk.Kind,
 		"status":     status,
 	}
+
 	data, err := json.Marshal(body)
 	if err != nil {
 		return nil, fmt.Errorf("marshal status patch: %w", err)
 	}
+
 	return client.RawPatch(types.MergePatchType, data), nil
 }

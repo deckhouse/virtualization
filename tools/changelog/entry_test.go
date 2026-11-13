@@ -30,15 +30,19 @@ func TestLoadSectionsReadsTheRealList(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if _, ok := sections["vm"]; !ok {
 		t.Error("the list has no 'vm' section")
 	}
+
 	if sections["ci"] != levelLow {
 		t.Errorf("got forced level %q for 'ci', want %q", sections["ci"], levelLow)
 	}
+
 	if sections["vm"] != "" {
 		t.Errorf("got forced level %q for 'vm', want none", sections["vm"])
 	}
+
 	if _, ok := sections["# Copyright 2026 Flant JSC"]; ok {
 		t.Error("a comment line was read as a section")
 	}
@@ -46,6 +50,7 @@ func TestLoadSectionsReadsTheRealList(t *testing.T) {
 
 func TestLevel(t *testing.T) {
 	sections := Sections{"vm": "", "ci": levelLow}
+
 	tests := []struct {
 		name  string
 		entry Entry
@@ -120,6 +125,7 @@ func TestValidate(t *testing.T) {
 			if len(got) != len(test.want) {
 				t.Fatalf("got %v, want %v", got, test.want)
 			}
+
 			for i := range got {
 				if !strings.Contains(got[i], test.want[i]) {
 					t.Errorf("got %q, want it to mention %q", got[i], test.want[i])
@@ -165,6 +171,7 @@ func TestCheckAndCollectReadTheSameEntries(t *testing.T) {
 				for _, block := range blocks {
 					problems = append(problems, blockProblems(block, sections)...)
 				}
+
 				if len(problems) > 0 {
 					t.Fatalf("the check refuses a valid description: %v", problems)
 				}
@@ -172,6 +179,7 @@ func TestCheckAndCollectReadTheSameEntries(t *testing.T) {
 				// What the changelog gets. Both walk the same blocks, so the
 				// only way they can differ is a section the list does not have.
 				var collected int
+
 				for _, block := range blocks {
 					for _, entry := range block.Entries {
 						if _, known := sections[entry.Section]; known {
@@ -179,10 +187,12 @@ func TestCheckAndCollectReadTheSameEntries(t *testing.T) {
 						}
 					}
 				}
+
 				var accepted int
 				for _, block := range blocks {
 					accepted += len(block.Entries)
 				}
+
 				if collected != accepted {
 					t.Errorf("the check accepted %d entries and the changelog would keep %d",
 						accepted, collected)

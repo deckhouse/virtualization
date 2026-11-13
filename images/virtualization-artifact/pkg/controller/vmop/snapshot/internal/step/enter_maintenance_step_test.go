@@ -53,6 +53,7 @@ var _ = Describe("EnterMaintenanceStep", func() {
 			vmop.Spec.Restore.Mode = v1alpha2.SnapshotOperationModeDryRun
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -70,6 +71,7 @@ var _ = Describe("EnterMaintenanceStep", func() {
 			}
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -88,6 +90,7 @@ var _ = Describe("EnterMaintenanceStep", func() {
 			setVMMaintenanceCondition(vm, metav1.ConditionTrue, vmcondition.ReasonMaintenanceRestore)
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop, vm)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -105,6 +108,7 @@ var _ = Describe("EnterMaintenanceStep", func() {
 			setVMMaintenanceCondition(vm, metav1.ConditionTrue, vmcondition.ReasonMaintenanceRestore)
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop, vm)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -126,6 +130,7 @@ var _ = Describe("EnterMaintenanceStep", func() {
 			setVMMaintenanceCondition(vm, metav1.ConditionTrue, vmcondition.ReasonMaintenanceRestore)
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop, vm)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -145,6 +150,7 @@ var _ = Describe("EnterMaintenanceStep", func() {
 			vm := createVirtualMachine("default", "test-vm", v1alpha2.MachineStopped)
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop, vm)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -155,6 +161,7 @@ var _ = Describe("EnterMaintenanceStep", func() {
 			Expect(result).To(BeNil())
 
 			var updatedVM v1alpha2.VirtualMachine
+
 			err = fakeClient.Get(ctx, types.NamespacedName{Namespace: "default", Name: "test-vm"}, &updatedVM)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -173,6 +180,7 @@ var _ = Describe("EnterMaintenanceStep", func() {
 			vm := createVirtualMachine("default", "test-vm", v1alpha2.MachineRunning)
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop, vm)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -191,6 +199,7 @@ var _ = Describe("EnterMaintenanceStep", func() {
 			vmop.Spec.Restore.Mode = v1alpha2.SnapshotOperationModeDryRun
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop)
 			Expect(err).NotTo(HaveOccurred())
 

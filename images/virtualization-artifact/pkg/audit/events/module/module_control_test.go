@@ -51,9 +51,11 @@ type moduleControlTestArgs struct {
 }
 
 var _ = Describe("Module control Events", func() {
-	var event *audit.Event
-	var modConfig *mcapi.ModuleConfig
-	var mod *module.Module
+	var (
+		event     *audit.Event
+		modConfig *mcapi.ModuleConfig
+		mod       *module.Module
+	)
 
 	currentTime := time.Now()
 
@@ -182,10 +184,13 @@ var _ = Describe("Module control Events", func() {
 			// Temporary redirect stdout to /dev/null
 			devNull, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
 			Expect(err).To(BeNil())
+
 			defer func(stdout *os.File) {
 				os.Stdout = stdout
+
 				Expect(devNull.Close()).To(Succeed())
 			}(os.Stdout)
+
 			os.Stdout = devNull
 
 			Expect(eventLog.Log()).To(BeNil())

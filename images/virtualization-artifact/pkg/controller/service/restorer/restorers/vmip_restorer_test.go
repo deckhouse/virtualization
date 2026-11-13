@@ -96,14 +96,17 @@ var _ = Describe("VirtualMachineIPAddressRestorer", func() {
 				if obj.GetName() == vmip.Name {
 					_, ok := obj.(*v1alpha2.VirtualMachineIPAddress)
 					Expect(ok).To(BeTrue())
+
 					vmipDeleted = true
 				}
+
 				return nil
 			},
 			Create: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.CreateOption) error {
 				if obj.GetName() == vmip.Name {
 					_, ok := obj.(*v1alpha2.VirtualMachineIPAddress)
 					Expect(ok).To(BeTrue())
+
 					vmipCreated = true
 				}
 

@@ -54,6 +54,7 @@ func (o CreateVirtualMachineOperation) Execute(ctx context.Context, vmsop *v1alp
 
 	statuses, err := snapshotResources.Validate(ctx)
 	vmsop.Status.Resources = statuses
+
 	if err != nil {
 		return err
 	}
@@ -64,6 +65,7 @@ func (o CreateVirtualMachineOperation) Execute(ctx context.Context, vmsop *v1alp
 
 	statuses, err = snapshotResources.Process(ctx)
 	vmsop.Status.Resources = statuses
+
 	if err != nil {
 		return err
 	}

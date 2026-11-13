@@ -59,6 +59,7 @@ func IsSdnModuleEnabled(f *framework.Framework) bool {
 
 	sdnModule, err := f.GetModuleConfig(context.Background(), "sdn")
 	Expect(err).NotTo(HaveOccurred())
+
 	enabled := sdnModule.Spec.Enabled
 
 	return enabled != nil && *enabled
@@ -107,20 +108,24 @@ func releaseOrphanedSDNLeases(ctx context.Context, staticIP string) error {
 	if err != nil {
 		return fmt.Errorf("list SDN IPAddressLeases: %w", err)
 	}
+
 	for _, lease := range leases.Items {
 		ip, _, _ := unstructured.NestedString(lease.Object, "spec", "ip")
 		if ip != staticIP {
 			continue
 		}
+
 		orphanedAt, _, _ := unstructured.NestedString(lease.Object, "status", "orphaningTimestamp")
 		if orphanedAt == "" {
 			continue
 		}
+
 		err = framework.GetClients().DynamicClient().Resource(IPAddressLeaseGVR).Delete(ctx, lease.GetName(), metav1.DeleteOptions{})
 		if err != nil && !k8serrors.IsNotFound(err) {
 			return fmt.Errorf("delete orphaned SDN IPAddressLease %s (%s): %w", lease.GetName(), staticIP, err)
 		}
 	}
+
 	return nil
 }
 
@@ -150,10 +155,12 @@ func CreateSDNIPAddress(ctx context.Context, f *framework.Framework, name, names
 			},
 		},
 	}}
+
 	_, err := framework.GetClients().DynamicClient().Resource(IPAddressGVR).Namespace(namespace).Create(ctx, ipAddr, metav1.CreateOptions{})
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return fmt.Errorf("create SDN IPAddress %s: %w", name, err)
 	}
+
 	return nil
 }
 
@@ -166,9 +173,12 @@ func GetSDNAllocatedAddress(ctx context.Context, f *framework.Framework, name, n
 		if k8serrors.IsNotFound(err) {
 			return "", nil
 		}
+
 		return "", fmt.Errorf("get SDN IPAddress %s: %w", name, err)
 	}
+
 	addr, _, _ := unstructured.NestedString(obj.Object, "status", "address")
+
 	return addr, nil
 }
 
@@ -178,6 +188,7 @@ func DeleteSDNIPAddress(ctx context.Context, f *framework.Framework, name, names
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return fmt.Errorf("delete SDN IPAddress %s: %w", name, err)
 	}
+
 	return nil
 }
 
@@ -187,6 +198,7 @@ func ListSDNIPAddresses(ctx context.Context, f *framework.Framework, namespace s
 	if err != nil {
 		return nil, fmt.Errorf("list SDN IPAddress in %s: %w", namespace, err)
 	}
+
 	return list, nil
 }
 
@@ -208,6 +220,7 @@ func UntilSDNIPAddressAllocated(ctx context.Context, name, namespace, expectedAd
 		name, namespace,
 	)
 	Expect(err).NotTo(HaveOccurred(), "failed to start observer for SDN IPAddress %s/%s", namespace, name)
+
 	defer obs.Stop()
 
 	err = obs.WaitFor(sdnAddressAllocated(expectedAddress), timeout)

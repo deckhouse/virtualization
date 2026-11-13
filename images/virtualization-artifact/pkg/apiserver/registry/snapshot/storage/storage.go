@@ -90,17 +90,21 @@ func (store VirtualMachineSnapshotStorage) GetSingularName() string {
 
 func (store VirtualMachineSnapshotStorage) Get(ctx context.Context, name string, opts *metav1.GetOptions) (runtime.Object, error) {
 	namespace := genericreq.NamespaceValue(ctx)
+
 	getOpts := metav1.GetOptions{}
 	if opts != nil {
 		getOpts = *opts
 	}
+
 	vms, err := store.virtCli.VirtualMachineSnapshots(namespace).Get(ctx, name, getOpts)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil, k8serrors.NewNotFound(subresources.Resource(v1alpha2.VirtualMachineSnapshotResource), name)
 		}
+
 		return nil, k8serrors.NewInternalError(err)
 	}
+
 	return &subresources.VirtualMachineSnapshot{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: subresources.SchemeGroupVersion.String(),
@@ -166,17 +170,21 @@ func (store VirtualDiskSnapshotStorage) GetSingularName() string {
 
 func (store VirtualDiskSnapshotStorage) Get(ctx context.Context, name string, opts *metav1.GetOptions) (runtime.Object, error) {
 	namespace := genericreq.NamespaceValue(ctx)
+
 	getOpts := metav1.GetOptions{}
 	if opts != nil {
 		getOpts = *opts
 	}
+
 	vds, err := store.virtCli.VirtualDiskSnapshots(namespace).Get(ctx, name, getOpts)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil, k8serrors.NewNotFound(subresources.Resource(v1alpha2.VirtualDiskSnapshotResource), name)
 		}
+
 		return nil, k8serrors.NewInternalError(err)
 	}
+
 	return &subresources.VirtualDiskSnapshot{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: subresources.SchemeGroupVersion.String(),

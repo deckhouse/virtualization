@@ -47,7 +47,9 @@ func (h *PodHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 	if s.VirtualMachine().IsEmpty() {
 		return reconcile.Result{}, nil
 	}
+
 	current := s.VirtualMachine().Current()
+
 	pods, err := s.Pods(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -59,12 +61,15 @@ func (h *PodHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 				return reconcile.Result{}, err
 			}
 		}
+
 		return reconcile.Result{}, nil
 	}
+
 	kvvmi, err := s.KVVMI(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	info := powerstate.ShutdownReason(current, kvvmi, pods)
 	if info.PodCompleted {
 		s.Shared(func(s *state.Shared) {
@@ -79,12 +84,15 @@ func (h *PodHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 			if err := h.protection.RemoveProtection(ctx, &p); err != nil {
 				return reconcile.Result{}, err
 			}
+
 			continue
 		}
+
 		if err := h.protection.AddProtection(ctx, &p); err != nil {
 			return reconcile.Result{}, err
 		}
 	}
+
 	return reconcile.Result{}, nil
 }
 

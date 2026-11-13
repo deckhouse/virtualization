@@ -64,6 +64,7 @@ func WithBaseLabelsByMetric(m *dataMetric, labels ...string) []string {
 			m.Node,
 		}
 	}
+
 	return append(base, labels...)
 }
 

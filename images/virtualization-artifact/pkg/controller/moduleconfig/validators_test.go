@@ -64,6 +64,7 @@ func TestRemoveCIDRsValidatorValidateUpdate(t *testing.T) {
 	if err := v1alpha2.AddToScheme(scheme); err != nil {
 		t.Fatalf("AddToScheme: %v", err)
 	}
+
 	if err := sdnapi.AddToScheme(scheme); err != nil {
 		t.Fatalf("AddToScheme: %v", err)
 	}
@@ -176,7 +177,9 @@ func TestRemoveCIDRsValidatorValidateUpdate(t *testing.T) {
 
 	createValidator := func(t *testing.T, vmips []vmip) *removeCIDRsValidator {
 		t.Helper()
+
 		clientBuilder := fake.NewClientBuilder().WithScheme(scheme)
+
 		if len(vmips) > 0 {
 			objs := []client.Object{}
 			for _, v := range vmips {
@@ -186,13 +189,16 @@ func TestRemoveCIDRsValidatorValidateUpdate(t *testing.T) {
 					Status:     v1alpha2.VirtualMachineIPAddressStatus{Address: v.address},
 				})
 			}
+
 			clientBuilder = clientBuilder.WithObjects(objs...)
 		}
+
 		return newRemoveCIDRsValidator(clientBuilder.Build())
 	}
 
 	createMC := func(t *testing.T, CIDRs []any) *mcapi.ModuleConfig {
 		t.Helper()
+
 		mc := &mcapi.ModuleConfig{
 			Spec: mcapi.ModuleConfigSpec{
 				Settings: mcapi.SettingsValues{
@@ -203,6 +209,7 @@ func TestRemoveCIDRsValidatorValidateUpdate(t *testing.T) {
 		if CIDRs != nil {
 			mc.Spec.Settings["virtualMachineCIDRs"] = CIDRs
 		}
+
 		return mc
 	}
 
@@ -217,6 +224,7 @@ func TestRemoveCIDRsValidatorValidateUpdate(t *testing.T) {
 			if tt.wantErr && err == nil {
 				t.Fatalf("expected error, got none")
 			}
+
 			if !tt.wantErr && err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -229,6 +237,7 @@ func TestRemoveCIDRsValidatorWithSDNIPAddresses(t *testing.T) {
 	if err := v1alpha2.AddToScheme(scheme); err != nil {
 		t.Fatalf("AddToScheme: %v", err)
 	}
+
 	if err := sdnapi.AddToScheme(scheme); err != nil {
 		t.Fatalf("AddToScheme: %v", err)
 	}
@@ -267,6 +276,7 @@ func TestRemoveCIDRsValidatorWithSDNIPAddresses(t *testing.T) {
 			if tt.wantErr && err == nil {
 				t.Fatalf("expected error, got none")
 			}
+
 			if !tt.wantErr && err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}

@@ -76,6 +76,7 @@ func (h *FilesystemHandler) Handle(ctx context.Context, s state.VirtualMachineSt
 		cb.Status(metav1.ConditionTrue).
 			Reason(vmcondition.ReasonFilesystemFrozen).
 			Message("File system of the Virtual Machine is frozen.")
+
 		return reconcile.Result{}, nil
 	}
 

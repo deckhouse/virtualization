@@ -54,6 +54,7 @@ func (h DatasourceReadyHandler) Handle(ctx context.Context, cvi *v1alpha2.Cluste
 	if !ok {
 		err := fmt.Errorf("data source validator not found for type: %s", cvi.Spec.DataSource.Type)
 		cb.Message(err.Error())
+
 		return reconcile.Result{}, err
 	}
 
@@ -64,54 +65,63 @@ func (h DatasourceReadyHandler) Handle(ctx context.Context, cvi *v1alpha2.Cluste
 			Status(metav1.ConditionTrue).
 			Reason(cvicondition.DatasourceReady).
 			Message("")
+
 		return reconcile.Result{}, nil
 	case errors.Is(err, source.ErrSecretNotFound):
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(cvicondition.ContainerRegistrySecretNotFound).
 			Message(service.CapitalizeFirstLetter(err.Error()))
+
 		return reconcile.Result{}, nil
 	case errors.As(err, &source.ImageNotReadyError{}):
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(cvicondition.ImageNotReady).
 			Message(service.CapitalizeFirstLetter(err.Error()))
+
 		return reconcile.Result{}, nil
 	case errors.As(err, &source.ClusterImageNotReadyError{}):
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(cvicondition.ClusterImageNotReady).
 			Message(service.CapitalizeFirstLetter(err.Error()))
+
 		return reconcile.Result{}, nil
 	case errors.As(err, &source.VirtualDiskNotReadyError{}):
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(cvicondition.VirtualDiskNotReady).
 			Message(service.CapitalizeFirstLetter(err.Error()))
+
 		return reconcile.Result{}, nil
 	case errors.As(err, &source.VirtualDiskNotReadyForUseError{}):
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(cvicondition.VirtualDiskNotReadyForUse).
 			Message(service.CapitalizeFirstLetter(err.Error() + "."))
+
 		return reconcile.Result{}, nil
 	case errors.As(err, &source.VirtualDiskAttachedToVirtualMachineError{}):
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(cvicondition.VirtualDiskAttachedToVirtualMachine).
 			Message(service.CapitalizeFirstLetter(err.Error() + "."))
+
 		return reconcile.Result{}, nil
 	case errors.As(err, &source.VirtualDiskSnapshotNotReadyError{}):
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(cvicondition.VirtualDiskSnapshotNotReady).
 			Message(service.CapitalizeFirstLetter(err.Error()))
+
 		return reconcile.Result{}, nil
 	case errors.As(err, &source.VirtualDiskSnapshotNotSupportedError{}):
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(cvicondition.VirtualDiskSnapshotNotSupported).
 			Message(service.CapitalizeFirstLetter(err.Error()))
+
 		return reconcile.Result{}, nil
 	default:
 		return reconcile.Result{}, err

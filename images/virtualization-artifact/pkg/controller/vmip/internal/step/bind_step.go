@@ -64,6 +64,7 @@ func (s BindStep) Take(_ context.Context, vmip *v1alpha2.VirtualMachineIPAddress
 			Status(metav1.ConditionFalse).
 			Reason(vmipcondition.VirtualMachineIPAddressLeaseNotReady).
 			Message(fmt.Sprintf("Waiting for the VirtualMachineIPAddressLease %q to be bound.", s.lease.Name))
+
 		return &reconcile.Result{}, nil
 	}
 
@@ -72,5 +73,6 @@ func (s BindStep) Take(_ context.Context, vmip *v1alpha2.VirtualMachineIPAddress
 		Status(metav1.ConditionTrue).
 		Reason(vmipcondition.Bound).
 		Message("")
+
 	return &reconcile.Result{}, nil
 }

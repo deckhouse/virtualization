@@ -50,6 +50,7 @@ var _ = Describe("PVCSizeValidator restoring from a snapshot", func() {
 		Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
 		Expect(corev1.AddToScheme(scheme)).To(Succeed())
 		Expect(vsv1.AddToScheme(scheme)).To(Succeed())
+
 		return scheme
 	}
 
@@ -69,6 +70,7 @@ var _ = Describe("PVCSizeValidator restoring from a snapshot", func() {
 		if size != "" {
 			vd.Spec.PersistentVolumeClaim.Size = ptr.To(resource.MustParse(size))
 		}
+
 		return vd
 	}
 
@@ -80,6 +82,7 @@ var _ = Describe("PVCSizeValidator restoring from a snapshot", func() {
 		if originalSize != "" {
 			vs.Annotations = map[string]string{annotations.AnnVirtualDiskOriginalSize: originalSize}
 		}
+
 		return []client.Object{
 			&v1alpha2.VirtualDiskSnapshot{
 				ObjectMeta: metav1.ObjectMeta{Name: vdSnapshotName, Namespace: namespace},
@@ -109,6 +112,7 @@ var _ = Describe("PVCSizeValidator restoring from a snapshot", func() {
 		fakeClient := fake.NewClientBuilder().WithScheme(newScheme()).WithObjects(objects...).Build()
 		warnings, err := NewPVCSizeValidator(fakeClient).ValidateCreate(context.Background(), vd)
 		Expect(warnings).To(BeEmpty())
+
 		return err
 	}
 

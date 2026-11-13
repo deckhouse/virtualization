@@ -183,10 +183,13 @@ var _ = Describe("Forbid Events", func() {
 			// Temporary redirect stdout to /dev/null
 			devNull, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
 			Expect(err).To(BeNil())
+
 			defer func(stdout *os.File) {
 				os.Stdout = stdout
+
 				Expect(devNull.Close()).To(Succeed())
 			}(os.Stdout)
+
 			os.Stdout = devNull
 
 			Expect(eventLog.Log()).To(BeNil())

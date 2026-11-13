@@ -62,6 +62,7 @@ func ResourceV1Available() bool {
 	if err != nil {
 		slog.Error("failed to check if resource v1 is enabled", "error", err)
 	}
+
 	return enabled
 }
 
@@ -81,6 +82,7 @@ func VerticalPodAutoscalerV1Available() bool {
 	if err != nil {
 		slog.Error("failed to check if vertical pod autoscaler v1 is available", "error", err)
 	}
+
 	return enabled
 }
 
@@ -95,6 +97,7 @@ func VerticalPodAutoscalerModuleEnabled() bool {
 	if err != nil {
 		return false
 	}
+
 	return enabled
 }
 

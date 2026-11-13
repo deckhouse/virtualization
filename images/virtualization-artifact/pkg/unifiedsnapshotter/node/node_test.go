@@ -38,13 +38,16 @@ const (
 
 func newReader(t *testing.T, objs ...client.Object) client.Reader {
 	t.Helper()
+
 	scheme := apiruntime.NewScheme()
 	if err := v1alpha2.AddToScheme(scheme); err != nil {
 		t.Fatalf("add v1alpha2 to scheme: %v", err)
 	}
+
 	if err := storagev1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatalf("add state-snapshotter storage/v1alpha1 to scheme: %v", err)
 	}
+
 	return fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).Build()
 }
 
@@ -105,15 +108,19 @@ func TestLoad_ReadsBothSnapshotKinds(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load the machine snapshot: %v", err)
 	}
+
 	if !got.IsImport() {
 		t.Error("the machine snapshot did not report import mode")
 	}
+
 	if !got.Ready || got.ContentName != "content-1" || got.UID != testUID {
 		t.Errorf("machine snapshot = %+v, want it Ready, bound to content-1 and carrying its uid", got)
 	}
+
 	if len(got.Children) != 1 || got.Children[0].Name != "vds" {
 		t.Errorf("children = %+v, want the declared child", got.Children)
 	}
+
 	if got.KeepIPAddress != v1alpha2.KeepIPAddressNever {
 		t.Errorf("keepIPAddress = %q, want %q", got.KeepIPAddress, v1alpha2.KeepIPAddressNever)
 	}
@@ -122,12 +129,15 @@ func TestLoad_ReadsBothSnapshotKinds(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load the disk snapshot: %v", err)
 	}
+
 	if gotDisk.IsImport() {
 		t.Error("a snapshot with no spec.mode reported import mode")
 	}
+
 	if gotDisk.Ready {
 		t.Error("a snapshot with no Ready condition reported Ready")
 	}
+
 	if gotDisk.Kind != v1alpha2.VirtualDiskSnapshotKind {
 		t.Errorf("kind = %q, want %q", gotDisk.Kind, v1alpha2.VirtualDiskSnapshotKind)
 	}
@@ -163,6 +173,7 @@ func TestResolveBoundContent_RequiresAnExactBackRef(t *testing.T) {
 			ref: func() *storagev1alpha1.SnapshotSubjectRef {
 				r := matchingRef()
 				r.APIVersion = "state-snapshotter.deckhouse.io/v1alpha1"
+
 				return r
 			},
 		},
@@ -171,6 +182,7 @@ func TestResolveBoundContent_RequiresAnExactBackRef(t *testing.T) {
 			ref: func() *storagev1alpha1.SnapshotSubjectRef {
 				r := matchingRef()
 				r.Kind = v1alpha2.VirtualDiskSnapshotKind
+
 				return r
 			},
 		},
@@ -179,6 +191,7 @@ func TestResolveBoundContent_RequiresAnExactBackRef(t *testing.T) {
 			ref: func() *storagev1alpha1.SnapshotSubjectRef {
 				r := matchingRef()
 				r.Namespace = "other"
+
 				return r
 			},
 		},
@@ -187,6 +200,7 @@ func TestResolveBoundContent_RequiresAnExactBackRef(t *testing.T) {
 			ref: func() *storagev1alpha1.SnapshotSubjectRef {
 				r := matchingRef()
 				r.Name = "someone-else"
+
 				return r
 			},
 		},
@@ -197,6 +211,7 @@ func TestResolveBoundContent_RequiresAnExactBackRef(t *testing.T) {
 			ref: func() *storagev1alpha1.SnapshotSubjectRef {
 				r := matchingRef()
 				r.UID = types.UID("recreated")
+
 				return r
 			},
 		},
@@ -221,6 +236,7 @@ func TestResolveBoundContent_AcceptsAMatchingBackRef(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve: %v", err)
 	}
+
 	if got != "content-1" {
 		t.Errorf("resolved %q, want content-1", got)
 	}
@@ -268,6 +284,7 @@ func TestResourceForKind(t *testing.T) {
 			if ok != tt.ok || resource != tt.resource {
 				t.Errorf("ResourceForKind(%q) = (%q, %v), want (%q, %v)", tt.kind, resource, ok, tt.resource, tt.ok)
 			}
+
 			if !tt.ok {
 				return
 			}
@@ -276,6 +293,7 @@ func TestResourceForKind(t *testing.T) {
 			if kind, ok := KindForResource(resource); !ok || kind != tt.kind {
 				t.Errorf("KindForResource(%q) = (%q, %v), want (%q, true)", resource, kind, ok, tt.kind)
 			}
+
 			if _, err := EmptyObject(resource); err != nil {
 				t.Errorf("EmptyObject(%q): %v", resource, err)
 			}

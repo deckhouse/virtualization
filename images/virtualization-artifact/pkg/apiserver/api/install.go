@@ -105,6 +105,7 @@ func Build(
 	// only in paid editions; poolStorage is nil in CE, leaving the map untouched.
 	installEnterpriseResources(resourcesV1alpha2, poolStorage)
 	apiGroupInfo.VersionedResourcesStorageMap[subv1alpha2.SchemeGroupVersion.Version] = resourcesV1alpha2
+
 	return apiGroupInfo
 }
 
@@ -139,5 +140,6 @@ func Install(
 		snapshotstorage.NewVirtualMachineSnapshotStorage(virtCli, restoreCompiler, snapshotNodes),
 		snapshotstorage.NewVirtualDiskSnapshotStorage(virtCli, restoreCompiler, snapshotNodes),
 	)
+
 	return server.InstallAPIGroup(&info)
 }

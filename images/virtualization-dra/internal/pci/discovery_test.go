@@ -74,13 +74,16 @@ func newFakeSysfs() *fakeSysfs {
 	f := &fakeSysfs{root: GinkgoT().TempDir(), proc: GinkgoT().TempDir(), opened: map[string]uint64{}}
 	Expect(os.WriteFile(filepath.Join(f.proc, "mounts"), nil, 0o644)).To(Succeed())
 	Expect(os.WriteFile(filepath.Join(f.proc, "swaps"), []byte("Filename Type Size Used Priority\n"), 0o644)).To(Succeed())
+
 	return f
 }
 
 func (f *fakeSysfs) appendFile(path, line string) {
 	file, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
 	Expect(err).ToNot(HaveOccurred())
+
 	defer file.Close()
+
 	_, err = file.WriteString(line)
 	Expect(err).ToNot(HaveOccurred())
 }
@@ -96,6 +99,7 @@ func (f *fakeSysfs) add(dev fakeDevice) {
 	writeFile("device", "0x"+dev.device)
 	writeFile("class", "0x"+dev.class)
 	writeFile("numa_node", "0")
+
 	if !dev.noReset {
 		writeFile("reset", "")
 	}
@@ -117,13 +121,16 @@ func (f *fakeSysfs) add(dev fakeDevice) {
 	if dev.netUp != nil {
 		netDir := filepath.Join(deviceDir, "virtio0", "net", "eth-"+dev.address)
 		Expect(os.MkdirAll(netDir, 0o755)).To(Succeed())
+
 		classNetDir := filepath.Join(f.root, "class", "net")
 		Expect(os.MkdirAll(classNetDir, 0o755)).To(Succeed())
 		Expect(os.Symlink(netDir, filepath.Join(classNetDir, "eth-"+dev.address))).To(Succeed())
+
 		flags := "0x1002"
 		if *dev.netUp {
 			flags = "0x1003"
 		}
+
 		Expect(os.WriteFile(filepath.Join(netDir, "flags"), []byte(flags+"\n"), 0o644)).To(Succeed())
 	}
 
@@ -134,6 +141,7 @@ func (f *fakeSysfs) add(dev fakeDevice) {
 		Expect(os.MkdirAll(classBlockDir, 0o755)).To(Succeed())
 		Expect(os.Symlink(realDir, filepath.Join(classBlockDir, block.name))).To(Succeed())
 		Expect(os.WriteFile(filepath.Join(realDir, "dev"), []byte(fmt.Sprintf("259:%d\n", i)), 0o644)).To(Succeed())
+
 		if block.opened {
 			fdDir := filepath.Join(f.proc, "4242", "fd")
 			Expect(os.MkdirAll(fdDir, 0o755)).To(Succeed())
@@ -141,12 +149,15 @@ func (f *fakeSysfs) add(dev fakeDevice) {
 			Expect(os.WriteFile(fdPath, nil, 0o644)).To(Succeed())
 			f.opened[fdPath] = unix.Mkdev(259, uint32(i))
 		}
+
 		if block.hasHolder {
 			Expect(os.WriteFile(filepath.Join(realDir, "holders", "dm-0"), nil, 0o644)).To(Succeed())
 		}
+
 		if block.mounted {
 			f.appendFile(filepath.Join(f.proc, "mounts"), "/dev/"+block.name+" /mnt ext4 rw 0 0\n")
 		}
+
 		if block.swap {
 			f.appendFile(filepath.Join(f.proc, "swaps"), "/dev/"+block.name+" partition 1024 0 -2\n")
 		}
@@ -160,10 +171,12 @@ func (f *fakeSysfs) discover() map[string]Device {
 		if rdev, ok := f.opened[path]; ok {
 			return fakeBlockInfo{rdev: rdev}, nil
 		}
+
 		return os.Stat(path)
 	}
 	devices, err := fs.discoverDevices(slog.Default())
 	Expect(err).ToNot(HaveOccurred())
+
 	return devices
 }
 

@@ -75,6 +75,7 @@ var _ = Describe("VirtualMachineParavirtualizationDisabled", Label(label.SIGComp
 	BeforeEach(func() {
 		f = framework.NewFramework("paravirtualization-disabled")
 		ctx = context.Background()
+
 		DeferCleanup(f.After)
 		f.Before()
 	})
@@ -110,6 +111,7 @@ var _ = Describe("VirtualMachineParavirtualizationDisabled", Label(label.SIGComp
 
 			vdObs = vdobs.StartObserver(ctx, f, vdRoot)
 			vdObs.Never(vdobs.BeFailed())
+
 			vmObs = vmobs.StartObserver(ctx, f, vm)
 			vmObs.Never(vmobs.BeFailed())
 		})
@@ -136,6 +138,7 @@ var _ = Describe("VirtualMachineParavirtualizationDisabled", Label(label.SIGComp
 
 			interfaces := kvvmi.Spec.Domain.Devices.Interfaces
 			Expect(interfaces).NotTo(BeEmpty(), "the VMI has no network interfaces")
+
 			for _, iface := range interfaces {
 				Expect(iface.Model).To(Equal(nicModelE1000),
 					"interface %q must follow the paravirtualization preset", iface.Name)
@@ -148,6 +151,7 @@ var _ = Describe("VirtualMachineParavirtualizationDisabled", Label(label.SIGComp
 			// not a valid bus for one.
 			vmbdaObs = vmbdaobs.StartObserver(ctx, f, vmbda)
 			vmbdaObs.Never(vmbdaobs.BeFailed())
+
 			err := f.CreateWithDeferredDeletion(ctx, vmbda)
 			Expect(err).NotTo(HaveOccurred())
 

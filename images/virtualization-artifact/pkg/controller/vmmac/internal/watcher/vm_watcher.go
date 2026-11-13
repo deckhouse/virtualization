@@ -112,5 +112,6 @@ func (w VirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Control
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualMachine: %w", err)
 	}
+
 	return nil
 }

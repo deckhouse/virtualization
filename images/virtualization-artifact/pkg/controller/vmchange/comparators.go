@@ -123,6 +123,7 @@ func spiceEnabledPtr(spice *v1alpha2.SpiceSpec) *bool {
 	if spice == nil {
 		return nil
 	}
+
 	return &spice.Enabled
 }
 
@@ -163,6 +164,7 @@ func compareProvisioning(current, desired *v1alpha2.VirtualMachineSpec) []FieldC
 				}
 			}
 		}
+
 		return changes
 	}
 
@@ -182,6 +184,7 @@ func compareProvisioning(current, desired *v1alpha2.VirtualMachineSpec) []FieldC
 	if current.Provisioning.Type == v1alpha2.ProvisioningTypeSysprepRef {
 		currentSecret := current.Provisioning.SysprepRef
 		desiredSecret := desired.Provisioning.SysprepRef
+
 		changes = compareEmpty(
 			"provisioning.sysprepRef",
 			NewPtrValue(currentSecret, currentSecret == nil),
@@ -227,6 +230,7 @@ func compareProvisioning(current, desired *v1alpha2.VirtualMachineSpec) []FieldC
 	if current.Provisioning.Type == v1alpha2.ProvisioningTypeUserDataRef {
 		currentSecret := current.Provisioning.UserDataRef
 		desiredSecret := desired.Provisioning.UserDataRef
+
 		changes = compareEmpty(
 			"provisioning.userDataRef",
 			NewPtrValue(currentSecret, currentSecret == nil),
@@ -266,5 +270,6 @@ func isCloudInitProvisioning(p *v1alpha2.Provisioning) bool {
 	if p == nil {
 		return false
 	}
+
 	return p.Type == v1alpha2.ProvisioningTypeUserData || p.Type == v1alpha2.ProvisioningTypeUserDataRef
 }

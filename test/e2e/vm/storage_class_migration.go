@@ -60,16 +60,19 @@ var _ = Describe("StorageClassMigration", Label(label.SIGCompute, precheck.NoPre
 	BeforeEach(func() {
 		ctx = context.Background()
 		f = framework.NewFramework("storage-class-migration")
+
 		storageClass = framework.GetConfig().StorageClass.DefaultStorageClass
 		if storageClass == nil {
 			Skip("DefaultStorageClass is not set.")
 		}
+
 		targetStorageClass, err := getOrCreateTargetStorageClass(ctx, f, storageClass)
 		Expect(err).NotTo(HaveOccurred())
 
 		if targetStorageClass == "" {
 			Skip("No available storage class for test")
 		}
+
 		targetStorageClassName = targetStorageClass
 
 		f.Before()
@@ -125,6 +128,7 @@ var _ = Describe("StorageClassMigration", Label(label.SIGCompute, precheck.NoPre
 		f.DeferDelete(vm)
 
 		var vdsForMigration []*v1alpha2.VirtualDisk
+
 		for _, vd := range vds {
 			vd, err := f.VirtClient().VirtualDisks(ns).Create(ctx, vd, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
@@ -134,6 +138,7 @@ var _ = Describe("StorageClassMigration", Label(label.SIGCompute, precheck.NoPre
 				vdsForMigration = append(vdsForMigration, vd)
 			}
 		}
+
 		Expect(vdsForMigration).Should(HaveLen(len(disksForMigration)))
 
 		vmObs := vmobs.StartObserver(ctx, f, vm)
@@ -144,6 +149,7 @@ var _ = Describe("StorageClassMigration", Label(label.SIGCompute, precheck.NoPre
 		vdObservers := startVDObservers(ctx, f, vdsForMigration...)
 
 		By("Patch VD with new storage class")
+
 		denied, err := patchStorageClassNameTolerant(ctx, f, targetStorageClassName, vdsForMigration...)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -158,6 +164,7 @@ var _ = Describe("StorageClassMigration", Label(label.SIGCompute, precheck.NoPre
 		// a same-storage-class companion) is re-applied once that round is over.
 		if len(denied) > 0 {
 			By("Re-patch VDs whose storage class change was rejected during the first round")
+
 			err = patchStorageClassName(ctx, f, targetStorageClassName, denied...)
 			Expect(err).NotTo(HaveOccurred())
 		}
@@ -174,6 +181,7 @@ var _ = Describe("StorageClassMigration", Label(label.SIGCompute, precheck.NoPre
 			if err != nil {
 				skipIfKnownMigrationFailures(ctx, f)
 			}
+
 			Expect(err).NotTo(HaveOccurred(),
 				"VirtualDisk %s/%s should settle on storage class %s", ns, vdForMigration.GetName(), targetStorageClassName)
 
@@ -207,6 +215,7 @@ var _ = Describe("StorageClassMigration", Label(label.SIGCompute, precheck.NoPre
 		f.DeferDelete(vm)
 
 		var vdsForMigration []*v1alpha2.VirtualDisk
+
 		for _, vd := range vds {
 			vd, err := f.VirtClient().VirtualDisks(ns).Create(ctx, vd, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
@@ -216,6 +225,7 @@ var _ = Describe("StorageClassMigration", Label(label.SIGCompute, precheck.NoPre
 				vdsForMigration = append(vdsForMigration, vd)
 			}
 		}
+
 		Expect(vdsForMigration).Should(HaveLen(len(disksForMigration)))
 
 		vmObs := vmobs.StartObserver(ctx, f, vm)
@@ -246,6 +256,7 @@ var _ = Describe("StorageClassMigration", Label(label.SIGCompute, precheck.NoPre
 		if err != nil {
 			skipIfKnownMigrationFailures(ctx, f)
 		}
+
 		Expect(err).NotTo(HaveOccurred())
 
 		// revert migration
@@ -305,6 +316,7 @@ var _ = Describe("StorageClassMigration", Label(label.SIGCompute, precheck.NoPre
 			if err != nil {
 				skipIfKnownMigrationFailures(ctx, f)
 			}
+
 			Expect(err).NotTo(HaveOccurred())
 
 			migratedVD, err := f.VirtClient().VirtualDisks(ns).Get(ctx, vdForMigration.GetName(), metav1.GetOptions{})
@@ -354,6 +366,7 @@ func getOrCreateTargetStorageClass(ctx context.Context, f *framework.Framework, 
 			return name, err
 		}
 	}
+
 	return getTargetStorageClass(ctx, f, storageClass)
 }
 
@@ -368,6 +381,7 @@ func createTargetStorageClassCopy(ctx context.Context, f *framework.Framework, k
 
 	source := &unstructured.Unstructured{}
 	source.SetGroupVersionKind(gvk)
+
 	if err := f.GenericClient().Get(ctx, crclient.ObjectKey{Name: sourceName}, source); err != nil {
 		return "", fmt.Errorf("get source %s %s: %w", kind, sourceName, err)
 	}
@@ -376,6 +390,7 @@ func createTargetStorageClassCopy(ctx context.Context, f *framework.Framework, k
 	target.SetGroupVersionKind(gvk)
 	target.SetGenerateName(framework.NamespaceBasePrefix + "-" + sourceName + "-")
 	target.SetLabels(map[string]string{framework.E2ELabel: "true"})
+
 	target.Object["spec"] = source.Object["spec"]
 	if err := f.GenericClient().Create(ctx, target); err != nil {
 		return "", fmt.Errorf("create %s copy of %s: %w", kind, sourceName, err)
@@ -385,6 +400,7 @@ func createTargetStorageClassCopy(ctx context.Context, f *framework.Framework, k
 		if !framework.GetConfig().IsCleanupNeeded() {
 			return nil
 		}
+
 		return f.Delete(ctx, target)
 	})
 
@@ -417,6 +433,7 @@ func getTargetStorageClass(ctx context.Context, f *framework.Framework, storageC
 	}
 
 	fallback := ""
+
 	for _, sc := range scList.Items {
 		if sc.Name == storageClass.Name {
 			continue
@@ -452,10 +469,12 @@ func getTargetStorageClass(ctx context.Context, f *framework.Framework, storageC
 		if sc.Provisioner == storageClass.Provisioner {
 			return sc.Name, nil
 		}
+
 		if fallback == "" {
 			fallback = sc.Name
 		}
 	}
+
 	return fallback, nil
 }
 
@@ -470,6 +489,7 @@ func getTargetStorageClass(ctx context.Context, f *framework.Framework, storageC
 // patches inherently race with the migration round started by the first one.
 func patchStorageClassNameTolerant(ctx context.Context, f *framework.Framework, scName string, vds ...*v1alpha2.VirtualDisk) ([]*v1alpha2.VirtualDisk, error) {
 	var denied []*v1alpha2.VirtualDisk
+
 	for _, vd := range vds {
 		err := patchStorageClassName(ctx, f, scName, vd)
 		if err != nil {
@@ -477,9 +497,11 @@ func patchStorageClassNameTolerant(ctx context.Context, f *framework.Framework, 
 				denied = append(denied, vd)
 				continue
 			}
+
 			return nil, err
 		}
 	}
+
 	return denied, nil
 }
 
@@ -502,13 +524,16 @@ func patchStorageClassName(ctx context.Context, f *framework.Framework, scName s
 func getStorageProfile(f *framework.Framework) func(ctx context.Context, name string) (*storagev1alpha1.StorageProfile, error) {
 	return func(ctx context.Context, name string) (*storagev1alpha1.StorageProfile, error) {
 		obj := &rewrite.StorageProfile{}
+
 		err := f.RewriteClient().Get(ctx, name, obj)
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
 				return nil, nil
 			}
+
 			return nil, err
 		}
+
 		return obj.StorageProfile, nil
 	}
 }
@@ -523,15 +548,19 @@ func expectVDsMigrationRevertedOrRolledBack(ctx context.Context, f *framework.Fr
 	GinkgoHelper()
 
 	By("Wait until VirtualDisks migrations failed")
+
 	for i, obs := range observers {
 		err := obs.WaitFor(vdobs.BeMigrationFailed(), framework.LongTimeout)
 		if err != nil && strings.Contains(err.Error(), "migration succeeded, expected it to fail") {
 			By(fmt.Sprintf("VirtualDisk %s migration finished before the revert, waiting for it to migrate back", vds[i].Name))
+
 			err = obs.WaitFor(vdobs.BeReadyWithStorageClass(sourceStorageClassName), framework.LongTimeout)
 		}
+
 		if err != nil {
 			skipIfKnownMigrationFailures(ctx, f)
 		}
+
 		Expect(err).NotTo(HaveOccurred(), "VirtualDisk %s/%s volume migration should fail and revert", vds[i].Namespace, vds[i].Name)
 	}
 }

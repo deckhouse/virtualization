@@ -204,6 +204,7 @@ func (s ImporterService) CleanUpSupplements(ctx context.Context, sup supplements
 
 	if pod != nil {
 		podReason = CleanUpReasonForObject(CleanUpRoleImporterPod, pod)
+
 		err = s.client.Delete(ctx, pod)
 		if err != nil && !k8serrors.IsNotFound(err) {
 			return false, "", err
@@ -211,6 +212,7 @@ func (s ImporterService) CleanUpSupplements(ctx context.Context, sup supplements
 	}
 
 	reason = MergeCleanUpReasons(networkPolicyReason, podReason)
+
 	return reason != "", reason, nil
 }
 
@@ -256,6 +258,7 @@ func (s ImporterService) GetPod(ctx context.Context, sup supplements.Generator) 
 
 func (s ImporterService) getPodSettings(ownerRef *metav1.OwnerReference, sup supplements.Generator) *importer.PodSettings {
 	importerPod := sup.ImporterPod()
+
 	return &importer.PodSettings{
 		Name:                 importerPod.Name,
 		Namespace:            importerPod.Namespace,
@@ -271,6 +274,7 @@ func (s ImporterService) getPodSettings(ownerRef *metav1.OwnerReference, sup sup
 
 func (s ImporterService) GetPodSettingsWithPVC(ownerRef *metav1.OwnerReference, sup supplements.Generator, pvcName, pvcNamespace string) *importer.PodSettings {
 	importerPod := sup.ImporterPod()
+
 	return &importer.PodSettings{
 		Name:                 importerPod.Name,
 		Namespace:            pvcNamespace,

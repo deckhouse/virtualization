@@ -111,6 +111,7 @@ func (s PVCImportStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*rec
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.WaitingForFirstConsumer).
 			Message("Awaiting the creation and scheduling of the VirtualMachine with the attached VirtualDisk.")
+
 		return &reconcile.Result{}, nil
 	}
 
@@ -142,6 +143,7 @@ func (s PVCImportStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*rec
 				Status(metav1.ConditionFalse).
 				Reason(vdcondition.ProvisioningFailed).
 				Message("The StorageClass is not fully configured in the cluster. Check the StorageClass name or set a default StorageClass.")
+
 			return &reconcile.Result{}, nil
 		}
 		// A project quota that rejects the target PVC is a recoverable, user-facing
@@ -155,8 +157,10 @@ func (s PVCImportStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*rec
 				Status(metav1.ConditionFalse).
 				Reason(vdcondition.QuotaExceeded).
 				Message(fmt.Sprintf("Quota exceeded during the creation of the target PersistentVolumeClaim: %s", err))
+
 			return &reconcile.Result{}, nil
 		}
+
 		return nil, fmt.Errorf("create target pvc: %w", err)
 	}
 
@@ -175,10 +179,13 @@ func (s PVCImportStep) createTarget(ctx context.Context, key types.NamespacedNam
 		if err != nil {
 			return fmt.Errorf("fetch source pvc: %w", err)
 		}
+
 		if sourceClaim == nil {
 			return fmt.Errorf("source pvc %s/%s not found", s.source.PVC.Namespace, s.source.PVC.Name)
 		}
+
 		_, err = s.pvc.CreateTargetFromPVC(ctx, key, storageClassName, &s.size, vd, sourceClaim, s.disk, nodePlacement)
+
 		return err
 	default:
 		return nil

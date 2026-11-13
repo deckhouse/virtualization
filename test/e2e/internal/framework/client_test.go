@@ -40,13 +40,16 @@ func failing(n int, err error, bodies *[]string) http.RoundTripper {
 		if req.Body != nil {
 			b, _ := io.ReadAll(req.Body)
 			_ = req.Body.Close()
+
 			*bodies = append(*bodies, string(b))
 		} else {
 			*bodies = append(*bodies, "")
 		}
+
 		if len(*bodies) <= n {
 			return nil, err
 		}
+
 		return &http.Response{StatusCode: http.StatusOK, Body: http.NoBody}, nil
 	})
 }
@@ -54,13 +57,16 @@ func failing(n int, err error, bodies *[]string) http.RoundTripper {
 // send runs one POST through rt and returns the status code, 0 on error.
 func send(rt http.RoundTripper) (int, error) {
 	GinkgoHelper()
+
 	req, err := http.NewRequest(http.MethodPost, "https://api.example/apis/x", strings.NewReader("payload"))
 	Expect(err).NotTo(HaveOccurred())
+
 	resp, err := rt.RoundTrip(req)
 	if err != nil {
 		return 0, err
 	}
 	defer resp.Body.Close()
+
 	return resp.StatusCode, nil
 }
 

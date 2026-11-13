@@ -83,6 +83,7 @@ func handleDiscoveryNodes(ctx context.Context, input *pkg.HookInput) error {
 	if err != nil {
 		return err
 	}
+
 	if !canRun {
 		return nil
 	}
@@ -94,6 +95,7 @@ func handleDiscoveryNodes(ctx context.Context, input *pkg.HookInput) error {
 	if err != nil {
 		return err
 	}
+
 	if kvCfgState != nil {
 		input.Values.Set(virtConfigPhasePath, kvCfgState.Phase)
 		// A KubeVirt config without the limit (before the first update, or with the limit
@@ -120,6 +122,7 @@ func virtConfigStateFromSnapshot(input *pkg.HookInput) (*virtConfigState, error)
 	}
 
 	var kvCfgState virtConfigState
+
 	err := snap[0].UnmarshalTo(&kvCfgState)
 	if err != nil {
 		return nil, err

@@ -57,6 +57,7 @@ func (h *AttachedHandler) Handle(ctx context.Context, vmip *v1alpha2.VirtualMach
 			Reason(conditions.ReasonUnknown).
 			Message(fmt.Sprintf("Failed to get attached virtual machine: %s.", err))
 		conditions.SetCondition(cb, &vmip.Status.Conditions)
+
 		return reconcile.Result{}, fmt.Errorf("get attached vm: %w", err)
 	}
 
@@ -68,6 +69,7 @@ func (h *AttachedHandler) Handle(ctx context.Context, vmip *v1alpha2.VirtualMach
 			Message("VirtualMachineIPAddress is not attached to any virtual machine.")
 		conditions.SetCondition(cb, &vmip.Status.Conditions)
 		h.recorder.Event(vmip, corev1.EventTypeWarning, v1alpha2.ReasonNotAttached, "VirtualMachineIPAddress is not attached to any virtual machine.")
+
 		return reconcile.Result{}, nil
 	}
 
@@ -84,6 +86,7 @@ func (h *AttachedHandler) Handle(ctx context.Context, vmip *v1alpha2.VirtualMach
 
 func (h *AttachedHandler) getAttachedVirtualMachine(ctx context.Context, vmip *v1alpha2.VirtualMachineIPAddress) (*v1alpha2.VirtualMachine, error) {
 	var vms v1alpha2.VirtualMachineList
+
 	err := h.client.List(ctx, &vms, &client.ListOptions{Namespace: vmip.Namespace})
 	if err != nil {
 		return nil, fmt.Errorf("list vms: %w", err)
@@ -92,6 +95,7 @@ func (h *AttachedHandler) getAttachedVirtualMachine(ctx context.Context, vmip *v
 	// Return the first one for which the status matches.
 	// If no status matches, return the first one for which the spec matches.
 	var attachedVM *v1alpha2.VirtualMachine
+
 	for _, vm := range vms.Items {
 		if vm.Status.VirtualMachineIPAddress == vmip.Name {
 			attachedVM = &vm
@@ -106,6 +110,7 @@ func (h *AttachedHandler) getAttachedVirtualMachine(ctx context.Context, vmip *v
 	if attachedVM == nil {
 		// If there's no match for the spec either, then try to find the vm by ownerRef.
 		var vmName string
+
 		for _, ownerRef := range vmip.OwnerReferences {
 			if ownerRef.Kind == v1alpha2.VirtualMachineKind && string(ownerRef.UID) == vmip.Labels[annotations.LabelVirtualMachineUID] {
 				vmName = ownerRef.Name
@@ -118,6 +123,7 @@ func (h *AttachedHandler) getAttachedVirtualMachine(ctx context.Context, vmip *v
 		}
 
 		vmKey := types.NamespacedName{Name: vmName, Namespace: vmip.Namespace}
+
 		attachedVM, err = object.FetchObject(ctx, vmKey, h.client, &v1alpha2.VirtualMachine{})
 		if err != nil {
 			return nil, fmt.Errorf("fetch vm %s: %w", vmKey, err)
@@ -130,6 +136,7 @@ func (h *AttachedHandler) getAttachedVirtualMachine(ctx context.Context, vmip *v
 			if err != nil {
 				return nil, err
 			}
+
 			if !usesVMIP {
 				return nil, nil
 			}

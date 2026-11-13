@@ -48,6 +48,7 @@ func (w *VMIPWatcher) Watch(mgr manager.Manager, ctr controller.Controller) erro
 				if name == "" {
 					return nil
 				}
+
 				return []reconcile.Request{
 					{
 						NamespacedName: types.NamespacedName{
@@ -67,5 +68,6 @@ func (w *VMIPWatcher) Watch(mgr manager.Manager, ctr controller.Controller) erro
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualMachineIpAddress: %w", err)
 	}
+
 	return nil
 }

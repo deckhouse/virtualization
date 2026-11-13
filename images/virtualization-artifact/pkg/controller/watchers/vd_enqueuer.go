@@ -53,6 +53,7 @@ func (w VirtualDiskRequestEnqueuer) GetEnqueueFrom() client.Object {
 
 func (w VirtualDiskRequestEnqueuer) EnqueueRequestsFromVDs(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
 	var vds v1alpha2.VirtualDiskList
+
 	err := w.client.List(ctx, &vds)
 	if err != nil {
 		w.logger.Error(fmt.Sprintf("failed to list vd: %s", err))
@@ -61,6 +62,7 @@ func (w VirtualDiskRequestEnqueuer) EnqueueRequestsFromVDs(ctx context.Context, 
 
 	for _, vd := range vds.Items {
 		dsReady, _ := conditions.GetCondition(vdcondition.DatasourceReadyType, vd.Status.Conditions)
+
 		ready, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 		if ready.Status == metav1.ConditionTrue || dsReady.Status == metav1.ConditionTrue {
 			continue
@@ -106,6 +108,7 @@ func (w VirtualDiskRequestEnqueuer) EnqueueRequestsFromVIs(obj client.Object) (r
 			})
 		}
 	}
+
 	return requests
 }
 
@@ -126,6 +129,7 @@ func (w VirtualDiskRequestEnqueuer) EnqueueRequestsFromCVIs(obj client.Object) (
 			})
 		}
 	}
+
 	return requests
 }
 
@@ -139,9 +143,11 @@ func (w VirtualDiskRequestEnqueuer) EnqueueRequests(ctx context.Context, obj cli
 	for _, req := range vds {
 		uniqueRequests[req] = struct{}{}
 	}
+
 	for _, req := range vdsFromVIs {
 		uniqueRequests[req] = struct{}{}
 	}
+
 	for _, req := range vdsFromCVIs {
 		uniqueRequests[req] = struct{}{}
 	}

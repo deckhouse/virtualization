@@ -104,14 +104,17 @@ var _ = Describe("VirtualDiskRestorer", func() {
 				if obj.GetName() == disk.Name {
 					_, ok := obj.(*v1alpha2.VirtualDisk)
 					Expect(ok).To(BeTrue())
+
 					diskDeleted = true
 				}
+
 				return nil
 			},
 			Create: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.CreateOption) error {
 				if obj.GetName() == disk.Name {
 					_, ok := obj.(*v1alpha2.VirtualDisk)
 					Expect(ok).To(BeTrue())
+
 					diskCreated = true
 				}
 
@@ -164,6 +167,7 @@ var _ = Describe("VirtualDiskRestorer", func() {
 
 				_, restoreAnnoOk := disk.Annotations[annotations.AnnVMOPRestore]
 				Expect(restoreAnnoOk).To(Equal(args.shouldBeCreated))
+
 				_, deleteAnnoOk := disk.Annotations[annotations.AnnVMOPRestoreDeleted]
 				Expect(deleteAnnoOk).To(Equal(args.shouldBeDeleted))
 			}
@@ -227,8 +231,10 @@ var _ = Describe("VirtualDiskRestorer", func() {
 
 			err = fakeClient.Get(ctx, client.ObjectKeyFromObject(&disk), &disk)
 			Expect(err).NotTo(HaveOccurred())
+
 			_, restoreAnnoOk := disk.Annotations[annotations.AnnVMOPRestore]
 			Expect(restoreAnnoOk).To(BeFalse())
+
 			_, deleteAnnoOk := disk.Annotations[annotations.AnnVMOPRestoreDeleted]
 			Expect(deleteAnnoOk).To(BeTrue())
 		})

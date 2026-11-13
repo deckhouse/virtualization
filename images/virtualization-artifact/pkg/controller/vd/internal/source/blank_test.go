@@ -130,12 +130,15 @@ var _ = Describe("Blank", func() {
 	Context("VirtualDisk has just been created", func() {
 		It("must create PVC", func() {
 			var pvcCreated bool
+
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(sc).
 				WithInterceptorFuncs(interceptor.Funcs{
 					Create: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.CreateOption) error {
 						_, ok := obj.(*corev1.PersistentVolumeClaim)
 						Expect(ok).To(BeTrue())
+
 						pvcCreated = true
+
 						return nil
 					},
 				}).Build()

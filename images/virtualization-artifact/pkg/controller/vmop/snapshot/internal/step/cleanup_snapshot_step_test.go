@@ -53,6 +53,7 @@ var _ = Describe("CleanupSnapshotStep", func() {
 			vmop.Spec.Clone.Mode = v1alpha2.SnapshotOperationModeDryRun
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -74,6 +75,7 @@ var _ = Describe("CleanupSnapshotStep", func() {
 			}
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -92,6 +94,7 @@ var _ = Describe("CleanupSnapshotStep", func() {
 			}
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -111,6 +114,7 @@ var _ = Describe("CleanupSnapshotStep", func() {
 			}
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -130,6 +134,7 @@ var _ = Describe("CleanupSnapshotStep", func() {
 			}
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -153,6 +158,7 @@ var _ = Describe("CleanupSnapshotStep", func() {
 			snapshot := createVMSnapshot("default", "test-snapshot", "test-secret", true)
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop, snapshot)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -167,6 +173,7 @@ var _ = Describe("CleanupSnapshotStep", func() {
 			Expect(snapshotCond.Reason).To(Equal(string(vmopcondition.ReasonSnapshotCleanedUp)))
 
 			var deletedSnapshot v1alpha2.VirtualMachineSnapshot
+
 			err = fakeClient.Get(ctx, types.NamespacedName{Namespace: "default", Name: "test-snapshot"}, &deletedSnapshot)
 			Expect(err).To(HaveOccurred())
 		})
@@ -182,6 +189,7 @@ var _ = Describe("CleanupSnapshotStep", func() {
 			snapshot.Finalizers = []string{"test-finalizer"}
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop, snapshot)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -212,6 +220,7 @@ var _ = Describe("CleanupSnapshotStep", func() {
 			}
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop)
 			Expect(err).NotTo(HaveOccurred())
 

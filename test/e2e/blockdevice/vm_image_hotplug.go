@@ -61,12 +61,14 @@ var _ = Describe("VirtualMachineImageHotplug", Label(label.SIGStorage, precheck.
 	BeforeEach(func() {
 		f = framework.NewFramework("vm-image-hotplug")
 		ctx = context.Background()
+
 		DeferCleanup(f.After)
 		f.Before()
 	})
 
 	It("should hotplug images as read-only devices and detach them back", func() {
 		By("Environment preparation")
+
 		vdRoot := object.NewVDFromCVI(
 			"vd-root",
 			f.Namespace().Name,
@@ -125,10 +127,12 @@ var _ = Describe("VirtualMachineImageHotplug", Label(label.SIGStorage, precheck.
 		eventually.SSHReadyAsRoot(f, vm, framework.MiddleTimeout)
 
 		By("Getting initial block devices count")
+
 		initialDiskCount, err := util.GetDiskCountAsRoot(f, vm.Name, vm.Namespace)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Attaching VirtualImages and ClusterVirtualImages via VMBDA resources")
+
 		vmbdas := []*v1alpha2.VirtualMachineBlockDeviceAttachment{
 			vmbda.New(
 				vmbda.WithName("attach-vi-hotplug-qcow"),
@@ -170,6 +174,7 @@ var _ = Describe("VirtualMachineImageHotplug", Label(label.SIGStorage, precheck.
 			eventually.WithExplanation("expected guest disk count to increase by %d after image hotplug", hotplugImagesCount))
 
 		By("Checking that exactly one hotplugged ISO is attached as CD-ROM")
+
 		vmi, err := util.GetInternalVirtualMachineInstance(ctx, vm)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(vmi).NotTo(BeNil())
@@ -182,6 +187,7 @@ var _ = Describe("VirtualMachineImageHotplug", Label(label.SIGStorage, precheck.
 		Expect(romCount).To(Equal(1), "expected %q to be the single CD-ROM block device in the guest", isoDisk.Name)
 
 		By("Checking all hotplugged images are mounted as read-only devices")
+
 		hotplugged := getHotpluggedImageDisks(vmi)
 		Expect(hotplugged).To(HaveLen(hotplugImagesCount), "expected %d hotplug image disks", hotplugImagesCount)
 
@@ -192,6 +198,7 @@ var _ = Describe("VirtualMachineImageHotplug", Label(label.SIGStorage, precheck.
 		}
 
 		By("Detaching hotplugged images and waiting for baseline disk count")
+
 		err = f.Delete(ctx, util.ToObjects(vmbdas)...)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -213,24 +220,28 @@ func nodeNameForImagePV(ctx context.Context, f *framework.Framework, viName stri
 
 	vi, err := f.VirtClient().VirtualImages(f.Namespace().Name).Get(ctx, viName, metav1.GetOptions{})
 	Expect(err).NotTo(HaveOccurred())
+
 	if vi.Status.Target.PersistentVolumeClaim == "" {
 		return ""
 	}
 
 	pvc, err := f.KubeClient().CoreV1().PersistentVolumeClaims(f.Namespace().Name).Get(ctx, vi.Status.Target.PersistentVolumeClaim, metav1.GetOptions{})
 	Expect(err).NotTo(HaveOccurred())
+
 	if pvc.Spec.VolumeName == "" {
 		return ""
 	}
 
 	pv, err := f.KubeClient().CoreV1().PersistentVolumes().Get(ctx, pvc.Spec.VolumeName, metav1.GetOptions{})
 	Expect(err).NotTo(HaveOccurred())
+
 	if pv.Spec.NodeAffinity == nil || pv.Spec.NodeAffinity.Required == nil {
 		return ""
 	}
 
 	nodes, err := f.KubeClient().CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 	Expect(err).NotTo(HaveOccurred())
+
 	nodeNames := make(map[string]struct{}, len(nodes.Items))
 	for _, node := range nodes.Items {
 		nodeNames[node.Name] = struct{}{}
@@ -241,6 +252,7 @@ func nodeNameForImagePV(ctx context.Context, f *framework.Framework, viName stri
 			if expr.Operator != corev1.NodeSelectorOpIn {
 				continue
 			}
+
 			for _, value := range expr.Values {
 				if _, ok := nodeNames[value]; ok {
 					return value
@@ -248,6 +260,7 @@ func nodeNameForImagePV(ctx context.Context, f *framework.Framework, viName stri
 			}
 		}
 	}
+
 	return ""
 }
 
@@ -263,6 +276,7 @@ func waitBlockDeviceRefsAttached(ctx context.Context, f *framework.Framework, vm
 		vm.Name, vm.Namespace,
 	)
 	Expect(err).NotTo(HaveOccurred(), "failed to start observer for VirtualMachine %s/%s", vm.Namespace, vm.Name)
+
 	defer obs.Stop()
 
 	err = obs.WaitFor(vmobs.HaveAttachedBlockDeviceCount(expectedAttached+1), framework.LongTimeout)
@@ -280,20 +294,24 @@ func findHotplugISO(vmi *virtv1.VirtualMachineInstance) virtv1.Disk {
 	GinkgoHelper()
 
 	isoCount := 0
+
 	var isoDisk virtv1.Disk
 
 	for _, disk := range vmi.Spec.Domain.Devices.Disks {
 		if disk.CDRom == nil {
 			continue
 		}
+
 		if !strings.HasPrefix(disk.Name, "vi-") && !strings.HasPrefix(disk.Name, "cvi-") {
 			continue
 		}
+
 		isoCount++
 		isoDisk = disk
 	}
 
 	Expect(isoCount).To(Equal(1), "expected exactly one hotplugged ISO disk in VMI spec")
+
 	return isoDisk
 }
 
@@ -301,10 +319,12 @@ func getHotpluggedImageDisks(vmi *virtv1.VirtualMachineInstance) []virtv1.Disk {
 	GinkgoHelper()
 
 	disks := make([]virtv1.Disk, 0, hotplugImagesCount)
+
 	for _, disk := range vmi.Spec.Domain.Devices.Disks {
 		if !strings.HasPrefix(disk.Name, "vi-") && !strings.HasPrefix(disk.Name, "cvi-") {
 			continue
 		}
+
 		disks = append(disks, disk)
 	}
 
@@ -327,11 +347,13 @@ func guestCdRomCount(f *framework.Framework, vm *v1alpha2.VirtualMachine) (int, 
 	}
 
 	count := 0
+
 	for _, device := range disks.BlockDevices {
 		if device.Type == "rom" {
 			count++
 		}
 	}
+
 	return count, nil
 }
 
@@ -349,6 +371,7 @@ func isBlockDeviceReadOnly(f *framework.Framework, vm *v1alpha2.VirtualMachine, 
 
 	devicePath := util.GuestDeviceBySerialString(f, vm, disk.Serial)
 	cmd := fmt.Sprintf("lsblk --nodeps --noheadings --output RO %q", devicePath)
+
 	out, err := f.SSHCommand(vm.Name, vm.Namespace, cmd, framework.WithSSHUser("root"))
 	if err != nil {
 		return false, fmt.Errorf("failed to read the read-only flag for %q: %w", devicePath, err)

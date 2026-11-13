@@ -45,6 +45,7 @@ import (
 func main() {
 	var runType string
 	flag.StringVar(&runType, "type", "", "Run type: check or collect.")
+
 	var sectionsFile string
 	flag.StringVar(&sectionsFile, "sections", defaultSectionsFile, "List of allowed sections.")
 	flag.Parse()
@@ -65,6 +66,7 @@ func main() {
 			err = runCollect(sections)
 		}
 	}
+
 	if err != nil {
 		logf("changelog: %v", err)
 		os.Exit(1)

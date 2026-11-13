@@ -43,5 +43,6 @@ func (w *VirtualMachinePoolWatcher) Watch(mgr manager.Manager, ctr controller.Co
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualMachinePool: %w", err)
 	}
+
 	return nil
 }

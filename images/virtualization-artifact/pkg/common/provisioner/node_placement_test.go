@@ -49,6 +49,7 @@ var _ = Describe("KeepNodePlacementTolerations", func() {
 	Context("there are no tolerations", func() {
 		It("doesnt set annotation", func() {
 			var nodePlacement NodePlacement
+
 			err := KeepNodePlacementTolerations(&nodePlacement, pod)
 			Expect(err).To(BeNil())
 			Expect(pod.Annotations).To(BeEmpty())

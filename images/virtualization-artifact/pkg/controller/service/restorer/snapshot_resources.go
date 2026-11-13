@@ -119,18 +119,22 @@ func (r *SnapshotResources) Prepare(ctx context.Context) error {
 	}
 
 	r.confineToSnapshotNamespace(vm, vmip, provisioner)
+
 	for _, vmmac := range vmmacs {
 		r.confineToSnapshotNamespace(vmmac)
 	}
+
 	for _, vd := range vds {
 		r.confineToSnapshotNamespace(vd)
 	}
+
 	for _, vmbda := range vmbdas {
 		r.confineToSnapshotNamespace(vmbda)
 	}
 
 	if len(vmmacs) > 0 && r.kind == v1alpha2.VMOPTypeRestore {
 		macAddressNamesByAddress := make(map[string]string)
+
 		for _, vmmac := range vmmacs {
 			r.objectHandlers = append(r.objectHandlers, restorer.NewVirtualMachineMACAddressHandler(r.client, vmmac, r.uuid))
 			macAddressNamesByAddress[vmmac.Status.Address] = vmmac.Name
@@ -203,6 +207,7 @@ func (r *SnapshotResources) confineToSnapshotNamespace(objs ...client.Object) {
 		if obj == nil || reflect.ValueOf(obj).IsNil() {
 			continue
 		}
+
 		obj.SetNamespace(r.vmSnapshot.Namespace)
 	}
 }
@@ -215,6 +220,7 @@ func (r *SnapshotResources) assertConfinedToSnapshotNamespace(obj client.Object)
 	if obj.GetNamespace() == r.vmSnapshot.Namespace {
 		return nil
 	}
+
 	return fmt.Errorf(
 		"refusing to restore %s %q into namespace %q: a snapshot restores only into its own namespace, %q",
 		obj.GetObjectKind().GroupVersionKind().Kind, obj.GetName(), obj.GetNamespace(), r.vmSnapshot.Namespace,
@@ -238,8 +244,10 @@ func (r *SnapshotResources) restoreMainAddress(ctx context.Context, vm *v1alpha2
 	// A VM on a vmip gets the vmip back, not its mirror: an imported snapshot may
 	// carry both.
 	var capturedMainIPAddress *MainIPAddressSnapshot
+
 	if vm.Status.VirtualMachineIPAddress == "" {
 		var err error
+
 		capturedMainIPAddress, err = r.manifestReader.RestoreMainIPAddress(ctx)
 		if err != nil {
 			return nil, err
@@ -251,11 +259,14 @@ func (r *SnapshotResources) restoreMainAddress(ctx context.Context, vm *v1alpha2
 		if err != nil {
 			return nil, err
 		}
+
 		ipaName, err := r.mainIPAddressName(ctx, capturedMainIPAddress, vmUIDs)
 		if err != nil {
 			return nil, err
 		}
+
 		vm.Spec.Networks = network.SetMainIPAddressName(vm.Spec.Networks, ipaName)
+
 		return restorer.NewMainIPAddressHandler(r.client, ipaName, r.vmSnapshot.Namespace, capturedMainIPAddress.Address, vmUIDs, r.uuid), nil
 	}
 
@@ -263,6 +274,7 @@ func (r *SnapshotResources) restoreMainAddress(ctx context.Context, vm *v1alpha2
 	if vmip != nil && (mainSpec == nil || mainSpec.IPAddressName == "") {
 		vm.Spec.VirtualMachineIPAddress = vmip.Name
 	}
+
 	return nil, nil
 }
 
@@ -274,9 +286,11 @@ func (r *SnapshotResources) mainIPAddressName(ctx context.Context, capturedMainI
 	if err != nil {
 		return "", err
 	}
+
 	if ipaTakingAddress != nil && restorer.IsIPAddressOfRestoredVM(ipaTakingAddress, vmUIDs, r.uuid) {
 		return ipaTakingAddress.GetName(), nil
 	}
+
 	return capturedMainIPAddress.Name, nil
 }
 
@@ -287,13 +301,16 @@ func (r *SnapshotResources) vmUIDs(ctx context.Context, vm *v1alpha2.VirtualMach
 	if vm.GetUID() != "" {
 		uids = append(uids, string(vm.GetUID()))
 	}
+
 	liveVM, err := object.FetchObject(ctx, types.NamespacedName{Namespace: r.vmSnapshot.Namespace, Name: vm.Name}, r.client, &v1alpha2.VirtualMachine{})
 	if err != nil {
 		return nil, err
 	}
+
 	if liveVM != nil {
 		uids = append(uids, string(liveVM.GetUID()))
 	}
+
 	return uids, nil
 }
 
@@ -301,6 +318,7 @@ func (r *SnapshotResources) Override(rules []v1alpha2.NameReplacement) {
 	for _, ov := range r.objectHandlers {
 		ov.Override(rules)
 	}
+
 	r.updateMainIPAddressName()
 }
 
@@ -308,6 +326,7 @@ func (r *SnapshotResources) Customize(prefix, suffix string) {
 	for _, ov := range r.objectHandlers {
 		ov.Customize(prefix, suffix)
 	}
+
 	r.updateMainIPAddressName()
 }
 
@@ -339,6 +358,7 @@ func (r *SnapshotResources) Validate(ctx context.Context) ([]v1alpha2.SnapshotRe
 			status.Status = v1alpha2.SnapshotResourceStatusFailed
 			status.Message = err.Error()
 			r.statuses = append(r.statuses, status)
+
 			continue
 		}
 
@@ -361,6 +381,7 @@ func (r *SnapshotResources) Validate(ctx context.Context) ([]v1alpha2.SnapshotRe
 				status.Message = err.Error()
 			}
 		}
+
 		r.statuses = append(r.statuses, status)
 	}
 
@@ -418,6 +439,7 @@ func (r *SnapshotResources) Process(ctx context.Context) ([]v1alpha2.SnapshotRes
 				status.Message = err.Error()
 			}
 		}
+
 		r.statuses = append(r.statuses, status)
 	}
 
@@ -426,13 +448,16 @@ func (r *SnapshotResources) Process(ctx context.Context) ([]v1alpha2.SnapshotRes
 	}
 
 	vmKey, vdKeys := r.getRestoredVMAndVDKeys()
+
 	vm := &v1alpha2.VirtualMachine{}
 	if err := r.client.Get(ctx, vmKey, vm); err != nil {
 		if apierrors.IsNotFound(err) {
 			return r.statuses, common.ErrQueueing
 		}
+
 		return r.statuses, fmt.Errorf("failed to get virtual machine %s: %w", vmKey, err)
 	}
+
 	for _, vdKey := range vdKeys {
 		if err := r.setOwnerRefOnVirtualDisk(ctx, vm, vdKey); err != nil {
 			return r.statuses, err
@@ -476,6 +501,7 @@ func isRetryError(err error) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -487,12 +513,14 @@ func virtualDiskSnapshotNames(vmSnapshot *v1alpha2.VirtualMachineSnapshot) []str
 	if !IsUnifiedCapture(vmSnapshot) {
 		return vmSnapshot.Status.VirtualDiskSnapshotNames
 	}
+
 	names := make([]string, 0, len(vmSnapshot.Status.ChildrenSnapshotRefs))
 	for _, ref := range vmSnapshot.Status.ChildrenSnapshotRefs {
 		if ref.APIVersion == v1alpha2.SchemeGroupVersion.String() && ref.Kind == v1alpha2.VirtualDiskSnapshotKind {
 			names = append(names, ref.Name)
 		}
 	}
+
 	return names
 }
 
@@ -505,6 +533,7 @@ func getVirtualDisks(ctx context.Context, client client.Client, vmSnapshot *v1al
 
 	for _, vdSnapshotName := range vdSnapshotNames {
 		vdSnapshotKey := types.NamespacedName{Namespace: vmSnapshot.Namespace, Name: vdSnapshotName}
+
 		vdSnapshot, err := object.FetchObject(ctx, vdSnapshotKey, client, &v1alpha2.VirtualDiskSnapshot{})
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch the virtual disk snapshot %q: %w", vdSnapshotKey.Name, err)
@@ -572,11 +601,14 @@ func (r *SnapshotResources) GetObjectHandlers() []ObjectHandler {
 
 func (r *SnapshotResources) getRestoredVMAndVDKeys() (types.NamespacedName, []types.NamespacedName) {
 	var vmKey types.NamespacedName
+
 	vdKeys := make([]types.NamespacedName, 0)
+
 	for _, ov := range r.objectHandlers {
 		obj := ov.Object()
 		kind := obj.GetObjectKind().GroupVersionKind().Kind
 		key := types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}
+
 		switch kind {
 		case v1alpha2.VirtualMachineKind:
 			vmKey = key
@@ -584,6 +616,7 @@ func (r *SnapshotResources) getRestoredVMAndVDKeys() (types.NamespacedName, []ty
 			vdKeys = append(vdKeys, key)
 		}
 	}
+
 	return vmKey, vdKeys
 }
 
@@ -593,6 +626,7 @@ func (r *SnapshotResources) setOwnerRefOnVirtualDisk(ctx context.Context, vm *v1
 		if apierrors.IsNotFound(err) {
 			return common.ErrQueueing
 		}
+
 		return fmt.Errorf("failed to get virtual disk %s: %w", vdKey, err)
 	}
 
@@ -606,6 +640,7 @@ func (r *SnapshotResources) setOwnerRefOnVirtualDisk(ctx context.Context, vm *v1
 
 	vdSnapshotName := vd.Spec.DataSource.ObjectRef.Name
 	vdSnapshotKey := types.NamespacedName{Namespace: vd.Namespace, Name: vdSnapshotName}
+
 	vdSnapshot := &v1alpha2.VirtualDiskSnapshot{}
 	if err := r.client.Get(ctx, vdSnapshotKey, vdSnapshot); err != nil {
 		return fmt.Errorf("failed to get virtual disk snapshot %s: %w", vdSnapshotKey, err)
@@ -615,6 +650,7 @@ func (r *SnapshotResources) setOwnerRefOnVirtualDisk(ctx context.Context, vm *v1
 	if err != nil {
 		return err
 	}
+
 	if !hadOwnerReference {
 		return nil
 	}
@@ -629,6 +665,7 @@ func (r *SnapshotResources) setOwnerRefOnVirtualDisk(ctx context.Context, vm *v1
 		if apierrors.IsConflict(err) {
 			return common.ErrQueueing
 		}
+
 		return err
 	}
 
@@ -641,6 +678,7 @@ func (r *SnapshotResources) virtualDiskHadOwnerReference(ctx context.Context, na
 		if err != nil {
 			return false, err
 		}
+
 		return hasVirtualMachineOwner(captured), nil
 	}
 
@@ -649,12 +687,14 @@ func (r *SnapshotResources) virtualDiskHadOwnerReference(ctx context.Context, na
 	}
 
 	vsKey := types.NamespacedName{Namespace: namespace, Name: vdSnapshot.Status.VolumeSnapshotName}
+
 	vs := &vsv1.VolumeSnapshot{}
 	if err := r.client.Get(ctx, vsKey, vs); err != nil {
 		return false, fmt.Errorf("failed to get volume snapshot %s: %w", vsKey, err)
 	}
 
 	_, ok := vs.Annotations[annotations.AnnVirtualDiskHadOwnerReference]
+
 	return ok, nil
 }
 
@@ -662,11 +702,13 @@ func hasVirtualMachineOwner(vd *v1alpha2.VirtualDisk) bool {
 	if vd == nil {
 		return false
 	}
+
 	for _, ownerRef := range vd.OwnerReferences {
 		if ownerRef.Kind == v1alpha2.VirtualMachineKind {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -686,7 +728,9 @@ func AddOriginalMetadata(ctx context.Context, vd *v1alpha2.VirtualDisk, vdSnapsh
 		if err != nil {
 			return err
 		}
+
 		addOriginalMetadataFromCapturedDisk(vd, captured)
+
 		return nil
 	}
 
@@ -722,6 +766,7 @@ func addOriginalMetadataFromCapturedDisk(vd, captured *v1alpha2.VirtualDisk) {
 	if len(captured.Annotations) > 0 && vd.Annotations == nil {
 		vd.Annotations = make(map[string]string, len(captured.Annotations))
 	}
+
 	for key, value := range captured.Annotations {
 		if _, exists := vd.Annotations[key]; !exists {
 			vd.Annotations[key] = value
@@ -731,6 +776,7 @@ func addOriginalMetadataFromCapturedDisk(vd, captured *v1alpha2.VirtualDisk) {
 	if len(captured.Labels) > 0 && vd.Labels == nil {
 		vd.Labels = make(map[string]string, len(captured.Labels))
 	}
+
 	for key, value := range captured.Labels {
 		if _, exists := vd.Labels[key]; !exists {
 			vd.Labels[key] = value
@@ -744,6 +790,7 @@ func setOriginalAnnotations(vd *v1alpha2.VirtualDisk, vs *vsv1.VolumeSnapshot) e
 	}
 
 	var annotationsMap map[string]string
+
 	err := json.Unmarshal([]byte(vs.Annotations[annotations.AnnVirtualDiskOriginalAnnotations]), &annotationsMap)
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal the original annotations: %w", err)
@@ -768,6 +815,7 @@ func setOriginalLabels(vd *v1alpha2.VirtualDisk, vs *vsv1.VolumeSnapshot) error 
 	}
 
 	var labelsMap map[string]string
+
 	err := json.Unmarshal([]byte(vs.Annotations[annotations.AnnVirtualDiskOriginalLabels]), &labelsMap)
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal the original annotations: %w", err)

@@ -51,6 +51,7 @@ func (v *LegacyOSValidator) ValidateCreate(ctx context.Context, vmbda *v1alpha2.
 	if err != nil {
 		return nil, fmt.Errorf("failed to get VirtualMachine %q: %w", vmbda.Spec.VirtualMachineName, err)
 	}
+
 	if vm == nil || vm.Spec.OsType != v1alpha2.LegacyOs || vm.Spec.IsParavirtualizationEnabled() {
 		return nil, nil
 	}

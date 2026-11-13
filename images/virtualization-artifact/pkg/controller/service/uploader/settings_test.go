@@ -72,11 +72,13 @@ func Test_UploaderContainerEnv_Checksums(t *testing.T) {
 	}}}
 
 	var value string
+
 	for _, env := range withChecksums.uploaderContainerEnv() {
 		if env.Name == common.UploaderChecksums {
 			value = env.Value
 		}
 	}
+
 	require.Equal(t, "md5:5d41402abc4b2a76b9719d911017c592,sha1:aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d", value)
 
 	withoutChecksums := factory{}

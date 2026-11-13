@@ -25,6 +25,7 @@ import (
 func New(options ...Option) *v1alpha2.VirtualMachineBlockDeviceAttachment {
 	vmbda := NewEmpty("", "")
 	ApplyOptions(vmbda, options...)
+
 	return vmbda
 }
 
@@ -32,6 +33,7 @@ func ApplyOptions(vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment, opts ...O
 	if vmbda == nil {
 		return
 	}
+
 	for _, opt := range opts {
 		opt(vmbda)
 	}

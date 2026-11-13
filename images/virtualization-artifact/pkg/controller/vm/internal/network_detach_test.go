@@ -96,6 +96,7 @@ var _ = Describe("SyncKvvmHandler network detach corner cases", func() {
 				return spec.InterfaceName
 			}
 		}
+
 		return ""
 	}()
 
@@ -103,6 +104,7 @@ var _ = Describe("SyncKvvmHandler network detach corner cases", func() {
 		kvvm := newEmptyKVVM(vmName, namespace)
 		kvvm.Spec.Template = &virtv1.VirtualMachineInstanceTemplateSpec{}
 		kvvm.Spec.Template.Spec.Domain.Devices.Interfaces = ifaces
+
 		return kvvm
 	}
 
@@ -111,6 +113,7 @@ var _ = Describe("SyncKvvmHandler network detach corner cases", func() {
 		kvvmi.Status.Phase = virtv1.Running
 		kvvmi.Status.NodeName = nodeName
 		kvvmi.Status.ActivePods = map[types.UID]string{podUID: nodeName}
+
 		return kvvmi
 	}
 
@@ -131,6 +134,7 @@ var _ = Describe("SyncKvvmHandler network detach corner cases", func() {
 	getPod := func(fakeClient client.WithWatch) *corev1.Pod {
 		pod := &corev1.Pod{}
 		Expect(fakeClient.Get(ctx, types.NamespacedName{Name: podName, Namespace: namespace}, pod)).To(Succeed())
+
 		return pod
 	}
 
@@ -187,14 +191,18 @@ var _ = Describe("SyncKvvmHandler network detach corner cases", func() {
 
 		BeforeEach(func() {
 			provisionableSpecs := commonnetwork.InterfaceSpecList{}
+
 			for _, spec := range attachedSpecs {
 				if spec.Type != string(v1alpha2.NetworksTypeMain) {
 					spec.IPAssignmentMode = commonnetwork.IPAssignmentModeDHCP
 					spec.IPAddressNames = []string{ipName}
 				}
+
 				provisionableSpecs = append(provisionableSpecs, spec)
 			}
+
 			var err error
+
 			provisionable, err = provisionableSpecs.ToString()
 			Expect(err).NotTo(HaveOccurred())
 
@@ -250,12 +258,14 @@ var _ = Describe("SyncKvvmHandler network detach corner cases", func() {
 				}},
 			}})
 			Expect(err).NotTo(HaveOccurred())
+
 			return string(raw)
 		}
 
 		newEnv := func(networks ...v1alpha2.NetworksSpec) (client.WithWatch, state.VirtualMachineState) {
 			attached, err := attachedSpecs.ToString()
 			Expect(err).NotTo(HaveOccurred())
+
 			fakeClient, _, vmState := setupEnvironment(
 				newVM(networks...),
 				newKVVM(
@@ -270,6 +280,7 @@ var _ = Describe("SyncKvvmHandler network detach corner cases", func() {
 				}),
 				newNodeWithTapSupport(nodeName),
 			)
+
 			return fakeClient, vmState
 		}
 
@@ -328,6 +339,7 @@ var _ = Describe("NetworkInterfaceHandler network status of a Main-only virtual 
 			{ID: commonnetwork.MinID, Type: v1alpha2.NetworksTypeMain},
 			detachingStatus,
 		}
+
 		return vm
 	}
 
@@ -335,6 +347,7 @@ var _ = Describe("NetworkInterfaceHandler network status of a Main-only virtual 
 		kvvmi := newEmptyKVVMI(vmName, namespace)
 		kvvmi.Status.Phase = virtv1.Running
 		kvvmi.Spec.Domain.Devices.Interfaces = ifaces
+
 		return kvvmi
 	}
 
@@ -344,6 +357,7 @@ var _ = Describe("NetworkInterfaceHandler network status of a Main-only virtual 
 		vm := vmState.VirtualMachine().Changed()
 		_, err := h.UpdateNetworkStatus(ctx, vmState, vm)
 		Expect(err).NotTo(HaveOccurred())
+
 		return vm.Status.Networks
 	}
 
@@ -397,6 +411,7 @@ var _ = Describe("podNetworks resolving the annotation of a launcher pod", func(
 	annotationValue := func(specs commonnetwork.InterfaceSpecList) string {
 		value, err := specs.ToString()
 		Expect(err).NotTo(HaveOccurred())
+
 		return value
 	}
 
@@ -406,6 +421,7 @@ var _ = Describe("podNetworks resolving the annotation of a launcher pod", func(
 		}))
 
 		value := annotationValue(specs)
+
 		Expect(leaveAlone).To(BeFalse())
 		Expect(value).To(ContainSubstring(wantedIface))
 		Expect(value).To(ContainSubstring(leavingIface))
@@ -417,6 +433,7 @@ var _ = Describe("podNetworks resolving the annotation of a launcher pod", func(
 		}))
 
 		value := annotationValue(specs)
+
 		Expect(leaveAlone).To(BeFalse())
 		Expect(value).To(ContainSubstring(wantedIface))
 		Expect(value).NotTo(ContainSubstring(leavingIface))
@@ -462,6 +479,7 @@ var _ = Describe("podNetworks resolving the annotation of a launcher pod", func(
 		}))
 
 		value := annotationValue(specs)
+
 		Expect(leaveAlone).To(BeFalse())
 		Expect(value).To(ContainSubstring("vm-x-main"))
 		Expect(value).To(ContainSubstring(commonnetwork.MainPodInterfaceName))
@@ -475,6 +493,7 @@ var _ = Describe("podNetworks resolving the annotation of a launcher pod", func(
 		specs, leaveAlone := shared.interfaceSpecsFor(ctx, podWith(nil))
 
 		value := annotationValue(specs)
+
 		Expect(leaveAlone).To(BeFalse())
 		Expect(value).To(ContainSubstring("vm-x-main"))
 		Expect(value).To(ContainSubstring(commonnetwork.MainPodInterfaceName))

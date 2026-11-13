@@ -74,6 +74,7 @@ var _ = Describe("VirtualMachinePool", Label(label.SIGCompute, precheck.NoPreche
 			vdbuilder.WithSize(ptr.To(resource.MustParse("100Mi"))),
 			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, object.PrecreatedCVIMyOS),
 		)
+
 		return &v1alpha2.VirtualMachinePool{
 			ObjectMeta: metav1.ObjectMeta{GenerateName: "pool-", Namespace: f.Namespace().Name},
 			Spec: v1alpha2.VirtualMachinePoolSpec{
@@ -96,12 +97,15 @@ var _ = Describe("VirtualMachinePool", Label(label.SIGCompute, precheck.NoPreche
 	members := func() []v1alpha2.VirtualMachine {
 		var list v1alpha2.VirtualMachineList
 		Expect(f.GenericClient().List(ctx, &list, crclient.InNamespace(f.Namespace().Name))).To(Succeed())
+
 		var mine []v1alpha2.VirtualMachine
+
 		for i := range list.Items {
 			if ref := metav1.GetControllerOf(&list.Items[i]); ref != nil && ref.UID == pool.UID {
 				mine = append(mine, list.Items[i])
 			}
 		}
+
 		return mine
 	}
 
@@ -115,6 +119,7 @@ var _ = Describe("VirtualMachinePool", Label(label.SIGCompute, precheck.NoPreche
 
 	It("maintains the requested number of tiny replicas, each with its own root disk, and scales", func() {
 		var poolObs vmpoolobs.Observer
+
 		By("Creating a pool of 2 tiny VMs with a per-replica root disk from the myos image", func() {
 			pool = buildPool(2, v1alpha2.ScaleDownPolicyNewestFirst, deleteReclaim)
 			Expect(f.CreateWithDeferredDeletion(ctx, pool)).To(Succeed())
@@ -175,6 +180,7 @@ var _ = Describe("VirtualMachinePool", Label(label.SIGCompute, precheck.NoPreche
 		By("Checking every replica attaches the same shared image, unresolved", func() {
 			ms := members()
 			Expect(ms).To(HaveLen(2))
+
 			for _, m := range ms {
 				Expect(m.Spec.BlockDeviceRefs).To(ContainElement(v1alpha2.BlockDeviceSpecRef{
 					Kind: v1alpha2.ClusterImageDevice, Name: sharedImage,
@@ -185,6 +191,7 @@ var _ = Describe("VirtualMachinePool", Label(label.SIGCompute, precheck.NoPreche
 
 	It("removes addressed replicas via scaleDownWith, shrinks the pool, and does not replace them", func() {
 		var poolObs vmpoolobs.Observer
+
 		By("Creating a pool of 2 and waiting until both are Running", func() {
 			pool = buildPool(2, v1alpha2.ScaleDownPolicyNewestFirst, deleteReclaim)
 			Expect(f.CreateWithDeferredDeletion(ctx, pool)).To(Succeed())
@@ -199,6 +206,7 @@ var _ = Describe("VirtualMachinePool", Label(label.SIGCompute, precheck.NoPreche
 		})
 
 		var victim string
+
 		By("Removing one addressed replica", func() {
 			victim = members()[0].Name
 			Expect(scaleDownWith(pool.Name, victim)).To(Succeed())
@@ -214,6 +222,7 @@ var _ = Describe("VirtualMachinePool", Label(label.SIGCompute, precheck.NoPreche
 			// status update from here until the end of the spec, so any replacement
 			// the controller creates fails the spec via the observer's cleanup.
 			poolObs.Never(vmpoolobs.HaveMoreReplicasThan(1))
+
 			for _, m := range members() {
 				Expect(m.Name).NotTo(Equal(victim))
 			}

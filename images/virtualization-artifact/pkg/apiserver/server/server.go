@@ -53,7 +53,9 @@ func (s *Server) RunUntil(ctx context.Context) error {
 	if !ok {
 		return nil
 	}
+
 	err := s.GenericAPIServer.PrepareRun().RunWithContext(ctx)
 	s.proxyCertManager.Stop()
+
 	return err
 }

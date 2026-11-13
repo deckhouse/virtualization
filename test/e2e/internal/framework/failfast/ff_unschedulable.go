@@ -33,13 +33,16 @@ func Unschedulable(pods Client[*corev1.Pod], namespace string) FailFast {
 		if pod.DeletionTimestamp != nil {
 			return nil
 		}
+
 		scheduled, found := conditions.GetPodCondition(corev1.PodScheduled, pod.Status.Conditions)
 		if !found || scheduled.Status != corev1.ConditionFalse || scheduled.Reason != corev1.PodReasonUnschedulable {
 			return nil
 		}
+
 		if unschedulableHealsItself(scheduled.Message) {
 			return nil
 		}
+
 		return &Finding{
 			Message: "is Unschedulable and the reason is not a resource shortage: " + scheduled.Message,
 			Grace:   defaultGrace,
@@ -66,5 +69,6 @@ func unschedulableHealsItself(message string) bool {
 			return true
 		}
 	}
+
 	return false
 }

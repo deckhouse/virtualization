@@ -57,5 +57,6 @@ func (w *VDWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error 
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualDisk: %w", err)
 	}
+
 	return nil
 }

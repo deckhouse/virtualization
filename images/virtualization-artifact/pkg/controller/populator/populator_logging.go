@@ -50,6 +50,7 @@ func (r *Reconciler) logImporterPodTransitions(
 		if !ok {
 			continue
 		}
+
 		if prev.phase == "" && next.phase != "" {
 			r.log.Info("PVC population importer pod created",
 				"namespace", pvc.Namespace,
@@ -60,6 +61,7 @@ func (r *Reconciler) logImporterPodTransitions(
 				"phase", string(next.phase),
 			)
 		}
+
 		if prev.phase != "" && prev.phase != corev1.PodSucceeded && next.phase == corev1.PodSucceeded {
 			r.log.Info("PVC population importer pod finished",
 				"namespace", pvc.Namespace,
@@ -96,6 +98,7 @@ func (r *Reconciler) rebindPending(ctx context.Context, pvc *corev1.PersistentVo
 			}
 		}
 	}
+
 	return false
 }
 
@@ -130,11 +133,14 @@ func (r *Reconciler) importerPodSnapshots(ctx context.Context, sup supplements.G
 		if err != nil {
 			return nil, fmt.Errorf("fetch %s pod: %w", item.role, err)
 		}
+
 		snap := importerPodSnapshot{role: item.role, name: item.key.Name}
 		if pod != nil {
 			snap.phase = pod.Status.Phase
 		}
+
 		snapshots = append(snapshots, snap)
 	}
+
 	return snapshots, nil
 }

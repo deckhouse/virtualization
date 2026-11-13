@@ -154,22 +154,27 @@ var _ = Describe("VirtualMachineRestorer", func() {
 				if obj.GetName() == vm.Name && obj.GetNamespace() == vm.Namespace {
 					_, ok := obj.(*v1alpha2.VirtualMachine)
 					Expect(ok).To(BeTrue())
+
 					vmCreated = true
 				}
+
 				return nil
 			},
 			Update: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.UpdateOption) error {
 				if obj.GetName() == vm.Name && obj.GetNamespace() == vm.Namespace {
 					_, ok := obj.(*v1alpha2.VirtualMachine)
 					Expect(ok).To(BeTrue())
+
 					vmUpdated = true
 				}
+
 				return nil
 			},
 			Delete: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.DeleteOption) error {
 				if _, ok := obj.(*v1alpha2.VirtualMachineBlockDeviceAttachment); ok {
 					vmbdasDeleted++
 				}
+
 				return nil
 			},
 		}
@@ -183,11 +188,14 @@ var _ = Describe("VirtualMachineRestorer", func() {
 					if vmToAdd.Annotations == nil {
 						vmToAdd.Annotations = make(map[string]string)
 					}
+
 					vmToAdd.Annotations[annotations.AnnVMOPRestore] = restoreUID
 				}
+
 				if !args.vmHasCorrectSpec {
 					vmToAdd.Spec.VirtualMachineIPAddress = "different-ip"
 				}
+
 				objects = append(objects, vmToAdd)
 			}
 
@@ -199,11 +207,13 @@ var _ = Describe("VirtualMachineRestorer", func() {
 					if vmbda1Copy.Annotations == nil {
 						vmbda1Copy.Annotations = make(map[string]string)
 					}
+
 					vmbda1Copy.Annotations[annotations.AnnVMOPRestore] = restoreUID
 
 					if vmbda2Copy.Annotations == nil {
 						vmbda2Copy.Annotations = make(map[string]string)
 					}
+
 					vmbda2Copy.Annotations[annotations.AnnVMOPRestore] = restoreUID
 				}
 
@@ -239,6 +249,7 @@ var _ = Describe("VirtualMachineRestorer", func() {
 
 			if args.shouldDeleteVMBDAs {
 				expectedDeletes := 0
+
 				if args.hasVMBDAs {
 					if !args.vmbdasHaveCorrectUID {
 						expectedDeletes = 2
@@ -246,6 +257,7 @@ var _ = Describe("VirtualMachineRestorer", func() {
 						expectedDeletes = 0
 					}
 				}
+
 				Expect(vmbdasDeleted).To(Equal(expectedDeletes))
 			}
 		},
@@ -347,11 +359,13 @@ var _ = Describe("VirtualMachineRestorer", func() {
 			liveVM.Spec.RunPolicy = v1alpha2.ManualPolicy
 
 			var updatedVM *v1alpha2.VirtualMachine
+
 			ic := interceptor.Funcs{
 				Update: func(_ context.Context, c client.WithWatch, obj client.Object, opts ...client.UpdateOption) error {
 					if got, ok := obj.(*v1alpha2.VirtualMachine); ok {
 						updatedVM = got.DeepCopy()
 					}
+
 					return c.Update(ctx, obj, opts...)
 				},
 			}
@@ -465,11 +479,13 @@ var _ = Describe("VirtualMachineRestorer", func() {
 			otherVM.Spec.USBDevices = []v1alpha2.USBDeviceSpecRef{{Name: "usb-busy"}}
 
 			var createdVM *v1alpha2.VirtualMachine
+
 			interceptClone := interceptor.Funcs{
 				Create: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.CreateOption) error {
 					if vmObj, ok := obj.(*v1alpha2.VirtualMachine); ok && vmObj.Name == cloneVM.Name {
 						createdVM = vmObj.DeepCopy()
 					}
+
 					return nil
 				},
 			}
@@ -494,11 +510,13 @@ var _ = Describe("VirtualMachineRestorer", func() {
 			otherVM.Spec.USBDevices = []v1alpha2.USBDeviceSpecRef{{Name: "usb-busy"}}
 
 			var createdVM *v1alpha2.VirtualMachine
+
 			interceptClone := interceptor.Funcs{
 				Create: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.CreateOption) error {
 					if vmObj, ok := obj.(*v1alpha2.VirtualMachine); ok && vmObj.Name == cloneVM.Name {
 						createdVM = vmObj.DeepCopy()
 					}
+
 					return nil
 				},
 			}

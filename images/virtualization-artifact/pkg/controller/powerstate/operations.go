@@ -35,14 +35,17 @@ func StartVM(ctx context.Context, cl client.Client, kvvm *virtv1.VirtualMachine)
 	if kvvm == nil {
 		return fmt.Errorf("kvvm must not be empty")
 	}
+
 	jp, err := BuildPatch(kvvm,
 		virtv1.VirtualMachineStateChangeRequest{Action: virtv1.StartRequest})
 	if err != nil {
 		if errors.Is(err, ErrChangesAlreadyExist) {
 			return nil
 		}
+
 		return err
 	}
+
 	return cl.Status().Patch(ctx, kvvm, client.RawPatch(types.JSONPatchType, jp), &client.SubResourcePatchOptions{})
 }
 
@@ -55,12 +58,14 @@ func StopVM(ctx context.Context, cl client.Client, kvvmi *virtv1.VirtualMachineI
 	if kvvmi == nil {
 		return fmt.Errorf("kvvmi must not be empty")
 	}
+
 	if force != nil && *force {
 		patch := client.RawPatch(types.MergePatchType, []byte(`{"spec":{"terminationGracePeriodSeconds":0}}`))
 		if err := cl.Patch(ctx, kvvmi, patch); err != nil && !apierrors.IsNotFound(err) {
 			return err
 		}
 	}
+
 	return cl.Delete(ctx, kvvmi, &client.DeleteOptions{})
 }
 
@@ -70,6 +75,7 @@ func RestartVM(ctx context.Context, cl client.Client, kvvm *virtv1.VirtualMachin
 	if kvvm == nil {
 		return fmt.Errorf("kvvm must not be empty")
 	}
+
 	if kvvmi == nil {
 		return fmt.Errorf("kvvmi must not be empty")
 	}
@@ -81,6 +87,7 @@ func RestartVM(ctx context.Context, cl client.Client, kvvm *virtv1.VirtualMachin
 		if errors.Is(err, ErrChangesAlreadyExist) {
 			return nil
 		}
+
 		return err
 	}
 
@@ -88,9 +95,11 @@ func RestartVM(ctx context.Context, cl client.Client, kvvm *virtv1.VirtualMachin
 	if err != nil {
 		return err
 	}
+
 	if force {
 		return kvvmutil.DeletePodByKVVMI(ctx, cl, kvvmi, &client.DeleteOptions{GracePeriodSeconds: ptr.To(int64(0))})
 	}
+
 	return nil
 }
 
@@ -99,6 +108,7 @@ func SafeRestartVM(ctx context.Context, cl client.Client, kvvm *virtv1.VirtualMa
 	if kvvm == nil {
 		return fmt.Errorf("kvvm must not be empty")
 	}
+
 	if kvvmi == nil {
 		return fmt.Errorf("kvvmi must not be empty")
 	}
@@ -107,8 +117,10 @@ func SafeRestartVM(ctx context.Context, cl client.Client, kvvm *virtv1.VirtualMa
 	if err != nil {
 		return err
 	}
+
 	if jp == nil {
 		return nil
 	}
+
 	return cl.Status().Patch(ctx, kvvm, client.RawPatch(types.JSONPatchType, jp), &client.SubResourcePatchOptions{})
 }

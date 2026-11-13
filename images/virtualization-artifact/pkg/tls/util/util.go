@@ -26,8 +26,10 @@ const CertificateBlockType string = "CERTIFICATE"
 
 func ParseCertsPEM(pemCerts []byte) ([]*x509.Certificate, error) {
 	var certs []*x509.Certificate
+
 	for len(pemCerts) > 0 {
 		var block *pem.Block
+
 		block, pemCerts = pem.Decode(pemCerts)
 		if block == nil {
 			break
@@ -48,5 +50,6 @@ func ParseCertsPEM(pemCerts []byte) ([]*x509.Certificate, error) {
 	if len(certs) == 0 {
 		return nil, errors.New("data does not contain any valid RSA or ECDSA certificates")
 	}
+
 	return certs, nil
 }

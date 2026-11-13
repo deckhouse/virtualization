@@ -40,7 +40,9 @@ var _ = Describe("IsInsideOfRange", func() {
 
 	BeforeEach(func() {
 		virtualMachineCIDRs := []string{"192.168.1.0/24"}
+
 		var err error
+
 		ipService, err = NewIPAddressService(virtualMachineCIDRs, nil, nil)
 		Expect(err).To(BeNil())
 	})
@@ -77,7 +79,9 @@ var _ = Describe("AllocateNewIP", func() {
 
 	BeforeEach(func() {
 		virtualMachineCIDRs := []string{"192.168.1.0/24"}
+
 		var err error
+
 		ipService, err = NewIPAddressService(virtualMachineCIDRs, nil, nil)
 		Expect(err).To(BeNil())
 	})
@@ -107,6 +111,7 @@ var _ = Describe("GetAllocatedIPs", func() {
 		scheme := apiruntime.NewScheme()
 		Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
 		Expect(sdnapi.AddToScheme(scheme)).To(Succeed())
+
 		return fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...)
 	}
 
@@ -163,6 +168,7 @@ var _ = Describe("GetAllocatedIPs", func() {
 					if _, ok := list.(*sdnapi.IPAddressList); ok {
 						return &meta.NoKindMatchError{GroupKind: sdnapi.SchemeGroupVersion.WithKind("IPAddress").GroupKind()}
 					}
+
 					return c.List(ctx, list, opts...)
 				},
 			}).Build()

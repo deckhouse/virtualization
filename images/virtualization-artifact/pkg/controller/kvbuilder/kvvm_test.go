@@ -118,6 +118,7 @@ func TestSetAffinity(t *testing.T) {
 	for _, test := range tests {
 		builder := NewEmptyKVVM(types.NamespacedName{Name: name, Namespace: namespace}, KVVMOptions{})
 		builder.SetAffinity(test.affinity, test.classMatchExpressions)
+
 		if !reflect.DeepEqual(builder.Resource.Spec.Template.Spec.Affinity, test.expect) {
 			t.Errorf("test %s failed.expected affinity %v, got %v", test.name, test.expect, builder.Resource.Spec.Template.Spec.Affinity)
 		}
@@ -140,6 +141,7 @@ func TestApplyPVNodeAffinity(t *testing.T) {
 	t.Run("No PV terms should not modify affinity", func(t *testing.T) {
 		b := NewEmptyKVVM(nn, KVVMOptions{})
 		b.ApplyPVNodeAffinity(nil)
+
 		if b.Resource.Spec.Template.Spec.Affinity != nil {
 			t.Error("affinity should remain nil when no PV terms provided")
 		}
@@ -156,6 +158,7 @@ func TestApplyPVNodeAffinity(t *testing.T) {
 		}
 		b.Resource.Spec.Template.Spec.Affinity = existing
 		b.ApplyPVNodeAffinity(nil)
+
 		if !reflect.DeepEqual(b.Resource.Spec.Template.Spec.Affinity, existing) {
 			t.Error("affinity should not change when no PV terms provided")
 		}
@@ -170,6 +173,7 @@ func TestApplyPVNodeAffinity(t *testing.T) {
 		if a == nil || a.NodeAffinity == nil || a.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
 			t.Fatal("affinity should be set")
 		}
+
 		got := a.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
 		if !reflect.DeepEqual(got, terms) {
 			t.Errorf("expected %v, got %v", terms, got)
@@ -188,10 +192,12 @@ func TestApplyPVNodeAffinity(t *testing.T) {
 		b.ApplyPVNodeAffinity(pvTerms)
 
 		a := b.Resource.Spec.Template.Spec.Affinity
+
 		got := a.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
 		if len(got) != 1 {
 			t.Fatalf("expected 1 term (cross-product of 1x1), got %d", len(got))
 		}
+
 		if len(got[0].MatchExpressions) != 2 {
 			t.Errorf("expected 2 match expressions (class + PV), got %d", len(got[0].MatchExpressions))
 		}
@@ -221,6 +227,7 @@ func TestApplyPVNodeAffinity(t *testing.T) {
 		if len(got) != 4 {
 			t.Fatalf("expected 4 terms (cross-product 2x2), got %d", len(got))
 		}
+
 		for i, term := range got {
 			if len(term.MatchExpressions) != 2 {
 				t.Errorf("term %d: expected 2 match expressions, got %d", i, len(term.MatchExpressions))
@@ -291,6 +298,7 @@ func TestSetOsType(t *testing.T) {
 		if err := builder.SetOSType(v1alpha2.Windows); err != nil {
 			t.Fatalf("SetOSType(Windows) failed: %v", err)
 		}
+
 		builder.SetTablet("default-0")
 
 		if err := builder.SetOSType(v1alpha2.LegacyOs); err != nil {
@@ -306,9 +314,11 @@ func TestSetOsType(t *testing.T) {
 		if domain.Features.SMM == nil || ptr.Deref(domain.Features.SMM.Enabled, true) {
 			t.Errorf("expected SMM disabled, got %+v", domain.Features.SMM)
 		}
+
 		if domain.Features.Hyperv != nil {
 			t.Error("hyperv enlightenments should be absent for Legacy")
 		}
+
 		if domain.Devices.TPM != nil || domain.Devices.Rng != nil {
 			t.Error("TPM and RNG should be absent for Legacy")
 		}
@@ -327,6 +337,7 @@ func TestSetOsType(t *testing.T) {
 		if err := builder.SetCPU(4, "100%"); err != nil {
 			t.Fatalf("SetCPU failed: %v", err)
 		}
+
 		builder.SetMemory(resource.MustParse("2Gi"))
 
 		domain := builder.Resource.Spec.Template.Spec.Domain
@@ -334,12 +345,15 @@ func TestSetOsType(t *testing.T) {
 			t.Errorf("expected maxSockets == sockets to rule out cpu hotplug, got %d and %d",
 				domain.CPU.MaxSockets, domain.CPU.Sockets)
 		}
+
 		if _, ok := builder.Resource.Spec.Template.ObjectMeta.Annotations[VCPUTopologyDynamicCoresAnnotation]; ok {
 			t.Error("dynamic cores annotation should be absent for Legacy")
 		}
+
 		if domain.Memory != nil {
 			t.Errorf("domain.memory should be unset to rule out memory hotplug, got %+v", domain.Memory)
 		}
+
 		if _, ok := domain.Resources.Limits[corev1.ResourceMemory]; !ok {
 			t.Error("memory should be set through resources limits for Legacy")
 		}
@@ -356,6 +370,7 @@ func TestSetOsType(t *testing.T) {
 			if domain.Machine == nil || domain.Machine.Type != "q35" {
 				t.Errorf("%s: expected q35 machine type, got %+v", osType, domain.Machine)
 			}
+
 			if domain.Features.SMM == nil || !ptr.Deref(domain.Features.SMM.Enabled, false) {
 				t.Errorf("%s: expected SMM enabled, got %+v", osType, domain.Features.SMM)
 			}
@@ -369,13 +384,16 @@ func TestSetDiskBus(t *testing.T) {
 			if d.Name != name {
 				continue
 			}
+
 			if d.CDRom != nil {
 				return d.CDRom.Bus
 			}
+
 			if d.Disk != nil {
 				return d.Disk.Bus
 			}
 		}
+
 		return ""
 	}
 
@@ -392,6 +410,7 @@ func TestSetDiskBus(t *testing.T) {
 		})
 
 		b.SetNetworkInterface("default", "", 0)
+
 		if model := b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces[0].Model; model != nicModelVirtio {
 			t.Errorf("expected the virtio adapter, got %q", model)
 		}
@@ -399,6 +418,7 @@ func TestSetDiskBus(t *testing.T) {
 		if err := b.SetOSType(v1alpha2.LegacyOs); err != nil {
 			t.Fatal(err)
 		}
+
 		if machine := b.Resource.Spec.Template.Spec.Domain.Machine; machine == nil || machine.Type != "pc" {
 			t.Errorf("expected the i440fx machine to stay, got %+v", machine)
 		}
@@ -419,6 +439,7 @@ func TestSetDiskBus(t *testing.T) {
 			if err := b.SetOSType(osType); err != nil {
 				t.Fatal(err)
 			}
+
 			if transitional := b.Resource.Spec.Template.Spec.Domain.Devices.UseVirtioTransitional; transitional != nil {
 				t.Errorf("%s: transitional virtio devices leaked from Legacy, got %v", osType, *transitional)
 			}
@@ -430,6 +451,7 @@ func TestSetDiskBus(t *testing.T) {
 		if err := old.SetDisk("disk", SetDiskOptions{ContainerDisk: ptr.To("img")}); err != nil {
 			t.Fatal(err)
 		}
+
 		if bus := getBus(old, "disk"); bus != virtv1.DiskBusSATA {
 			t.Fatalf("expected sata disk bus before flip, got %q", bus)
 		}
@@ -438,6 +460,7 @@ func TestSetDiskBus(t *testing.T) {
 		if err := flipped.SetDisk("disk", SetDiskOptions{ContainerDisk: ptr.To("img")}); err != nil {
 			t.Fatal(err)
 		}
+
 		if bus := getBus(flipped, "disk"); bus != virtv1.DiskBusSCSI {
 			t.Errorf("expected scsi disk bus after flip, got %q", bus)
 		}
@@ -451,6 +474,7 @@ func TestSetProvisioning(t *testing.T) {
 				return true
 			}
 		}
+
 		return false
 	}
 	hasVolume := func(b *KVVM, name string) bool {
@@ -459,6 +483,7 @@ func TestSetProvisioning(t *testing.T) {
 				return true
 			}
 		}
+
 		return false
 	}
 
@@ -476,6 +501,7 @@ func TestSetProvisioning(t *testing.T) {
 		if err := b.SetProvisioning(cloudInit); err != nil {
 			t.Fatalf("SetProvisioning(cloudInit) failed: %v", err)
 		}
+
 		if !hasDisk(b, CloudInitDiskName) || !hasVolume(b, CloudInitDiskName) {
 			t.Fatal("cloudinit disk and volume should be present after setting provisioning")
 		}
@@ -483,6 +509,7 @@ func TestSetProvisioning(t *testing.T) {
 		if err := b.SetProvisioning(nil); err != nil {
 			t.Fatalf("SetProvisioning(nil) failed: %v", err)
 		}
+
 		if hasDisk(b, CloudInitDiskName) || hasVolume(b, CloudInitDiskName) {
 			t.Error("cloudinit disk and volume should be removed after removing provisioning")
 		}
@@ -493,6 +520,7 @@ func TestSetProvisioning(t *testing.T) {
 		if err := b.SetProvisioning(sysprep); err != nil {
 			t.Fatalf("SetProvisioning(sysprep) failed: %v", err)
 		}
+
 		if !hasDisk(b, SysprepDiskName) || !hasVolume(b, SysprepDiskName) {
 			t.Fatal("sysprep disk and volume should be present after setting provisioning")
 		}
@@ -500,6 +528,7 @@ func TestSetProvisioning(t *testing.T) {
 		if err := b.SetProvisioning(nil); err != nil {
 			t.Fatalf("SetProvisioning(nil) failed: %v", err)
 		}
+
 		if hasDisk(b, SysprepDiskName) || hasVolume(b, SysprepDiskName) {
 			t.Error("sysprep disk and volume should be removed after removing provisioning")
 		}
@@ -510,6 +539,7 @@ func TestSetProvisioning(t *testing.T) {
 		if err := b.SetProvisioning(cloudInit); err != nil {
 			t.Fatalf("SetProvisioning(cloudInit) failed: %v", err)
 		}
+
 		if err := b.SetProvisioning(sysprep); err != nil {
 			t.Fatalf("SetProvisioning(sysprep) failed: %v", err)
 		}
@@ -517,6 +547,7 @@ func TestSetProvisioning(t *testing.T) {
 		if hasDisk(b, CloudInitDiskName) || hasVolume(b, CloudInitDiskName) {
 			t.Error("cloudinit disk and volume should be removed after switching to sysprep")
 		}
+
 		if !hasDisk(b, SysprepDiskName) || !hasVolume(b, SysprepDiskName) {
 			t.Error("sysprep disk and volume should be present after switching to sysprep")
 		}
@@ -541,9 +572,11 @@ func TestSetNetworkInterfaceAbsent(t *testing.T) {
 			if iface.State != virtv1.InterfaceStateAbsent {
 				t.Errorf("expected State %q, got %q", virtv1.InterfaceStateAbsent, iface.State)
 			}
+
 			return
 		}
 	}
+
 	t.Error("interface veth_n12345678 not found")
 }
 
@@ -559,9 +592,11 @@ func TestSetNetworkInterfaceReplacesExisting(t *testing.T) {
 			if iface.State != "" {
 				t.Errorf("expected empty State after re-add, got %q", iface.State)
 			}
+
 			return
 		}
 	}
+
 	t.Error("interface veth_n12345678 not found")
 }
 
@@ -575,17 +610,21 @@ func TestSetNetworkMarksRemovedAsAbsent(t *testing.T) {
 	}, nil)
 
 	found := false
+
 	for _, iface := range b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces {
 		if iface.Name == "veth_n12345678" {
 			found = true
+
 			if iface.State != virtv1.InterfaceStateAbsent {
 				t.Errorf("removed interface should have State %q, got %q", virtv1.InterfaceStateAbsent, iface.State)
 			}
 		}
+
 		if iface.Name == "default" && iface.State != "" {
 			t.Errorf("kept interface should have empty State, got %q", iface.State)
 		}
 	}
+
 	if !found {
 		t.Error("removed interface should be retained with absent state, not deleted")
 	}
@@ -604,17 +643,21 @@ func TestSetNetworkDropsInterfaceWhoseACPIIndexIsReused(t *testing.T) {
 	}, nil)
 
 	indexes := map[int]int{}
+
 	for _, iface := range b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces {
 		if iface.Name == "veth_cnaaaaaaaa" {
 			t.Errorf("the interface whose ACPI index is reused must be dropped, got State %q", iface.State)
 		}
+
 		indexes[iface.ACPIIndex]++
 	}
+
 	for index, count := range indexes {
 		if count > 1 {
 			t.Errorf("ACPI index %d is carried by %d interfaces, QEMU accepts only one", index, count)
 		}
 	}
+
 	for _, n := range b.Resource.Spec.Template.Spec.Networks {
 		if n.Name == "veth_cnaaaaaaaa" {
 			t.Error("the network entry must be dropped alongside the interface")
@@ -626,6 +669,7 @@ func TestSetNetworkAttachesReplacingNetworkAfterDetach(t *testing.T) {
 	b := newTestKVVM()
 	b.SetNetworkInterface("default", "", 1)
 	b.SetNetworkInterface("veth_naaaaaaaa", "aa:bb:cc:dd:ee:ff", 2)
+
 	kvvmi := &virtv1.VirtualMachineInstance{}
 	kvvmi.Spec.Domain.Devices.Interfaces = slices.Clone(b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces)
 	desired := network.InterfaceSpecList{
@@ -639,9 +683,11 @@ func TestSetNetworkAttachesReplacingNetworkAfterDetach(t *testing.T) {
 	for _, iface := range b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces {
 		states[iface.Name] = iface.State
 	}
+
 	if state, ok := states["veth_naaaaaaaa"]; !ok || state != virtv1.InterfaceStateAbsent {
 		t.Errorf("the old network must be marked absent while its interface is in the VMI, got %v", states)
 	}
+
 	if _, ok := states["veth_cnbbbbbbbb"]; ok {
 		t.Errorf("the new network must not be attached while the old one with the same ACPI index is in the VMI, got %v", states)
 	}
@@ -669,6 +715,7 @@ func TestSetNetworkRemovesDefaultEntirely(t *testing.T) {
 			t.Fatalf("default interface must be removed from KVVM template when Main is dropped (KubeVirt rejects State: absent on default)")
 		}
 	}
+
 	for _, n := range b.Resource.Spec.Template.Spec.Networks {
 		if n.Name == "default" {
 			t.Fatalf("default network entry must be removed alongside the interface")
@@ -686,14 +733,17 @@ func TestSetNetworkAddsNewInterface(t *testing.T) {
 	}, nil)
 
 	found := false
+
 	for _, iface := range b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces {
 		if iface.Name == "veth_n12345678" {
 			found = true
+
 			if iface.ACPIIndex != 2 {
 				t.Errorf("expected ACPIIndex 2, got %d", iface.ACPIIndex)
 			}
 		}
 	}
+
 	if !found {
 		t.Error("new interface should be added")
 	}
@@ -714,6 +764,7 @@ func TestSetNetworkKeepsDefaultFirstWhenMainAddedLast(t *testing.T) {
 	if got := ifaces[0].Name; got != "default" {
 		t.Errorf("default interface must be first, got order: %v", interfaceNames(ifaces))
 	}
+
 	nets := b.Resource.Spec.Template.Spec.Networks
 	if got := nets[0].Name; got != "default" {
 		t.Errorf("default network must be first, got order: %v", networkNames(nets))
@@ -725,6 +776,7 @@ func interfaceNames(ifaces []virtv1.Interface) []string {
 	for i, iface := range ifaces {
 		names[i] = iface.Name
 	}
+
 	return names
 }
 
@@ -733,5 +785,6 @@ func networkNames(nets []virtv1.Network) []string {
 	for i, n := range nets {
 		names[i] = n.Name
 	}
+
 	return names
 }

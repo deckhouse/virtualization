@@ -69,8 +69,10 @@ var _ = Describe("State fill check", func() {
 		Name:      "vm",
 	}
 
-	var ctx context.Context
-	var vm *v1alpha2.VirtualMachine
+	var (
+		ctx context.Context
+		vm  *v1alpha2.VirtualMachine
+	)
 
 	BeforeEach(func() {
 		ctx = logger.ToContext(context.TODO(), slog.Default())
@@ -185,6 +187,7 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 				Required: &corev1.NodeSelector{NodeSelectorTerms: terms},
 			}
 		}
+
 		return pv
 	}
 
@@ -226,8 +229,10 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 		ctx := logger.ToContext(context.TODO(), slog.Default())
 		err := vmResource.Fetch(ctx)
 		Expect(err).NotTo(HaveOccurred())
+
 		s := &state{client: fakeClient, vm: vmResource}
 		s.fill()
+
 		return s
 	}
 
@@ -387,6 +392,7 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 			}
 
 			objs := []client.Object{vd, pvc, pv, localSC}
+
 			for lvgName, nodeName := range lvgNodes {
 				lvg := &unstructured.Unstructured{}
 				lvg.SetGroupVersionKind(schema.GroupVersionKind{
@@ -899,6 +905,7 @@ var _ = Describe("VirtualMachineMACAddresses", func() {
 			fakeClient, vmFactoryByVM(vm), vmStatusGetter,
 		)
 		Expect(vmResource.Fetch(logger.ToContext(context.TODO(), slog.Default()))).To(Succeed())
+
 		return &state{client: fakeClient, vm: vmResource}
 	}
 
@@ -907,6 +914,7 @@ var _ = Describe("VirtualMachineMACAddresses", func() {
 		for _, vmmac := range vmmacs {
 			out = append(out, vmmac.GetName())
 		}
+
 		return out
 	}
 

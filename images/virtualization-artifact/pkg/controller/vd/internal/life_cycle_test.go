@@ -44,6 +44,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 		"Check on LifeCycle.Cleanup after spec changes",
 		func(args cleanupAfterSpecChangeTestArgs) {
 			var sourcesMock SourcesMock
+
 			args.ReadyCondition.Type = vdcondition.ReadyType.String()
 			cleanUpCalled := false
 			vd := v1alpha2.VirtualDisk{
@@ -149,7 +150,9 @@ var _ = Describe("LifeCycleHandler Run", func() {
 		func(args cleanupAfterScNotReadyTestArgs) {
 			args.ReadyCondition.Type = vdcondition.ReadyType.String()
 			args.StorageClassReadyCondition.Type = vdcondition.StorageClassReadyType.String()
+
 			var sourcesMock SourcesMock
+
 			cleanUpCalled := false
 			vd := v1alpha2.VirtualDisk{
 				Status: v1alpha2.VirtualDiskStatus{
@@ -242,6 +245,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 		"Message propagation and DatasourceIsNotFound reason",
 		func(datasourceReason, expectedReadyReason string) {
 			var sourcesMock SourcesMock
+
 			recorder := &eventrecord.EventRecorderLoggerMock{
 				EventFunc: func(_ client.Object, _, _, _ string) {},
 			}
@@ -298,6 +302,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 		"Phase/progress invariants on the final status",
 		func(phase v1alpha2.DiskPhase, syncProgress, expectedProgress string) {
 			var sourcesMock SourcesMock
+
 			sourcesMock.ChangedFunc = func(_ context.Context, _ *v1alpha2.VirtualDisk) bool {
 				return false
 			}
@@ -305,6 +310,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 				return &source.HandlerMock{SyncFunc: func(_ context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error) {
 					vd.Status.Phase = phase
 					vd.Status.Progress = syncProgress
+
 					return reconcile.Result{}, nil
 				}}, true
 			}
@@ -353,6 +359,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 
 	It("surfaces a namespace-terminating sync error on the Ready condition without failing the reconcile", func() {
 		var sourcesMock SourcesMock
+
 		sourcesMock.ChangedFunc = func(_ context.Context, _ *v1alpha2.VirtualDisk) bool {
 			return false
 		}
@@ -398,6 +405,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 
 	It("should handle a VirtualDisk without data source", func() {
 		var sourcesMock SourcesMock
+
 		recorder := &eventrecord.EventRecorderLoggerMock{
 			EventFunc: func(_ client.Object, _, _, _ string) {},
 		}
@@ -470,7 +478,9 @@ var _ = Describe("LifeCycleHandler Run", func() {
 		}
 
 		k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vi, vdSC, viSC).Build()
+
 		var sourcesMock SourcesMock
+
 		sourcesMock.ChangedFunc = func(_ context.Context, _ *v1alpha2.VirtualDisk) bool {
 			return false
 		}

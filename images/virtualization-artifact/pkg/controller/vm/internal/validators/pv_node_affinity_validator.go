@@ -65,6 +65,7 @@ func (v *PVNodeAffinityValidator) validateScheduledVM(ctx context.Context, oldVM
 	if err != nil {
 		return nil, fmt.Errorf("failed to get KVVMI for VM %q: %w", newVM.Name, err)
 	}
+
 	if kvvmi == nil {
 		return nil, nil
 	}
@@ -75,6 +76,7 @@ func (v *PVNodeAffinityValidator) validateScheduledVM(ctx context.Context, oldVM
 	}
 
 	var incompatibleDisks []string
+
 	for _, ref := range newVM.Spec.BlockDeviceRefs {
 		if _, existed := oldRefs[string(ref.Kind)+"/"+ref.Name]; existed {
 			continue
@@ -84,6 +86,7 @@ func (v *PVNodeAffinityValidator) validateScheduledVM(ctx context.Context, oldVM
 		if err != nil {
 			return nil, err
 		}
+
 		if ad == nil || ad.PVCName == "" {
 			continue
 		}
@@ -92,6 +95,7 @@ func (v *PVNodeAffinityValidator) validateScheduledVM(ctx context.Context, oldVM
 		if err != nil {
 			return nil, fmt.Errorf("failed to get PVC %q: %w", ad.PVCName, err)
 		}
+
 		if pvc == nil {
 			continue
 		}
@@ -100,6 +104,7 @@ func (v *PVNodeAffinityValidator) validateScheduledVM(ctx context.Context, oldVM
 		if err != nil {
 			return nil, fmt.Errorf("failed to check PV availability: %w", err)
 		}
+
 		if !available {
 			incompatibleDisks = append(incompatibleDisks, ref.Name)
 		}
@@ -120,6 +125,7 @@ func (v *PVNodeAffinityValidator) validateUnscheduledVM(ctx context.Context, vm 
 	if err != nil {
 		return nil, err
 	}
+
 	if len(pvSelectors) == 0 {
 		return nil, nil
 	}
@@ -129,6 +135,7 @@ func (v *PVNodeAffinityValidator) validateUnscheduledVM(ctx context.Context, vm 
 		if k8serrors.IsNotFound(err) {
 			return nil, nil
 		}
+
 		return nil, fmt.Errorf("get VirtualMachineClass %q: %w", vm.Spec.VirtualMachineClassName, err)
 	}
 
@@ -139,20 +146,25 @@ func (v *PVNodeAffinityValidator) validateUnscheduledVM(ctx context.Context, vm 
 
 	for i := range nodeList.Items {
 		node := &nodeList.Items[i]
+
 		match, err := nodeaffinity.MatchesVMPlacement(node, vm, &vmClass)
 		if err != nil {
 			return nil, fmt.Errorf("match VM placement for node %q: %w", node.Name, err)
 		}
+
 		if !match {
 			continue
 		}
+
 		matchesAllPVs := true
+
 		for _, pvSel := range pvSelectors {
 			if !pvSel.Match(node) {
 				matchesAllPVs = false
 				break
 			}
 		}
+
 		if matchesAllPVs {
 			return nil, nil
 		}
@@ -166,12 +178,15 @@ func (v *PVNodeAffinityValidator) validateUnscheduledVM(ctx context.Context, vm 
 
 func (v *PVNodeAffinityValidator) collectPVNodeSelectors(ctx context.Context, refs []v1alpha2.BlockDeviceSpecRef, namespace string) ([]*k8snodeaffinity.NodeSelector, error) {
 	log := logger.FromContext(ctx)
+
 	var selectors []*k8snodeaffinity.NodeSelector
+
 	for _, ref := range refs {
 		ad, err := v.resolveAttachmentDisk(ctx, ref, namespace)
 		if err != nil {
 			return nil, err
 		}
+
 		if ad == nil || ad.PVCName == "" {
 			continue
 		}
@@ -180,6 +195,7 @@ func (v *PVNodeAffinityValidator) collectPVNodeSelectors(ctx context.Context, re
 		if err != nil {
 			return nil, fmt.Errorf("failed to get PVC %q: %w", ad.PVCName, err)
 		}
+
 		if pvc == nil || pvc.Spec.VolumeName == "" {
 			continue
 		}
@@ -189,6 +205,7 @@ func (v *PVNodeAffinityValidator) collectPVNodeSelectors(ctx context.Context, re
 			if k8serrors.IsNotFound(err) {
 				continue
 			}
+
 			return nil, fmt.Errorf("get PersistentVolume %q: %w", pvc.Spec.VolumeName, err)
 		}
 
@@ -201,42 +218,51 @@ func (v *PVNodeAffinityValidator) collectPVNodeSelectors(ctx context.Context, re
 		if err != nil {
 			return nil, fmt.Errorf("build node selector for PV %q: %w", pvc.Spec.VolumeName, err)
 		}
+
 		selectors = append(selectors, ns)
 	}
+
 	return selectors, nil
 }
 
 func (v *PVNodeAffinityValidator) resolveAttachmentDisk(ctx context.Context, ref v1alpha2.BlockDeviceSpecRef, namespace string) (*service.AttachmentDisk, error) {
 	log := logger.FromContext(ctx)
+
 	switch ref.Kind {
 	case v1alpha2.DiskDevice:
 		vd, err := v.attacher.GetVirtualDisk(ctx, ref.Name, namespace)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get VirtualDisk %q: %w", ref.Name, err)
 		}
+
 		if vd == nil {
 			log.Info("VirtualDisk not found, skipping PV node affinity check", "name", ref.Name, "namespace", namespace)
 			return nil, nil
 		}
+
 		return service.NewAttachmentDiskFromVirtualDisk(vd), nil
 	case v1alpha2.ImageDevice:
 		vi, err := v.attacher.GetVirtualImage(ctx, ref.Name, namespace)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get VirtualImage %q: %w", ref.Name, err)
 		}
+
 		if vi == nil {
 			log.Info("VirtualImage not found, skipping PV node affinity check", "name", ref.Name, "namespace", namespace)
 			return nil, nil
 		}
+
 		return service.NewAttachmentDiskFromVirtualImage(vi), nil
 	case v1alpha2.ClusterImageDevice:
 		cvi, err := v.attacher.GetClusterVirtualImage(ctx, ref.Name)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get ClusterVirtualImage %q: %w", ref.Name, err)
 		}
+
 		if cvi == nil {
 			return nil, nil
 		}
+
 		return service.NewAttachmentDiskFromClusterVirtualImage(cvi), nil
 	default:
 		return nil, nil

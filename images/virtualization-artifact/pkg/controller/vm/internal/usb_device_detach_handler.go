@@ -65,6 +65,7 @@ func (h *USBDeviceDetachHandler) Handle(ctx context.Context, s state.VirtualMach
 	}
 
 	currentStatusMap := make(map[string]*v1alpha2.USBDeviceStatusRef)
+
 	for i := range changed.Status.USBDevices {
 		device := &changed.Status.USBDevices[i]
 		currentStatusMap[device.Name] = device
@@ -98,6 +99,7 @@ func (h *USBDeviceDetachHandler) Handle(ctx context.Context, s state.VirtualMach
 				log.Error("failed to detach USB device (device not found)", "error", err, "usbDevice", usbDeviceRef.Name)
 				return reconcile.Result{}, fmt.Errorf("failed to detach USB device %s (device not found): %w", usbDeviceRef.Name, err)
 			}
+
 			continue
 		}
 
@@ -107,6 +109,7 @@ func (h *USBDeviceDetachHandler) Handle(ctx context.Context, s state.VirtualMach
 				log.Error("failed to detach USB device (device deleting)", "error", err, "usbDevice", usbDeviceRef.Name)
 				return reconcile.Result{}, fmt.Errorf("failed to detach USB device %s (device deleting): %w", usbDeviceRef.Name, err)
 			}
+
 			continue
 		}
 

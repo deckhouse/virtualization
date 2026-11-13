@@ -46,6 +46,7 @@ var _ = Describe("PVC protection", func() {
 		} {
 			Expect(f(scheme)).To(Succeed())
 		}
+
 		return scheme
 	}
 
@@ -76,6 +77,7 @@ var _ = Describe("PVC protection", func() {
 				},
 			})
 		}
+
 		return &virtv1.VirtualMachine{
 			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
 			Spec: virtv1.VirtualMachineSpec{
@@ -90,12 +92,14 @@ var _ = Describe("PVC protection", func() {
 		fakeClient := fake.NewClientBuilder().WithScheme(newScheme()).WithObjects(objs...).Build()
 		protection := service.NewProtectionService(fakeClient, v1alpha2.FinalizerPVCProtection)
 		Expect(reconcilePVCProtection(context.Background(), fakeClient, protection, ns)).To(Succeed())
+
 		return fakeClient
 	}
 
 	hasProtection := func(cl client.Client, pvcName string) bool {
 		pvc := &corev1.PersistentVolumeClaim{}
 		Expect(cl.Get(context.Background(), types.NamespacedName{Name: pvcName, Namespace: ns}, pvc)).To(Succeed())
+
 		return controllerutil.ContainsFinalizer(pvc, v1alpha2.FinalizerPVCProtection)
 	}
 

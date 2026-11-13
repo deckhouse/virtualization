@@ -95,7 +95,9 @@ func (h *GPUResourceClaimHandler) Handle(ctx context.Context, s state.VirtualMac
 			if err := h.client.Create(ctx, template); err != nil && !apierrors.IsAlreadyExists(err) {
 				return reconcile.Result{}, fmt.Errorf("failed to create GPU ResourceClaimTemplate: %w", err)
 			}
+
 			log.Info("created GPU ResourceClaimTemplate", "template", templateName)
+
 			continue
 		}
 
@@ -106,13 +108,16 @@ func (h *GPUResourceClaimHandler) Handle(ctx context.Context, s state.VirtualMac
 		if gpuClaimTemplateUpToDate(template, desiredSpec) {
 			continue
 		}
+
 		if err := h.client.Delete(ctx, template); err != nil && !apierrors.IsNotFound(err) {
 			return reconcile.Result{}, fmt.Errorf("failed to delete outdated GPU ResourceClaimTemplate: %w", err)
 		}
+
 		template = buildGPUResourceClaimTemplate(vm, templateName, desiredSpec)
 		if err := h.client.Create(ctx, template); err != nil && !apierrors.IsAlreadyExists(err) {
 			return reconcile.Result{}, fmt.Errorf("failed to recreate GPU ResourceClaimTemplate: %w", err)
 		}
+
 		log.Info("recreated GPU ResourceClaimTemplate", "template", templateName)
 	}
 
@@ -123,6 +128,7 @@ func (h *GPUResourceClaimHandler) Handle(ctx context.Context, s state.VirtualMac
 	if err := h.reconcileGPUClassReadyCondition(ctx, vm); err != nil {
 		return reconcile.Result{}, err
 	}
+
 	return reconcile.Result{}, nil
 }
 
@@ -139,9 +145,11 @@ func (h *GPUResourceClaimHandler) reconcileGPUClassReadyCondition(ctx context.Co
 	cb := conditions.NewConditionBuilder(vmcondition.TypeGPUClassReady).Generation(vm.GetGeneration())
 
 	var missing, notReady []string
+
 	for _, device := range vm.Spec.GPUs {
 		gpuClass := &unstructured.Unstructured{}
 		gpuClass.SetGroupVersionKind(kvbuilder.GPUClassGVK)
+
 		err := h.client.Get(ctx, types.NamespacedName{Name: device.GPUClassName}, gpuClass)
 		switch {
 		case apierrors.IsNotFound(err), meta.IsNoMatchError(err):
@@ -169,7 +177,9 @@ func (h *GPUResourceClaimHandler) reconcileGPUClassReadyCondition(ctx context.Co
 			Reason(vmcondition.ReasonGPUClassReady).
 			Message("")
 	}
+
 	conditions.SetCondition(cb, &vm.Status.Conditions)
+
 	return nil
 }
 
@@ -179,15 +189,18 @@ func gpuClassReady(gpuClass *unstructured.Unstructured) bool {
 	if err != nil || !found {
 		return false
 	}
+
 	for _, c := range conds {
 		cond, ok := c.(map[string]interface{})
 		if !ok {
 			continue
 		}
+
 		if cond["type"] == "Ready" {
 			return cond["status"] == string(metav1.ConditionTrue)
 		}
 	}
+
 	return false
 }
 
@@ -213,6 +226,7 @@ func gpuClaimTemplateUpToDate(template *resourcev1.ResourceClaimTemplate, desire
 	if !ok {
 		return reflect.DeepEqual(template.Spec, desiredSpec)
 	}
+
 	return storedHash == gpuClaimSpecHash(desiredSpec)
 }
 
@@ -225,6 +239,7 @@ func gpuClaimSpecHash(spec resourcev1.ResourceClaimTemplateSpec) string {
 
 func buildGPUResourceClaimTemplateSpec(index int, device v1alpha2.GPUDeviceSpec) resourcev1.ResourceClaimTemplateSpec {
 	requestName := kvbuilder.GPUResourceClaimName(index)
+
 	return resourcev1.ResourceClaimTemplateSpec{
 		Spec: resourcev1.ResourceClaimSpec{
 			Devices: resourcev1.DeviceClaim{
@@ -262,12 +277,15 @@ func (h *GPUResourceClaimHandler) deleteOrphanedTemplates(ctx context.Context, v
 		if !metav1.IsControlledBy(template, vm) || !kvbuilder.IsGPUResourceClaimTemplateName(vm.Name, template.Name) {
 			continue
 		}
+
 		if _, ok := desiredTemplateNames[template.Name]; ok {
 			continue
 		}
+
 		if err := h.client.Delete(ctx, template); err != nil && !apierrors.IsNotFound(err) {
 			return fmt.Errorf("failed to delete GPU ResourceClaimTemplate: %w", err)
 		}
 	}
+
 	return nil
 }

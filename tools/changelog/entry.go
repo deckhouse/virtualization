@@ -60,18 +60,23 @@ func LoadSections(path string) (Sections, error) {
 	if err != nil {
 		return nil, fmt.Errorf("allowed sections: %w", err)
 	}
+
 	sections := Sections{}
+
 	for _, raw := range strings.Split(string(content), "\n") {
 		line := strings.TrimSpace(raw)
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
+
 		name, forced, _ := strings.Cut(line, ":")
 		if !knownLevels[forced] {
 			forced = ""
 		}
+
 		sections[name] = forced
 	}
+
 	return sections, nil
 }
 
@@ -81,9 +86,11 @@ func (s Sections) Level(entry Entry) string {
 	if forced := s[entry.Section]; forced != "" {
 		return forced
 	}
+
 	if entry.ImpactLevel == "" {
 		return levelDefault
 	}
+
 	return entry.ImpactLevel
 }
 
@@ -97,15 +104,19 @@ func (e Entry) Validate(sections Sections) []string {
 	if e.Summary == "" {
 		problems = append(problems, "missing summary")
 	}
+
 	if !knownLevels[level] {
 		problems = append(problems, fmt.Sprintf("invalid impact level '%s'", level))
 	}
+
 	if level == levelHigh && e.Impact == "" {
 		problems = append(problems, "missing high impact detail (add an 'impact' key)")
 	}
+
 	if e.Section == "" {
 		problems = append(problems, "missing section")
 	}
+
 	if _, ok := indexOf(allowedTypes, e.Type); !ok {
 		if e.Type == "" {
 			problems = append(problems, "missing type")
@@ -114,6 +125,7 @@ func (e Entry) Validate(sections Sections) []string {
 				e.Type, strings.Join(allowedTypes, ", ")))
 		}
 	}
+
 	sort.Strings(problems)
 
 	// Reported last, and only when the section is written: an entry with no
@@ -122,6 +134,7 @@ func (e Entry) Validate(sections Sections) []string {
 		problems = append(problems, fmt.Sprintf("unknown section '%s' (see %s)",
 			e.Section, defaultSectionsFile))
 	}
+
 	return problems
 }
 
@@ -131,5 +144,6 @@ func indexOf(values []string, value string) (int, bool) {
 			return i, true
 		}
 	}
+
 	return 0, false
 }

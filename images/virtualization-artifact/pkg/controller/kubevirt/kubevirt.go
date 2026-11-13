@@ -38,6 +38,7 @@ func (kv *KubeVirt) GetFeatureGates() []string {
 	if conf := kv.kubevirt.Spec.Configuration; conf.DeveloperConfiguration != nil {
 		return conf.DeveloperConfiguration.FeatureGates
 	}
+
 	return nil
 }
 
@@ -51,6 +52,7 @@ func (kv *KubeVirt) IsEnabledFeatureGate(featureGate string) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -59,19 +61,23 @@ func New(ctx context.Context, c client.Client, namespace string) (*KubeVirt, err
 	if err != nil {
 		return nil, err
 	}
+
 	return &KubeVirt{kubevirt: *kv}, nil
 }
 
 func GetKubeVirt(ctx context.Context, c client.Client, namespace string) (*virtv1.KubeVirt, error) {
 	kubevirts := virtv1.KubeVirtList{}
+
 	err := c.List(ctx, &kubevirts, client.InNamespace(namespace))
 	if err != nil {
 		return nil, err
 	}
+
 	for _, kv := range kubevirts.Items {
 		if kv.DeletionTimestamp == nil && kv.Status.Phase != "" {
 			return &kv, nil
 		}
 	}
+
 	return nil, fmt.Errorf("kubevirt not found")
 }

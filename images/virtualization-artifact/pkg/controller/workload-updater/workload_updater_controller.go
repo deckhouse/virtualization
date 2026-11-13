@@ -55,6 +55,7 @@ func SetupController(
 		handler.NewNodePlacementHandler(client, service.NewOneShotMigrationService(client, recorder, commonvmop.NodePlacementUpdatePrefix)),
 	}
 	isMemoryHotplug := featuregates.Default().Enabled(featuregates.HotplugMemoryWithLiveMigration)
+
 	isCPUHotplug := featuregates.Default().Enabled(featuregates.HotplugCPUWithLiveMigration)
 	if isMemoryHotplug || isCPUHotplug {
 		hotplugHandler := handler.NewHotplugHandler(
@@ -66,6 +67,7 @@ func SetupController(
 		)
 		handlers = append(handlers, hotplugHandler)
 	}
+
 	r := NewReconciler(client, handlers)
 
 	c, err := controller.New(ControllerName, mgr, controller.Options{
@@ -84,5 +86,6 @@ func SetupController(
 	}
 
 	log.Info("Initialized workload-updater controller")
+
 	return nil
 }

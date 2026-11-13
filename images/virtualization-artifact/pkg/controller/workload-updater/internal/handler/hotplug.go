@@ -126,6 +126,7 @@ func (h *HotplugHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualMachine
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	vmops, err := h.listMigrations(ctx, vm)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -147,6 +148,7 @@ func (h *HotplugHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualMachine
 		h.forgetInplaceResizeWait(vm)
 	} else {
 		completed := h.inplaceResize.IsCompleted(kvvmi)
+
 		possible, err := h.inplaceResize.IsPossible(ctx, kvvmi)
 		switch {
 		case err == nil && possible:
@@ -159,10 +161,12 @@ func (h *HotplugHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualMachine
 			if !hasPendingHotplug(kvvmi) {
 				return reconcile.Result{}, nil
 			}
+
 			elapsed := h.noteInplaceResizeWait(vm, hotplugmigration.Key(kvvmi))
 			if elapsed < h.inplaceResizeTimeout {
 				return reconcile.Result{RequeueAfter: 1 * time.Second}, nil
 			}
+
 			if h.noteInplaceResizeFallback(vm) {
 				log.Info("The runtime has not applied the changes after the inplace resize, switch to resize via live migration",
 					"timeout", h.inplaceResizeTimeout.String())
@@ -184,6 +188,7 @@ func (h *HotplugHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualMachine
 				} else {
 					log.Debug("Waiting for inplace resize condition, requeue after 1 second")
 				}
+
 				return reconcile.Result{RequeueAfter: 1 * time.Second}, nil
 			}
 
@@ -245,11 +250,13 @@ func (h *HotplugHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualMachine
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	if !migrate {
 		return reconcile.Result{RequeueAfter: hotplugMigrationRetryInterval}, nil
 	}
 
 	log.Info("The virtual machine was triggered to migrate by the hotplug resources handler.")
+
 	return reconcile.Result{}, nil
 }
 
@@ -259,12 +266,15 @@ func (h *HotplugHandler) listMigrations(ctx context.Context, vm *v1alpha2.Virtua
 		client.MatchingFields{indexer.IndexFieldVMOPByVM: vm.GetName()}); err != nil {
 		return nil, fmt.Errorf("list virtual machine operations: %w", err)
 	}
+
 	var vmops []*v1alpha2.VirtualMachineOperation
+
 	for i := range vmopList.Items {
 		if commonvmop.IsMigration(&vmopList.Items[i]) {
 			vmops = append(vmops, &vmopList.Items[i])
 		}
 	}
+
 	return vmops, nil
 }
 
@@ -332,6 +342,7 @@ func hasPendingHotplug(kvvmi *virtv1.VirtualMachineInstance) bool {
 			return true
 		}
 	}
+
 	return false
 }
 

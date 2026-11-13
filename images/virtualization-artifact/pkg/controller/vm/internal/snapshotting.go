@@ -51,6 +51,7 @@ func (h *SnapshottingHandler) Handle(ctx context.Context, s state.VirtualMachine
 	}
 
 	var vmSnapshots v1alpha2.VirtualMachineSnapshotList
+
 	err := h.client.List(ctx, &vmSnapshots, client.InNamespace(vm.Namespace))
 	if err != nil {
 		return reconcile.Result{}, err
@@ -78,11 +79,13 @@ func (h *SnapshottingHandler) Handle(ctx context.Context, s state.VirtualMachine
 			cb.Status(metav1.ConditionTrue).
 				Message("The virtual machine is selected for taking a snapshot.").
 				Reason(vmcondition.WaitingForTheSnapshotToStart)
+
 			continue
 		case v1alpha2.VirtualMachineSnapshotPhaseInProgress:
 			cb.Status(metav1.ConditionTrue).
 				Message("The virtual machine is in the process of snapshotting.").
 				Reason(vmcondition.ReasonSnapshottingInProgress)
+
 			return reconcile.Result{}, nil
 		default:
 			continue

@@ -116,6 +116,7 @@ func NewController(
 	if dvcrSettings.ImageMonitorSchedule != "" {
 		lister := gc.NewObjectLister(func(ctx context.Context, now time.Time) ([]client.Object, error) {
 			cviList := &v1alpha2.ClusterVirtualImageList{}
+
 			fieldSelector := fields.OneTermEqualSelector(indexer.IndexFieldCVIByPhase, indexer.ReadyDVCRImage)
 			if err := mgr.GetClient().List(ctx, cviList, &client.ListOptions{FieldSelector: fieldSelector}); err != nil {
 				return nil, err
@@ -125,6 +126,7 @@ func NewController(
 			for i := range cviList.Items {
 				objs = append(objs, &cviList.Items[i])
 			}
+
 			return objs, nil
 		})
 

@@ -30,6 +30,7 @@ func TestForIncludesKindAndOnlyGivenStatusFields(t *testing.T) {
 	}
 
 	gvk := schema.GroupVersionKind{Group: "virtualization.deckhouse.io", Version: "v1alpha2", Kind: "VirtualMachineSnapshot"}
+
 	patch, err := For(gvk, ownedStatus{Phase: "Ready"})
 	if err != nil {
 		t.Fatal(err)
@@ -39,18 +40,22 @@ func TestForIncludesKindAndOnlyGivenStatusFields(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	t.Logf("patch bytes: %s", data)
 
 	var m map[string]any
 	if err := json.Unmarshal(data, &m); err != nil {
 		t.Fatal(err)
 	}
+
 	if m["kind"] != "VirtualMachineSnapshot" {
 		t.Fatalf("kind missing or wrong: %v", m["kind"])
 	}
+
 	if m["apiVersion"] != "virtualization.deckhouse.io/v1alpha2" {
 		t.Fatalf("apiVersion missing or wrong: %v", m["apiVersion"])
 	}
+
 	status, ok := m["status"].(map[string]any)
 	if !ok || status["phase"] != "Ready" || len(status) != 1 {
 		t.Fatalf("status should carry only the given field: %v", m["status"])

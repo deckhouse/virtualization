@@ -53,6 +53,7 @@ var _ = Describe("VMSnapshotReadyStep", func() {
 			}
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -69,6 +70,7 @@ var _ = Describe("VMSnapshotReadyStep", func() {
 			vmop := createRestoreVMOP("default", "test-vmop", "test-vm", "")
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -85,6 +87,7 @@ var _ = Describe("VMSnapshotReadyStep", func() {
 			snapshot := createVMSnapshot("default", "test-snapshot", "test-secret", false)
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop, snapshot)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -101,6 +104,7 @@ var _ = Describe("VMSnapshotReadyStep", func() {
 			snapshot := createVMSnapshot("default", "test-snapshot", "test-secret", true)
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop, snapshot)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -116,6 +120,7 @@ var _ = Describe("VMSnapshotReadyStep", func() {
 			snapshot := createVMSnapshot("default", "test-snapshot", "test-secret", true)
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop, snapshot)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -138,6 +143,7 @@ var _ = Describe("VMSnapshotReadyStep", func() {
 			snapshot := createVMSnapshot("default", "test-snapshot", "test-secret", false)
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop, snapshot)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -158,6 +164,7 @@ var _ = Describe("VMSnapshotReadyStep", func() {
 			delete(vmop.Annotations, annotations.AnnVMOPSnapshotName)
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -174,6 +181,7 @@ var _ = Describe("VMSnapshotReadyStep", func() {
 			snapshot := createVMSnapshot("default", "test-snapshot", "test-secret", true)
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop, snapshot)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -212,6 +220,7 @@ var _ = Describe("VMSnapshotReadyStep", func() {
 			snapshot := createUnifiedVMSnapshot("default", "unified-snapshot", v1alpha2.VirtualMachineSnapshotPhaseInProgress, "")
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop, snapshot)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -230,6 +239,7 @@ var _ = Describe("VMSnapshotReadyStep", func() {
 			snapshot := createUnifiedVMSnapshot("default", "unified-snapshot", v1alpha2.VirtualMachineSnapshotPhaseReady, "")
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop, snapshot)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -246,6 +256,7 @@ var _ = Describe("VMSnapshotReadyStep", func() {
 			snapshot := createUnifiedVMSnapshot("default", "unified-snapshot", v1alpha2.VirtualMachineSnapshotPhaseReady, "content-1")
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop, snapshot)
 			Expect(err).NotTo(HaveOccurred())
 

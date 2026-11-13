@@ -73,11 +73,13 @@ func (w VirtualMachineOperationWatcher) Watch(mgr manager.Manager, ctr controlle
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualMachineOperation: %w", err)
 	}
+
 	return nil
 }
 
 func (w VirtualMachineOperationWatcher) enqueueRequests(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (requests []reconcile.Request) {
 	var vmbdas v1alpha2.VirtualMachineBlockDeviceAttachmentList
+
 	err := w.client.List(ctx, &vmbdas,
 		client.InNamespace(vmop.GetNamespace()),
 		client.MatchingFields{indexer.IndexFieldVMBDAByVM: vmop.Spec.VirtualMachine},

@@ -99,9 +99,11 @@ func (v *activeVMOPValidator) ValidateCreate(ctx context.Context, vmop *v1alpha2
 		if other.Spec.VirtualMachine != vmop.Spec.VirtualMachine {
 			continue
 		}
+
 		if commonvmop.IsFinished(&other) {
 			continue
 		}
+
 		if !supersede.CanSupersede(&other, vmop) {
 			return nil, fmt.Errorf("VMOP cannot be executed now. Previously created operation %q should finish first", other.Name)
 		}
@@ -120,6 +122,7 @@ func (v *localStorageMigrationValidator) ValidateCreate(ctx context.Context, vmo
 	}
 
 	vm := &v1alpha2.VirtualMachine{}
+
 	err := v.client.Get(ctx, types.NamespacedName{Name: vmop.Spec.VirtualMachine, Namespace: vmop.Namespace}, vm)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get VirtualMachine: %w", err)
@@ -131,6 +134,7 @@ func (v *localStorageMigrationValidator) ValidateCreate(ctx context.Context, vmo
 		}
 
 		vd := &v1alpha2.VirtualDisk{}
+
 		err := v.client.Get(ctx, types.NamespacedName{Name: bda.Name, Namespace: vmop.Namespace}, vd)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get VirtualDisk %s: %w", bda.Name, err)
@@ -141,6 +145,7 @@ func (v *localStorageMigrationValidator) ValidateCreate(ctx context.Context, vmo
 		}
 
 		pvc := &corev1.PersistentVolumeClaim{}
+
 		err = v.client.Get(ctx, types.NamespacedName{Name: vd.Status.Target.PersistentVolumeClaim, Namespace: vmop.Namespace}, pvc)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get PersistentVolumeClaim %s: %w", vd.Status.Target.PersistentVolumeClaim, err)

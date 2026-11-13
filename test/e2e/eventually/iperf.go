@@ -63,14 +63,17 @@ func UntilIPerfRunning(f *framework.Framework, vm *v1alpha2.VirtualMachine) {
 	GinkgoHelper()
 
 	command := "pidof iperf3"
+
 	Until(func() error {
 		stdout, err := f.SSHCommand(vm.Name, vm.Namespace, command, framework.WithSSHUser("root"))
 		if err != nil {
 			return fmt.Errorf("cmd: %s\nstderr: %w", command, err)
 		}
+
 		if strings.TrimSpace(stdout) == "" {
 			return fmt.Errorf("iperf3 is not running on %s/%s yet", vm.Namespace, vm.Name)
 		}
+
 		return nil
 	}, framework.MiddleTimeout, WithPolling(framework.PollingInterval))
 }
@@ -81,11 +84,13 @@ func StopIPerfClient(f *framework.Framework, vm *v1alpha2.VirtualMachine) {
 	GinkgoHelper()
 
 	command := "kill -INT $(pidof iperf3)"
+
 	Until(func() error {
 		_, err := f.SSHCommand(vm.Name, vm.Namespace, command, framework.WithSSHUser("root"))
 		if err != nil {
 			return fmt.Errorf("cmd: %s\nstderr: %w", command, err)
 		}
+
 		return nil
 	}, framework.MiddleTimeout, WithPolling(framework.PollingInterval))
 }
@@ -96,23 +101,30 @@ func ReadIPerfClientReport(f *framework.Framework, vm *v1alpha2.VirtualMachine, 
 	GinkgoHelper()
 
 	command := "cat " + reportPath
+
 	var result *util.IPerfReport
+
 	Until(func() error {
 		stdout, err := f.SSHCommand(vm.Name, vm.Namespace, command, framework.WithSSHUser("root"))
 		if err != nil {
 			return fmt.Errorf("cmd: %s\nstderr: %w", command, err)
 		}
+
 		report, err := util.ParseIPerfReport(stdout)
 		if err != nil {
 			return err
 		}
+
 		if report.End.SumSent.End <= 0 {
 			return fmt.Errorf("iperf3 report on %s/%s is incomplete", vm.Namespace, vm.Name)
 		}
+
 		result = report
+
 		return nil
 	}, framework.LongTimeout, WithPolling(framework.PollingInterval))
 
 	Expect(result).NotTo(BeNil())
+
 	return result
 }

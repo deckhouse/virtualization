@@ -42,5 +42,6 @@ func (c canceler) Cancel(ctx context.Context, name, namespace string) error {
 			return err
 		}
 	}
+
 	return nil
 }

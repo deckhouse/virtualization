@@ -32,6 +32,7 @@ func AutoConvergeForPolicy(policy v1alpha2.LiveMigrationPolicy) (autoConverge *b
 	case v1alpha2.AlwaysForcedMigrationPolicy, v1alpha2.PreferForcedMigrationPolicy:
 		return ptr.To(true)
 	}
+
 	return nil
 }
 

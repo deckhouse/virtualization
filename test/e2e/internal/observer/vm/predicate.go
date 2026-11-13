@@ -95,6 +95,7 @@ func BeAgentReady() Predicate {
 		if cond == nil {
 			return false, nil
 		}
+
 		return cond.Status == metav1.ConditionTrue, nil
 	}
 }
@@ -111,6 +112,7 @@ func HaveMigrationSucceeded() Predicate {
 		if state == nil || state.EndTimestamp.IsZero() {
 			return false, nil
 		}
+
 		switch state.Result {
 		case v1alpha2.MigrationResultSucceeded:
 			return true, nil
@@ -119,6 +121,7 @@ func HaveMigrationSucceeded() Predicate {
 			if migrating := findCondition(vm.Status.Conditions, vmcondition.TypeMigrating.String()); migrating != nil {
 				reason, message = migrating.Reason, migrating.Message
 			}
+
 			return false, fmt.Errorf("migration failed: reason: %s, message: %s", reason, message)
 		default:
 			return false, nil
@@ -136,6 +139,7 @@ func BeFilesystemFrozen() Predicate {
 		if cond == nil {
 			return false, nil
 		}
+
 		return cond.Status == metav1.ConditionTrue, nil
 	}
 }
@@ -161,6 +165,7 @@ func BeRebootedAfter(previousRunningTime time.Time) Predicate {
 		if cond == nil {
 			return false, nil
 		}
+
 		return cond.LastTransitionTime.After(previousRunningTime) && vm.Status.Phase == v1alpha2.MachineRunning, nil
 	}
 }
@@ -174,6 +179,7 @@ func BeRunningAfterRebootAfter(previousRunningTime time.Time) Predicate {
 		if cond == nil {
 			return false, nil
 		}
+
 		return cond.LastTransitionTime.After(previousRunningTime) && vm.Status.Phase == v1alpha2.MachineRunning && cond.Status == metav1.ConditionTrue, nil
 	}
 }
@@ -189,6 +195,7 @@ func BeAwaitingRestart() Predicate {
 		if cond == nil || cond.Status != metav1.ConditionTrue {
 			return false, nil
 		}
+
 		return vm.Status.RestartAwaitingChanges != nil, nil
 	}
 }
@@ -203,11 +210,13 @@ func HaveBlockDevicesAttached(names ...string) Predicate {
 				attached[bd.Name] = true
 			}
 		}
+
 		for _, name := range names {
 			if !attached[name] {
 				return false, nil
 			}
 		}
+
 		return true, nil
 	}
 }
@@ -221,6 +230,7 @@ func HaveBlockDeviceDetached(name string) Predicate {
 				return false, nil
 			}
 		}
+
 		return true, nil
 	}
 }
@@ -231,11 +241,13 @@ func HaveBlockDeviceDetached(name string) Predicate {
 func HaveAttachedBlockDeviceCount(count int) Predicate {
 	return func(vm *v1alpha2.VirtualMachine) (bool, error) {
 		attached := 0
+
 		for _, bd := range vm.Status.BlockDeviceRefs {
 			if bd.Attached {
 				attached++
 			}
 		}
+
 		return attached == count, nil
 	}
 }
@@ -249,6 +261,7 @@ func HaveActivePod() Predicate {
 				return true, nil
 			}
 		}
+
 		return false, nil
 	}
 }
@@ -303,12 +316,14 @@ func BeFailed() Predicate {
 		if vm.Status.Phase == v1alpha2.MachineDegraded {
 			return true, fmt.Errorf("VirtualMachine entered Degraded phase")
 		}
+
 		cond := findCondition(vm.Status.Conditions, vmcondition.TypeRunning.String())
 		if cond != nil &&
 			cond.Reason == vmcondition.ReasonInternalVirtualMachineError.String() &&
 			cond.Message != temporarilyUnknownStateMessage {
 			return true, fmt.Errorf("VirtualMachine reports an internal error: %s", cond.Message)
 		}
+
 		return false, nil
 	}
 }
@@ -332,9 +347,11 @@ func HaveNoBootableDevice() Predicate {
 		if cond == nil {
 			return false, nil
 		}
+
 		if cond.Reason == vmcondition.ReasonNoBootableDeviceFound.String() {
 			return true, fmt.Errorf("VirtualMachine reports no bootable device: %s", cond.Message)
 		}
+
 		return false, nil
 	}
 }
@@ -345,5 +362,6 @@ func findCondition(conds []metav1.Condition, condType string) *metav1.Condition 
 			return &conds[i]
 		}
 	}
+
 	return nil
 }

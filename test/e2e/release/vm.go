@@ -98,6 +98,7 @@ func expectVMSurvivedUpgrade(ctx context.Context, f *framework.Framework, s vmSc
 	}
 
 	By("Verifying the virtual machine was live-migrated and not restarted")
+
 	window := findMigrationWindow(ctx, f, vm)
 	current := getVirtualMachine(ctx, f, vm)
 	Expect(current.Status.Stats).NotTo(BeNil(), "virtual machine %s/%s has no stats", vm.Namespace, vm.Name)
@@ -116,6 +117,7 @@ func expectGuestSeesDisks(f *framework.Framework, vm *v1alpha2.VirtualMachine, d
 	eventually.SSHReadyAsRoot(f, vm, framework.LongTimeout)
 
 	By("Checking the disks inside the guest")
+
 	expected := 1 + dataDisks
 	eventually.UntilDiskCountAsRoot(f, vm.Name, vm.Namespace, Equal(expected), framework.LongTimeout,
 		eventually.WithExplanation("the guest of %s/%s must see its root disk and %d hotplugged disks", vm.Namespace, vm.Name, dataDisks))

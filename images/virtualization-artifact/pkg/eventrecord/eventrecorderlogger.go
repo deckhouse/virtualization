@@ -106,6 +106,7 @@ func (e *EventRecorderLoggerImpl) logf(involved client.Object, eventtype, reason
 	if e.logger == nil {
 		return
 	}
+
 	e.logger.Info(
 		fmt.Sprintf(messageFmt, args...),
 		eventTypeLabel, eventtype,

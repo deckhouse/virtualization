@@ -39,6 +39,7 @@ func (w *dynamicWatcher) Watch(ctx context.Context, opts metav1.ListOptions) (wa
 	if err != nil {
 		return nil, err
 	}
+
 	return newConvertingWatch(inner), nil
 }
 
@@ -55,11 +56,13 @@ func newConvertingWatch(inner watch.Interface) watch.Interface {
 		stop:   make(chan struct{}),
 	}
 	go cw.run()
+
 	return cw
 }
 
 func (cw *convertingWatch) run() {
 	defer close(cw.events)
+
 	for {
 		select {
 		case <-cw.stop:
@@ -68,10 +71,12 @@ func (cw *convertingWatch) run() {
 			if !ok {
 				return
 			}
+
 			converted, err := convertStorageProfileEvent(event)
 			if err != nil {
 				continue
 			}
+
 			select {
 			case <-cw.stop:
 				return
@@ -105,6 +110,7 @@ func unstructuredToStorageProfile(u *unstructured.Unstructured) (*storagev1alpha
 	if err := json.Unmarshal(raw, sp); err != nil {
 		return nil, err
 	}
+
 	return sp, nil
 }
 
@@ -114,6 +120,7 @@ func (cw *convertingWatch) Stop() {
 	default:
 		close(cw.stop)
 	}
+
 	cw.inner.Stop()
 }
 

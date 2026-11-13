@@ -45,6 +45,7 @@ func (s stubIterator) Iter(_ context.Context, h handler) error {
 			return nil
 		}
 	}
+
 	return nil
 }
 

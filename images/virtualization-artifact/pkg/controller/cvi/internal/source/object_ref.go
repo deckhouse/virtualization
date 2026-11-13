@@ -88,7 +88,9 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVir
 	log, ctx := logger.GetDataSourceContext(ctx, "objectref")
 
 	condition, _ := conditions.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
+
 	cb := conditions.NewConditionBuilder(cvicondition.ReadyType).Generation(cvi.Generation)
+
 	defer func() {
 		// It is necessary to avoid setting unknown for the ready condition if it was already set to true.
 		if cb.Condition().Status != metav1.ConditionUnknown || condition.Status != metav1.ConditionTrue {
@@ -99,6 +101,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVir
 	switch cvi.Spec.DataSource.ObjectRef.Kind {
 	case v1alpha2.VirtualImageKind:
 		viKey := types.NamespacedName{Name: cvi.Spec.DataSource.ObjectRef.Name, Namespace: cvi.Spec.DataSource.ObjectRef.Namespace}
+
 		vi, err := object.FetchObject(ctx, viKey, ds.client, &v1alpha2.VirtualImage{})
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("unable to get VI %s: %w", viKey, err)
@@ -113,6 +116,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVir
 		}
 	case v1alpha2.VirtualDiskKind:
 		vdKey := types.NamespacedName{Name: cvi.Spec.DataSource.ObjectRef.Name, Namespace: cvi.Spec.DataSource.ObjectRef.Namespace}
+
 		vd, err := object.FetchObject(ctx, vdKey, ds.client, &v1alpha2.VirtualDisk{})
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("unable to get VD %s: %w", vdKey, err)
@@ -126,6 +130,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVir
 
 	case v1alpha2.VirtualDiskSnapshotKind:
 		vdSnapshotKey := types.NamespacedName{Name: cvi.Spec.DataSource.ObjectRef.Name, Namespace: cvi.Spec.DataSource.ObjectRef.Namespace}
+
 		vdSnapshot, err := object.FetchObject(ctx, vdSnapshotKey, ds.client, &v1alpha2.VirtualDiskSnapshot{})
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("unable to get VDSnapshot %s: %w", vdSnapshotKey, err)
@@ -139,6 +144,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVir
 	}
 
 	supgen := supplements.NewGenerator(annotations.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
+
 	pod, err := ds.importerService.GetPod(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -178,13 +184,16 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVir
 			v1alpha2.ReasonDataSourceSyncStarted,
 			"The ObjectRef DataSource import has started",
 		)
+
 		var dvcrDataSource controller.DVCRDataSource
+
 		dvcrDataSource, err = controller.NewDVCRDataSourcesForCVMI(ctx, cvi.Spec.DataSource, ds.client)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
 		var envSettings *importer.Settings
+
 		envSettings, err = ds.getEnvSettings(cvi, supgen, dvcrDataSource)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -226,6 +235,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVir
 		cvi.Status.Phase = v1alpha2.ImageReady
 
 		var dvcrDataSource controller.DVCRDataSource
+
 		dvcrDataSource, err = controller.NewDVCRDataSourcesForCVMI(ctx, cvi.Spec.DataSource, ds.client)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -236,6 +246,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVir
 				Status(metav1.ConditionFalse).
 				Reason(cvicondition.ProvisioningFailed).
 				Message("Waiting for the source data to become ready.")
+
 			return reconcile.Result{}, nil
 		}
 
@@ -296,6 +307,7 @@ func (ds ObjectRefDataSource) Validate(ctx context.Context, cvi *v1alpha2.Cluste
 	switch cvi.Spec.DataSource.ObjectRef.Kind {
 	case v1alpha2.ClusterVirtualImageObjectRefKindVirtualImage:
 		viKey := types.NamespacedName{Name: cvi.Spec.DataSource.ObjectRef.Name, Namespace: cvi.Spec.DataSource.ObjectRef.Namespace}
+
 		vi, err := object.FetchObject(ctx, viKey, ds.client, &v1alpha2.VirtualImage{})
 		if err != nil {
 			return fmt.Errorf("unable to get VI %s: %w", viKey, err)
@@ -309,6 +321,7 @@ func (ds ObjectRefDataSource) Validate(ctx context.Context, cvi *v1alpha2.Cluste
 			if vi.Status.Phase != v1alpha2.ImageReady {
 				return NewImageNotReadyError(cvi.Spec.DataSource.ObjectRef.Name)
 			}
+
 			return nil
 		}
 
@@ -335,6 +348,7 @@ func (ds ObjectRefDataSource) Validate(ctx context.Context, cvi *v1alpha2.Cluste
 		return NewClusterImageNotReadyError(cvi.Spec.DataSource.ObjectRef.Name)
 	case v1alpha2.VirtualDiskSnapshotKind:
 		vdSnapshotKey := types.NamespacedName{Name: cvi.Spec.DataSource.ObjectRef.Name, Namespace: cvi.Spec.DataSource.ObjectRef.Namespace}
+
 		vdSnapshot, err := object.FetchObject(ctx, vdSnapshotKey, ds.client, &v1alpha2.VirtualDiskSnapshot{})
 		if err != nil {
 			return fmt.Errorf("unable to get VDSnapshot %s: %w", vdSnapshotKey, err)

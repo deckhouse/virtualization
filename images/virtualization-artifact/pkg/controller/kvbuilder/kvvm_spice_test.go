@@ -38,6 +38,7 @@ var _ = Describe("SPICE devices", func() {
 		if videoAnnotation != "" {
 			vm.ObjectMeta = metav1.ObjectMeta{Annotations: map[string]string{annotations.AnnVideo: videoAnnotation}}
 		}
+
 		return vm
 	}
 
@@ -48,6 +49,7 @@ var _ = Describe("SPICE devices", func() {
 		kvvm.SetMetadata(vm.ObjectMeta)
 		kvvm.SetSpiceDevices(vm)
 		kvvm.SetVideoModel(vm)
+
 		return kvvm.GetResource()
 	}
 

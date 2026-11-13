@@ -63,6 +63,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -104,17 +105,20 @@ func (r *Reconciler) releaseOrphanedVMOPs(ctx context.Context, vmKey types.Names
 	}
 
 	var errs error
+
 	for i := range vmops.Items {
 		vmop := &vmops.Items[i]
 		if vmop.Spec.VirtualMachine != vmKey.Name {
 			continue
 		}
+
 		if controllerutil.RemoveFinalizer(vmop, v1alpha2.FinalizerVMOPProtectionByEvacuationController) {
 			if err := r.client.Update(ctx, vmop); err != nil {
 				errs = errors.Join(errs, client.IgnoreNotFound(err))
 			}
 		}
 	}
+
 	return errs
 }
 

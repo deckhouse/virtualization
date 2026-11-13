@@ -61,6 +61,7 @@ var _ = Describe("DeletionHandler", func() {
 			Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
 
 			now := metav1.Now()
+
 			pci := &v1alpha2.PCIDevice{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              "pci-device-1",
@@ -76,15 +77,18 @@ var _ = Describe("DeletionHandler", func() {
 
 			condStatus := metav1.ConditionFalse
 			condReason := string(pcidevicecondition.Available)
+
 			if tc.attached {
 				condStatus = metav1.ConditionTrue
 				condReason = string(pcidevicecondition.AttachedToVirtualMachine)
 			}
+
 			pci.Status.Conditions = []metav1.Condition{{Type: string(pcidevicecondition.AttachedType), Status: condStatus, Reason: condReason}}
 
 			objects := []client.Object{pci}
 
 			vms := make([]client.Object, 0)
+
 			if tc.withVM {
 				vm := &v1alpha2.VirtualMachine{
 					ObjectMeta: metav1.ObjectMeta{Name: "test-vm", Namespace: "default"},
@@ -94,6 +98,7 @@ var _ = Describe("DeletionHandler", func() {
 				if tc.vmNotFound {
 					vm = nil
 				}
+
 				if vm != nil {
 					vms = append(vms, vm)
 				}

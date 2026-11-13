@@ -48,6 +48,7 @@ func NewController(
 	virtualMachineCIDRs []string,
 ) (controller.Controller, error) {
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
+
 	ipService, err := service.NewIPAddressService(virtualMachineCIDRs, mgr.GetClient(), virtClient)
 	if err != nil {
 		return nil, err
@@ -90,5 +91,6 @@ func NewController(
 	vmipcollector.SetupCollector(mgr.GetCache(), metrics.Registry, log)
 
 	log.Info("Initialized VirtualMachineIP controller")
+
 	return c, nil
 }

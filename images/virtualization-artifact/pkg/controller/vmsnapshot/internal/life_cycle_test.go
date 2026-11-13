@@ -42,16 +42,18 @@ import (
 )
 
 var _ = Describe("LifeCycle handler", func() {
-	var recorder eventrecord.EventRecorderLogger
-	var snapshotter *SnapshotterMock
-	var storer *StorerMock
-	var vd *v1alpha2.VirtualDisk
-	var vm *v1alpha2.VirtualMachine
-	var kvvmi *virtv1.VirtualMachineInstance
-	var secret *corev1.Secret
-	var vdSnapshot *v1alpha2.VirtualDiskSnapshot
-	var vmSnapshot *v1alpha2.VirtualMachineSnapshot
-	var fakeClient client.WithWatch
+	var (
+		recorder    eventrecord.EventRecorderLogger
+		snapshotter *SnapshotterMock
+		storer      *StorerMock
+		vd          *v1alpha2.VirtualDisk
+		vm          *v1alpha2.VirtualMachine
+		kvvmi       *virtv1.VirtualMachineInstance
+		secret      *corev1.Secret
+		vdSnapshot  *v1alpha2.VirtualDiskSnapshot
+		vmSnapshot  *v1alpha2.VirtualMachineSnapshot
+		fakeClient  client.WithWatch
+	)
 
 	BeforeEach(func() {
 		vd = &v1alpha2.VirtualDisk{
@@ -164,6 +166,7 @@ var _ = Describe("LifeCycle handler", func() {
 		}
 
 		var err error
+
 		fakeClient, err = testutil.NewFakeClientWithObjects(vd, vm, secret, vmSnapshot, vdSnapshot)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -214,6 +217,7 @@ var _ = Describe("LifeCycle handler", func() {
 					Generation(vm.Generation).
 					Status(metav1.ConditionFalse)
 				conditions.SetCondition(cb, &vm.Status.Conditions)
+
 				return vm, nil
 			}
 			h := NewLifeCycleHandler(recorder, snapshotter, storer, fakeClient)
@@ -249,6 +253,7 @@ var _ = Describe("LifeCycle handler", func() {
 					Generation(vd.Generation).
 					Status(metav1.ConditionFalse)
 				conditions.SetCondition(cb, &vd.Status.Conditions)
+
 				return vd, nil
 			}
 			h := NewLifeCycleHandler(recorder, snapshotter, storer, fakeClient)
@@ -269,6 +274,7 @@ var _ = Describe("LifeCycle handler", func() {
 					Status(metav1.ConditionTrue).
 					Reason(vdcondition.InProgress)
 				conditions.SetCondition(cb, &vd.Status.Conditions)
+
 				return vd, nil
 			}
 			h := NewLifeCycleHandler(recorder, snapshotter, storer, fakeClient)
@@ -463,6 +469,7 @@ var _ = Describe("LifeCycle handler", func() {
 			}
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vd, vm, vmSnapshot, vdSnapshot, vmmac)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -486,6 +493,7 @@ var _ = Describe("LifeCycle handler", func() {
 			vm.Status.VirtualMachineIPAddress = ""
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vm, vmSnapshot)
 			Expect(err).NotTo(HaveOccurred())
 

@@ -47,6 +47,7 @@ func (v *VirtualMachineClassNameDefaulter) Default(ctx context.Context, vm *v1al
 
 	// Detect and assign default class name.
 	classes := &v1alpha2.VirtualMachineClassList{}
+
 	err := v.client.List(ctx, classes)
 	if err != nil {
 		return fmt.Errorf("failed to list virtual machine classes: %w", err)
@@ -62,5 +63,6 @@ func (v *VirtualMachineClassNameDefaulter) Default(ctx context.Context, vm *v1al
 	}
 
 	vm.Spec.VirtualMachineClassName = defaultClass.GetName()
+
 	return nil
 }

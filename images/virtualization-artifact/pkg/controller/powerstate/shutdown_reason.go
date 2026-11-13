@@ -50,9 +50,11 @@ func ShutdownReason(vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineIns
 	if kvvmi == nil || !kvvmiCompleted(kvvmi) {
 		return ShutdownInfo{}
 	}
+
 	if kvPods == nil || len(kvPods.Items) == 0 {
 		return ShutdownInfo{}
 	}
+
 	activePod, ok := getActivePod(vm, kvPods)
 	if !ok {
 		return ShutdownInfo{}
@@ -68,16 +70,20 @@ func ShutdownReason(vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineIns
 		if !vmutil.IsComputeContainer(contStatus.Name) {
 			continue
 		}
+
 		msg := ""
 		if contStatus.LastTerminationState.Terminated != nil {
 			msg = contStatus.LastTerminationState.Terminated.Message
 		}
+
 		if contStatus.State.Terminated != nil {
 			msg = contStatus.State.Terminated.Message
 		}
+
 		if strings.Contains(msg, string(GuestResetReason)) {
 			return ShutdownInfo{PodCompleted: true, Reason: GuestResetReason, Pod: activePod}
 		}
+
 		if strings.Contains(msg, string(GuestShutdownReason)) {
 			return ShutdownInfo{PodCompleted: true, Reason: GuestShutdownReason, Pod: activePod}
 		}

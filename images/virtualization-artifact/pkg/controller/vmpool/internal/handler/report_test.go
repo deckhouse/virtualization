@@ -48,6 +48,7 @@ func policyDenial(reason metav1.StatusReason) error {
 	err := apierrors.NewForbidden(schema.GroupResource{}, "x", errors.New(msg))
 	err.ErrStatus.Reason = reason
 	err.ErrStatus.Details.Causes = append(err.ErrStatus.Details.Causes, metav1.StatusCause{Message: msg})
+
 	return err
 }
 
@@ -118,6 +119,7 @@ var _ = Describe("Report", func() {
 
 var _ = Describe("Failures reach the pool status", func() {
 	var ctx context.Context
+
 	BeforeEach(func() { ctx = WithReport(context.Background()) })
 
 	runStatus := func(c client.Client, pool *v1alpha2.VirtualMachinePool) {
@@ -203,6 +205,7 @@ var _ = Describe("Failures reach the pool status", func() {
 				if _, ok := obj.(*v1alpha2.VirtualMachine); ok {
 					return apierrors.NewForbidden(schema.GroupResource{}, obj.GetName(), errors.New(`admission webhook "vm" denied the request: too many disks`))
 				}
+
 				return cl.Update(ctx, obj, opts...)
 			},
 		}, pool, vm)
@@ -303,9 +306,11 @@ func clientRejectingDisks(objs ...client.Object) client.Client {
 			if _, ok := obj.(*v1alpha2.VirtualDisk); ok {
 				return apierrors.NewForbidden(schema.GroupResource{Resource: "virtualdisks"}, obj.GetName(), errors.New("exceeded quota: q"))
 			}
+
 			return cl.Create(ctx, obj, opts...)
 		},
 	}, objs...)
 	Expect(err).NotTo(HaveOccurred())
+
 	return c
 }

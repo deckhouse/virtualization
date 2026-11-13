@@ -111,7 +111,9 @@ var _ = Describe("SyncKvvmHandler network sync across migration pods", func() {
 		}
 
 		desiredSpecList := commonnetwork.CreateNetworkSpec(vm, commonnetwork.WithEffectiveMain(vm.Spec.Networks), []*v1alpha2.VirtualMachineMACAddress{mac}, true)
+
 		var err error
+
 		desiredSpec, err = desiredSpecList.ToString()
 		Expect(err).NotTo(HaveOccurred())
 		Expect(desiredSpec).NotTo(Equal("[]"))
@@ -119,6 +121,7 @@ var _ = Describe("SyncKvvmHandler network sync across migration pods", func() {
 		// KVVM template already carries the right interfaces, so only the pod annotation
 		// is out of sync.
 		kvvm = newEmptyKVVM(vmName, namespace)
+
 		kvvm.Spec.Template = &virtv1.VirtualMachineInstanceTemplateSpec{}
 		for _, spec := range desiredSpecList {
 			kvvm.Spec.Template.Spec.Domain.Devices.Interfaces = append(
@@ -230,11 +233,14 @@ var _ = Describe("SyncKvvmHandler tap-provision-by-dvp pod annotation gating", f
 		kvvmi.Status.ActivePods = map[types.UID]string{podUID: nodeName}
 
 		desiredSpecList := commonnetwork.CreateNetworkSpec(vm, commonnetwork.WithEffectiveMain(vm.Spec.Networks), []*v1alpha2.VirtualMachineMACAddress{mac}, true)
+
 		var err error
+
 		desiredSpec, err = desiredSpecList.ToString()
 		Expect(err).NotTo(HaveOccurred())
 
 		kvvm = newEmptyKVVM(vmName, namespace)
+
 		kvvm.Spec.Template = &virtv1.VirtualMachineInstanceTemplateSpec{}
 		for _, spec := range desiredSpecList {
 			kvvm.Spec.Template.Spec.Domain.Devices.Interfaces = append(
@@ -269,6 +275,7 @@ var _ = Describe("SyncKvvmHandler tap-provision-by-dvp pod annotation gating", f
 			Name:        nodeName,
 			Annotations: map[string]string{annotations.AnnTapProvisionByDVPSupported: "true"},
 		}})
+
 		h := &SyncKvvmHandler{client: fakeClient}
 
 		outOfSync, err := h.networksOutOfSync(ctx, vmState, kvvm)
@@ -289,6 +296,7 @@ var _ = Describe("SyncKvvmHandler tap-provision-by-dvp pod annotation gating", f
 			Name:        nodeName,
 			Annotations: map[string]string{annotations.AnnTapProvisionByDVPSupported: "true"},
 		}})
+
 		h := &SyncKvvmHandler{client: fakeClient}
 
 		outOfSync, err := h.networksOutOfSync(ctx, vmState, kvvm)
@@ -305,6 +313,7 @@ var _ = Describe("SyncKvvmHandler tap-provision-by-dvp pod annotation gating", f
 
 	It("removes the inherited annotation when the node declares no support", func() {
 		setup(&corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: nodeName}})
+
 		h := &SyncKvvmHandler{client: fakeClient}
 
 		outOfSync, err := h.networksOutOfSync(ctx, vmState, kvvm)
@@ -326,6 +335,7 @@ var _ = Describe("SyncKvvmHandler tap-provision-by-dvp pod annotation gating", f
 
 	It("leaves the annotation untouched when the node is gone", func() {
 		setup()
+
 		h := &SyncKvvmHandler{client: fakeClient}
 
 		outOfSync, err := h.networksOutOfSync(ctx, vmState, kvvm)
@@ -342,7 +352,9 @@ var _ = Describe("SyncKvvmHandler tap-provision-by-dvp pod annotation gating", f
 
 	It("freezes the annotation once SDN has configured the pod, even on a node without support", func() {
 		pod.Annotations[annotations.AnnNetworksStatus] = `[{"type":"ClusterNetwork","name":"cnet-eno3"}]`
+
 		setup(&corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: nodeName}})
+
 		h := &SyncKvvmHandler{client: fakeClient}
 
 		outOfSync, err := h.networksOutOfSync(ctx, vmState, kvvm)
@@ -364,6 +376,7 @@ var _ = Describe("SyncKvvmHandler tap-provision-by-dvp pod annotation gating", f
 			Name:        nodeName,
 			Annotations: map[string]string{annotations.AnnTapProvisionByDVPSupported: "true"},
 		}})
+
 		h := &SyncKvvmHandler{client: fakeClient}
 
 		outOfSync, err := h.networksOutOfSync(ctx, vmState, kvvm)
@@ -380,7 +393,9 @@ var _ = Describe("SyncKvvmHandler tap-provision-by-dvp pod annotation gating", f
 
 	It("removes the annotation by key presence even when its value is not \"true\"", func() {
 		pod.Annotations[annotations.AnnTapProvisionByDVPSupported] = "false"
+
 		setup(&corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: nodeName}})
+
 		h := &SyncKvvmHandler{client: fakeClient}
 
 		outOfSync, err := h.networksOutOfSync(ctx, vmState, kvvm)
@@ -398,7 +413,9 @@ var _ = Describe("SyncKvvmHandler tap-provision-by-dvp pod annotation gating", f
 	It("updates the networks-spec of a configured pod without touching the frozen annotation", func() {
 		pod.Annotations[annotations.AnnNetworksSpec] = "[]"
 		pod.Annotations[annotations.AnnNetworksStatus] = `[{"type":"ClusterNetwork","name":"cnet-eno3"}]`
+
 		setup(&corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: nodeName}})
+
 		h := &SyncKvvmHandler{client: fakeClient}
 
 		_, err := h.patchPodNetworkAnnotation(ctx, vmState)
@@ -412,7 +429,9 @@ var _ = Describe("SyncKvvmHandler tap-provision-by-dvp pod annotation gating", f
 
 	It("leaves the annotation untouched while the pod is unscheduled", func() {
 		pod.Spec.NodeName = ""
+
 		setup()
+
 		h := &SyncKvvmHandler{client: fakeClient}
 
 		outOfSync, err := h.networksOutOfSync(ctx, vmState, kvvm)
@@ -457,6 +476,7 @@ var _ = Describe("SyncKvvmHandler network detach ordering", func() {
 		Expect(unstructured.SetNestedSlice(u.Object, []any{
 			map[string]any{"type": "Ready", "status": "True"},
 		}, "status", "conditions")).To(Succeed())
+
 		return u
 	}
 
@@ -516,14 +536,18 @@ var _ = Describe("SyncKvvmHandler network detach ordering", func() {
 		}
 
 		attachedSpecList := commonnetwork.CreateNetworkSpec(attachedVM, commonnetwork.WithEffectiveMain(attachedVM.Spec.Networks), []*v1alpha2.VirtualMachineMACAddress{mac}, true)
+
 		var err error
+
 		attachedSpec, err = attachedSpecList.ToString()
 		Expect(err).NotTo(HaveOccurred())
+
 		for _, spec := range attachedSpecList {
 			if spec.Type != string(v1alpha2.NetworksTypeMain) {
 				ifaceName = spec.InterfaceName
 			}
 		}
+
 		Expect(ifaceName).NotTo(BeEmpty())
 
 		kvvmi := newEmptyKVVMI(vmName, namespace)
@@ -553,6 +577,7 @@ var _ = Describe("SyncKvvmHandler network detach ordering", func() {
 
 	It("keeps the interface in the pod annotation while it is still being detached", func() {
 		whileDetaching()
+
 		h := &SyncKvvmHandler{client: fakeClient}
 
 		_, err := h.patchPodNetworkAnnotation(ctx, vmState)
@@ -565,6 +590,7 @@ var _ = Describe("SyncKvvmHandler network detach ordering", func() {
 
 	It("reports in sync while the interface is still being detached", func() {
 		whileDetaching()
+
 		h := &SyncKvvmHandler{client: fakeClient}
 
 		outOfSync, err := h.networksOutOfSync(ctx, vmState, kvvm)
@@ -574,6 +600,7 @@ var _ = Describe("SyncKvvmHandler network detach ordering", func() {
 
 	It("reports out of sync once the interface has left the internal virtual machine", func() {
 		afterDetached()
+
 		h := &SyncKvvmHandler{client: fakeClient}
 
 		outOfSync, err := h.networksOutOfSync(ctx, vmState, kvvm)
@@ -583,6 +610,7 @@ var _ = Describe("SyncKvvmHandler network detach ordering", func() {
 
 	It("empties the pod annotation once the interface has left the internal virtual machine", func() {
 		afterDetached()
+
 		h := &SyncKvvmHandler{client: fakeClient}
 
 		_, err := h.patchPodNetworkAnnotation(ctx, vmState)

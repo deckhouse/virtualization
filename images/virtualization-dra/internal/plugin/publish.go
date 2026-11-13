@@ -37,6 +37,7 @@ type errorHandler func(ctx context.Context, err error, msg string)
 
 func newCustomPublisher(ctx context.Context, driverName, nodeName, poolName string, kubeClient kubernetes.Interface, errorHandler errorHandler) resourcePublisher {
 	ctx, cancel := context.WithCancelCause(ctx)
+
 	return &customPublisher{
 		driverName:    driverName,
 		nodeName:      nodeName,
@@ -88,6 +89,7 @@ func (p *customPublisher) PublishResources(_ context.Context, resources wrapreso
 		controllerLogger := klog.FromContext(controllerCtx)
 		controllerLogger = klog.LoggerWithName(controllerLogger, "ResourceSlice controller")
 		controllerCtx = klog.NewContext(controllerCtx, controllerLogger)
+
 		var err error
 		//nolint:contextcheck // copied from dra helper
 		if p.resourceSliceController, err = wrapresourceslice.StartController(controllerCtx,
@@ -107,6 +109,7 @@ func (p *customPublisher) PublishResources(_ context.Context, resources wrapreso
 			}); err != nil {
 			return fmt.Errorf("start ResourceSlice controller: %w", err)
 		}
+
 		return nil
 	}
 	// Inform running controller about new information.
@@ -121,6 +124,7 @@ func (p *customPublisher) Stop() {
 	if p == nil {
 		return
 	}
+
 	p.cancel(errors.New("customPublisher was stopped"))
 }
 

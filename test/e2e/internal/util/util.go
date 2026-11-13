@@ -56,5 +56,6 @@ func ToObjects[T client.Object](objs []T) []client.Object {
 	for i, o := range objs {
 		out[i] = o
 	}
+
 	return out
 }

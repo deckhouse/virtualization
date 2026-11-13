@@ -69,6 +69,7 @@ func (s StartImportFromClusterVirtualImageStep) Take(ctx context.Context, vd *v1
 	}
 
 	cviRefKey := types.NamespacedName{Name: vd.Spec.DataSource.ObjectRef.Name}
+
 	cviRef, err := object.FetchObject(ctx, cviRefKey, s.client, &v1alpha2.ClusterVirtualImage{})
 	if err != nil {
 		return nil, fmt.Errorf("fetch cvi %q: %w", cviRefKey, err)
@@ -86,6 +87,7 @@ func (s StartImportFromClusterVirtualImageStep) Take(ctx context.Context, vd *v1
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ProvisioningFailed).
 			Message(service.CapitalizeFirstLetter(ErrISOSourceNotSupported.Error()) + ".")
+
 		return &reconcile.Result{}, nil
 	}
 
@@ -99,6 +101,7 @@ func (s StartImportFromClusterVirtualImageStep) Take(ctx context.Context, vd *v1
 				Status(metav1.ConditionFalse).
 				Reason(vdcondition.ProvisioningFailed).
 				Message(service.CapitalizeFirstLetter(err.Error()) + ".")
+
 			return &reconcile.Result{}, nil
 		}
 
@@ -134,5 +137,6 @@ func BuildClusterVirtualImagePVCImportSource(vd *v1alpha2.VirtualDisk, cviRef *v
 
 	src := service.NewPVCRegistryImportSource(url, secretName, certConfigMapName)
 	src.Registry.Format = cviRef.Status.Format
+
 	return src
 }

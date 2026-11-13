@@ -70,6 +70,7 @@ func (v *SingleDefaultClassValidator) ValidateUpdate(ctx context.Context, _, new
 
 func (v *SingleDefaultClassValidator) checkDefaultIsSingle(ctx context.Context, vmClass *v1alpha2.VirtualMachineClass) error {
 	classes := &v1alpha2.VirtualMachineClassList{}
+
 	err := v.client.List(ctx, classes)
 	if err != nil {
 		return fmt.Errorf("failed to list virtual machine classes: %w", err)
@@ -86,5 +87,6 @@ func (v *SingleDefaultClassValidator) checkDefaultIsSingle(ctx context.Context, 
 			return fmt.Errorf("multiple default virtual machine classes are prohibited, current default class is %s. (tip: to assign new default class first remove '%s' annotation from the current default class)", vmClassItem.GetName(), annotations.AnnVirtualMachineClassDefault)
 		}
 	}
+
 	return nil
 }

@@ -68,6 +68,7 @@ var _ = Describe("TestOnceShotMigrationService", func() {
 		recorder.WithLoggingFunc = func(_ eventrecord.InfoLogger) eventrecord.EventRecorderLogger {
 			return recorder
 		}
+
 		return recorder
 	}
 
@@ -75,6 +76,7 @@ var _ = Describe("TestOnceShotMigrationService", func() {
 		vm := &v1alpha2.VirtualMachine{}
 		err := fakeClient.Get(context.Background(), client.ObjectKey{Namespace: vmNamespace, Name: vmName}, vm)
 		Expect(err).ToNot(HaveOccurred())
+
 		return vm
 	}
 
@@ -82,6 +84,7 @@ var _ = Describe("TestOnceShotMigrationService", func() {
 		vmops := v1alpha2.VirtualMachineOperationList{}
 		err := fakeClient.List(context.Background(), &vmops)
 		Expect(err).ToNot(HaveOccurred())
+
 		return vmops.Items
 	}
 
@@ -98,6 +101,7 @@ var _ = Describe("TestOnceShotMigrationService", func() {
 		kvvmi := &virtv1.VirtualMachineInstance{}
 		err := fakeClient.Get(context.Background(), client.ObjectKey{Namespace: vmNamespace, Name: vmName}, kvvmi)
 		Expect(err).ToNot(HaveOccurred())
+
 		return kvvmi.GetAnnotations()[key]
 	}
 
@@ -112,10 +116,12 @@ var _ = Describe("TestOnceShotMigrationService", func() {
 		for i := 0; i < 10; i++ {
 			migrate, err := oneShotMigration.OnceMigrate(testutil.ContextBackgroundWithNoOpLogger(), getVM(fakeClient), "key", "value")
 			Expect(err).ToNot(HaveOccurred())
+
 			if migrate {
 				migrateCount++
 			}
 		}
+
 		Expect(migrateCount).To(Equal(1))
 
 		vmops := listVMOPs(fakeClient)

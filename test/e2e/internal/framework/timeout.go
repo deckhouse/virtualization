@@ -43,7 +43,9 @@ func getTimeout(env string, defaultTimeout time.Duration) time.Duration {
 		if err != nil {
 			return defaultTimeout
 		}
+
 		return t
 	}
+
 	return defaultTimeout
 }

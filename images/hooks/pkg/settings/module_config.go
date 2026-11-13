@@ -43,11 +43,13 @@ func CanRunWithModuleConfig(ctx context.Context, input *pkg.HookInput) (bool, er
 	}
 
 	var moduleConfig mcapi.ModuleConfig
+
 	err = k8sClient.Get(ctx, client.ObjectKey{Name: ModuleName}, &moduleConfig)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return false, nil
 		}
+
 		return false, fmt.Errorf("get ModuleConfig/%s: %w", ModuleName, err)
 	}
 

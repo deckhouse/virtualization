@@ -67,6 +67,7 @@ var _ = Describe("LifeCycleHandler paused virtual machine", func() {
 
 			fakeClient, err := testutil.NewFakeClientWithObjects(vm, kvvmi)
 			Expect(err).NotTo(HaveOccurred())
+
 			handler := NewLifeCycleHandler(fakeClient, nil)
 
 			Expect(handler.syncRunning(context.Background(), vm, nil, kvvmi, nil, slog.Default())).To(Succeed())

@@ -83,6 +83,7 @@ func (ds ObjectRefVirtualDisk) StoreToDVCR(ctx context.Context, vi *v1alpha2.Vir
 	log, ctx := logger.GetDataSourceContext(ctx, "objectref")
 
 	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
+
 	pod, err := ds.importerService.GetPod(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -115,9 +116,11 @@ func (ds ObjectRefVirtualDisk) StoreToDVCR(ctx context.Context, vi *v1alpha2.Vir
 		if vi.Status.Progress == "" {
 			vi.Status.Progress = "0%"
 		}
+
 		vi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 
 		pvc := &corev1.PersistentVolumeClaim{}
+
 		err := ds.client.Get(ctx, types.NamespacedName{Name: vdRef.Status.Target.PersistentVolumeClaim, Namespace: vdRef.Namespace}, pvc)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -126,6 +129,7 @@ func (ds ObjectRefVirtualDisk) StoreToDVCR(ctx context.Context, vi *v1alpha2.Vir
 		envSettings := ds.getEnvSettings(vi, supgen, pvc.Spec.VolumeMode)
 		ownerRef := metav1.NewControllerRef(vi, vi.GroupVersionKind())
 		podSettings := ds.importerService.GetPodSettingsWithPVC(ownerRef, supgen, vdRef.Status.Target.PersistentVolumeClaim, vdRef.Namespace)
+
 		err = ds.importerService.StartWithPodSetting(ctx, envSettings, supgen, datasource.NewCABundleForVMI(vi.GetNamespace(), vi.Spec.DataSource), podSettings, service.WithSystemNodeToleration())
 		switch {
 		case err == nil:
@@ -159,6 +163,7 @@ func (ds ObjectRefVirtualDisk) StoreToDVCR(ctx context.Context, vi *v1alpha2.Vir
 					Status(metav1.ConditionFalse).
 					Reason(vicondition.ProvisioningFailed).
 					Message(service.CapitalizeFirstLetter(err.Error() + "."))
+
 				return reconcile.Result{}, nil
 			default:
 				return reconcile.Result{}, err
@@ -189,6 +194,7 @@ func (ds ObjectRefVirtualDisk) StoreToDVCR(ctx context.Context, vi *v1alpha2.Vir
 					Status(metav1.ConditionFalse).
 					Reason(vicondition.ProvisioningNotStarted).
 					Message(service.CapitalizeFirstLetter(err.Error() + "."))
+
 				return reconcile.Result{}, nil
 			case errors.Is(err, servicestat.ErrProvisioningFailed):
 				ds.recorder.Event(vi, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
@@ -196,6 +202,7 @@ func (ds ObjectRefVirtualDisk) StoreToDVCR(ctx context.Context, vi *v1alpha2.Vir
 					Status(metav1.ConditionFalse).
 					Reason(vicondition.ProvisioningFailed).
 					Message(service.CapitalizeFirstLetter(err.Error() + "."))
+
 				return reconcile.Result{}, nil
 			default:
 				return reconcile.Result{}, err
@@ -226,6 +233,7 @@ func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *v1alpha2.Virt
 	log, ctx := logger.GetDataSourceContext(ctx, objectRefDataSource)
 
 	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
+
 	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -257,11 +265,13 @@ func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *v1alpha2.Virt
 		if vi.Status.Progress == "" {
 			vi.Status.Progress = "0%"
 		}
+
 		vi.Status.SourceUID = ptr.To(vdRef.GetUID())
 
 		source := service.NewPVCPVCImportSource(vdRef.Status.Target.PersistentVolumeClaim, vdRef.Namespace)
 
 		var size resource.Quantity
+
 		size, err = resource.ParseQuantity(vdRef.Status.Capacity)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -277,14 +287,17 @@ func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *v1alpha2.Virt
 
 		return reconcilePVCImportFromReadySource(ctx, vi, pvc, source, size, cb, supgen, ds.statService, ds.diskService, func() {
 			ds.recorder.Event(vi, corev1.EventTypeNormal, v1alpha2.ReasonDataSourceSyncCompleted, "The ObjectRef DataSource import has completed")
+
 			q, err := resource.ParseQuantity(vdRef.Status.Capacity)
 			if err != nil {
 				return
 			}
+
 			intQ, ok := q.AsInt64()
 			if !ok {
 				return
 			}
+
 			vi.Status.Size = v1alpha2.ImageStatusSize{
 				Stored:        vdRef.Status.Capacity,
 				StoredBytes:   strconv.FormatInt(intQ, 10),
@@ -333,6 +346,7 @@ func (ds ObjectRefVirtualDisk) ensureBounder(ctx context.Context, vi *v1alpha2.V
 	}
 
 	ownerRef := metav1.NewControllerRef(vi, vi.GroupVersionKind())
+
 	return ds.bounderService.Start(ctx, ownerRef, supgen, service.WithSystemNodeToleration())
 }
 
@@ -389,6 +403,7 @@ func (ds ObjectRefVirtualDisk) Validate(ctx context.Context, vi *v1alpha2.Virtua
 	if vd == nil || vd.Status.Phase != v1alpha2.DiskReady {
 		return NewVirtualDiskNotReadyError(vi.Spec.DataSource.ObjectRef.Name)
 	}
+
 	if vi.Status.Phase != v1alpha2.ImageReady {
 		inUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
 		if inUseCondition.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(inUseCondition, vd) {

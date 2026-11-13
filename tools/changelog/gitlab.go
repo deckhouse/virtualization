@@ -74,26 +74,32 @@ func (l *Labels) UnmarshalJSON(data []byte) error {
 		*l = names
 		return nil
 	}
+
 	var joined string
 	if err := json.Unmarshal(data, &joined); err == nil {
 		*l = nil
+
 		for _, name := range strings.Split(joined, ",") {
 			if name = strings.TrimSpace(name); name != "" {
 				*l = append(*l, name)
 			}
 		}
+
 		return nil
 	}
+
 	var details []struct {
 		Name string `json:"name"`
 	}
 	if err := json.Unmarshal(data, &details); err != nil {
 		return err
 	}
+
 	*l = nil
 	for _, detail := range details {
 		*l = append(*l, detail.Name)
 	}
+
 	return nil
 }
 
@@ -103,6 +109,7 @@ func (l Labels) Has(name string) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -141,20 +148,24 @@ func (g *GitLab) MergeRequestDescription(iid string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	var mr MergeRequest
 	if err := json.Unmarshal(body, &mr); err != nil {
 		return "", err
 	}
+
 	return strings.TrimSpace(mr.Description), nil
 }
 
 // CreateMergeRequest opens a merge request and returns it.
 func (g *GitLab) CreateMergeRequest(payload map[string]any) (MergeRequest, error) {
 	var created MergeRequest
+
 	body, err := g.do(http.MethodPost, g.BaseURL+g.projectPath("merge_requests"), payload)
 	if err != nil {
 		return created, err
 	}
+
 	return created, json.Unmarshal(body, &created)
 }
 
@@ -162,6 +173,7 @@ func (g *GitLab) CreateMergeRequest(payload map[string]any) (MergeRequest, error
 func (g *GitLab) UpdateMergeRequestDescription(iid int, description string) error {
 	path := fmt.Sprintf("%s%s", g.BaseURL, g.projectPath(fmt.Sprintf("merge_requests/%d", iid)))
 	_, err := g.do(http.MethodPut, path, map[string]any{"description": description})
+
 	return err
 }
 
@@ -178,11 +190,13 @@ func listAll[T any](g *GitLab, path string, params url.Values) ([]T, error) {
 	}
 
 	var all []T
+
 	for next != "" {
 		request, err := http.NewRequest(http.MethodGet, next, nil)
 		if err != nil {
 			return nil, err
 		}
+
 		request.Header.Set("PRIVATE-TOKEN", g.Token)
 		request.Header.Set("Accept", "application/json")
 
@@ -190,44 +204,57 @@ func listAll[T any](g *GitLab, path string, params url.Values) ([]T, error) {
 		if err != nil {
 			return nil, err
 		}
+
 		body, err := readResponse(response)
 		_ = response.Body.Close()
+
 		if err != nil {
 			return nil, err
 		}
+
 		var page []T
 		if err := json.Unmarshal(body, &page); err != nil {
 			return nil, err
 		}
+
 		all = append(all, page...)
 		next = nextLink(response.Header.Get("Link"))
 	}
+
 	return all, nil
 }
 
 func (g *GitLab) do(method, url string, payload any) ([]byte, error) {
 	var body io.Reader
+
 	if payload != nil {
 		encoded, err := json.Marshal(payload)
 		if err != nil {
 			return nil, err
 		}
+
 		body = bytes.NewReader(encoded)
 	}
+
 	request, err := http.NewRequest(method, url, body)
 	if err != nil {
 		return nil, err
 	}
+
 	request.Header.Set("PRIVATE-TOKEN", g.Token)
 	request.Header.Set("Accept", "application/json")
+
 	if payload != nil {
 		request.Header.Set("Content-Type", "application/json")
 	}
+
 	response, err := g.client.Do(request)
 	if err != nil {
 		return nil, err
 	}
+
 	defer func() { _ = response.Body.Close() }()
+
 	return readResponse(response)
 }
 
@@ -237,6 +264,7 @@ func readResponse(response *http.Response) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if response.StatusCode >= 300 {
 		// The body of a GitLab error says which field it refused; the status
 		// alone leaves a job log with nothing to act on.
@@ -244,6 +272,7 @@ func readResponse(response *http.Response) ([]byte, error) {
 			response.Request.Method, response.Request.URL.Path, response.StatusCode,
 			strings.TrimSpace(string(body)))
 	}
+
 	return body, nil
 }
 
@@ -256,5 +285,6 @@ func nextLink(header string) string {
 			return match[1]
 		}
 	}
+
 	return ""
 }

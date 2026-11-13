@@ -53,17 +53,22 @@ func loadMigrationReceiver(ctx context.Context, cl client.Client, vm *v1alpha2.V
 	if !isMigrationReceiver(vm) {
 		return nil, nil
 	}
+
 	var r intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver
+
 	err := cl.Get(ctx, types.NamespacedName{Namespace: vm.Namespace, Name: vm.Name}, &r)
 	if k8serrors.IsNotFound(err) {
 		return nil, nil
 	}
+
 	if err != nil {
 		return nil, fmt.Errorf("get the migration receiver: %w", err)
 	}
+
 	if string(r.UID) != vm.GetAnnotations()[annotations.AnnVMMigrationReceiver] {
 		return nil, nil
 	}
+
 	return &r, nil
 }
 
@@ -72,6 +77,7 @@ func isReceiving(r *intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver
 	if r == nil || r.DeletionTimestamp != nil {
 		return false
 	}
+
 	return r.Status.Phase != intvirtv1alpha1.ReceiverRunning && r.Status.Phase != intvirtv1alpha1.ReceiverFailed
 }
 
@@ -88,17 +94,22 @@ func (h *SyncKvvmHandler) receivingMigration(ctx context.Context, vm *v1alpha2.V
 	if r != nil {
 		name = receiverMigrationName(r)
 	}
+
 	if name == "" {
 		return nil, nil
 	}
+
 	var received virtv1.VirtualMachineInstanceMigration
+
 	err := h.client.Get(ctx, types.NamespacedName{Namespace: vm.Namespace, Name: name}, &received)
 	if k8serrors.IsNotFound(err) {
 		return nil, nil
 	}
+
 	if err != nil {
 		return nil, err
 	}
+
 	return &received, nil
 }
 
@@ -128,9 +139,11 @@ func (h *SyncKvvmHandler) syncMigrationReceiver(ctx context.Context, s state.Vir
 			delete(vm.Annotations, annotations.AnnVMMigrationReceiver)
 			return true, nil
 		}
+
 		if received != nil && received.Status.Phase == virtv1.MigrationFailed && r != nil {
 			return false, peering.SetReceiverFailed(ctx, h.client, r, peering.ReceiverReasonMigrationFailed, "the receiving migration failed")
 		}
+
 		return false, h.cancelMigrationReceiver(ctx, s)
 	}
 
@@ -152,6 +165,7 @@ func (h *SyncKvvmHandler) syncMigrationReceiver(ctx context.Context, s state.Vir
 		return false, peering.SetReceiverFailed(ctx, h.client, r, peering.ReceiverReasonIPAddressNotAvailable,
 			fmt.Sprintf("the IP address %s is not available in this cluster", address))
 	}
+
 	if current == "" {
 		return false, nil
 	}
@@ -160,23 +174,28 @@ func (h *SyncKvvmHandler) syncMigrationReceiver(ctx context.Context, s state.Vir
 	if err != nil {
 		return false, err
 	}
+
 	if kvvm == nil {
 		vds, err := s.VirtualDisksByName(ctx)
 		if err != nil {
 			return false, err
 		}
+
 		for _, src := range rcv.VirtualDisks {
 			if vd := vds[src.Name]; vd == nil || vd.Status.Target.PersistentVolumeClaim == "" {
 				return false, nil
 			}
 		}
+
 		if msg := checkReceiverCapacity(rcv.Instance, vds); msg != "" {
 			return false, peering.SetReceiverFailed(ctx, h.client, r, peering.ReceiverReasonDiskTooSmall, msg)
 		}
+
 		kvvm, err = makeReceiverKVVM(ctx, s, rcv.Instance)
 		if err != nil {
 			return false, peering.SetReceiverFailed(ctx, h.client, r, peering.ReceiverReasonInvalidRequest, err.Error())
 		}
+
 		if err = h.client.Create(ctx, kvvm); err != nil && !k8serrors.IsAlreadyExists(err) {
 			return false, fmt.Errorf("create the receiving internal virtual machine: %w", err)
 		}
@@ -187,6 +206,7 @@ func (h *SyncKvvmHandler) syncMigrationReceiver(ctx context.Context, s state.Vir
 	if err != nil || kvvmi == nil {
 		return false, err
 	}
+
 	if msg := checkReceiverDisks(rcv.Instance, kvvmi); msg != "" {
 		return false, peering.SetReceiverFailed(ctx, h.client, r, peering.ReceiverReasonDiskTooSmall, msg)
 	}
@@ -208,6 +228,7 @@ func (h *SyncKvvmHandler) syncMigrationReceiver(ctx context.Context, s state.Vir
 			return false, fmt.Errorf("create the receiving migration: %w", err)
 		}
 	}
+
 	return false, peering.PatchReceiverStatus(ctx, h.client, r, func(st *intvirtv1alpha1.VirtualMachineReceiverStatus) {
 		st.Phase = intvirtv1alpha1.ReceiverReady
 		st.Message = receivingPodMessage(kvvm)
@@ -222,6 +243,7 @@ func receivingPodMessage(kvvm *virtv1.VirtualMachine) string {
 			return fmt.Sprintf("the receiving pod cannot be scheduled: %s: %s", c.Reason, c.Message)
 		}
 	}
+
 	return ""
 }
 
@@ -230,15 +252,18 @@ func receivingPodMessage(kvvm *virtv1.VirtualMachine) string {
 // confirms to the source that the VM runs here.
 func (h *SyncKvvmHandler) completeMigrationReceiver(ctx context.Context, s state.VirtualMachineState, r *intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver) (bool, error) {
 	vm := s.VirtualMachine().Changed()
+
 	kvvm, err := s.KVVM(ctx)
 	if err != nil {
 		return false, err
 	}
+
 	if kvvm != nil {
 		strategy := virtv1.RunStrategyManual
 		if vm.Spec.RunPolicy == v1alpha2.AlwaysOnUnlessStoppedManually {
 			strategy = virtv1.RunStrategyAlways
 		}
+
 		if kvvm.Spec.RunStrategy == nil || *kvvm.Spec.RunStrategy != strategy {
 			patch, _ := json.Marshal(map[string]any{"spec": map[string]any{"runStrategy": strategy}})
 			if err = h.client.Patch(ctx, kvvm, client.RawPatch(types.MergePatchType, patch)); err != nil {
@@ -253,6 +278,7 @@ func (h *SyncKvvmHandler) completeMigrationReceiver(ctx context.Context, s state
 			}
 		}
 	}
+
 	if r != nil && r.DeletionTimestamp == nil {
 		if err = peering.PatchReceiverStatus(ctx, h.client, r, func(st *intvirtv1alpha1.VirtualMachineReceiverStatus) {
 			st.Phase = intvirtv1alpha1.ReceiverRunning
@@ -261,18 +287,23 @@ func (h *SyncKvvmHandler) completeMigrationReceiver(ctx context.Context, s state
 			return false, err
 		}
 	}
+
 	delete(vm.Annotations, annotations.AnnVMMigrationReceiver)
 	delete(vm.Labels, annotations.LabelVMReceiver)
+
 	for _, ref := range vm.Spec.BlockDeviceRefs {
 		if ref.Kind != v1alpha2.DiskDevice {
 			continue
 		}
+
 		vd := &v1alpha2.VirtualDisk{ObjectMeta: metav1.ObjectMeta{Namespace: vm.Namespace, Name: ref.Name}}
+
 		patch, _ := json.Marshal(map[string]any{"metadata": map[string]any{"labels": map[string]any{annotations.LabelVMReceiver: nil}}})
 		if err = h.client.Patch(ctx, vd, client.RawPatch(types.MergePatchType, patch)); client.IgnoreNotFound(err) != nil {
 			return false, fmt.Errorf("unmark the received disk %q: %w", ref.Name, err)
 		}
 	}
+
 	return true, nil
 }
 
@@ -283,15 +314,18 @@ func checkReceiverDisks(source, kvvmi *virtv1.VirtualMachineInstance) string {
 	if kvvmi == nil {
 		return ""
 	}
+
 	sizes := map[string]int64{}
 	for _, v := range source.Status.VolumeStatus {
 		sizes[v.Name] = v.Size
 	}
+
 	for _, v := range kvvmi.Status.VolumeStatus {
 		if want := sizes[v.Name]; v.Size > 0 && v.Size < want {
 			return fmt.Sprintf("the disk %q there is %d bytes, smaller than %d bytes here", v.Name, v.Size, want)
 		}
 	}
+
 	return ""
 }
 
@@ -301,15 +335,18 @@ func checkReceiverDisks(source, kvvmi *virtv1.VirtualMachineInstance) string {
 func checkReceiverCapacity(source *virtv1.VirtualMachineInstance, vds map[string]*v1alpha2.VirtualDisk) string {
 	for _, v := range source.Status.VolumeStatus {
 		name, kind := kvbuilder.GetOriginalDiskName(v.Name)
+
 		vd := vds[name]
 		if kind != v1alpha2.DiskDevice || vd == nil || v.Size == 0 {
 			continue
 		}
+
 		capacity, err := resource.ParseQuantity(vd.Status.Capacity)
 		if err == nil && capacity.Value() < v.Size {
 			return fmt.Sprintf("the disk %q there is %d bytes, larger than its capacity %s here", name, v.Size, vd.Status.Capacity)
 		}
 	}
+
 	return ""
 }
 
@@ -324,6 +361,7 @@ func (h *SyncKvvmHandler) cancelMigrationReceiver(ctx context.Context, s state.V
 	if err != nil {
 		return err
 	}
+
 	if kvvmi != nil && kvvmi.Status.Phase == virtv1.Running {
 		return nil
 	}
@@ -332,6 +370,7 @@ func (h *SyncKvvmHandler) cancelMigrationReceiver(ctx context.Context, s state.V
 	if err != nil {
 		return err
 	}
+
 	if kvvm != nil && kvvm.Spec.RunStrategy != nil && *kvvm.Spec.RunStrategy == virtv1.RunStrategyWaitAsReceiver && kvvm.DeletionTimestamp == nil {
 		if err = h.client.Delete(ctx, kvvm, client.PropagationPolicy(metav1.DeletePropagationForeground)); err != nil && !k8serrors.IsNotFound(err) {
 			return fmt.Errorf("delete the receiving internal virtual machine: %w", err)
@@ -342,6 +381,7 @@ func (h *SyncKvvmHandler) cancelMigrationReceiver(ctx context.Context, s state.V
 	if err = h.client.List(ctx, &vmims, client.InNamespace(vm.Namespace)); err != nil {
 		return err
 	}
+
 	for i := range vmims.Items {
 		if vmims.Items[i].Spec.Receive != nil && vmims.Items[i].Spec.VMIName == vm.Name {
 			if err = h.client.Delete(ctx, &vmims.Items[i]); err != nil && !k8serrors.IsNotFound(err) {
@@ -349,6 +389,7 @@ func (h *SyncKvvmHandler) cancelMigrationReceiver(ctx context.Context, s state.V
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -361,13 +402,16 @@ func makeReceiverKVVM(ctx context.Context, s state.VirtualMachineState, source *
 	if err != nil {
 		return nil, err
 	}
+
 	kvvm.Spec.Template.Spec.Domain = *source.Spec.Domain.DeepCopy()
 	if err = setSourceVolumeSizes(kvvm, source); err != nil {
 		return nil, err
 	}
+
 	runStrategy := virtv1.RunStrategyWaitAsReceiver
 	kvvm.Spec.RunStrategy = &runStrategy
 	kvvm.Spec.Running = nil
+
 	return kvvm, nil
 }
 
@@ -376,21 +420,27 @@ func makeReceiverKVVM(ctx context.Context, s state.VirtualMachineState, source *
 // the source one by the filesystem overhead.
 func setSourceVolumeSizes(kvvm *virtv1.VirtualMachine, source *virtv1.VirtualMachineInstance) error {
 	sizes := map[string]int64{}
+
 	for _, vs := range source.Status.VolumeStatus {
 		if vs.Size > 0 {
 			sizes[vs.Name] = vs.Size
 		}
 	}
+
 	if len(sizes) == 0 {
 		return nil
 	}
+
 	raw, err := json.Marshal(sizes)
 	if err != nil {
 		return err
 	}
+
 	if kvvm.Spec.Template.ObjectMeta.Annotations == nil {
 		kvvm.Spec.Template.ObjectMeta.Annotations = map[string]string{}
 	}
+
 	kvvm.Spec.Template.ObjectMeta.Annotations[annotations.AnnSourceVolumeSizes] = string(raw)
+
 	return nil
 }

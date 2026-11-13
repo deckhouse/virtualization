@@ -97,12 +97,15 @@ var _ = Describe("BoundHandler", func() {
 	Context("Lease is not created yet", func() {
 		It("creates a new lease", func() {
 			var leaseCreated bool
+
 			k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects().
 				WithInterceptorFuncs(interceptor.Funcs{
 					Create: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.CreateOption) error {
 						_, ok := obj.(*v1alpha2.VirtualMachineMACAddressLease)
 						Expect(ok).To(BeTrue())
+
 						leaseCreated = true
+
 						return nil
 					},
 				}).Build()
@@ -144,6 +147,7 @@ var _ = Describe("BoundHandler", func() {
 					Namespace: vmmac.Namespace,
 					Name:      vmmac.Name,
 				}
+
 				return lease, nil
 			}
 
@@ -168,6 +172,7 @@ var _ = Describe("BoundHandler", func() {
 					Reason:             vmmaclcondition.Bound.String(),
 					ObservedGeneration: lease.Generation,
 				})
+
 				return lease, nil
 			}
 

@@ -21,12 +21,14 @@ import "bytes"
 func ToDevicePath(path string) [256]byte {
 	var result [256]byte
 	writeCString(result[:], path)
+
 	return result
 }
 
 func ToBusID(busID string) [32]byte {
 	var result [32]byte
 	writeCString(result[:], busID)
+
 	return result
 }
 
@@ -35,6 +37,7 @@ func fromCString(buf []byte) string {
 	if ib := bytes.IndexByte(newBytes, 0); ib != -1 {
 		newBytes = newBytes[:ib]
 	}
+
 	return string(newBytes)
 }
 

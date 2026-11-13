@@ -87,6 +87,7 @@ func (c *Compiler) compileNode(ctx context.Context, resource, namespace, name st
 	if _, ok := visited[key]; ok {
 		return nil, fmt.Errorf("snapshot run-tree cycle at %s/%s", resource, name)
 	}
+
 	visited[key] = struct{}{}
 
 	n, err := snapshotnode.Load(ctx, c.Reader, resource, namespace, name)
@@ -102,15 +103,18 @@ func (c *Compiler) compileNode(ctx context.Context, resource, namespace, name st
 	}
 
 	out := make([]unstructured.Unstructured, 0)
+
 	for _, ref := range n.Children {
 		childResource, ok := snapshotnode.ResourceForKind(ref.Kind)
 		if !ok {
 			return nil, fmt.Errorf("snapshot %s %s/%s has unsupported child kind %q", resource, namespace, name, ref.Kind)
 		}
+
 		childObjs, err := c.compileNode(ctx, childResource, namespace, ref.Name, visited)
 		if err != nil {
 			return nil, err
 		}
+
 		out = append(out, childObjs...)
 	}
 
@@ -122,10 +126,12 @@ func (c *Compiler) compileNode(ctx context.Context, resource, namespace, name st
 	if err != nil {
 		return nil, err
 	}
+
 	base, err := c.Manifests.NodeBaseManifests(ctx, contentName)
 	if err != nil {
 		return nil, err
 	}
+
 	restoreNode := &transform.RestoreNode{
 		SnapshotRef: storagev1alpha1.ObjectRef{
 			APIVersion: v1alpha2.SchemeGroupVersion.String(),
@@ -139,6 +145,7 @@ func (c *Compiler) compileNode(ctx context.Context, resource, namespace, name st
 	}
 
 	tr := Transformer{}
+
 	nodeObjs := make([]unstructured.Unstructured, 0, len(base))
 	for _, obj := range base {
 		// Pin the object to the namespace of the node addressed, overwriting whatever the captured
@@ -148,37 +155,48 @@ func (c *Compiler) compileNode(ctx context.Context, resource, namespace, name st
 		// compiled restore inside the namespace it was asked for, so it is not the formality it looks
 		// like: dropping it would emit objects addressed at somebody else's namespace.
 		obj.SetNamespace(namespace)
+
 		if err := applyKeepIPAddress(&obj, n.KeepIPAddress); err != nil {
 			return nil, err
 		}
+
 		if err := pinCapturedMainIPAddress(&obj); err != nil {
 			return nil, err
 		}
+
 		sanitized := SanitizeForRestore(obj, namespace)
 		if _, err := tr.TransformObject(restoreNode, &sanitized, nil); err != nil {
 			return nil, fmt.Errorf("transform %s %s/%s manifest: %w", resource, namespace, name, err)
 		}
+
 		nodeObjs = append(nodeObjs, sanitized)
 	}
+
 	if err := linkCapturedIPAddress(nodeObjs); err != nil {
 		return nil, err
 	}
+
 	if err := linkCapturedMainIPAddress(nodeObjs); err != nil {
 		return nil, err
 	}
+
 	return append(out, virtualMachineLast(nodeObjs)...), nil
 }
 
 // virtualMachineLast moves the VirtualMachine to the end of one node's manifests, keeping everything else in capture order.
 func virtualMachineLast(objs []unstructured.Unstructured) []unstructured.Unstructured {
 	ordered := make([]unstructured.Unstructured, 0, len(objs))
+
 	var machines []unstructured.Unstructured
+
 	for _, obj := range objs {
 		if isVirtualMachine(obj) {
 			machines = append(machines, obj)
 			continue
 		}
+
 		ordered = append(ordered, obj)
 	}
+
 	return append(ordered, machines...)
 }

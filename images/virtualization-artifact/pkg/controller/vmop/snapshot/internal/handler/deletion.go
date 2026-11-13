@@ -58,6 +58,7 @@ func (h DeletionHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMachi
 	}
 
 	vmKey := types.NamespacedName{Namespace: vmop.Namespace, Name: vmop.Spec.VirtualMachine}
+
 	vm, err := object.FetchObject(ctx, vmKey, h.client, &v1alpha2.VirtualMachine{})
 	if err != nil {
 		log.Debug("Failed to fetch VirtualMachine", logger.SlogErr(err))
@@ -88,6 +89,7 @@ func (h DeletionHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMachi
 			}
 
 			log.Error("Failed to exit maintenance mode during deletion", logger.SlogErr(err))
+
 			return reconcile.Result{}, err
 		}
 
@@ -100,6 +102,7 @@ func (h DeletionHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMachi
 	} else {
 		log.Info("Deletion observed: remove cleanup finalizer from VirtualMachineOperation", "phase", vmop.Status.Phase)
 	}
+
 	controllerutil.RemoveFinalizer(vmop, v1alpha2.FinalizerVMOPCleanup)
 
 	return reconcile.Result{}, nil

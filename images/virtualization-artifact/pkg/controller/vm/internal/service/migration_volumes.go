@@ -68,6 +68,7 @@ func NewMigrationVolumesService(client client.Client, makeKVVMFromSpec func(ctx 
 
 func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.VirtualMachineState, restartRequired bool) (reconcile.Result, error) {
 	log := logger.FromContext(ctx).With("func", "SyncVolumes")
+
 	log.Debug("Start")
 	defer log.Debug("End")
 
@@ -102,6 +103,7 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 		log.Debug("The IPAddress of the Main network is not allocated yet, skip volume migration.")
 		return reconcile.Result{RequeueAfter: s.delayDuration}, nil
 	}
+
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -118,11 +120,13 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 		if err != nil {
 			return reconcile.Result{}, err
 		}
+
 		if vdmigration.IsMigrationCompleting(vds, time.Now()) {
 			if s.shouldPatchVolumes(kvvmInCluster, builtKVVMWithMigrationVolumes) {
 				log.Info("kvvmi is nil and the volume migration is completing, patch kvvm volumes to the targets.")
 				return s.patchVolumes(ctx, builtKVVMWithMigrationVolumes)
 			}
+
 			return reconcile.Result{}, nil
 		}
 
@@ -132,6 +136,7 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 		}
 
 		log.Info("kvvmi is nil and kvvm volumes are already reverted, skip volume migration.")
+
 		return reconcile.Result{}, nil
 	}
 
@@ -157,6 +162,7 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 		}
 		// kubevirt does not sync volumes with kvvmi yet
 		log.Info("kvvmi volumes are not synced yet, skip volume migration.")
+
 		return reconcile.Result{}, nil
 	}
 
@@ -173,11 +179,13 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 		if !equality.Semantic.DeepEqual(builtKVVMWithMigrationVolumes.Spec.Template.Spec.Affinity, kvvmInCluster.Spec.Template.Spec.Affinity) {
 			return s.patchAffinity(ctx, builtKVVMWithMigrationVolumes)
 		}
+
 		if vmop != nil && (!readWriteOnceDisksSynced || !storageClassChangedDisksSynced) {
 			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 		}
 		// we already synced our vm with kvvm
 		log.Info("kvvm volumes are already synced, skip volume migration.")
+
 		return reconcile.Result{}, nil
 	}
 
@@ -189,6 +197,7 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 			log.Info("Virtualmachine is restart required, delay structural volume changes to KVVM.")
 			return reconcile.Result{}, nil
 		}
+
 		return s.patchVolumes(ctx, builtKVVM)
 	}
 
@@ -197,6 +206,7 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 		log.Info("ReadWriteOnce disks are not synced yet, skip volume migration.")
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 	}
+
 	if !storageClassChangedDisksSynced {
 		log.Info("Storage class changed disks are not synced yet, skip volume migration.")
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
@@ -228,6 +238,7 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 			if err != nil {
 				return reconcile.Result{}, err
 			}
+
 			if !hasUnfinishedMigration {
 				// The stale round is on the destination volumes (not the reverted-to-source
 				// shape handled above) and no VMIM exists to finalize it, so nothing will
@@ -237,6 +248,7 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 			} else {
 				log.Info("a volume migration is already in progress with different targets, wait for it to finalize.")
 			}
+
 			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 		}
 
@@ -245,9 +257,12 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 			delay, exists := s.delay[vm.UID]
 			if !exists {
 				log.Info("Delay is not set, set delay and requeue after delay duration.")
+
 				s.delay[vm.UID] = time.Now().Add(s.delayDuration)
+
 				return reconcile.Result{RequeueAfter: s.delayDuration}, nil
 			}
+
 			if time.Now().Before(delay) {
 				log.Debug("Delay is not expired, requeue after delay duration.")
 				return reconcile.Result{RequeueAfter: time.Until(delay)}, nil
@@ -265,10 +280,12 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 		}
 
 		log.Info("All disks are ready, patch kvvm with migration volumes.")
+
 		res, err := s.patchVolumes(ctx, builtKVVMWithMigrationVolumes)
 		if err != nil || !res.IsZero() {
 			return res, err
 		}
+
 		log.Debug("kvvm volumes are patched.")
 
 		// Clean up the delay after it's passed
@@ -318,6 +335,7 @@ func getVolumesByName(vmiSpec *virtv1.VirtualMachineInstanceSpec) map[string]*vi
 	for _, vol := range vmiSpec.Volumes {
 		volumes[vol.Name] = vol.DeepCopy()
 	}
+
 	return volumes
 }
 
@@ -329,6 +347,7 @@ func (s MigrationVolumesService) shouldRevert(kvvmi *virtv1.VirtualMachineInstan
 	for _, vd := range readWriteOnceDisks {
 		migratedPVCNames[vd.Status.MigrationState.TargetPVC] = struct{}{}
 	}
+
 	for _, vd := range storageClassChangedDisks {
 		migratedPVCNames[vd.Status.MigrationState.TargetPVC] = struct{}{}
 	}
@@ -340,6 +359,7 @@ func (s MigrationVolumesService) shouldRevert(kvvmi *virtv1.VirtualMachineInstan
 			}
 		}
 	}
+
 	return false
 }
 
@@ -358,6 +378,7 @@ func affinityMergeValue(a *corev1.Affinity) any {
 	if a == nil {
 		return nil
 	}
+
 	return map[string]any{
 		"nodeAffinity":    a.NodeAffinity,
 		"podAffinity":     a.PodAffinity,
@@ -390,6 +411,7 @@ func (s MigrationVolumesService) patchVolumes(ctx context.Context, kvvm *virtv1.
 			"affinity": affinityMergeValue(kvvm.Spec.Template.Spec.Affinity),
 		}},
 	}
+
 	return s.patchKVVMSpec(ctx, kvvm, mergePatch, "The volume migration is detected: patch volumes")
 }
 
@@ -399,6 +421,7 @@ func (s MigrationVolumesService) patchAffinity(ctx context.Context, kvvm *virtv1
 			"affinity": affinityMergeValue(kvvm.Spec.Template.Spec.Affinity),
 		}},
 	}
+
 	return s.patchKVVMSpec(ctx, kvvm, mergePatch, "The affinity drifted: patch affinity")
 }
 
@@ -407,6 +430,7 @@ func (s MigrationVolumesService) patchKVVMSpec(ctx context.Context, kvvm *virtv1
 	if kvvm.ResourceVersion != "" {
 		mergePatch["metadata"] = map[string]any{"resourceVersion": kvvm.ResourceVersion}
 	}
+
 	patchBytes, err := json.Marshal(mergePatch)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -418,8 +442,10 @@ func (s MigrationVolumesService) patchKVVMSpec(ctx context.Context, kvvm *virtv1
 		if k8serrors.IsConflict(err) {
 			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 		}
+
 		return reconcile.Result{}, err
 	}
+
 	return reconcile.Result{}, nil
 }
 
@@ -436,6 +462,7 @@ func (s MigrationVolumesService) VolumesSynced(ctx context.Context, vmState stat
 	if errors.Is(err, network.ErrMainIPAddressNotReady) {
 		return false, nil
 	}
+
 	if err != nil {
 		return false, err
 	}
@@ -454,6 +481,7 @@ func (s MigrationVolumesService) VolumesSynced(ctx context.Context, vmState stat
 	if !kvvmSynced {
 		log.Info("kvvm volumes are not synced yet")
 		log.Debug("", slog.Any("builtKVVM", builtKVVMWithMigrationVolumes.Spec.Template.Spec.Volumes), slog.Any("kvvm", kvvmInCluster.Spec.Template.Spec.Volumes))
+
 		return false, nil
 	}
 
@@ -466,6 +494,7 @@ func (s MigrationVolumesService) VolumesSynced(ctx context.Context, vmState stat
 	if !kvvmiSynced {
 		log.Info("kvvmi volumes are not synced yet")
 		log.Debug("", slog.Any("kvvmi", kvvmInClusterCopy.Spec.Template.Spec.Volumes), slog.Any("kvvmi", kvvmiInCluster.Spec.Volumes))
+
 		return false, nil
 	}
 
@@ -478,6 +507,7 @@ func (s MigrationVolumesService) VolumesSynced(ctx context.Context, vmState stat
 	if !readWriteOnceDisksSynced {
 		log.Info("ReadWriteOnce disks are not synced yet")
 		log.Debug("", slog.Any("readWriteOnceDisks", readWriteOnceDisks), slog.Any("builtKVVM", builtKVVMWithMigrationVolumes.Spec.Template.Spec.Volumes))
+
 		return false, nil
 	}
 
@@ -485,6 +515,7 @@ func (s MigrationVolumesService) VolumesSynced(ctx context.Context, vmState stat
 	if !storageClassChangedDisksSynced {
 		log.Info("Storage class changed disks are not synced yet")
 		log.Debug("", slog.Any("storageClassChangedDisks", storageClassChangedDisks), slog.Any("builtKVVM", builtKVVMWithMigrationVolumes.Spec.Template.Spec.Volumes))
+
 		return false, nil
 	}
 
@@ -496,6 +527,7 @@ func (s MigrationVolumesService) getMachines(ctx context.Context, vmState state.
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
+
 	if kvvmInCluster == nil {
 		return nil, nil, nil, nil, err
 	}
@@ -518,10 +550,12 @@ func (s MigrationVolumesService) getDisks(ctx context.Context, vmState state.Vir
 	if err != nil {
 		return nil, nil, err
 	}
+
 	readWriteOnceDisks, err := s.getReadWriteOnceDisksByName(ctx, vmState)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	storageClassChangedDisks := s.getStorageClassChangedDisksByName(allDisks, readWriteOnceDisks)
 
 	return readWriteOnceDisks, storageClassChangedDisks, nil
@@ -574,11 +608,13 @@ func (s MigrationVolumesService) GetVirtualDiskNamesWithUnreadyTarget(ctx contex
 	}
 
 	var notReadyDisks []string
+
 	for _, vd := range readWriteOnceDisks {
 		if _, ok := readyReadWriteOnce[vd.Name]; !ok {
 			notReadyDisks = append(notReadyDisks, vd.Name)
 		}
 	}
+
 	for _, vd := range storageClassChangedDisks {
 		if _, ok := readyStorageClassChanged[vd.Name]; !ok {
 			notReadyDisks = append(notReadyDisks, vd.Name)
@@ -597,11 +633,13 @@ func (s MigrationVolumesService) getReadyTargetPVCs(ctx context.Context, disks m
 		target := disk.Status.Target.PersistentVolumeClaim
 		if target != "" && disk.Status.MigrationState.EndTimestamp.IsZero() {
 			pvc := &corev1.PersistentVolumeClaim{}
+
 			err := s.client.Get(ctx, types.NamespacedName{Name: target, Namespace: disk.Namespace}, pvc)
 			if err != nil {
 				if k8serrors.IsNotFound(err) {
 					continue
 				}
+
 				return nil, err
 			}
 
@@ -619,11 +657,13 @@ func (s MigrationVolumesService) getReadyTargetPVCs(ctx context.Context, disks m
 				isWaitForFirstConsumer, found := storageClassesIsWaitForFirstConsumer[storageClassName]
 				if !found {
 					sc := &storagev1.StorageClass{}
+
 					err = s.client.Get(ctx, types.NamespacedName{Name: storageClassName}, sc)
 					if err != nil {
 						if k8serrors.IsNotFound(err) {
 							continue
 						}
+
 						return nil, err
 					}
 
@@ -647,13 +687,16 @@ func (s MigrationVolumesService) fillContainerDiskImagePullPolicies(kvvm *virtv1
 		if volume.ContainerDisk == nil {
 			continue
 		}
+
 		vmiVol, ok := volsVMI[volume.Name]
 		if !ok {
 			continue
 		}
+
 		if vmiVol.ContainerDisk == nil {
 			continue
 		}
+
 		kvvm.Spec.Template.Spec.Volumes[i].ContainerDisk.ImagePullPolicy = vmiVol.ContainerDisk.ImagePullPolicy
 	}
 }
@@ -665,6 +708,7 @@ func (s MigrationVolumesService) makeKVVMFromVirtualMachineSpec(ctx context.Cont
 	}
 
 	kvvmBuilder := kvbuilder.NewKVVM(kvvm.DeepCopy(), kvbuilder.DefaultOptions(vmState.VirtualMachine().Current()))
+
 	vdByName, err := vmState.VirtualDisksByName(ctx)
 	if err != nil {
 		return nil, nil, err
@@ -687,23 +731,27 @@ func allDisksMigrating(disks map[string]*v1alpha2.VirtualDisk) bool {
 			return false
 		}
 	}
+
 	return true
 }
 
 // isKVVMIHasUnfinishedMigration reports whether any not-yet-final VMIM exists for the VMI.
 func (s MigrationVolumesService) isKVVMIHasUnfinishedMigration(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
 	migList := &virtv1.VirtualMachineInstanceMigrationList{}
+
 	err := s.client.List(ctx, migList,
 		client.InNamespace(kvvmi.Namespace),
 		client.MatchingFields{indexer.IndexFieldVMIMByVMI: kvvmi.Name})
 	if err != nil {
 		return false, err
 	}
+
 	for i := range migList.Items {
 		if !migList.Items[i].IsFinal() {
 			return true, nil
 		}
 	}
+
 	return false, nil
 }
 
@@ -724,21 +772,25 @@ func isKVVMIRevertedToMigratedVolumeSources(kvvmi *virtv1.VirtualMachineInstance
 	if len(kvvmi.Status.MigratedVolumes) == 0 {
 		return false
 	}
+
 	volumes := make(map[string]string, len(kvvmi.Spec.Volumes))
 	for _, v := range kvvmi.Spec.Volumes {
 		if v.PersistentVolumeClaim != nil {
 			volumes[v.Name] = v.PersistentVolumeClaim.ClaimName
 		}
 	}
+
 	for _, mv := range kvvmi.Status.MigratedVolumes {
 		if mv.SourcePVCInfo == nil {
 			return false
 		}
+
 		claim, ok := volumes[mv.VolumeName]
 		if !ok || claim != mv.SourcePVCInfo.ClaimName {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -766,13 +818,16 @@ func destinationsMatch(kvvmi *virtv1.VirtualMachineInstance, built *virtv1.Virtu
 		if v.PersistentVolumeClaim == nil {
 			continue
 		}
+
 		seen[v.Name] = struct{}{}
 		if d, ok := dest[v.Name]; ok {
 			if v.PersistentVolumeClaim.ClaimName != d {
 				return false
 			}
+
 			continue
 		}
+
 		if v.PersistentVolumeClaim.ClaimName != current[v.Name] {
 			return false
 		}
@@ -795,6 +850,7 @@ func (s MigrationVolumesService) areDisksSynced(kvvm *virtv1.VirtualMachine, dis
 	}
 
 	claims := make(map[string]struct{})
+
 	for _, v := range kvvm.Spec.Template.Spec.Volumes {
 		if v.PersistentVolumeClaim != nil {
 			claims[v.PersistentVolumeClaim.ClaimName] = struct{}{}

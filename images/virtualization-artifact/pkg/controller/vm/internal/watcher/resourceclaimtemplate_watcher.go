@@ -60,5 +60,6 @@ func (w *ResourceClaimTemplateWatcher) Watch(mgr manager.Manager, ctr controller
 	); err != nil {
 		return fmt.Errorf("error setting watch on ResourceClaimTemplate: %w", err)
 	}
+
 	return nil
 }

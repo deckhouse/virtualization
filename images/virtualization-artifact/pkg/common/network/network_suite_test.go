@@ -37,5 +37,6 @@ func TestMain(m *testing.M) {
 	if err := featuregates.Default().(featuregate.MutableFeatureGate).Set(string(featuregates.SDN) + "=true"); err != nil {
 		panic(err)
 	}
+
 	os.Exit(m.Run())
 }

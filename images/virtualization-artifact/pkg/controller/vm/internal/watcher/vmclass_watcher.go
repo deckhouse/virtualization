@@ -50,6 +50,7 @@ func (w VirtualMachineClassWatcher) Watch(mgr manager.Manager, ctr controller.Co
 			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vmClass *v1alpha2.VirtualMachineClass) []reconcile.Request {
 				c := mgr.GetClient()
 				vms := &v1alpha2.VirtualMachineList{}
+
 				err := c.List(ctx, vms, client.MatchingFields{
 					indexer.IndexFieldVMByClass: vmClass.GetName(),
 				})
@@ -59,6 +60,7 @@ func (w VirtualMachineClassWatcher) Watch(mgr manager.Manager, ctr controller.Co
 						"error retrieving virtual machines during the search for virtual machines belonging changed class",
 						logger.SlogErr(err),
 					)
+
 					return nil
 				}
 
@@ -71,6 +73,7 @@ func (w VirtualMachineClassWatcher) Watch(mgr manager.Manager, ctr controller.Co
 						},
 					}
 				}
+
 				return requests
 			}),
 			predicate.TypedFuncs[*v1alpha2.VirtualMachineClass]{
@@ -85,5 +88,6 @@ func (w VirtualMachineClassWatcher) Watch(mgr manager.Manager, ctr controller.Co
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualMachineClass: %w", err)
 	}
+
 	return nil
 }

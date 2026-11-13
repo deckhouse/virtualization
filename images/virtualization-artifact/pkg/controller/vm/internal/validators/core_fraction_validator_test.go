@@ -157,6 +157,7 @@ func TestCoreFractionMissingClass(t *testing.T) {
 	if err := v1alpha2.AddToScheme(scheme); err != nil {
 		t.Fatalf("AddToScheme v1alpha2: %v", err)
 	}
+
 	v := NewCoreFractionValidator(fake.NewClientBuilder().WithScheme(scheme).Build(), newAutoscalerFeatureGate(t, true, true))
 
 	if _, err := v.ValidateCreate(context.Background(), vmWithCoreFraction(v1alpha2.CoreFractionAuto)); err != nil {

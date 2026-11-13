@@ -65,6 +65,7 @@ var _ = Describe("Uploader", func() {
 		Expect(err).ToNot(HaveOccurred())
 		signer, err := registrytoken.NewSignerFromPEM(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der}))
 		Expect(err).ToNot(HaveOccurred())
+
 		return signer
 	}
 
@@ -109,6 +110,7 @@ var _ = Describe("Uploader", func() {
 	ingresses := func() []netv1.Ingress {
 		list := &netv1.IngressList{}
 		Expect(fakeClient.List(ctx, list)).To(Succeed())
+
 		return list.Items
 	}
 
@@ -137,9 +139,11 @@ var _ = Describe("Uploader", func() {
 
 					existing, ok := obj.DeepCopyObject().(client.Object)
 					Expect(ok).To(BeTrue())
+
 					if err = c.Get(ctx, client.ObjectKeyFromObject(obj), existing); err != nil {
 						return err
 					}
+
 					obj.SetResourceVersion(existing.GetResourceVersion())
 
 					return c.Update(ctx, obj)

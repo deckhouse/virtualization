@@ -42,6 +42,7 @@ type portforwardableResource interface {
 
 func (p *portForwarder) startForwarding(address *net.IPAddr, port forwardedPort) error {
 	klog.Infof("forwarding %s %s:%d to %d", port.protocol, address, port.local, port.remote)
+
 	if port.protocol == protocolUDP {
 		return p.startForwardingUDP(address, port)
 	}

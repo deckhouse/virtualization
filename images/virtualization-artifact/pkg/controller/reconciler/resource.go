@@ -71,6 +71,7 @@ func (r *Resource[T, ST]) getObjStatus(obj T) (ret ST) {
 	if obj != r.emptyObj {
 		ret = r.objStatusGetter(obj)
 	}
+
 	return ret
 }
 
@@ -91,6 +92,7 @@ func (r *Resource[T, ST]) Fetch(ctx context.Context) error {
 	}
 
 	r.changedObj = currentObj.DeepCopy()
+
 	return nil
 }
 
@@ -155,6 +157,7 @@ func rewriteConditions(conds []metav1.Condition) {
 		if conds[i].Reason == "" {
 			conds[i].Reason = conditions.ReasonUnknown.String()
 		}
+
 		if conds[i].Status == "" {
 			conds[i].Status = metav1.ConditionUnknown
 		}
@@ -165,12 +168,15 @@ func rewriteConditions(conds []metav1.Condition) {
 		if conds[i].Type == "NeedsEvict" {
 			conds[i].Type = vmcondition.TypeEvictionRequired.String()
 		}
+
 		if conds[i].Type == vmcondition.TypeEvictionRequired.String() && conds[i].Reason == "NeedsEvict" {
 			conds[i].Reason = vmcondition.ReasonEvictionRequired.String()
 		}
+
 		if conds[i].Type == vmcondition.TypeNetworkReady.String() && conds[i].Reason == "SDNModuleDisable" {
 			conds[i].Reason = vmcondition.ReasonSDNModuleDisabled.String()
 		}
+
 		if conds[i].Type == vmcondition.TypeBlockDevicesReady.String() && conds[i].Reason == "WaitingForTheProvisioningToPersistentVolumeClaim" {
 			conds[i].Reason = vmcondition.ReasonWaitingForWaitForFirstConsumerBlockDevicesToBeReady.String()
 		}
@@ -188,6 +194,7 @@ func (r *Resource[T, ST]) Update(ctx context.Context) error {
 		// Save some metadata fields.
 		finalizers := r.changedObj.GetFinalizers()
 		labels := r.changedObj.GetLabels()
+
 		annotations := r.changedObj.GetAnnotations()
 		if err := r.client.Status().Update(ctx, r.changedObj); err != nil && !kerrors.IsNotFound(err) {
 			return fmt.Errorf("error updating status subresource: %w", err)
@@ -203,9 +210,11 @@ func (r *Resource[T, ST]) Update(ctx context.Context) error {
 	if !slices.Equal(r.currentObj.GetFinalizers(), r.changedObj.GetFinalizers()) {
 		metadataPatch.Append(r.JSONPatchOpsForFinalizers()...)
 	}
+
 	if !maps.Equal(r.currentObj.GetAnnotations(), r.changedObj.GetAnnotations()) {
 		metadataPatch.Append(r.JSONPatchOpsForAnnotations()...)
 	}
+
 	if !maps.Equal(r.currentObj.GetLabels(), r.changedObj.GetLabels()) {
 		metadataPatch.Append(r.JSONPatchOpsForLabels()...)
 	}
@@ -218,6 +227,7 @@ func (r *Resource[T, ST]) Update(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
 	jsonPatch := client.RawPatch(types.JSONPatchType, metadataPatchBytes)
 	if err = r.client.Patch(ctx, r.changedObj, jsonPatch); err != nil {
 		if r.changedObj.GetDeletionTimestamp() != nil && len(r.changedObj.GetFinalizers()) == 0 && kerrors.IsNotFound(err) {
@@ -238,6 +248,7 @@ func (r *Resource[T, ST]) JSONPatchOpsForFinalizers() []patch.JSONPatchOperation
 	if len(r.currentObj.GetFinalizers()) == 0 {
 		op = patch.PatchAddOp
 	}
+
 	return []patch.JSONPatchOperation{
 		patch.NewJSONPatchOperation(op, "/metadata/finalizers", r.changedObj.GetFinalizers()),
 	}
@@ -265,10 +276,12 @@ func jsonPatchOpsForMetadataMap(path string, current, changed map[string]string)
 			patch.NewJSONPatchOperation(patch.PatchAddOp, path, changed),
 		}
 	}
+
 	op := patch.PatchReplaceOp
 	if len(current) == 0 {
 		op = patch.PatchAddOp
 	}
+
 	return []patch.JSONPatchOperation{
 		patch.NewJSONPatchOperation(patch.PatchTestOp, path, current),
 		patch.NewJSONPatchOperation(op, path, changed),
@@ -277,6 +290,7 @@ func jsonPatchOpsForMetadataMap(path string, current, changed map[string]string)
 
 func MergeResults(results ...reconcile.Result) reconcile.Result {
 	var result reconcile.Result
+
 	for _, r := range results {
 		if r.IsZero() {
 			continue
@@ -285,13 +299,16 @@ func MergeResults(results ...reconcile.Result) reconcile.Result {
 		if r.Requeue && r.RequeueAfter == 0 {
 			return r
 		}
+
 		if result.IsZero() && r.RequeueAfter > 0 {
 			result = r
 			continue
 		}
+
 		if r.RequeueAfter > 0 && r.RequeueAfter < result.RequeueAfter {
 			result.RequeueAfter = r.RequeueAfter
 		}
 	}
+
 	return result
 }

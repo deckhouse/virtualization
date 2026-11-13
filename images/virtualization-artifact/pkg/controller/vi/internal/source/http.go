@@ -72,10 +72,13 @@ func (ds HTTPDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.VirtualIm
 	log, ctx := logger.GetDataSourceContext(ctx, "http")
 
 	condition, _ := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
+
 	cb := conditions.NewConditionBuilder(vicondition.ReadyType).Generation(vi.Generation)
+
 	defer func() { conditions.SetCondition(cb, &vi.Status.Conditions) }()
 
 	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
+
 	pod, err := ds.importerService.GetPod(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -143,6 +146,7 @@ func (ds HTTPDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.VirtualIm
 					Status(metav1.ConditionFalse).
 					Reason(vicondition.ProvisioningFailed).
 					Message(service.CapitalizeFirstLetter(err.Error() + "."))
+
 				return reconcile.Result{}, nil
 			default:
 				return reconcile.Result{}, err
@@ -194,14 +198,18 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualIma
 	log, ctx := logger.GetDataSourceContext(ctx, "http")
 
 	condition, _ := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
+
 	cb := conditions.NewConditionBuilder(vicondition.ReadyType).Generation(vi.Generation)
+
 	defer func() { conditions.SetCondition(cb, &vi.Status.Conditions) }()
 
 	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
+
 	pod, err := ds.importerService.GetPod(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -233,6 +241,7 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualIma
 		}
 
 		envSettings := ds.getEnvSettings(vi, supgen)
+
 		err = ds.importerService.Start(ctx, envSettings, vi, supgen, datasource.NewCABundleForVMI(vi.GetNamespace(), vi.Spec.DataSource), service.WithSystemNodeToleration())
 		switch {
 		case err == nil:
@@ -283,6 +292,7 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualIma
 			"The HTTP DataSource import has started",
 		)
 		source := ds.getSource(supgen, ds.statService.GetDVCRImageName(pod))
+
 		return reconcilePVCImportFromDVCR(ctx, vi, pod, pvc, source, cb, supgen, ds.statService, ds.diskService)
 	}
 

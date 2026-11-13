@@ -56,6 +56,7 @@ func GetVMFromInformer(cache TTLCache, vmInformer cache.Store, vmName string) (*
 	if err != nil {
 		return nil, fmt.Errorf("fail to get node from informer: %w", err)
 	}
+
 	if !exist {
 		vmObj, exist = cache.Get("virtualmachines/" + vmName)
 		if !exist {
@@ -76,6 +77,7 @@ func GetVDFromInformer(cache TTLCache, vdInformer cache.Store, vdName string) (*
 	if err != nil {
 		return nil, fmt.Errorf("fail to get node from informer: %w", err)
 	}
+
 	if !exist {
 		vdObj, exist = cache.Get("virtualdisks/" + vdName)
 		if !exist {
@@ -96,6 +98,7 @@ func GetNodeFromInformer(nodeInformer cache.Store, nodeName string) (*corev1.Nod
 	if err != nil {
 		return nil, fmt.Errorf("fail to get node from informer: %w", err)
 	}
+
 	if !exist {
 		return nil, errors.New("nodeObj not exist")
 	}
@@ -113,6 +116,7 @@ func GetPodFromInformer(cache TTLCache, podInformer cache.Store, podName string)
 	if err != nil {
 		return nil, fmt.Errorf("fail to get pod from informer: %w", err)
 	}
+
 	if !exist {
 		podObj, exist = cache.Get("pods/" + podName)
 		if !exist {
@@ -133,6 +137,7 @@ func GetVMOPFromInformer(vmopInformer cache.Store, vmopName string) (*v1alpha2.V
 	if err != nil {
 		return nil, fmt.Errorf("fail to get vmop from informer: %w", err)
 	}
+
 	if !exist {
 		return nil, errors.New("vmopObj not exist")
 	}
@@ -150,6 +155,7 @@ func GetInternalVMIFromInformer(cache TTLCache, internalVMIInformer cache.Store,
 	if err != nil {
 		return nil, fmt.Errorf("fail to get intVMI from informer: %w", err)
 	}
+
 	if !exist {
 		intVMIObj, exist = cache.Get("intVMI/" + internalVMIName)
 		if !exist {
@@ -163,6 +169,7 @@ func GetInternalVMIFromInformer(cache TTLCache, internalVMIInformer cache.Store,
 	}
 
 	intVMI := &virtv1.VirtualMachineInstance{}
+
 	err = UnstructuredToTypedObject(unstructuredObj, intVMI)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert unstructuredObj to VirtualMachineInstance: %w", err)
@@ -176,6 +183,7 @@ func GetModuleFromInformer(moduleInformer cache.Store, moduleName string) (*modu
 	if err != nil {
 		return nil, fmt.Errorf("fail to get module from informer: %w", err)
 	}
+
 	if !exist {
 		return nil, errors.New("module not exist")
 	}
@@ -186,6 +194,7 @@ func GetModuleFromInformer(moduleInformer cache.Store, moduleName string) (*modu
 	}
 
 	module := &module.Module{}
+
 	err = UnstructuredToTypedObject(unstructuredObj, module)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert unstructuredObj to Module: %w", err)
@@ -199,6 +208,7 @@ func GetModuleConfigFromInformer(moduleConfigInformer cache.Store, moduleConfigN
 	if err != nil {
 		return nil, fmt.Errorf("fail to get module config from informer: %w", err)
 	}
+
 	if !exist {
 		return nil, errors.New("module config not exist")
 	}
@@ -209,6 +219,7 @@ func GetModuleConfigFromInformer(moduleConfigInformer cache.Store, moduleConfigN
 	}
 
 	moduleConfig := &mcapi.ModuleConfig{}
+
 	err = UnstructuredToTypedObject(unstructuredObj, moduleConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert unstructuredObj to ModuleConfig: %w", err)

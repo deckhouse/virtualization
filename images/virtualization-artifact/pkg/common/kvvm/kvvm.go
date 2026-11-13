@@ -44,6 +44,7 @@ func GetRunStrategy(kvvm *virtv1.VirtualMachine) virtv1.VirtualMachineRunStrateg
 	if kvvm == nil || kvvm.Spec.RunStrategy == nil {
 		return virtv1.RunStrategyUnknown
 	}
+
 	return *kvvm.Spec.RunStrategy
 }
 
@@ -66,15 +67,19 @@ func FindPodByKVVMI(ctx context.Context, c client.Client, kvvmi *virtv1.VirtualM
 	if kvvmi == nil {
 		return nil, fmt.Errorf("kvvmi must not be empty")
 	}
+
 	labelSelector, err := labels.Parse(fmt.Sprintf("%s=virt-launcher,%s=%s", virtv1.AppLabel, virtv1.CreatedByLabel, string(kvvmi.UID)))
 	if err != nil {
 		return nil, err
 	}
+
 	podList := corev1.PodList{}
+
 	err = c.List(ctx, &podList, &client.ListOptions{Namespace: kvvmi.GetNamespace(), LabelSelector: labelSelector})
 	if err != nil || len(podList.Items) == 0 {
 		return nil, err
 	}
+
 	return GetVMPod(kvvmi, &podList), nil
 }
 
@@ -86,15 +91,18 @@ func GetVMPod(kvvmi *virtv1.VirtualMachineInstance, podList *corev1.PodList) *co
 	nodeName := kvvmi.Status.NodeName
 
 	var pods []corev1.Pod
+
 	for _, pod := range podList.Items {
 		// if KVVMI completed, nodeName can be empty
 		kvvmCompletedWithEmptyNodeName := kvvmiCompleted(kvvmi) && nodeName == ""
 		if !kvvmCompletedWithEmptyNodeName && nodeName != pod.Spec.NodeName {
 			continue
 		}
+
 		if _, exists := kvvmi.Status.ActivePods[pod.GetUID()]; !exists {
 			continue
 		}
+
 		pods = append(pods, pod)
 	}
 
@@ -114,6 +122,7 @@ func GetVMPod(kvvmi *virtv1.VirtualMachineInstance, podList *corev1.PodList) *co
 			return &pod
 		}
 	}
+
 	return &pods[0]
 }
 
@@ -123,6 +132,7 @@ func DeletePodByKVVMI(ctx context.Context, cl client.Client, kvvmi *virtv1.Virtu
 	if err != nil {
 		return err
 	}
+
 	if pod == nil {
 		return nil
 	}
@@ -156,6 +166,7 @@ func InstanceHasVolume(kvvmi *virtv1.VirtualMachineInstance, volumeName string) 
 	if kvvmi == nil {
 		return false
 	}
+
 	return slices.ContainsFunc(kvvmi.Status.VolumeStatus, func(vs virtv1.VolumeStatus) bool { return vs.Name == volumeName }) ||
 		slices.ContainsFunc(kvvmi.Spec.Volumes, func(v virtv1.Volume) bool { return v.Name == volumeName })
 }

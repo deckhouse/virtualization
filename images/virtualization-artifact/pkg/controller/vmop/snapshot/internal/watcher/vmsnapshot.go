@@ -57,6 +57,7 @@ func (w VirtualMachineSnapshotWatcher) Watch(mgr manager.Manager, ctr controller
 				}
 
 				var requests []reconcile.Request
+
 				for _, vmop := range vmops.Items {
 					if !Match(&vmop) {
 						continue
@@ -72,6 +73,7 @@ func (w VirtualMachineSnapshotWatcher) Watch(mgr manager.Manager, ctr controller
 						})
 					}
 				}
+
 				return requests
 			}),
 			predicate.TypedFuncs[*v1alpha2.VirtualMachineSnapshot]{
@@ -90,5 +92,6 @@ func (w VirtualMachineSnapshotWatcher) Watch(mgr manager.Manager, ctr controller
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualMachineSnapshot: %w", err)
 	}
+
 	return nil
 }

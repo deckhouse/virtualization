@@ -76,11 +76,13 @@ func (r *ScaleDownWithREST) Create(ctx context.Context, name string, obj runtime
 	if !ok {
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected VirtualMachinePoolScaleDownWith, got %T", obj))
 	}
+
 	if createValidation != nil {
 		if err := createValidation(ctx, obj); err != nil {
 			return nil, err
 		}
 	}
+
 	if len(body.Targets) == 0 {
 		return nil, apierrors.NewBadRequest("scaleDownWith requires a non-empty targets list")
 	}
@@ -89,6 +91,7 @@ func (r *ScaleDownWithREST) Create(ctx context.Context, name string, obj runtime
 	if err := r.scaleDown(ctx, namespace, name, body.Targets); err != nil {
 		return nil, err
 	}
+
 	return &metav1.Status{Status: metav1.StatusSuccess}, nil
 }
 
@@ -104,6 +107,7 @@ func (r *ScaleDownWithREST) scaleDown(ctx context.Context, namespace, poolName s
 		if apierrors.IsNotFound(err) {
 			return apierrors.NewNotFound(v1alpha2.Resource(v1alpha2.VirtualMachinePoolResource), poolName)
 		}
+
 		return apierrors.NewInternalError(err)
 	}
 
@@ -115,8 +119,10 @@ func (r *ScaleDownWithREST) scaleDown(ctx context.Context, namespace, poolName s
 			if apierrors.IsNotFound(err) {
 				return apierrors.NewBadRequest(fmt.Sprintf("target VirtualMachine %q not found in namespace %q", target, namespace))
 			}
+
 			return apierrors.NewInternalError(err)
 		}
+
 		if ref := metav1.GetControllerOf(vm); ref == nil || ref.UID != pool.GetUID() {
 			return apierrors.NewBadRequest(fmt.Sprintf("target VirtualMachine %q does not belong to VirtualMachinePool %q", target, poolName))
 		}
@@ -131,21 +137,26 @@ func (r *ScaleDownWithREST) scaleDown(ctx context.Context, namespace, poolName s
 
 	// Atomically shrink the pool by the number of removed replicas.
 	removed := int32(len(targets))
+
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		current, err := pools.Get(ctx, poolName, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
+
 		desired := int32(0)
 		if current.Spec.Replicas != nil {
 			desired = *current.Spec.Replicas
 		}
+
 		desired -= removed
 		if desired < 0 {
 			desired = 0
 		}
+
 		current.Spec.Replicas = &desired
 		_, err = pools.Update(ctx, current, metav1.UpdateOptions{})
+
 		return err
 	})
 }

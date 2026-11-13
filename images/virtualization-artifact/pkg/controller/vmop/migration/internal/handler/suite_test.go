@@ -41,6 +41,7 @@ func setupEnvironment(vmop *v1alpha2.VirtualMachineOperation, objs ...client.Obj
 	Expect(vmop).ToNot(BeNil())
 
 	allObjects := make([]client.Object, len(objs)+1)
+
 	allObjects[0] = vmop
 	for i, obj := range objs {
 		allObjects[i+1] = obj

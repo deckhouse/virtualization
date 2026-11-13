@@ -43,9 +43,11 @@ func (s *scraper) Count(m *dataMetric) {
 	if m == nil {
 		return
 	}
+
 	if s.counts == nil {
 		s.counts = make(map[countKey]float64)
 	}
+
 	s.counts[countKey{namespace: m.Namespace, phase: string(m.Phase)}]++
 }
 
@@ -57,6 +59,7 @@ func (s *scraper) Report() {
 			s.log.Warn(fmt.Sprintf("Error creating the new const dataMetric for %s: %s", info.Desc, err))
 			continue
 		}
+
 		s.ch <- metric
 	}
 }

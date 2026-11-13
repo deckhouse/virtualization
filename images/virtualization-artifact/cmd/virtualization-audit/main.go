@@ -32,6 +32,7 @@ func main() {
 	cmd := app.NewAuditCommand()
 	if err := cmd.ExecuteContext(ctx); err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
+
 		os.Exit(1)
 	}
 }

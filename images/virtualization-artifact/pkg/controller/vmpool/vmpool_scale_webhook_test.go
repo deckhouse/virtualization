@@ -35,6 +35,7 @@ import (
 func scaleRaw(replicas int32) runtime.RawExtension {
 	raw, err := json.Marshal(&autoscalingv1.Scale{Spec: autoscalingv1.ScaleSpec{Replicas: replicas}})
 	Expect(err).NotTo(HaveOccurred())
+
 	return runtime.RawExtension{Raw: raw}
 }
 
@@ -64,6 +65,7 @@ var _ = Describe("scaleValidator", func() {
 	validatorFor := func(pool *v1alpha2.VirtualMachinePool) *scaleValidator {
 		c, err := testutil.NewFakeClientWithObjects(pool)
 		Expect(err).NotTo(HaveOccurred())
+
 		return &scaleValidator{client: c}
 	}
 

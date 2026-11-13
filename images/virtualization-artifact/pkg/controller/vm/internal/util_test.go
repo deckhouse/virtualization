@@ -94,6 +94,7 @@ var _ = Describe("getPhase", func() {
 		vm := &v1alpha2.VirtualMachine{}
 		vm.Spec.RunPolicy = runPolicy
 		vm.Status.Phase = phase
+
 		return vm
 	}
 
@@ -102,6 +103,7 @@ var _ = Describe("getPhase", func() {
 		kvvm.Annotations = anns
 		kvvm.Spec.RunStrategy = ptr.To(runStrategy)
 		kvvm.Status.PrintableStatus = virtv1.VirtualMachineStatusStopped
+
 		return kvvm
 	}
 

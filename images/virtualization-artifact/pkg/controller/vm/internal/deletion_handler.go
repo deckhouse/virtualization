@@ -56,16 +56,21 @@ func (h *DeletionHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 	if s.VirtualMachine().IsEmpty() {
 		return reconcile.Result{}, nil
 	}
+
 	if s.VirtualMachine().Current().GetDeletionTimestamp().IsZero() {
 		changed := s.VirtualMachine().Changed()
 		controllerutil.AddFinalizer(changed, v1alpha2.FinalizerVMCleanup)
+
 		return reconcile.Result{}, nil
 	}
+
 	log.Info("Deletion observed: remove protection from KVVM")
+
 	kvvm, err := s.KVVM(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	err = h.protection.RemoveProtection(ctx, kvvm)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to update finalizer on the KVVM %q: %w", kvvm.GetName(), err)
@@ -84,6 +89,7 @@ func (h *DeletionHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 		if err != nil {
 			return reconcile.Result{}, err
 		}
+
 		requeueAfter := 30 * time.Second
 		if p := s.VirtualMachine().Current().Spec.TerminationGracePeriodSeconds; p != nil {
 			newRequeueAfter := time.Duration(*p) * time.Second
@@ -91,6 +97,7 @@ func (h *DeletionHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 				requeueAfter = newRequeueAfter
 			}
 		}
+
 		return reconcile.Result{RequeueAfter: requeueAfter}, nil
 	}
 
@@ -103,10 +110,12 @@ func (h *DeletionHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	pods, err := s.Pods(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	if kvvmi != nil || len(pods.Items) > 0 {
 		log.Info("Deletion observed: waiting for the KVVMI and virt-launcher pods to be removed")
 		return reconcile.Result{RequeueAfter: 15 * time.Second}, nil
@@ -118,6 +127,7 @@ func (h *DeletionHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 
 	log.Info("Deletion observed: remove cleanup finalizer from VirtualMachine")
 	controllerutil.RemoveFinalizer(s.VirtualMachine().Changed(), v1alpha2.FinalizerVMCleanup)
+
 	return reconcile.Result{}, nil
 }
 

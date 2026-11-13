@@ -55,6 +55,7 @@ var _ = Describe("TestDynamicSettingsHandler", func() {
 				Namespace: vmNamespace,
 			},
 		}
+
 		return vmi
 	}
 
@@ -84,6 +85,7 @@ var _ = Describe("TestDynamicSettingsHandler", func() {
 				Phase: v1alpha2.VMOPPhaseInProgress,
 			},
 		}
+
 		return vmop
 	}
 

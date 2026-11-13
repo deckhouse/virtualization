@@ -92,6 +92,7 @@ func BeCompleted() Predicate {
 			return true, nil
 		case v1alpha2.VMOPPhaseFailed, v1alpha2.VMOPPhaseSuperseded:
 			completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
+
 			return false, fmt.Errorf("vmop %s/%s is %s: reason: %s, message: %s",
 				vmop.Namespace, vmop.Name, vmop.Status.Phase, completed.Reason, completed.Message)
 		default:

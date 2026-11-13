@@ -39,7 +39,9 @@ var _ = Describe("PeerMigrationLockValidator", func() {
 			Spec:       v1alpha2.VirtualMachineSpec{RunPolicy: v1alpha2.AlwaysOnPolicy},
 		}
 	}
+
 	var v *PeerMigrationLockValidator
+
 	BeforeEach(func() {
 		scheme := runtime.NewScheme()
 		Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())

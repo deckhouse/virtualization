@@ -47,5 +47,6 @@ func (w MigrationWatcher) Watch(mgr manager.Manager, ctr controller.Controller) 
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualMachineInstanceMigration: %w", err)
 	}
+
 	return nil
 }

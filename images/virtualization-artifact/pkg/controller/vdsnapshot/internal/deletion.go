@@ -95,6 +95,7 @@ func (h DeletionHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtua
 			}
 
 			log.Warn("The guest agent has not confirmed the filesystem request in time, discard it", logger.SlogErr(err))
+
 			err = h.snapshotter.DiscardFSFreezeRequest(ctx, kvvmi)
 			if err != nil {
 				return reconcile.Result{}, err
@@ -105,11 +106,13 @@ func (h DeletionHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtua
 
 		if vm != nil {
 			var canUnfreeze bool
+
 			canUnfreeze, err = h.snapshotter.CanUnfreezeWithVirtualDiskSnapshot(ctx, vdSnapshot.Name, vm, kvvmi)
 			if err != nil {
 				if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
 					return reconcile.Result{RequeueAfter: fsRequestPollInterval}, nil
 				}
+
 				return reconcile.Result{}, err
 			}
 
@@ -132,9 +135,11 @@ func (h DeletionHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtua
 		log.Info("Deletion observed: remove cleanup finalizer from VirtualDiskSnapshot")
 
 		controllerutil.RemoveFinalizer(vdSnapshot, v1alpha2.FinalizerVDSnapshotCleanup)
+
 		return reconcile.Result{}, nil
 	}
 
 	controllerutil.AddFinalizer(vdSnapshot, v1alpha2.FinalizerVDSnapshotCleanup)
+
 	return reconcile.Result{}, nil
 }

@@ -148,6 +148,7 @@ func (h *MigratingHandler) getMigrationResult(state *virtv1.VirtualMachineInstan
 	if state == nil {
 		return ""
 	}
+
 	switch {
 	case state.Completed && !state.Failed:
 		return v1alpha2.MigrationResultSucceeded
@@ -171,6 +172,7 @@ func (h *MigratingHandler) syncMigrating(ctx context.Context, s state.VirtualMac
 	if liveMigrationInProgress(vm.Status.MigrationState) {
 		cb.Status(metav1.ConditionTrue).Reason(vmcondition.ReasonMigratingInProgress)
 		conditions.SetCondition(cb, &vm.Status.Conditions)
+
 		return nil
 	}
 
@@ -203,6 +205,7 @@ func (h *MigratingHandler) syncMigrating(ctx context.Context, s state.VirtualMac
 				conditions.RemoveCondition(vmcondition.TypeMigrating, &vm.Status.Conditions)
 				return nil
 			}
+
 			cb.Message(fmt.Sprintf("Migration is being aborted; VirtualMachineOperation: %s.", vmop.Name))
 
 		case vmopcondition.ReasonMigrationTargetReady.String(), vmopcondition.ReasonSyncing.String(), vmopcondition.ReasonSourceSuspended.String(), vmopcondition.ReasonTargetResumed.String():
@@ -222,7 +225,6 @@ func (h *MigratingHandler) syncMigrating(ctx context.Context, s state.VirtualMac
 			return nil
 
 		default:
-
 			switch vmop.Status.Phase {
 			case "":
 				conditions.RemoveCondition(vmcondition.TypeMigrating, &vm.Status.Conditions)
@@ -245,11 +247,13 @@ func (h *MigratingHandler) syncMigrating(ctx context.Context, s state.VirtualMac
 		}
 
 		conditions.SetCondition(cb, &vm.Status.Conditions)
+
 		return nil
 	}
 
 	// 4. Remove Migrating condition if migration is finished or migration was not be requested.
 	conditions.RemoveCondition(vmcondition.TypeMigrating, &vm.Status.Conditions)
+
 	return nil
 }
 
@@ -334,6 +338,7 @@ func (h *MigratingHandler) syncMigratable(ctx context.Context, s state.VirtualMa
 			Reason(vmcondition.ReasonProvisioningSecretMissing).
 			Message(messageProvisioningSecretMissing)
 		conditions.SetCondition(cb, &vm.Status.Conditions)
+
 		return nil
 	}
 
@@ -374,7 +379,9 @@ func (h *MigratingHandler) syncMigratable(ctx context.Context, s state.VirtualMa
 				Reason(vmcondition.ReasonDisksNotMigratable).
 				Message("Live migration requires all disks to use ReadWriteMany (shared) storage. Make sure the StorageClass supports the ReadWriteMany access mode.")
 		}
+
 		conditions.SetCondition(cb, &vm.Status.Conditions)
+
 		return nil
 	case liveMigratable.Reason == virtv1.VirtualMachineInstanceReasonHostDeviceNotMigratable:
 		cb.Status(metav1.ConditionFalse).
@@ -382,12 +389,14 @@ func (h *MigratingHandler) syncMigratable(ctx context.Context, s state.VirtualMa
 			Message("Live migration is blocked because the VirtualMachine has a device that cannot be migrated. Remove it to enable live migration.")
 
 		conditions.SetCondition(cb, &vm.Status.Conditions)
+
 		return nil
 	case liveMigratable.Status == corev1.ConditionFalse:
 		cb.Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonNonMigratable).
 			Message(liveMigratable.Message)
 		conditions.SetCondition(cb, &vm.Status.Conditions)
+
 		return nil
 	}
 
@@ -396,6 +405,7 @@ func (h *MigratingHandler) syncMigratable(ctx context.Context, s state.VirtualMa
 		if err != nil {
 			return err
 		}
+
 		if len(readWriteOnceVirtualDisks) > 0 {
 			if featuregates.Default().Enabled(featuregates.VolumeMigration) {
 				reportMigratable(vmcondition.ReasonDisksShouldBeMigrating)
@@ -404,7 +414,9 @@ func (h *MigratingHandler) syncMigratable(ctx context.Context, s state.VirtualMa
 					Reason(vmcondition.ReasonDisksNotMigratable).
 					Message("Live migration requires all disks to use ReadWriteMany (shared) storage. Make sure the StorageClass supports the ReadWriteMany access mode.")
 			}
+
 			conditions.SetCondition(cb, &vm.Status.Conditions)
+
 			return nil
 		}
 	}
@@ -444,6 +456,7 @@ func migrationTargetReason(kvvm *virtv1.VirtualMachine) string {
 	if targetAvailable == nil || targetAvailable.Status != corev1.ConditionFalse {
 		return ""
 	}
+
 	return targetAvailable.Reason
 }
 

@@ -126,6 +126,7 @@ var _ = Describe("OperationHandler", func() {
 		updated := &v1alpha2.VirtualMachine{}
 		err := fakeClient.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, updated)
 		Expect(err).NotTo(HaveOccurred())
+
 		return conditions.GetCondition(vmcondition.TypeOperationInProgress, updated.Status.Conditions)
 	}
 
@@ -494,6 +495,7 @@ var _ = Describe("OperationHandler", func() {
 		for _, action := range actions {
 			kvvm.Status.StateChangeRequests = append(kvvm.Status.StateChangeRequests, virtv1.VirtualMachineStateChangeRequest{Action: action})
 		}
+
 		fakeClient, resource, vmState = setupEnvironment(newVM(), kvvm)
 
 		reconcile()

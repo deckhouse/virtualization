@@ -65,6 +65,7 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vi *v1alpha2.Virtu
 	}
 
 	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
+
 	pvc, err := h.svc.GetPersistentVolumeClaim(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -102,9 +103,12 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vi *v1alpha2.Virtu
 				Reason(vicondition.StorageClassNotReady).
 				Message(service.CapitalizeFirstLetter(err.Error() + "."))
 			conditions.SetCondition(cb, &vi.Status.Conditions)
+
 			return reconcile.Result{}, nil
 		}
+
 		h.setFromModuleSettings(vi, moduleStorageClass, cb)
+
 		return reconcile.Result{}, nil
 	}
 
@@ -127,9 +131,12 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vi *v1alpha2.Virtu
 				Reason(vicondition.StorageClassNotReady).
 				Message(service.CapitalizeFirstLetter(err.Error() + "."))
 			conditions.SetCondition(cb, &vi.Status.Conditions)
+
 			return reconcile.Result{}, nil
 		}
+
 		h.setFromDefault(vi, defaultStorageClass, cb)
+
 		return reconcile.Result{}, nil
 	}
 
@@ -170,6 +177,7 @@ func (h StorageClassReadyHandler) setFromSpec(ctx context.Context, vi *v1alpha2.
 				Reason(vicondition.StorageClassNotReady).
 				Message(service.CapitalizeFirstLetter(err.Error() + "."))
 			conditions.SetCondition(cb, &vi.Status.Conditions)
+
 			return nil
 		}
 	}
@@ -180,6 +188,7 @@ func (h StorageClassReadyHandler) setFromSpec(ctx context.Context, vi *v1alpha2.
 			Reason(vicondition.StorageClassNotReady).
 			Message(fmt.Sprintf("The provisioner of the %q storage class is deprecated; please use a different one.", *vi.Spec.PersistentVolumeClaim.StorageClass))
 		conditions.SetCondition(cb, &vi.Status.Conditions)
+
 		return nil
 	}
 
@@ -192,6 +201,7 @@ func (h StorageClassReadyHandler) setFromSpec(ctx context.Context, vi *v1alpha2.
 				vi.Status.StorageClassName,
 			))
 		conditions.SetCondition(cb, &vi.Status.Conditions)
+
 		return nil
 	}
 
@@ -201,6 +211,7 @@ func (h StorageClassReadyHandler) setFromSpec(ctx context.Context, vi *v1alpha2.
 			Reason(vicondition.StorageClassNotFound).
 			Message(fmt.Sprintf("The specified StorageClass %q was not found.", vi.Status.StorageClassName))
 		conditions.SetCondition(cb, &vi.Status.Conditions)
+
 		return nil
 	}
 
@@ -210,6 +221,7 @@ func (h StorageClassReadyHandler) setFromSpec(ctx context.Context, vi *v1alpha2.
 			Reason(vicondition.StorageClassNotReady).
 			Message(fmt.Sprintf("The specified StorageClass %q is terminating and cannot be used.", vi.Status.StorageClassName))
 		conditions.SetCondition(cb, &vi.Status.Conditions)
+
 		return nil
 	}
 
@@ -218,6 +230,7 @@ func (h StorageClassReadyHandler) setFromSpec(ctx context.Context, vi *v1alpha2.
 		Reason(vicondition.StorageClassReady).
 		Message("")
 	conditions.SetCondition(cb, &vi.Status.Conditions)
+
 	return nil
 }
 
@@ -239,6 +252,7 @@ func (h StorageClassReadyHandler) setFromExistingPVC(ctx context.Context, vi *v1
 			Reason(vicondition.StorageClassNotFound).
 			Message(fmt.Sprintf("The StorageClass %q used by the underlying PersistentVolumeClaim was not found.", vi.Status.StorageClassName))
 		conditions.SetCondition(cb, &vi.Status.Conditions)
+
 		return nil
 	}
 
@@ -248,6 +262,7 @@ func (h StorageClassReadyHandler) setFromExistingPVC(ctx context.Context, vi *v1
 			Reason(vicondition.StorageClassNotReady).
 			Message(fmt.Sprintf("The StorageClass %q used by the underlying PersistentVolumeClaim is terminating and cannot be used.", vi.Status.StorageClassName))
 		conditions.SetCondition(cb, &vi.Status.Conditions)
+
 		return nil
 	}
 
@@ -256,6 +271,7 @@ func (h StorageClassReadyHandler) setFromExistingPVC(ctx context.Context, vi *v1
 		Reason(vicondition.StorageClassReady).
 		Message("")
 	conditions.SetCondition(cb, &vi.Status.Conditions)
+
 	return nil
 }
 
@@ -268,6 +284,7 @@ func (h StorageClassReadyHandler) setFromModuleSettings(vi *v1alpha2.VirtualImag
 			Reason(vicondition.StorageClassNotReady).
 			Message(fmt.Sprintf("The provisioner of the %q storage class is deprecated; please use a different one.", moduleStorageClass.Name))
 		conditions.SetCondition(cb, &vi.Status.Conditions)
+
 		return
 	}
 
@@ -277,6 +294,7 @@ func (h StorageClassReadyHandler) setFromModuleSettings(vi *v1alpha2.VirtualImag
 			Reason(vicondition.StorageClassReady).
 			Message("")
 		conditions.SetCondition(cb, &vi.Status.Conditions)
+
 		return
 	} else {
 		cb.
@@ -284,6 +302,7 @@ func (h StorageClassReadyHandler) setFromModuleSettings(vi *v1alpha2.VirtualImag
 			Reason(vicondition.StorageClassNotReady).
 			Message(fmt.Sprintf("The default StorageClass %q, defined in the module settings, is terminating and cannot be used.", vi.Status.StorageClassName))
 		conditions.SetCondition(cb, &vi.Status.Conditions)
+
 		return
 	}
 }
@@ -297,6 +316,7 @@ func (h StorageClassReadyHandler) setFromDefault(vi *v1alpha2.VirtualImage, defa
 			Reason(vicondition.StorageClassNotReady).
 			Message(fmt.Sprintf("The provisioner of the %q storage class is deprecated; please use a different one.", defaultStorageClass.Name))
 		conditions.SetCondition(cb, &vi.Status.Conditions)
+
 		return
 	}
 
@@ -306,6 +326,7 @@ func (h StorageClassReadyHandler) setFromDefault(vi *v1alpha2.VirtualImage, defa
 			Reason(vicondition.StorageClassReady).
 			Message("")
 		conditions.SetCondition(cb, &vi.Status.Conditions)
+
 		return
 	} else {
 		cb.
@@ -313,6 +334,7 @@ func (h StorageClassReadyHandler) setFromDefault(vi *v1alpha2.VirtualImage, defa
 			Reason(vicondition.StorageClassNotReady).
 			Message(fmt.Sprintf("The default StorageClass %q is terminating and cannot be used.", vi.Status.StorageClassName))
 		conditions.SetCondition(cb, &vi.Status.Conditions)
+
 		return
 	}
 }

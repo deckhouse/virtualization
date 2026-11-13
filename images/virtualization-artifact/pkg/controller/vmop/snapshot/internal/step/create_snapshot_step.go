@@ -58,6 +58,7 @@ func (s CreateSnapshotStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMach
 
 	if snapshotName, exists := vmop.Annotations[annotations.AnnVMOPSnapshotName]; exists {
 		vmSnapshotKey := types.NamespacedName{Namespace: vmop.Namespace, Name: snapshotName}
+
 		vmSnapshot, err := object.FetchObject(ctx, vmSnapshotKey, s.client, &v1alpha2.VirtualMachineSnapshot{})
 		if err != nil {
 			return &reconcile.Result{}, err
@@ -72,12 +73,14 @@ func (s CreateSnapshotStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMach
 				)
 				vmsReadyCondition, _ := conditions.GetCondition(vmscondition.VirtualMachineSnapshotReadyType, vmSnapshot.Status.Conditions)
 				err = fmt.Errorf("virtual machine %q have invalid state: %s", vmop.Spec.VirtualMachine, vmsReadyCondition.Message)
+
 				return &reconcile.Result{}, fmt.Errorf("virtual machine snapshot %q is in failed phase: %w. Try again with new VMOP Clone operation", vmSnapshotKey.Name, err)
 			case v1alpha2.VirtualMachineSnapshotPhaseReady:
 				conditions.SetCondition(
 					snapshotConditionBuilder.Status(metav1.ConditionTrue).Reason(vmopcondition.ReasonSnapshotOperationReady).Message("Snapshot is ready for clone operation."),
 					&vmop.Status.Conditions,
 				)
+
 				return nil, nil
 			}
 		}
@@ -86,10 +89,12 @@ func (s CreateSnapshotStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMach
 			snapshotConditionBuilder.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonSnapshotInProgress).Message("Snapshot creation is in progress."),
 			&vmop.Status.Conditions,
 		)
+
 		return &reconcile.Result{}, nil
 	}
 
 	var snapshotList v1alpha2.VirtualMachineSnapshotList
+
 	err := s.client.List(ctx, &snapshotList, client.InNamespace(vmop.Namespace))
 	if err != nil {
 		return &reconcile.Result{}, err
@@ -102,8 +107,10 @@ func (s CreateSnapshotStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMach
 					if vmop.Annotations == nil {
 						vmop.Annotations = make(map[string]string)
 					}
+
 					vmop.Annotations[annotations.AnnVMOPSnapshotName] = snapshot.Name
 				}
+
 				return &reconcile.Result{}, nil
 			}
 		}
@@ -145,6 +152,7 @@ func (s CreateSnapshotStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMach
 	if vmop.Annotations == nil {
 		vmop.Annotations = make(map[string]string)
 	}
+
 	vmop.Annotations[annotations.AnnVMOPSnapshotName] = snapshot.Name
 
 	s.recorder.Event(vmop, corev1.EventTypeNormal, "SnapshotCreated", fmt.Sprintf("Created snapshot %s for clone operation", snapshot.Name))

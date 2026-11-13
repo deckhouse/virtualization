@@ -79,6 +79,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 		} else {
 			vmop.Status.Phase = v1alpha2.VMOPPhaseCompleted
 		}
+
 		return reconcile.Result{}, nil
 	}
 
@@ -108,6 +109,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	if !should {
 		return reconcile.Result{}, nil
 	}

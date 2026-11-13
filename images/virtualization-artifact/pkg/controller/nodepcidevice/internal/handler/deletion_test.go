@@ -59,9 +59,11 @@ var _ = Describe("DeletionHandler", func() {
 					Reason: string(nodepcidevicecondition.NotFound),
 				}}
 			}
+
 			if withFinalizer {
 				node.Finalizers = []string{v1alpha2.FinalizerNodePCIDeviceCleanup}
 			}
+
 			if deleting {
 				now := metav1.Now()
 				node.DeletionTimestamp = &now
@@ -95,6 +97,7 @@ var _ = Describe("DeletionHandler", func() {
 
 			h := NewDeletionHandler(cl)
 			st := state.New(cl, res)
+
 			_, err := h.Handle(ctx, st)
 			if expectStopChain {
 				Expect(err).To(MatchError(reconciler.ErrStopHandlerChain))
@@ -110,6 +113,7 @@ var _ = Describe("DeletionHandler", func() {
 
 			if withOwnedPCI {
 				pci := &v1alpha2.PCIDevice{}
+
 				err = cl.Get(ctx, types.NamespacedName{Name: "pci-device-1", Namespace: pciNamespace}, pci)
 				if expectOwnedPCIDeleted {
 					Expect(err).To(HaveOccurred())
@@ -119,6 +123,7 @@ var _ = Describe("DeletionHandler", func() {
 			}
 
 			deletedNode := &v1alpha2.NodePCIDevice{}
+
 			err = cl.Get(ctx, types.NamespacedName{Name: node.Name}, deletedNode)
 			if expectNodeDeleted {
 				Expect(err).To(HaveOccurred())

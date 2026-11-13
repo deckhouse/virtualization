@@ -55,6 +55,7 @@ func (o *attachInfoOptions) Run(cmd *cobra.Command, _ []string) error {
 	if o.watch {
 		return o.handleWatch(cmd)
 	}
+
 	return o.handleGet(cmd)
 }
 

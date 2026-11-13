@@ -58,13 +58,16 @@ func NewMigrationStorageClassValidator(client client.Client, scService *intsvc.V
 func (v *StorageClassValidator) ValidateCreate(ctx context.Context, newVD *v1alpha2.VirtualDisk) (admission.Warnings, error) {
 	if newVD.Spec.PersistentVolumeClaim.StorageClass != nil && *newVD.Spec.PersistentVolumeClaim.StorageClass != "" {
 		scName := *newVD.Spec.PersistentVolumeClaim.StorageClass
+
 		sc, err := v.scService.GetStorageClass(ctx, scName)
 		if err != nil {
 			return nil, err
 		}
+
 		if sc == nil {
 			return nil, fmt.Errorf("storage class %q not found", scName)
 		}
+
 		if v.scService.IsStorageClassDeprecated(sc) {
 			return nil, fmt.Errorf(
 				"the provisioner of the %q storage class is deprecated; please use a different one",
@@ -84,13 +87,16 @@ func (v *StorageClassValidator) ValidateUpdate(ctx context.Context, oldVD, newVD
 	if newVD.Status.Phase == v1alpha2.DiskPending {
 		if newVD.Spec.PersistentVolumeClaim.StorageClass != nil && *newVD.Spec.PersistentVolumeClaim.StorageClass != "" {
 			scName := *newVD.Spec.PersistentVolumeClaim.StorageClass
+
 			sc, err := v.scService.GetStorageClass(ctx, scName)
 			if err != nil {
 				return nil, err
 			}
+
 			if sc == nil {
 				return nil, fmt.Errorf("target storage class %q not found", scName)
 			}
+
 			if v.scService.IsStorageClassDeprecated(sc) {
 				return nil, fmt.Errorf(
 					"the provisioner of the %q storage class is deprecated; please use a different one",
@@ -98,6 +104,7 @@ func (v *StorageClassValidator) ValidateUpdate(ctx context.Context, oldVD, newVD
 				)
 			}
 		}
+
 		return nil, nil
 	}
 
@@ -140,6 +147,7 @@ func (v *StorageClassValidator) validateTargetStorageClassForVolumeMigration(ctx
 	}
 
 	vm := &v1alpha2.VirtualMachine{}
+
 	err := v.client.Get(ctx, client.ObjectKey{Name: vmName, Namespace: newVD.Namespace}, vm)
 	if err != nil {
 		return err
@@ -156,26 +164,32 @@ func (v *StorageClassValidator) validateTargetStorageClassForVolumeMigration(ctx
 	}
 
 	currentStorageClassName := newVD.Status.StorageClassName
+
 	currentStorageClass, err := v.scService.GetStorageClass(ctx, currentStorageClassName)
 	if err != nil {
 		return err
 	}
+
 	if currentStorageClass == nil {
 		return fmt.Errorf("source storage class %q not found", currentStorageClassName)
 	}
+
 	currentMode, _, err := v.modeGetter.GetVolumeAndAccessModes(ctx, currentStorageClass)
 	if err != nil {
 		return err
 	}
 
 	desiredStorageClassName := *newVD.Spec.PersistentVolumeClaim.StorageClass
+
 	desiredStorageClass, err := v.scService.GetStorageClass(ctx, desiredStorageClassName)
 	if err != nil {
 		return err
 	}
+
 	if desiredStorageClass == nil {
 		return fmt.Errorf("target storage class %q not found", desiredStorageClassName)
 	}
+
 	desiredMode, _, err := v.modeGetter.GetVolumeAndAccessModes(ctx, desiredStorageClass)
 	if err != nil {
 		return err
@@ -196,6 +210,7 @@ func (v *StorageClassValidator) getSourcePVCStorageClass(ctx context.Context, vd
 	}
 
 	pvc := &corev1.PersistentVolumeClaim{}
+
 	err := v.client.Get(ctx, client.ObjectKey{Name: sourcePVCName, Namespace: vd.Namespace}, pvc)
 	if err != nil {
 		return "", fmt.Errorf("cannot determine rollback storage class: get source PVC %q: %w", sourcePVCName, err)

@@ -28,6 +28,7 @@ func fractions(vals ...int) []v1alpha2.CoreFractionValue {
 	for i, v := range vals {
 		out[i] = v1alpha2.CoreFractionValue(v)
 	}
+
 	return out
 }
 
@@ -171,6 +172,7 @@ var _ = Describe("AutoCoreFractions", func() {
 	It("does not alias the default grid", func() {
 		steps := AutoCoreFractions(nil, 4)
 		steps[0] = 42
+
 		Expect(DefaultAutoCoreFractionSteps[0]).To(Equal(v1alpha2.CoreFractionValue(5)))
 	})
 
@@ -250,6 +252,7 @@ var _ = Describe("EffectiveCoreFraction", func() {
 			Spec: v1alpha2.VirtualMachineSpec{CPU: v1alpha2.CPUSpec{Cores: cores, CoreFraction: v1alpha2.CoreFractionAuto}},
 		}
 		SetRecommendedCoreFraction(vm, autoStatus)
+
 		return vm
 	}
 

@@ -84,6 +84,7 @@ func (d *Driver) Start(ctx context.Context) error {
 	d.publisher = newCustomPublisher(ctx, d.driverName, d.nodeName, d.poolName, d.kubeClient, d.HandleError)
 
 	log.Info("Starting dra plugin")
+
 	helper, err := kubeletplugin.Start(
 		ctx,
 		d,
@@ -108,6 +109,7 @@ func (d *Driver) Start(ctx context.Context) error {
 			d.log.Info("NRI plugin closed")
 		}),
 	}
+
 	nriPlugin, err := stub.New(d, nriOpts...)
 	if err != nil {
 		return fmt.Errorf("failed to create plugin stub: %w", err)
@@ -133,10 +135,12 @@ func (d *Driver) Shutdown() {
 		d.log.Info("Stopping resource publisher")
 		d.publisher.Stop()
 	}
+
 	if d.nriPlugin != nil {
 		d.log.Info("Stopping NRI plugin")
 		d.nriPlugin.Stop()
 	}
+
 	if d.helper != nil {
 		d.log.Info("Stopping dra plugin")
 		d.helper.Stop()
@@ -169,10 +173,12 @@ func (d *Driver) prepareResourceClaim(ctx context.Context, claim *resourcev1.Res
 	preparedPBs, err := d.allocator.Prepare(ctx, claim)
 	if err != nil {
 		d.log.Error("Error preparing devices for claim", slog.Any("error", err), slog.String("uid", string(claim.UID)))
+
 		return kubeletplugin.PrepareResult{
 			Err: fmt.Errorf("error preparing devices for claim %v: %w", claim.UID, err),
 		}
 	}
+
 	var prepared []kubeletplugin.Device
 	for _, preparedPB := range preparedPBs {
 		prepared = append(prepared, kubeletplugin.Device{
@@ -184,6 +190,7 @@ func (d *Driver) prepareResourceClaim(ctx context.Context, claim *resourcev1.Res
 	}
 
 	d.log.Info("Returning newly prepared devices", slog.String("uid", string(claim.UID)), slog.Any("devices", prepared))
+
 	return kubeletplugin.PrepareResult{Devices: prepared}
 }
 
@@ -215,6 +222,7 @@ func (d *Driver) unprepareResourceClaim(ctx context.Context, claim kubeletplugin
 
 func (d *Driver) HandleError(ctx context.Context, err error, msg string) {
 	utilruntime.HandleErrorWithContext(ctx, err, msg)
+
 	if !errors.Is(err, kubeletplugin.ErrRecoverable) && d.pluginCancel != nil {
 		d.pluginCancel(fmt.Errorf("fatal background error: %w", err))
 	}
@@ -222,12 +230,14 @@ func (d *Driver) HandleError(ctx context.Context, err error, msg string) {
 
 func (d *Driver) startNRIPlugin(ctx context.Context) {
 	const maxAttempts = 5
+
 	go func() {
 		for i := 0; i < maxAttempts; i++ {
 			err := d.nriPlugin.Run(ctx)
 			if err != nil {
 				d.log.Info("NRI plugin failed with error", slog.Any("error", err))
 			}
+
 			select {
 			case <-ctx.Done():
 				return
@@ -243,12 +253,14 @@ func (d *Driver) startNRIPlugin(ctx context.Context) {
 func (d *Driver) startPublisher(ctx context.Context) {
 	go func() {
 		ch := d.allocator.UpdateChannel()
+
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			case resources := <-ch:
 				d.log.Info("Publishing devices", slog.Any("resources", resources))
+
 				err := d.publisher.PublishResources(ctx, toWrappedDriverResources(resources))
 				if err != nil {
 					d.log.Error("Failed to publish devices", slog.Any("err", err))
@@ -283,5 +295,6 @@ func toWrappedSlices(slices []resourceslice.Slice) []wrapresourceslice.Slice {
 			PerDeviceNodeSelection: slice.PerDeviceNodeSelection,
 		}
 	}
+
 	return wrapped
 }

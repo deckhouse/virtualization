@@ -51,6 +51,7 @@ func (d *CoreFractionDefaulter) Default(ctx context.Context, vm *v1alpha2.Virtua
 
 	// Get the VMClass.
 	vmClass := &v1alpha3.VirtualMachineClass{}
+
 	err := d.client.Get(ctx, types.NamespacedName{Name: vm.Spec.VirtualMachineClassName}, vmClass)
 	if err != nil {
 		return fmt.Errorf("failed to get VirtualMachineClass %q: %w", vm.Spec.VirtualMachineClassName, err)
@@ -61,6 +62,7 @@ func (d *CoreFractionDefaulter) Default(ctx context.Context, vm *v1alpha2.Virtua
 	if err != nil {
 		return err
 	}
+
 	vm.Spec.CPU.CoreFraction = defaultCoreFraction
 
 	return nil

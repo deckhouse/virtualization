@@ -107,6 +107,7 @@ func TestDatasourceReadyHandler_Handle(t *testing.T) {
 		handler := NewDatasourceReadyHandler(recorder, blank, sources)
 		_, err := handler.Handle(ctx, &vd)
 		require.NoError(t, err)
+
 		condition, _ := conditions.GetCondition(vdcondition.DatasourceReadyType, vd.Status.Conditions)
 		require.Equal(t, metav1.ConditionFalse, condition.Status)
 		require.Equal(t, vdcondition.ImageNotFound.String(), condition.Reason)
@@ -129,6 +130,7 @@ func TestDatasourceReadyHandler_Handle(t *testing.T) {
 		handler := NewDatasourceReadyHandler(recorder, blank, sources)
 		_, err := handler.Handle(ctx, &vd)
 		require.NoError(t, err)
+
 		condition, _ := conditions.GetCondition(vdcondition.DatasourceReadyType, vd.Status.Conditions)
 		require.Equal(t, metav1.ConditionFalse, condition.Status)
 		require.Equal(t, vdcondition.ClusterImageNotFound.String(), condition.Reason)

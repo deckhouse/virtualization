@@ -56,5 +56,6 @@ func (o *attachOptions) Run(_ *cobra.Command, args []string) error {
 	host := args[0]
 	busID := args[1]
 	_, err := usbip.NewUSBAttacher().Attach(host, busID, o.port)
+
 	return err
 }

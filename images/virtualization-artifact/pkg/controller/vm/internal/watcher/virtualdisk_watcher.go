@@ -65,6 +65,7 @@ func (w *VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 					}
 
 					oldInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, e.ObjectOld.Status.Conditions)
+
 					newInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, e.ObjectNew.Status.Conditions)
 					if !equality.Semantic.DeepEqual(oldInUseCondition, newInUseCondition) {
 						return true
@@ -79,6 +80,7 @@ func (w *VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 					}
 
 					oldMigrationCondition, _ := conditions.GetCondition(vdcondition.MigratingType, e.ObjectOld.Status.Conditions)
+
 					newMigrationCondition, _ := conditions.GetCondition(vdcondition.MigratingType, e.ObjectNew.Status.Conditions)
 					if !equality.Semantic.DeepEqual(oldMigrationCondition, newMigrationCondition) {
 						return true
@@ -91,11 +93,13 @@ func (w *VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualDisk: %w", err)
 	}
+
 	return nil
 }
 
 func (w *VirtualDiskWatcher) enqueue(ctx context.Context, vd *v1alpha2.VirtualDisk) []reconcile.Request {
 	var vms v1alpha2.VirtualMachineList
+
 	err := w.client.List(ctx, &vms, &client.ListOptions{
 		Namespace:     vd.Namespace,
 		FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVMByVD, vd.Name),

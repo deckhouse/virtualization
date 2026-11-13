@@ -96,10 +96,12 @@ var _ = Describe("GPU", func() {
 		for _, c := range res.Spec.Template.Spec.ResourceClaims {
 			claimNames = append(claimNames, c.Name)
 		}
+
 		gpuNames := make([]string, 0)
 		for _, g := range res.Spec.Template.Spec.Domain.Devices.GPUs {
 			gpuNames = append(gpuNames, g.Name)
 		}
+
 		Expect(claimNames).To(ConsistOf("gpu-foreign", "gpu-0"))
 		Expect(gpuNames).To(ConsistOf("gpu-legacy", "gpu-0"))
 	})

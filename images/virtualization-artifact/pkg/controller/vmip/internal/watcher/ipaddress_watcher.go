@@ -61,6 +61,7 @@ func (w SDNIPAddressWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 	if !featuregates.Default().Enabled(featuregates.SDN) {
 		return nil
 	}
+
 	if err := ctr.Watch(
 		source.Kind(
 			mgr.GetCache(),
@@ -92,9 +93,11 @@ func (w SDNIPAddressWatcher) enqueueVMIPsOfIPAddress(ctx context.Context, ipa *s
 		w.logger.Error("failed to list vmips", "err", err)
 		return nil
 	}
+
 	vmipNamedByLease := w.vmipNamedByLease(ctx, ipa.GetNamespace(), address)
 
 	var requests []reconcile.Request
+
 	for i := range vmips.Items {
 		vmip := &vmips.Items[i]
 		if isMirrorOfVMIP(ipa, vmip) || takesVMIPAddress(vmip, address, vmipNamedByLease) {
@@ -104,6 +107,7 @@ func (w SDNIPAddressWatcher) enqueueVMIPsOfIPAddress(ctx context.Context, ipa *s
 			}})
 		}
 	}
+
 	return requests
 }
 
@@ -118,6 +122,7 @@ func takesVMIPAddress(vmip *v1alpha2.VirtualMachineIPAddress, address, vmipNamed
 	if address == "" {
 		return false
 	}
+
 	return vmip.Status.Address == address || vmip.Spec.StaticIP == address || vmip.Name == vmipNamedByLease
 }
 
@@ -125,16 +130,21 @@ func (w SDNIPAddressWatcher) vmipNamedByLease(ctx context.Context, namespace, ad
 	if address == "" {
 		return ""
 	}
+
 	lease := &v1alpha2.VirtualMachineIPAddressLease{}
+
 	err := w.client.Get(ctx, types.NamespacedName{Name: ip.IPToLeaseName(address)}, lease)
 	if err != nil {
 		if !k8serrors.IsNotFound(err) {
 			w.logger.Error("failed to get the lease of the address", "address", address, "err", err)
 		}
+
 		return ""
 	}
+
 	if ref := lease.Spec.VirtualMachineIPAddressRef; ref != nil && ref.Namespace == namespace {
 		return ref.Name
 	}
+
 	return ""
 }

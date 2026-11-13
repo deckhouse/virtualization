@@ -62,6 +62,7 @@ func NewClient(kubeconfig, namespace, resourcePrefix string, log *slog.Logger) (
 	}
 
 	scheme := runtime.NewScheme()
+
 	err = v1alpha2.AddToScheme(scheme)
 	if err != nil {
 		return nil, err
@@ -94,9 +95,13 @@ func NewClient(kubeconfig, namespace, resourcePrefix string, log *slog.Logger) (
 }
 
 func (c *Client) DrainNode(ctx context.Context, node string) error {
-	var evicted int
-	var maxRetriesCount int
+	var (
+		evicted         int
+		maxRetriesCount int
+	)
+
 	retries := make(map[string]int)
+
 	var mx sync.Mutex
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -130,6 +135,7 @@ func (c *Client) DrainNode(ctx context.Context, node string) error {
 			if !ok {
 				retries[pod.Name] = 1
 				c.logger.With("eviction", usingEviction).Debug(fmt.Sprintf("Start pod eviction: %s", pod.Name))
+
 				return
 			}
 
@@ -148,9 +154,11 @@ func (c *Client) DrainNode(ctx context.Context, node string) error {
 			}
 
 			evicted++
+
 			c.logger.With("eviction", usingEviction).Debug(fmt.Sprintf("Pod evicted: %s", pod.Name))
 		},
 	}, node)
+
 	cancel()
 
 	if err != nil {
@@ -164,6 +172,7 @@ func (c *Client) DrainNode(ctx context.Context, node string) error {
 
 func (c *Client) CordonNode(ctx context.Context, nodeName string) error {
 	var node corev1.Node
+
 	err := c.crClient.Get(ctx, types.NamespacedName{
 		Name: nodeName,
 	}, &node)
@@ -179,6 +188,7 @@ func (c *Client) CordonNode(ctx context.Context, nodeName string) error {
 
 func (c *Client) UnCordonNode(ctx context.Context, nodeName string) error {
 	var node corev1.Node
+
 	err := c.crClient.Get(ctx, types.NamespacedName{
 		Name: nodeName,
 	}, &node)
@@ -194,8 +204,10 @@ func (c *Client) UnCordonNode(ctx context.Context, nodeName string) error {
 
 func (c *Client) GetNodes(ctx context.Context, labelSelector string) ([]corev1.Node, error) {
 	var options client.ListOptions
+
 	if len(labelSelector) > 0 {
 		var err error
+
 		options.LabelSelector, err = labels.Parse(labelSelector)
 		if err != nil {
 			return nil, err
@@ -203,6 +215,7 @@ func (c *Client) GetNodes(ctx context.Context, labelSelector string) ([]corev1.N
 	}
 
 	var nodes corev1.NodeList
+
 	err := c.crClient.List(ctx, &nodes, &options)
 	if err != nil {
 		return nil, err
@@ -215,6 +228,7 @@ func (c *Client) GetVMs(ctx context.Context) ([]v1alpha2.VirtualMachine, error) 
 	selector := labels.SelectorFromSet(map[string]string{"vm": c.resourcePrefix})
 
 	var vms v1alpha2.VirtualMachineList
+
 	err := c.crClient.List(ctx, &vms, &client.ListOptions{
 		Namespace:     c.namespace,
 		LabelSelector: selector,

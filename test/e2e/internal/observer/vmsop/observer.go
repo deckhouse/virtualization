@@ -85,5 +85,6 @@ func completedDetail(op *v1alpha2.VirtualMachineSnapshotOperation) string {
 			return fmt.Sprintf("%s: %s", c.Reason, c.Message)
 		}
 	}
+
 	return "no Completed condition with details found"
 }

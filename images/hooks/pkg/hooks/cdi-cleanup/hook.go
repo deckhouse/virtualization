@@ -135,6 +135,7 @@ func stripCDIConfigFinalizers(ctx context.Context, k8s pkg.KubernetesClient) err
 	}
 
 	cr.SetFinalizers(nil)
+
 	if err := k8s.Update(ctx, cr); err != nil && !apierrors.IsNotFound(err) && !apierrors.IsConflict(err) {
 		return fmt.Errorf("strip CDI config finalizers: %w", err)
 	}

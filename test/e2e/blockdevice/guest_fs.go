@@ -37,6 +37,7 @@ import (
 // guestCreateFilesystem formats the device backing (bdKind,bdName) with fsType.
 func guestCreateFilesystem(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName, fsType string) {
 	GinkgoHelper()
+
 	dev := util.GuestDeviceBySerial(ctx, f, vm, bdKind, bdName)
 	_, err := f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("mkfs.%s %s", fsType, dev), framework.WithSSHUser("root"))
 	Expect(err).NotTo(HaveOccurred(), "failed to create %s filesystem on %s", fsType, dev)
@@ -45,6 +46,7 @@ func guestCreateFilesystem(ctx context.Context, f *framework.Framework, vm *v1al
 // guestMount mounts the device backing (bdKind,bdName) at mountPoint.
 func guestMount(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName, mountPoint string) {
 	GinkgoHelper()
+
 	dev := util.GuestDeviceBySerial(ctx, f, vm, bdKind, bdName)
 	_, err := f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("mkdir -p %s && mount %s %s", mountPoint, dev, mountPoint), framework.WithSSHUser("root"))
 	Expect(err).NotTo(HaveOccurred(), "failed to mount %s at %s", dev, mountPoint)
@@ -53,6 +55,7 @@ func guestMount(ctx context.Context, f *framework.Framework, vm *v1alpha2.Virtua
 // guestUnmount unmounts mountPoint.
 func guestUnmount(f *framework.Framework, vm *v1alpha2.VirtualMachine, mountPoint string) {
 	GinkgoHelper()
+
 	_, err := f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("umount %s", mountPoint), framework.WithSSHUser("root"))
 	Expect(err).NotTo(HaveOccurred(), "failed to unmount %s", mountPoint)
 }
@@ -60,6 +63,7 @@ func guestUnmount(f *framework.Framework, vm *v1alpha2.VirtualMachine, mountPoin
 // guestWriteFile writes value (a simple token) to path in the guest.
 func guestWriteFile(f *framework.Framework, vm *v1alpha2.VirtualMachine, path, value string) {
 	GinkgoHelper()
+
 	_, err := f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("echo %s > %s", value, path), framework.WithSSHUser("root"))
 	Expect(err).NotTo(HaveOccurred(), "failed to write %s", path)
 }
@@ -67,7 +71,9 @@ func guestWriteFile(f *framework.Framework, vm *v1alpha2.VirtualMachine, path, v
 // guestReadFile returns the trimmed content of path in the guest.
 func guestReadFile(f *framework.Framework, vm *v1alpha2.VirtualMachine, path string) string {
 	GinkgoHelper()
+
 	out, err := f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("cat %s", path), framework.WithSSHUser("root"))
 	Expect(err).NotTo(HaveOccurred(), "failed to read %s", path)
+
 	return strings.TrimSpace(out)
 }

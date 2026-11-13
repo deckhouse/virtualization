@@ -92,6 +92,7 @@ var _ = Describe("ProtectionHandler mirror cleanup", func() {
 		if labeled {
 			mirror.SetLabels(map[string]string{annotations.LabelVirtualMachineUID: "vm-uid"})
 		}
+
 		return mirror
 	}
 
@@ -100,7 +101,9 @@ var _ = Describe("ProtectionHandler mirror cleanup", func() {
 		if k8serrors.IsNotFound(err) {
 			return false
 		}
+
 		Expect(err).NotTo(HaveOccurred())
+
 		return true
 	}
 
@@ -297,6 +300,7 @@ var _ = Describe("Deleting vmip the VM has left", func() {
 		newMirror := newAllocatedMirror(newName, newAddress, "new-uid")
 		newMirror.SetLabels(map[string]string{annotations.LabelVirtualMachineUID: string(vmUID)})
 		newMirror.SetOwnerReferences([]metav1.OwnerReference{*metav1.NewControllerRef(vm, v1alpha2.SchemeGroupVersion.WithKind(v1alpha2.VirtualMachineKind))})
+
 		mainNetwork := &sdnapi.ClusterNetwork{
 			ObjectMeta: metav1.ObjectMeta{Name: network.MainClusterNetworkName},
 			Spec: sdnapi.ClusterNetworkSpec{
@@ -316,6 +320,7 @@ var _ = Describe("Deleting vmip the VM has left", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(oldVMIP.Finalizers).NotTo(ContainElement(v1alpha2.FinalizerIPAddressCleanup))
+
 		err = cl.Get(ctx, types.NamespacedName{Name: oldName, Namespace: namespace}, &sdnapi.IPAddress{})
 		Expect(k8serrors.IsNotFound(err)).To(BeTrue(), "a mirror left after the vmip keeps the address in the sdn pool forever")
 	})

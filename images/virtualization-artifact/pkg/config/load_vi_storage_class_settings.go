@@ -39,10 +39,12 @@ type VirtualImageStorageClassSettings struct {
 
 func LoadVirtualImageStorageClassSettings() (VirtualImageStorageClassSettings, error) {
 	var allowedStorageClassNames []string
+
 	allowedStorageClassNamesRaw, exists := os.LookupEnv(VirtualImageAllowedStorageClasses)
 	if exists && allowedStorageClassNamesRaw == "" {
 		return VirtualImageStorageClassSettings{}, fmt.Errorf("%s is empty. Specify valid StorageClass names or remove the restriction", VirtualImageAllowedStorageClasses)
 	}
+
 	if allowedStorageClassNamesRaw != "" {
 		allowedStorageClassNames = strings.Split(allowedStorageClassNamesRaw, ",")
 	}

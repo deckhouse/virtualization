@@ -52,6 +52,7 @@ func (w *DVCRDeploymentWatcher) Watch(mgr manager.Manager, ctr controller.Contro
 				if deploy.GetNamespace() == dvcrtypes.ModuleNamespace && deploy.GetName() == dvcrtypes.DVCRDeploymentName {
 					return []reconcile.Request{{NamespacedName: client.ObjectKeyFromObject(deploy)}}
 				}
+
 				return nil
 			}),
 			predicate.TypedFuncs[*appsv1.Deployment]{

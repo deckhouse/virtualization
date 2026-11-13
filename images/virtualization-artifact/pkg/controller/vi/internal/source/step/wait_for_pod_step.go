@@ -91,6 +91,7 @@ func (s WaitForPodStep) Take(_ context.Context, vi *v1alpha2.VirtualImage) (*rec
 				Status(metav1.ConditionFalse).
 				Reason(vicondition.ProvisioningNotStarted).
 				Message(service.CapitalizeFirstLetter(err.Error() + "."))
+
 			return &reconcile.Result{}, nil
 		case errors.Is(err, servicestat.ErrProvisioningFailed):
 			vi.Status.Phase = v1alpha2.ImageFailed
@@ -98,6 +99,7 @@ func (s WaitForPodStep) Take(_ context.Context, vi *v1alpha2.VirtualImage) (*rec
 				Status(metav1.ConditionFalse).
 				Reason(vicondition.ProvisioningFailed).
 				Message(service.CapitalizeFirstLetter(err.Error() + "."))
+
 			return &reconcile.Result{}, nil
 		default:
 			vi.Status.Phase = v1alpha2.ImageFailed
@@ -105,6 +107,7 @@ func (s WaitForPodStep) Take(_ context.Context, vi *v1alpha2.VirtualImage) (*rec
 				Status(metav1.ConditionFalse).
 				Reason(vicondition.ProvisioningFailed).
 				Message(service.CapitalizeFirstLetter(err.Error() + "."))
+
 			return &reconcile.Result{}, err
 		}
 	}

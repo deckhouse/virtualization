@@ -66,17 +66,20 @@ func (h DeletionHandler) Handle(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 		if requeue {
 			h.setTerminatingCondition(cvi, cvicondition.CleanupPending, reason)
 			log.Info("ClusterVirtualImage cleanup is pending", slog.String("reason", reason))
+
 			return reconcile.Result{RequeueAfter: time.Second}, nil
 		}
 
 		conditions.RemoveCondition(cvicondition.TerminatingType, &cvi.Status.Conditions)
 		log.Info("Deletion observed: remove cleanup finalizer from ClusterVirtualImage")
 		controllerutil.RemoveFinalizer(cvi, v1alpha2.FinalizerCVICleanup)
+
 		return reconcile.Result{}, nil
 	}
 
 	conditions.RemoveCondition(cvicondition.TerminatingType, &cvi.Status.Conditions)
 	controllerutil.AddFinalizer(cvi, v1alpha2.FinalizerCVICleanup)
+
 	return reconcile.Result{}, nil
 }
 

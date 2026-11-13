@@ -64,11 +64,13 @@ func (w *VirtualImageWatcher) Watch(mgr manager.Manager, ctr controller.Controll
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualImage: %w", err)
 	}
+
 	return nil
 }
 
 func (w *VirtualImageWatcher) enqueue(ctx context.Context, vi *v1alpha2.VirtualImage) []reconcile.Request {
 	var vms v1alpha2.VirtualMachineList
+
 	err := w.client.List(ctx, &vms, &client.ListOptions{
 		Namespace:     vi.Namespace,
 		FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVMByVI, vi.Name),

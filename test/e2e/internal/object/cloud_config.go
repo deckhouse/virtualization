@@ -84,5 +84,6 @@ func (c CloudConfig) Render() string {
 	if err != nil {
 		panic(fmt.Sprintf("cloud-config marshal: %v", err))
 	}
+
 	return "#cloud-config\n" + string(data)
 }

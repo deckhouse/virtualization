@@ -84,7 +84,9 @@ func (h *AssignedHandler) Handle(ctx context.Context, s state.NodePCIDeviceState
 		if err := h.removeOrphanedPCIDevices(ctx, current.Name, assignedNamespace); err != nil {
 			return reconcile.Result{}, err
 		}
+
 		setAssignedAvailableCondition(current, &changed.Status.Conditions, "No namespace is assigned for the device.")
+
 		return reconcile.Result{}, nil
 	}
 
@@ -96,10 +98,13 @@ func (h *AssignedHandler) Handle(ctx context.Context, s state.NodePCIDeviceState
 		if absentFor < pciDeviceAbsenceGracePeriod {
 			return h.ensureAssignedPCIDevice(ctx, current, changed, assignedNamespace, pciDeviceAbsenceGracePeriod-absentFor)
 		}
+
 		if err := h.deletePCIDevice(ctx, assignedNamespace, current.Name); err != nil {
 			return reconcile.Result{}, err
 		}
+
 		setAssignedInProgressCondition(current, &changed.Status.Conditions, fmt.Sprintf("Device has been absent on the host for more than %s, the PCIDevice is removed.", pciDeviceAbsenceGracePeriod))
+
 		return reconcile.Result{}, nil
 	}
 
@@ -114,6 +119,7 @@ func (h *AssignedHandler) ensureAssignedPCIDevice(ctx context.Context, current, 
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to check namespace %s: %w", assignedNamespace, err)
 	}
+
 	if !exists {
 		setAssignedAvailableCondition(current, &changed.Status.Conditions, fmt.Sprintf("Namespace %s does not exist.", assignedNamespace))
 		return reconcile.Result{}, nil
@@ -124,6 +130,7 @@ func (h *AssignedHandler) ensureAssignedPCIDevice(ctx context.Context, current, 
 			setAssignedInProgressCondition(current, &changed.Status.Conditions, fmt.Sprintf("Waiting for the previous PCIDevice in namespace %q to be deleted.", assignedNamespace))
 			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 		}
+
 		return reconcile.Result{}, fmt.Errorf("failed to ensure PCIDevice: %w", err)
 	}
 
@@ -134,10 +141,12 @@ func (h *AssignedHandler) ensureAssignedPCIDevice(ctx context.Context, current, 
 
 func (h *AssignedHandler) namespaceExists(ctx context.Context, name string) (bool, error) {
 	var namespace corev1.Namespace
+
 	err := h.client.Get(ctx, types.NamespacedName{Name: name}, &namespace)
 	if err == nil {
 		return true, nil
 	}
+
 	if apierrors.IsNotFound(err) {
 		return false, nil
 	}
@@ -174,13 +183,16 @@ func (h *AssignedHandler) ensurePCIDevice(ctx context.Context, nodePCIDevice *v1
 		if !pciDevice.GetDeletionTimestamp().IsZero() {
 			return nil, errPCIDeviceTerminating
 		}
+
 		if !equality.Semantic.DeepEqual(pciDevice.Status.Attributes, nodePCIDevice.Status.Attributes) || pciDevice.Status.NodeName != nodePCIDevice.Status.NodeName {
 			pciDevice.Status.Attributes = nodePCIDevice.Status.Attributes
+
 			pciDevice.Status.NodeName = nodePCIDevice.Status.NodeName
 			if err := h.client.Status().Update(ctx, pciDevice); err != nil {
 				return nil, fmt.Errorf("failed to update PCIDevice status: %w", err)
 			}
 		}
+
 		return pciDevice, nil
 	}
 
@@ -214,15 +226,19 @@ func (h *AssignedHandler) ensurePCIDevice(ctx context.Context, nodePCIDevice *v1
 			if err := h.client.Get(ctx, key, pciDevice); err != nil {
 				return nil, fmt.Errorf("failed to get existing PCIDevice: %w", err)
 			}
+
 			if !equality.Semantic.DeepEqual(pciDevice.Status.Attributes, nodePCIDevice.Status.Attributes) || pciDevice.Status.NodeName != nodePCIDevice.Status.NodeName {
 				pciDevice.Status.Attributes = nodePCIDevice.Status.Attributes
+
 				pciDevice.Status.NodeName = nodePCIDevice.Status.NodeName
 				if err := h.client.Status().Update(ctx, pciDevice); err != nil {
 					return nil, fmt.Errorf("failed to update PCIDevice status: %w", err)
 				}
 			}
+
 			return pciDevice, nil
 		}
+
 		return nil, fmt.Errorf("failed to create PCIDevice: %w", err)
 	}
 
@@ -242,6 +258,7 @@ func (h *AssignedHandler) deletePCIDevice(ctx context.Context, namespace, name s
 			// PCIDevice doesn't exist - nothing to delete
 			return nil
 		}
+
 		return fmt.Errorf("failed to get PCIDevice: %w", err)
 	}
 
@@ -249,6 +266,7 @@ func (h *AssignedHandler) deletePCIDevice(ctx context.Context, namespace, name s
 		if isNotFoundPCIDeviceError(err, namespace, name) {
 			return nil
 		}
+
 		return fmt.Errorf("failed to delete PCIDevice: %w", err)
 	}
 
@@ -261,5 +279,6 @@ func isNotFoundPCIDeviceError(err error, namespace, name string) bool {
 	}
 
 	errText := err.Error()
+
 	return namespace != "" && strings.Contains(errText, "pcidevices.virtualization.deckhouse.io") && strings.Contains(errText, name) && strings.Contains(errText, "not found")
 }

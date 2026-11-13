@@ -42,12 +42,14 @@ func (i *ImportRequest) Encode(w io.Writer) error {
 
 func (i *ImportRequest) Decode(r io.Reader) error {
 	buf := make([]byte, sysfsBusIdMax)
+
 	_, err := io.ReadFull(r, buf)
 	if err != nil {
 		return fmt.Errorf("failed to read ImportRequest from reader: %w", err)
 	}
 
 	copy(i.busID[:], buf)
+
 	return nil
 }
 
@@ -71,9 +73,11 @@ func (i *ImportReply) Encode(w io.Writer) error {
 	if err := i.OpCommon.Encode(w); err != nil {
 		return fmt.Errorf("failed to encode OpCommon: %w", err)
 	}
+
 	if err := i.USBDevice.Encode(w); err != nil {
 		return fmt.Errorf("failed to encode USBDevice: %w", err)
 	}
+
 	return nil
 }
 
@@ -81,8 +85,10 @@ func (i *ImportReply) Decode(r io.Reader) error {
 	if err := i.OpCommon.Decode(r); err != nil {
 		return fmt.Errorf("failed to decode OpCommon: %w", err)
 	}
+
 	if err := i.USBDevice.Decode(r); err != nil {
 		return fmt.Errorf("failed to decode USBDevice: %w", err)
 	}
+
 	return nil
 }

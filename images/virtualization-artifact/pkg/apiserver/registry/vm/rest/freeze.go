@@ -55,11 +55,14 @@ func (r FreezeREST) Connect(ctx context.Context, name string, opts runtime.Objec
 	if !ok {
 		return nil, fmt.Errorf("invalid options object: %#v", opts)
 	}
+
 	location, transport, err := FreezeLocation(ctx, r.vmLister, name, r.kubevirt, r.proxyCertManager)
 	if err != nil {
 		return nil, err
 	}
+
 	handler := newThrottledUpgradeAwareProxyHandler(location, transport, false, responder, r.kubevirt.ServiceAccount)
+
 	return handler, nil
 }
 

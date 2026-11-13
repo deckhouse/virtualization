@@ -44,6 +44,7 @@ func NewVirtualDiskHandler(client client.Client, vdTmpl v1alpha2.VirtualDisk, vm
 		vdTmpl.Annotations = make(map[string]string)
 		vdTmpl.Annotations[annotations.AnnVMOPRestore] = vmRestoreUID
 	}
+
 	return &VirtualDiskHandler{
 		vd: &v1alpha2.VirtualDisk{
 			TypeMeta: metav1.TypeMeta{
@@ -79,6 +80,7 @@ func (v *VirtualDiskHandler) Customize(prefix, suffix string) {
 
 func (v *VirtualDiskHandler) ValidateRestore(ctx context.Context) error {
 	vdKey := types.NamespacedName{Namespace: v.vd.Namespace, Name: v.vd.Name}
+
 	existed, err := object.FetchObject(ctx, vdKey, v.client, &v1alpha2.VirtualDisk{})
 	if err != nil {
 		return err
@@ -107,6 +109,7 @@ func (v *VirtualDiskHandler) ValidateClone(ctx context.Context) error {
 	}
 
 	vdKey := types.NamespacedName{Namespace: v.vd.Namespace, Name: v.vd.Name}
+
 	existed, err := object.FetchObject(ctx, vdKey, v.client, &v1alpha2.VirtualDisk{})
 	if err != nil {
 		return err
@@ -137,6 +140,7 @@ func (v *VirtualDiskHandler) ProcessRestore(ctx context.Context) error {
 	}
 
 	vdKey := types.NamespacedName{Namespace: v.vd.Namespace, Name: v.vd.Name}
+
 	vdObj, err := object.FetchObject(ctx, vdKey, v.client, &v1alpha2.VirtualDisk{})
 	if err != nil {
 		return fmt.Errorf("failed to fetch the `VirtualDisk`: %w", err)
@@ -155,6 +159,7 @@ func (v *VirtualDiskHandler) ProcessRestore(ctx context.Context) error {
 		if vdObj.Annotations == nil {
 			vdObj.Annotations = make(map[string]string)
 		}
+
 		vdObj.Annotations[annotations.AnnVMOPRestoreDeleted] = v.restoreUID
 
 		err := v.client.Update(ctx, vdObj)
@@ -162,6 +167,7 @@ func (v *VirtualDiskHandler) ProcessRestore(ctx context.Context) error {
 			if apierrors.IsConflict(err) {
 				return fmt.Errorf("waiting for the `VirtualDisk` %w", common.ErrUpdating)
 			}
+
 			return fmt.Errorf("failed to update the `VirtualDisk`: %w", err)
 		}
 
@@ -192,6 +198,7 @@ func (v *VirtualDiskHandler) ProcessClone(ctx context.Context) error {
 	}
 
 	vdKey := types.NamespacedName{Namespace: v.vd.Namespace, Name: v.vd.Name}
+
 	existed, err := object.FetchObject(ctx, vdKey, v.client, &v1alpha2.VirtualDisk{})
 	if err != nil {
 		return err
@@ -233,5 +240,6 @@ func (v *VirtualDiskHandler) getVirtualMachineName() string {
 			return a.Name
 		}
 	}
+
 	return ""
 }

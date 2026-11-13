@@ -90,6 +90,7 @@ func SkipIfKnownKubeVirtClientSocketClosedMigrationFailureWithContext(ctx contex
 
 	intvirtvmi, err := GetInternalVirtualMachineInstance(ctx, vm)
 	Expect(err).NotTo(HaveOccurred())
+
 	if intvirtvmi == nil || intvirtvmi.Status.MigrationState == nil {
 		return
 	}
@@ -114,6 +115,7 @@ func SkipIfKnownFirmwareUpdateVMOPConflict(err error) {
 	if err == nil {
 		return
 	}
+
 	if knownFirmwareUpdateVMOPConflictRe.MatchString(err.Error()) {
 		Skip("skip due to known spontaneous firmware-update VMOP in flight: " + err.Error())
 	}
@@ -144,6 +146,7 @@ func skipIfKnownDRBDDualPrimaryDeniedMigrationFailure(ctx context.Context, vm *v
 
 	intvirtvmi, err := GetInternalVirtualMachineInstance(ctx, vm)
 	Expect(err).NotTo(HaveOccurred())
+
 	if intvirtvmi == nil || intvirtvmi.Status.MigrationState == nil {
 		return
 	}
@@ -166,6 +169,7 @@ func skipIfKnownKubeVirtTargetPodShutdownMigrationFailure(ctx context.Context, v
 
 	intvirtvmi, err := GetInternalVirtualMachineInstance(ctx, vm)
 	Expect(err).NotTo(HaveOccurred())
+
 	if intvirtvmi == nil || intvirtvmi.Status.MigrationState == nil {
 		return
 	}
@@ -181,11 +185,13 @@ func GetInternalVirtualMachine(ctx context.Context, vm *v1alpha2.VirtualMachine)
 	GinkgoHelper()
 
 	obj := &rewrite.VirtualMachine{}
+
 	err := framework.GetClients().RewriteClient().Get(ctx, vm.Name, obj, rewrite.InNamespace(vm.Namespace))
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil, nil
 		}
+
 		return nil, err
 	}
 
@@ -196,11 +202,13 @@ func GetInternalVirtualMachineInstance(ctx context.Context, vm *v1alpha2.Virtual
 	GinkgoHelper()
 
 	obj := &rewrite.VirtualMachineInstance{}
+
 	err := framework.GetClients().RewriteClient().Get(ctx, vm.Name, obj, rewrite.InNamespace(vm.Namespace))
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil, nil
 		}
+
 		return nil, err
 	}
 
@@ -218,6 +226,7 @@ func UntilVMAgentReady(ctx context.Context, key client.ObjectKey, timeout time.D
 		key.Name, key.Namespace,
 	)
 	Expect(err).NotTo(HaveOccurred(), "failed to start observer for VirtualMachine %s/%s", key.Namespace, key.Name)
+
 	defer obs.Stop()
 
 	// Evaluate the current state explicitly as well: a VM whose agent became
@@ -240,6 +249,7 @@ func GetVMNode(ctx context.Context, f *framework.Framework, vm *v1alpha2.Virtual
 	if err != nil {
 		return "", err
 	}
+
 	if vm.Status.Node == "" {
 		return "", fmt.Errorf("vm %s/%s has empty status.node", vm.Namespace, vm.Name)
 	}
@@ -264,6 +274,7 @@ func ExpectNoVMOperationsForVirtualMachine(ctx context.Context, f *framework.Fra
 		if strings.HasPrefix(vmop.Name, "firmware-update-") {
 			continue
 		}
+
 		Fail(fmt.Sprintf("unexpected VMOP %q for VM %q", vmop.Name, vm.Name))
 	}
 }
@@ -294,6 +305,7 @@ func UntilVMMigrationSucceeded(key client.ObjectKey, timeout time.Duration) {
 			if op.Spec.VirtualMachine != key.Name {
 				return false
 			}
+
 			return op.Spec.Type == v1alpha2.VMOPTypeEvict || op.Spec.Type == v1alpha2.VMOPTypeMigrate
 		})
 	Expect(err).NotTo(HaveOccurred(), "no migration vmop found for vm %s/%s", key.Namespace, key.Name)
@@ -309,6 +321,7 @@ func UntilVMMigrationSucceeded(key client.ObjectKey, timeout time.Duration) {
 		key.Name, key.Namespace,
 	)
 	Expect(err).NotTo(HaveOccurred(), "failed to start observer for VirtualMachine %s/%s", key.Namespace, key.Name)
+
 	defer vmObs.Stop()
 
 	if waitErr := vmObs.WaitFor(vmobserver.HaveMigrationSucceeded(), framework.ShortTimeout); waitErr != nil {
@@ -317,6 +330,7 @@ func UntilVMMigrationSucceeded(key client.ObjectKey, timeout time.Duration) {
 		if vm, getErr := framework.GetClients().VirtClient().VirtualMachines(key.Namespace).Get(context.Background(), key.Name, metav1.GetOptions{}); getErr == nil {
 			SkipIfKnownMigrationFailure(vm)
 		}
+
 		Fail(fmt.Sprintf("migration is not completed: %s", waitErr))
 	}
 }
@@ -346,6 +360,7 @@ func MigrateVirtualMachine(f *framework.Framework, vm *v1alpha2.VirtualMachine, 
 // the spec observed the previous operation's completion on.
 func CreateVMOPRetryingStaleActiveDenial(ctx context.Context, f *framework.Framework, vmop *v1alpha2.VirtualMachineOperation) error {
 	backoff := wait.Backoff{Duration: 500 * time.Millisecond, Factor: 2, Jitter: 0.1, Steps: 5}
+
 	return retry.OnError(backoff,
 		func(err error) bool { return strings.Contains(err.Error(), "should finish first") },
 		func() error { return f.CreateWithDeferredDeletion(ctx, vmop) },
@@ -409,6 +424,7 @@ func RebootVirtualMachineByPodDeletion(f *framework.Framework, vm *v1alpha2.Virt
 	Expect(activePodName).NotTo(BeEmpty())
 
 	var pod corev1.Pod
+
 	err = framework.GetClients().GenericClient().Get(context.Background(), types.NamespacedName{
 		Namespace: vm.Namespace,
 		Name:      activePodName,
@@ -421,6 +437,7 @@ func RebootVirtualMachineByPodDeletion(f *framework.Framework, vm *v1alpha2.Virt
 
 func GetVirtualMachineAndActivePod(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine) (*v1alpha2.VirtualMachine, *corev1.Pod, error) {
 	var currentVM v1alpha2.VirtualMachine
+
 	err := f.GenericClient().Get(ctx, client.ObjectKey{
 		Namespace: vm.Namespace,
 		Name:      vm.Name,
@@ -435,6 +452,7 @@ func GetVirtualMachineAndActivePod(ctx context.Context, f *framework.Framework, 
 	}
 
 	var activePod corev1.Pod
+
 	err = f.GenericClient().Get(ctx, client.ObjectKey{
 		Namespace: vm.Namespace,
 		Name:      activePodName,
@@ -479,6 +497,7 @@ func SkipIfGuestPowerActionStuck(ctx context.Context, key client.ObjectKey) {
 	}
 
 	pods := &corev1.PodList{}
+
 	err = framework.GetClients().GenericClient().List(ctx, pods,
 		client.InNamespace(key.Namespace),
 		client.MatchingLabels{"kubevirt.internal.virtualization.deckhouse.io": "virt-launcher"},
@@ -492,6 +511,7 @@ func SkipIfGuestPowerActionStuck(ctx context.Context, key client.ObjectKey) {
 		if pod.Labels["kubevirt.internal.virtualization.deckhouse.io/created-by"] == string(kvvmi.UID) {
 			return
 		}
+
 		for _, ownerRef := range pod.OwnerReferences {
 			if ownerRef.UID == kvvmi.UID {
 				return
@@ -508,6 +528,7 @@ func IsVDAttached(vm *v1alpha2.VirtualMachine, vd *v1alpha2.VirtualDisk) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -530,6 +551,7 @@ func IsRestartRequired(vm *v1alpha2.VirtualMachine, timeout time.Duration) bool 
 		vm.Name, vm.Namespace,
 	)
 	Expect(err).NotTo(HaveOccurred(), "failed to start observer for VirtualMachine %s/%s", vm.Namespace, vm.Name)
+
 	defer obs.Stop()
 
 	err = obs.WaitFor(vmobserver.BeAwaitingRestart(), timeout)

@@ -125,6 +125,7 @@ func AskBeforeConnecting(
 	if err != nil {
 		restConfig = nil
 	}
+
 	return Check(ctx, vms, name, kind, force, DefaultStreams(restConfig))
 }
 
@@ -164,6 +165,7 @@ func Check(
 		// branch writes into the error output of a script, where a stray carriage return shows up.
 		s.printf("Warning: disconnecting %s from the %s of %s, connected %s.\n",
 			Holder(current.Holder), kind.Description(), name, when(current.StartTime))
+
 		return Connect
 	}
 
@@ -185,6 +187,7 @@ func ask(
 	reader := bufio.NewReader(s.In)
 	for {
 		s.printf("Connect and disconnect them? [y] yes  [N] no  [w] wait until free: ")
+
 		answer, err := reader.ReadString('\n')
 		if err != nil && answer == "" {
 			// The answer cannot be read at all: leave the holder alone rather than guess.
@@ -242,6 +245,7 @@ func Holder(holder string) string {
 			return fmt.Sprintf("serviceaccount %s/%s", ns, sa)
 		}
 	}
+
 	return holder
 }
 
@@ -251,7 +255,9 @@ func when(startTime *metav1.Time) string {
 	if startTime == nil {
 		return "at an unknown time"
 	}
+
 	local := startTime.Local()
+
 	return fmt.Sprintf("%s ago (%s)", roundedSince(local), local.Format("15:04"))
 }
 
@@ -275,7 +281,9 @@ func from(client string) string {
 	if client == "" {
 		return ""
 	}
+
 	agent, _, _ := strings.Cut(client, " ")
+
 	name, _, _ := strings.Cut(agent, "/")
 	switch name {
 	case "d8":
@@ -289,6 +297,7 @@ func from(client string) string {
 		if spelled := clientName(client); spelled != "" {
 			return fmt.Sprintf(", from another client (%s)", spelled)
 		}
+
 		return ", from another client"
 	}
 }
@@ -301,11 +310,13 @@ func clientName(client string) string {
 		if unicode.IsPrint(r) {
 			return r
 		}
+
 		return -1
 	}, client))
 	if len(printable) > clientNameLimit {
 		return string(printable[:clientNameLimit]) + "…"
 	}
+
 	return string(printable)
 }
 
@@ -315,14 +326,17 @@ func selfName(ctx context.Context, restConfig *rest.Config) (string, error) {
 	if restConfig == nil {
 		return "", errors.New("no client config to ask who we are")
 	}
+
 	cli, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
 		return "", err
 	}
+
 	review, err := cli.AuthenticationV1().SelfSubjectReviews().Create(ctx, &authnv1.SelfSubjectReview{}, metav1.CreateOptions{})
 	if err != nil {
 		return "", err
 	}
+
 	return review.Status.UserInfo.Username, nil
 }
 

@@ -45,5 +45,6 @@ func (w VMOPWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error
 	if err != nil {
 		return fmt.Errorf("error setting watch on VMOP: %w", err)
 	}
+
 	return nil
 }

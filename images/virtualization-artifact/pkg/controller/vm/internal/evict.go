@@ -47,6 +47,7 @@ func (h *EvictHandler) Handle(ctx context.Context, s state.VirtualMachineState) 
 	}
 
 	changed := s.VirtualMachine().Changed()
+
 	kvvmi, err := s.KVVMI(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -79,6 +80,7 @@ func (h *EvictHandler) Handle(ctx context.Context, s state.VirtualMachineState) 
 			Message(message),
 		&changed.Status.Conditions,
 	)
+
 	return reconcile.Result{}, nil
 }
 
@@ -93,11 +95,13 @@ func (h *EvictHandler) node(ctx context.Context, s state.VirtualMachineState, no
 	}
 
 	node := &corev1.Node{}
+
 	err := s.Client().Get(ctx, types.NamespacedName{Name: nodeName}, node)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil, nil
 		}
+
 		return nil, fmt.Errorf("failed to get node %s: %w", nodeName, err)
 	}
 
@@ -130,6 +134,7 @@ func restartApproved(node *corev1.Node) bool {
 	}
 
 	_, found := node.GetAnnotations()[annotations.AnnNodeVMRestartApproved]
+
 	return found
 }
 

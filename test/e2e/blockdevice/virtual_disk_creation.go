@@ -128,8 +128,10 @@ var _ = Describe("VirtualDiskCreation", Label(
 		)
 
 		var uploadFilePath string
+
 		By("Downloading source image to upload", func() {
 			var err error
+
 			uploadFilePath, err = downloadImageToTempFile(object.ImageURLCustomBIOS)
 			Expect(err).NotTo(HaveOccurred(), "failed to download upload source image")
 			DeferCleanup(func() {
@@ -375,6 +377,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 			)
 
 			snapObs := vdsnapshotobs.StartObserver(ctx, f, vdSnapshot)
+
 			By("Creating VirtualDiskSnapshot", func() {
 				err := f.CreateWithDeferredDeletion(ctx, vdSnapshot)
 				Expect(err).NotTo(HaveOccurred())
@@ -418,6 +421,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 			)
 
 			snapObs := vdsnapshotobs.StartObserver(ctx, f, vdSnapshot)
+
 			By("Creating VirtualDiskSnapshot", func() {
 				err := f.CreateWithDeferredDeletion(ctx, vdSnapshot)
 				Expect(err).NotTo(HaveOccurred())
@@ -454,6 +458,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 			)
 
 			lateRestoreObs := vdobs.StartObserver(ctx, f, lateRestore)
+
 			By("Admitting a disk whose snapshot does not exist yet", func() {
 				err := f.CreateWithDeferredDeletion(ctx, lateRestore)
 				Expect(err).NotTo(HaveOccurred())
@@ -467,6 +472,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 			)
 
 			lateSnapObs := vdsnapshotobs.StartObserver(ctx, f, lateSnapshot)
+
 			By("Taking the snapshot it waits for", func() {
 				err := f.CreateWithDeferredDeletion(ctx, lateSnapshot)
 				Expect(err).NotTo(HaveOccurred())
@@ -514,6 +520,7 @@ func expectedDiskPhaseBeforeVM(ctx context.Context, f *framework.Framework, vd *
 	if storageClassIsWaitForFirstConsumer(ctx, f, ptr.Deref(vd.Spec.PersistentVolumeClaim.StorageClass, "")) {
 		return vdobs.BeWaitForFirstConsumer()
 	}
+
 	return vdobs.BeReady()
 }
 
@@ -529,6 +536,7 @@ func storageClassIsWaitForFirstConsumer(ctx context.Context, f *framework.Framew
 	} else {
 		got, err := f.KubeClient().StorageV1().StorageClasses().Get(ctx, name, metav1.GetOptions{})
 		Expect(err).NotTo(HaveOccurred(), "failed to get StorageClass %q", name)
+
 		sc = got
 	}
 
@@ -603,13 +611,16 @@ func nodeForPVC(ctx context.Context, f *framework.Framework, namespace, pvcName 
 	GinkgoHelper()
 
 	var pvc corev1.PersistentVolumeClaim
+
 	err := f.Clients.GenericClient().Get(ctx, types.NamespacedName{Name: pvcName, Namespace: namespace}, &pvc)
 	Expect(err).NotTo(HaveOccurred(), "failed to get PVC %s/%s", namespace, pvcName)
+
 	if pvc.Spec.VolumeName == "" {
 		return ""
 	}
 
 	var pv corev1.PersistentVolume
+
 	err = f.Clients.GenericClient().Get(ctx, types.NamespacedName{Name: pvc.Spec.VolumeName}, &pv)
 	Expect(err).NotTo(HaveOccurred(), "failed to get PV %s for PVC %s/%s", pvc.Spec.VolumeName, namespace, pvcName)
 
@@ -624,19 +635,23 @@ func nodeFromPV(pv *corev1.PersistentVolume) string {
 	}
 
 	var candidates []string
+
 	for _, term := range pv.Spec.NodeAffinity.Required.NodeSelectorTerms {
 		for _, expr := range term.MatchExpressions {
 			if expr.Key != "topology.sds-local-volume-csi/node" && expr.Key != hostnameNodeSelectorKey {
 				continue
 			}
+
 			candidates = append(candidates, expr.Values...)
 		}
 	}
+
 	if len(candidates) == 0 {
 		return ""
 	}
 
 	sort.Strings(candidates)
+
 	return candidates[0]
 }
 
@@ -709,18 +724,21 @@ func virtualDiskProgressExpectations(vd *v1alpha2.VirtualDisk, o progressWaitOpt
 			RequireHundred: true,
 		}
 	}
+
 	if isVirtualDiskFromCVI(vd) {
 		return vdobs.ProgressExpectations{
 			RequireZero:    true,
 			RequireHundred: true,
 		}
 	}
+
 	if o.progressCoverage == progressCoverageIntermediate {
 		return vdobs.ProgressExpectations{
 			RequireZero:    true,
 			RequireHundred: true,
 		}
 	}
+
 	return streamedVirtualDiskProgress()
 }
 
@@ -762,6 +780,7 @@ func virtualDiskNoun(n int) string {
 	if n == 1 {
 		return "VirtualDisk"
 	}
+
 	return "VirtualDisks"
 }
 
@@ -820,6 +839,7 @@ func runVirtualMachineFromDisks(ctx context.Context, f *framework.Framework, dis
 			hostnameNodeSelectorKey: node,
 		}))
 	}
+
 	vm := object.NewMinimalVM("vm-from-disk-", f.Namespace().Name, vmOpts...)
 
 	By(fmt.Sprintf("Creating VirtualMachine from the %s", noun), func() {
@@ -872,20 +892,25 @@ func runVirtualMachineFromDisks(ctx context.Context, f *framework.Framework, dis
 }
 
 func doRetriableUploadAttempt(url, filePath string) error {
-	const maxAttempts = 12
-	const retryDelay = 5 * time.Second
+	const (
+		maxAttempts = 12
+		retryDelay  = 5 * time.Second
+	)
 
 	var lastErr error
+
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		err := doVirtualDiskUploadAttempt(url, filePath)
 		if err == nil {
 			return nil
 		}
+
 		if !isRetriableUploadError(err) {
 			return err
 		}
 
 		lastErr = err
+
 		time.Sleep(retryDelay)
 	}
 
@@ -905,6 +930,7 @@ func doVirtualDiskUploadAttempt(url, filePath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open %s: %w", filePath, err)
 	}
+
 	defer func() {
 		if closeErr := file.Close(); closeErr != nil && !errors.Is(closeErr, os.ErrClosed) {
 			Expect(closeErr).NotTo(HaveOccurred(), "Failed to close file %s", filePath)
@@ -915,6 +941,7 @@ func doVirtualDiskUploadAttempt(url, filePath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to stat %s: %w", filePath, err)
 	}
+
 	if stat.Size() == 0 {
 		return fmt.Errorf("file %s is empty", filePath)
 	}
@@ -923,12 +950,14 @@ func doVirtualDiskUploadAttempt(url, filePath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create HTTP request: %w", err)
 	}
+
 	req.ContentLength = stat.Size()
 
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
+
 	defer func() {
 		if closeErr := resp.Body.Close(); closeErr != nil && !errors.Is(closeErr, os.ErrClosed) {
 			Expect(closeErr).NotTo(HaveOccurred(), "Failed to close response body")
@@ -940,6 +969,7 @@ func doVirtualDiskUploadAttempt(url, filePath string) error {
 
 func isRetriableUploadError(err error) bool {
 	message := err.Error()
+
 	return !strings.Contains(message, "upload failed with status ") ||
 		strings.Contains(message, "upload failed with status 5")
 }
@@ -957,6 +987,7 @@ func downloadImageToTempFile(url string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("download %q: %w", url, err)
 	}
+
 	defer func() {
 		if closeErr := resp.Body.Close(); closeErr != nil && !errors.Is(closeErr, os.ErrClosed) {
 			Expect(closeErr).NotTo(HaveOccurred(), "failed to close response body")
@@ -971,11 +1002,14 @@ func downloadImageToTempFile(url string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("create temp file: %w", err)
 	}
+
 	closed := false
+
 	defer func() {
 		if closed {
 			return
 		}
+
 		if closeErr := tmpFile.Close(); closeErr != nil && !errors.Is(closeErr, os.ErrClosed) {
 			Expect(closeErr).NotTo(HaveOccurred(), "failed to close temp file")
 		}
@@ -988,6 +1022,7 @@ func downloadImageToTempFile(url string) (string, error) {
 	if err := tmpFile.Close(); err != nil {
 		return "", fmt.Errorf("close temp file: %w", err)
 	}
+
 	closed = true
 
 	return tmpFile.Name(), nil

@@ -38,6 +38,7 @@ func observeMigration(current, changed *v1alpha2.VirtualMachineOperation, mig *v
 	if current == nil || changed == nil || mig == nil {
 		return
 	}
+
 	if !commonvmop.IsMigration(changed) || commonvmop.IsFinished(current) || !commonvmop.IsFinished(changed) {
 		return
 	}
@@ -92,6 +93,7 @@ func stages(vmop *v1alpha2.VirtualMachineOperation, mig *virtv1.VirtualMachineIn
 		if state != nil && state.StartTimestamp != nil {
 			waiting += state.StartTimestamp.Sub(targetReady.Time)
 		}
+
 		stages[vmmetrics.MigrationStageWaiting] = waiting
 	} else if scheduling := phaseTime(mig, virtv1.MigrationScheduling); scheduling != nil {
 		// The pod is gone: the phase at least bounds the queue before the target was chosen.
@@ -101,6 +103,7 @@ func stages(vmop *v1alpha2.VirtualMachineOperation, mig *virtv1.VirtualMachineIn
 	if state != nil && state.StartTimestamp != nil && state.EndTimestamp != nil {
 		stages[vmmetrics.MigrationStageTransfer] = state.EndTimestamp.Sub(state.StartTimestamp.Time)
 	}
+
 	if state != nil && state.EndTimestamp != nil {
 		stages[vmmetrics.MigrationStageTotal] = state.EndTimestamp.Sub(accepted.Time)
 	}
@@ -112,12 +115,14 @@ func containersReadyAt(pod *corev1.Pod) *metav1.Time {
 	if pod == nil {
 		return nil
 	}
+
 	for _, c := range pod.Status.Conditions {
 		if c.Type == corev1.ContainersReady && c.Status == corev1.ConditionTrue {
 			t := c.LastTransitionTime
 			return &t
 		}
 	}
+
 	return nil
 }
 
@@ -129,6 +134,7 @@ func phaseTime(mig *virtv1.VirtualMachineInstanceMigration, phase virtv1.Virtual
 			return &ts
 		}
 	}
+
 	return nil
 }
 
@@ -144,6 +150,7 @@ func (o *Observer) Observe(ctx context.Context, c client.Client, current, change
 	if current == nil || changed == nil {
 		return
 	}
+
 	if !commonvmop.IsMigration(changed) || commonvmop.IsFinished(current) || !commonvmop.IsFinished(changed) {
 		return
 	}
@@ -158,6 +165,7 @@ func (o *Observer) Observe(ctx context.Context, c client.Client, current, change
 
 func targetPod(ctx context.Context, c client.Client, mig *virtv1.VirtualMachineInstanceMigration) *corev1.Pod {
 	pods := &corev1.PodList{}
+
 	err := c.List(ctx, pods, client.InNamespace(mig.Namespace), client.MatchingLabels{
 		virtv1.AppLabel:          "virt-launcher",
 		virtv1.MigrationJobLabel: string(mig.UID),
@@ -165,5 +173,6 @@ func targetPod(ctx context.Context, c client.Client, mig *virtv1.VirtualMachineI
 	if err != nil || len(pods.Items) == 0 {
 		return nil
 	}
+
 	return &pods.Items[0]
 }

@@ -48,6 +48,7 @@ func (v viStorageClassValidator) ValidateUpdate(ctx context.Context, _, newMC *m
 		if err != nil {
 			return warnings, err
 		}
+
 		if len(scWarnings) != 0 {
 			warnings = append(warnings, scWarnings...)
 		}
@@ -59,6 +60,7 @@ func (v viStorageClassValidator) ValidateUpdate(ctx context.Context, _, newMC *m
 			if err != nil {
 				return warnings, err
 			}
+
 			if len(scWarnings) != 0 {
 				warnings = append(warnings, scWarnings...)
 			}
@@ -70,10 +72,12 @@ func (v viStorageClassValidator) ValidateUpdate(ctx context.Context, _, newMC *m
 
 func (v viStorageClassValidator) validateStorageClass(ctx context.Context, scName string) (admission.Warnings, error) {
 	scProfile := &storagev1alpha1.StorageProfile{}
+
 	err := v.client.Get(ctx, client.ObjectKey{Name: scName}, scProfile, &client.GetOptions{})
 	if err != nil {
 		return admission.Warnings{}, fmt.Errorf("failed to fetch the storage profile %s: %w", scName, err)
 	}
+
 	if len(scProfile.Status.ClaimPropertySets) == 0 {
 		return admission.Warnings{}, fmt.Errorf("failed to validate claim property sets of the storage profile`: %s", scName)
 	}
@@ -103,6 +107,7 @@ type AllowedStorageClassSelector struct {
 
 func parseViStorageClass(settings mcapi.SettingsValues) *viStorageClassSettings {
 	viScSettings := &viStorageClassSettings{}
+
 	if virtualImages, ok := settings["virtualImages"].(map[string]interface{}); ok {
 		if defaultClass, ok := virtualImages["defaultStorageClassName"].(string); ok {
 			viScSettings.DefaultStorageClassName = defaultClass
@@ -111,11 +116,13 @@ func parseViStorageClass(settings mcapi.SettingsValues) *viStorageClassSettings 
 		if allowedSelector, ok := virtualImages["allowedStorageClassSelector"].(map[string]interface{}); ok {
 			if matchNames, ok := allowedSelector["matchNames"].([]interface{}); ok {
 				var matchNameStrings []string
+
 				for _, name := range matchNames {
 					if strName, ok := name.(string); ok {
 						matchNameStrings = append(matchNameStrings, strName)
 					}
 				}
+
 				viScSettings.AllowedStorageClassSelector.MatchNames = matchNameStrings
 			}
 		}

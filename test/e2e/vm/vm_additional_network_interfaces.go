@@ -113,6 +113,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(label.SIGCom
 
 				vmFooObs = vmobs.StartObserver(ctx, f, vmFoo)
 				vmFooObs.Never(vmobs.BeFailed())
+
 				vmBarObs = vmobs.StartObserver(ctx, f, vmBar)
 				vmBarObs.Never(vmobs.BeFailed())
 
@@ -121,6 +122,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(label.SIGCom
 				err = vmBarObs.WaitFor(vmobs.BeRunning(), framework.LongTimeout)
 				Expect(err).NotTo(HaveOccurred())
 				eventually.SSHReadyAsRoot(f, vmFoo, framework.LongTimeout)
+
 				if tc.vmBarHasMainNetwork {
 					eventually.SSHReadyAsRoot(f, vmBar, framework.LongTimeout)
 				}
@@ -139,6 +141,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(label.SIGCom
 			})
 
 			var vmopFooObs, vmopBarObs vmopobs.Observer
+
 			By("Create VMOPs to trigger migration", func() {
 				vmopFoo := util.MigrateVirtualMachine(f, vmFoo, vmop.WithGenerateName("vmop-migrate-foo-"))
 				vmopBar := util.MigrateVirtualMachine(f, vmBar, vmop.WithGenerateName("vmop-migrate-bar-"))
@@ -153,6 +156,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(label.SIGCom
 				Expect(err).NotTo(HaveOccurred())
 				err = vmopBarObs.WaitFor(vmopobs.BeCompleted(), framework.MaxTimeout)
 				Expect(err).NotTo(HaveOccurred())
+
 				for vmRef, obs := range map[*v1alpha2.VirtualMachine]vmobs.Observer{vmFoo: vmFooObs, vmBar: vmBarObs} {
 					err := obs.WaitFor(vmobs.HaveMigrationSucceeded(), framework.MaxTimeout)
 					if err != nil {
@@ -160,6 +164,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(label.SIGCom
 						// are fixed: kubevirt "client socket is closed" and Volume(s)UpdateError.
 						util.SkipIfKnownMigrationFailureWithContext(ctx, vmRef)
 					}
+
 					Expect(err).NotTo(HaveOccurred())
 				}
 			})
@@ -270,6 +275,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(label.SIGCom
 				if err != nil {
 					util.SkipIfGuestPowerActionStuck(ctx, crclient.ObjectKeyFromObject(vm))
 				}
+
 				Expect(err).NotTo(HaveOccurred())
 				err = vmObs.WaitFor(vmobs.BeRunning(), framework.LongTimeout)
 				Expect(err).NotTo(HaveOccurred())
@@ -307,15 +313,19 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(label.SIGCom
 		// different interface named eno<mainID> for Main.
 		expectGuestInterfaces := func(testVM *v1alpha2.VirtualMachine, mainID, clusterNetworkID int) {
 			GinkgoHelper()
+
 			var clusterNetworkMAC string
+
 			for _, n := range testVM.Status.Networks {
 				if n.Type == v1alpha2.NetworksTypeClusterNetwork {
 					clusterNetworkMAC = n.MAC
 				}
 			}
+
 			Expect(clusterNetworkMAC).NotTo(BeEmpty(), "status should carry the ClusterNetwork MAC")
 
 			eventually.SSHReady(f, testVM, framework.LongTimeout)
+
 			mainInterfaceName := fmt.Sprintf("eno%d", mainID)
 			clusterNetworkInterfaceName := fmt.Sprintf("eno%d", clusterNetworkID)
 
@@ -357,6 +367,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(label.SIGCom
 				)
 
 				var vmObs vmobs.Observer
+
 				By("Create VM with explicit ids on Main and ClusterNetwork", func() {
 					err := f.CreateWithDeferredDeletion(ctx, vdRoot, testVM)
 					Expect(err).NotTo(HaveOccurred(), "the webhook should accept id %d on Main and id %d on ClusterNetwork", mainID, clusterNetworkID)
@@ -385,6 +396,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(label.SIGCom
 				clusterNetworkID = 1
 				mainID           = 2
 			)
+
 			ns := f.Namespace().Name
 			vdRoot := object.NewVDFromCVI("vd-root", ns, object.PrecreatedCVIUbuntu)
 			testVM := buildUbuntuVMWithNetworks("vm", ns, vdRoot.Name,
@@ -392,6 +404,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(label.SIGCom
 			)
 
 			var vmObs vmobs.Observer
+
 			By("Create VM without Main whose ClusterNetwork holds id 1", func() {
 				err := f.CreateWithDeferredDeletion(ctx, vdRoot, testVM)
 				Expect(err).NotTo(HaveOccurred(), "the webhook should accept id 1 on a ClusterNetwork")
@@ -402,6 +415,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(label.SIGCom
 			})
 
 			var previousRunningTime time.Time
+
 			By("Add Main without an id at the head of the list", func() {
 				Expect(f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(testVM), testVM)).To(Succeed())
 				runningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, testVM.Status.Conditions)
@@ -420,6 +434,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(label.SIGCom
 				if err != nil {
 					util.SkipIfGuestPowerActionStuck(ctx, crclient.ObjectKeyFromObject(testVM))
 				}
+
 				Expect(err).NotTo(HaveOccurred())
 				waitForMachine(vmObs)
 			})
@@ -438,6 +453,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(label.SIGCom
 				mainID           = 1
 				clusterNetworkID = 2
 			)
+
 			oldNetworkName := util.ClusterNetworkName(L2OnlyNetworkVLANID)
 			newNetworkName := clusterNetworkName
 			ns := f.Namespace().Name
@@ -452,6 +468,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(label.SIGCom
 				oldMAC              string
 				previousRunningTime time.Time
 			)
+
 			By("Create VM with Main and a ClusterNetwork", func() {
 				Expect(f.CreateWithDeferredDeletion(ctx, vdRoot, testVM)).To(Succeed())
 
@@ -463,15 +480,18 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(label.SIGCom
 					if cond.Status == metav1.ConditionTrue {
 						return true, fmt.Errorf("VM must not require restart to replace a ClusterNetwork: %s", cond.Message)
 					}
+
 					return false, nil
 				})
 
 				expectStatusIDs(testVM, mainID, clusterNetworkID)
+
 				for _, n := range testVM.Status.Networks {
 					if n.Type == v1alpha2.NetworksTypeClusterNetwork {
 						oldMAC = n.MAC
 					}
 				}
+
 				runningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, testVM.Status.Conditions)
 				previousRunningTime = runningCondition.LastTransitionTime.Time
 			})
@@ -485,11 +505,13 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(label.SIGCom
 			By("Wait until the status lists only the new ClusterNetwork", func() {
 				err := vmObs.WaitFor(func(vm *v1alpha2.VirtualMachine) (bool, error) {
 					var clusterNetworks []v1alpha2.NetworksStatus
+
 					for _, n := range vm.Status.Networks {
 						if n.Type != v1alpha2.NetworksTypeMain {
 							clusterNetworks = append(clusterNetworks, n)
 						}
 					}
+
 					return len(clusterNetworks) == 1 && clusterNetworks[0].Name == newNetworkName && clusterNetworks[0].MAC != "", nil
 				}, framework.LongTimeout)
 				Expect(err).NotTo(HaveOccurred(), "the status should list %s with a MAC address instead of %s", newNetworkName, oldNetworkName)
@@ -498,6 +520,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(label.SIGCom
 
 			By("Verify the new ClusterNetwork got id 2 and its own MAC address", func() {
 				expectStatusIDs(testVM, mainID, clusterNetworkID)
+
 				for _, n := range testVM.Status.Networks {
 					if n.Type == v1alpha2.NetworksTypeClusterNetwork {
 						Expect(strings.EqualFold(n.MAC, oldMAC)).To(BeFalse(), "the new ClusterNetwork should not reuse MAC %s of the old one", oldMAC)
@@ -535,10 +558,12 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(label.SIGCom
 			if err != nil {
 				return -1
 			}
+
 			count, err := strconv.Atoi(strings.TrimSpace(output))
 			if err != nil {
 				return -1
 			}
+
 			return count
 		}
 
@@ -585,6 +610,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(label.SIGCom
 					if cond.Status == metav1.ConditionTrue {
 						return true, fmt.Errorf("VM must not require restart for non-Main network change")
 					}
+
 					return false, nil
 				})
 
@@ -672,6 +698,7 @@ func buildUbuntuVMWithNetworks(name, ns, vdRootName string, networks ...v1alpha2
 	for _, network := range networks {
 		opts = append(opts, vm.WithNetwork(network))
 	}
+
 	return vm.New(opts...)
 }
 
@@ -701,6 +728,7 @@ func buildVMWithNetworks(name, ns, vdRootName, additionalIP string, hasMain bool
 			vm.WithNetwork(v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeMain}),
 		)
 	}
+
 	opts = append(opts,
 		vm.WithNetwork(v1alpha2.NetworksSpec{
 			Type: v1alpha2.NetworksTypeClusterNetwork,
@@ -708,6 +736,7 @@ func buildVMWithNetworks(name, ns, vdRootName, additionalIP string, hasMain bool
 		}),
 	)
 	opts = append(opts, extraOpts...)
+
 	return vm.New(opts...)
 }
 
@@ -733,6 +762,7 @@ runcmd:
   - printf 'auto lo\niface lo inet loopback\n\nauto eth0\niface eth0 inet static\n  address %s\n  netmask 255.255.255.0\n' > /etc/network/interfaces
 `, additionalIP)
 	}
+
 	return fmt.Sprintf(`#cloud-config
 runcmd:
   - ip link set eth1 up
@@ -777,13 +807,16 @@ func setVMNetworks(
 		if err := f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vm), vm); err != nil {
 			return err
 		}
+
 		vm.Spec.Networks = rewrite(vm.Spec.Networks)
+
 		return f.Clients.GenericClient().Update(ctx, vm)
 	})).To(Succeed())
 }
 
 func checkPingPacketLoss(f *framework.Framework, vmName, vmNamespace, cmd, expectedPacketLoss string) {
 	GinkgoHelper()
+
 	packetLossRE := regexp.MustCompile(`([0-9]+)%\s*packet loss`)
 
 	// EXCEPTION: guest-side wait (ping packet loss over SSH), not a Kubernetes
@@ -793,6 +826,7 @@ func checkPingPacketLoss(f *framework.Framework, vmName, vmNamespace, cmd, expec
 		if err != nil {
 			return "", fmt.Errorf("cmd: %s\nstderr: %w", cmd, err)
 		}
+
 		match := packetLossRE.FindStringSubmatch(res)
 		if len(match) < 2 {
 			return "", fmt.Errorf("cmd: %s\nfailed to parse packet loss from output: %q", cmd, strings.TrimSpace(res))
@@ -820,16 +854,19 @@ func checkGuestInterfaceNames(f *framework.Framework, vmName, vmNamespace string
 		g.Expect(json.Unmarshal([]byte(result), &links)).To(Succeed(), "failed to parse ip JSON output: %s", result)
 
 		var names []string
+
 		for _, link := range links {
 			if link.IFName == "lo" {
 				continue
 			}
+
 			names = append(names, link.IFName)
 		}
 
 		for _, name := range present {
 			g.Expect(names).To(ContainElement(name), "the guest should carry interface %s", name)
 		}
+
 		for _, name := range absent {
 			g.Expect(names).NotTo(ContainElement(name), "the guest should have let interface %s go", name)
 		}
@@ -849,6 +886,7 @@ func ubuntuAnyMainIDCloudInit() string {
 		"netplan apply",
 		"for i in $(seq 1 60); do ip -4 route show default | grep -q default && break; sleep 1; done",
 	}
+
 	return cfg.Render()
 }
 
@@ -856,6 +894,7 @@ func ubuntuAnyMainIDCloudInit() string {
 // with the MAC address of each.
 func getGuestInterfaceMACs(f *framework.Framework, vmName, vmNamespace string) map[string]string {
 	GinkgoHelper()
+
 	macs := make(map[string]string)
 	// EXCEPTION: guest-side wait (interface list over SSH), not a Kubernetes
 	// resource — nothing to observe via an Observer.
@@ -867,14 +906,18 @@ func getGuestInterfaceMACs(f *framework.Framework, vmName, vmNamespace string) m
 		g.Expect(json.Unmarshal([]byte(result), &links)).To(Succeed(), "failed to parse ip JSON output: %s", result)
 
 		clear(macs)
+
 		for _, link := range links {
 			if link.IFName == "lo" {
 				continue
 			}
+
 			macs[link.IFName] = link.Address
 		}
+
 		g.Expect(macs).NotTo(BeEmpty(), "the guest should report at least one non-loopback interface")
 	}, Timeout, eventually.WithPolling(Interval))
+
 	return macs
 }
 

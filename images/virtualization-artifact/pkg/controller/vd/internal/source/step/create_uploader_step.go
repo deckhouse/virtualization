@@ -123,6 +123,7 @@ func (s CreateUploaderStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) 
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.QuotaExceeded).
 			Message(fmt.Sprintf("Quota exceeded during the uploader provisioning: %s", err))
+
 		return &reconcile.Result{}, nil
 	default:
 		return nil, fmt.Errorf("start uploader: %w", err)

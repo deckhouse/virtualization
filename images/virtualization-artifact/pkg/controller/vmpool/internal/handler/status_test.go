@@ -274,6 +274,7 @@ var _ = Describe("StatusHandler", func() {
 		It("clears the failure once the sync handler tried again without one", func() {
 			pool := newPool(2)
 			setCondition(pool, vmpoolcondition.TypeProgressing, metav1.ConditionFalse, vmpoolcondition.ReasonReplicaCreationFailed.String(), "old")
+
 			rctx := WithReport(ctx)
 			ReportFrom(rctx).ScaleAttempted()
 			handleIn(rctx, pool)
@@ -423,12 +424,14 @@ var _ = Describe("StatusHandler", func() {
 func conditionReason(pool *v1alpha2.VirtualMachinePool, t vmpoolcondition.Type) string {
 	c := meta.FindStatusCondition(pool.Status.Conditions, t.String())
 	Expect(c).NotTo(BeNil())
+
 	return c.Reason
 }
 
 func conditionMessage(pool *v1alpha2.VirtualMachinePool, t vmpoolcondition.Type) string {
 	c := meta.FindStatusCondition(pool.Status.Conditions, t.String())
 	Expect(c).NotTo(BeNil())
+
 	return c.Message
 }
 
@@ -441,5 +444,6 @@ func withDiskRefs(vm *v1alpha2.VirtualMachine, names ...string) *v1alpha2.Virtua
 	for _, n := range names {
 		vm.Spec.BlockDeviceRefs = append(vm.Spec.BlockDeviceRefs, v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: n})
 	}
+
 	return vm
 }

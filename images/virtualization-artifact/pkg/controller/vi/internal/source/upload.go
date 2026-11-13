@@ -78,18 +78,23 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualI
 	log, ctx := logger.GetDataSourceContext(ctx, uploadDataSource)
 
 	condition, _ := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
+
 	cb := conditions.NewConditionBuilder(vicondition.ReadyType).Generation(vi.Generation)
+
 	defer func() { conditions.SetCondition(cb, &vi.Status.Conditions) }()
 
 	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
+
 	pod, err := ds.uploaderService.GetPod(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	svc, err := ds.uploaderService.GetService(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -114,6 +119,7 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualI
 		// (e.g. TLS not settled after a secret restore). Treat as not-ready and
 		// keep retrying instead of failing the reconcile with an empty status.
 		log.Error("Uploader readiness probe failed; treating uploader as not ready", "err", err)
+
 		isUploaderReady = false
 	}
 
@@ -167,6 +173,7 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualI
 		vi.Status.Progress = "0%"
 
 		envSettings := ds.getEnvSettings(vi, supgen)
+
 		err = ds.uploaderService.Apply(ctx, vi, supgen, envSettings, datasource.NewCABundleForVMI(vi.GetNamespace(), vi.Spec.DataSource), serviceuploader.WithSystemNodeToleration())
 		switch {
 		case err == nil:
@@ -190,12 +197,14 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualI
 		log.Info("Provisioning to DVCR is in progress", "podPhase", pod.Status.Phase)
 
 		uploadStarted := ds.statService.IsUploadStarted(vi.GetUID(), pod) || hasUploadProgress(vi.Status.Progress)
+
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
 			if isTransientPodError(err) && uploadStarted {
 				setUploadProvisioningPhaseCondition(cb, vi)
 				return reconcile.Result{RequeueAfter: time.Second}, nil
 			}
+
 			return reconcile.Result{}, setUploadPhaseConditionFromPodError(cb, vi, err)
 		}
 
@@ -261,6 +270,7 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualI
 			"The Upload DataSource import to PVC has started",
 		)
 		source := ds.getSource(supgen, ds.statService.GetDVCRImageName(pod))
+
 		return reconcilePVCImportFromDVCR(ctx, vi, pod, pvc, source, cb, supgen, ds.statService, ds.diskService)
 	}
 
@@ -271,14 +281,18 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virtual
 	log, ctx := logger.GetDataSourceContext(ctx, "upload")
 
 	condition, _ := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
+
 	cb := conditions.NewConditionBuilder(vicondition.ReadyType).Generation(vi.Generation)
+
 	defer func() { conditions.SetCondition(cb, &vi.Status.Conditions) }()
 
 	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
+
 	pod, err := ds.uploaderService.GetPod(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	svc, err := ds.uploaderService.GetService(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -303,6 +317,7 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virtual
 		// (e.g. TLS not settled after a secret restore). Treat as not-ready and
 		// keep retrying instead of failing the reconcile with an empty status.
 		log.Error("Uploader readiness probe failed; treating uploader as not ready", "err", err)
+
 		isUploaderReady = false
 	}
 
@@ -347,6 +362,7 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virtual
 		log.Info("Cleaning up...")
 	case pod == nil || svc == nil || !exposure.Ensured():
 		envSettings := ds.getEnvSettings(vi, supgen)
+
 		err = ds.uploaderService.Apply(ctx, vi, supgen, envSettings, datasource.NewCABundleForVMI(vi.GetNamespace(), vi.Spec.DataSource), serviceuploader.WithSystemNodeToleration())
 		switch {
 		case err == nil:
@@ -379,6 +395,7 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virtual
 					Status(metav1.ConditionFalse).
 					Reason(uploadFailureReason(err)).
 					Message(service.CapitalizeFirstLetter(err.Error() + "."))
+
 				return reconcile.Result{}, nil
 			default:
 				return reconcile.Result{}, err
@@ -406,6 +423,7 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virtual
 				setUploadProvisioningPhaseCondition(cb, vi)
 				return reconcile.Result{RequeueAfter: time.Second}, nil
 			}
+
 			return reconcile.Result{}, setUploadPhaseConditionFromPodError(cb, vi, err)
 		}
 
@@ -502,6 +520,7 @@ func uploadFailureReason(err error) vicondition.ReadyReason {
 	if servicestat.IsTerminationMessageError(err) {
 		return vicondition.ProvisioningFailedTerminally
 	}
+
 	return vicondition.ProvisioningFailed
 }
 
@@ -514,8 +533,10 @@ func setUploadPhaseConditionFromPodError(cb *conditions.ConditionBuilder, vi *v1
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.ProvisioningFailedTerminally).
 			Message(service.CapitalizeFirstLetter(err.Error() + "."))
+
 		return nil
 	}
+
 	return setPhaseConditionFromPodError(cb, vi, err)
 }
 

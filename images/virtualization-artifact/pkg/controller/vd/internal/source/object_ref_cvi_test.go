@@ -156,6 +156,7 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 	Context("VirtualDisk has just been created", func() {
 		It("must start PVC import", func() {
 			var importStarted bool
+
 			vd.Status = v1alpha2.VirtualDiskStatus{
 				StorageClassName: sc.Name,
 				Target: v1alpha2.DiskTarget{
@@ -184,6 +185,7 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 
 		It("does not create the PVC while no VM consumes the disk on a WFFC storage class", func() {
 			var pvcCreated bool
+
 			sc.VolumeBindingMode = ptr.To(storagev1.VolumeBindingWaitForFirstConsumer)
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(cvi, sc).Build()
 			pvcSvc.CreateTargetFromDVCRFunc = func(_ context.Context, _ types.NamespacedName, _ string, _ *resource.Quantity, _ kclient.Object, _ *service.PVCImportSourceRegistry, _ service.VolumeAndAccessModesGetter, _ *provisioner.NodePlacement) (corev1.PersistentVolumeClaim, error) {
@@ -204,6 +206,7 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 
 		It("creates the PVC before the VM node is known once a VM consumes the disk on a WFFC storage class", func() {
 			var pvcCreated bool
+
 			sc.VolumeBindingMode = ptr.To(storagev1.VolumeBindingWaitForFirstConsumer)
 			vm := &v1alpha2.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{Name: "vm", Namespace: vd.Namespace},
@@ -340,18 +343,23 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 			pvc.Status.Phase = corev1.ClaimBound
 			pvc.Annotations = map[string]string{annotations.AnnPVCPopulationStrategy: service.PopulationStrategyDVCR}
 			cvi.Status.Target.RegistryURL = "registry.example/cvi/source"
+
 			var imported bool
+
 			pvcSvc.ImportFunc = func(_ context.Context, target *corev1.PersistentVolumeClaim, source *service.PVCImportSource, _ kclient.Object, _ supplements.Generator, _ *provisioner.NodePlacement) error {
 				imported = true
+
 				Expect(target.Name).To(Equal(pvc.Name))
 				Expect(source).ToNot(BeNil())
 				Expect(source.Registry).ToNot(BeNil())
+
 				return nil
 			}
 			pvcSvc.WaitForImportFunc = func(_ context.Context, _ *corev1.PersistentVolumeClaim, source *service.PVCImportSource, _ kclient.Object, _ supplements.Generator, _ *provisioner.NodePlacement) (corev1.PodPhase, error) {
 				Expect(imported).To(BeTrue())
 				Expect(source).ToNot(BeNil())
 				Expect(source.Registry).ToNot(BeNil())
+
 				return corev1.PodPending, nil
 			}
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, cvi).Build()

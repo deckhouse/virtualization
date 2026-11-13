@@ -65,6 +65,7 @@ func (h *SyncMetadataHandler) Handle(ctx context.Context, s state.VirtualMachine
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	if kvvm == nil {
 		return reconcile.Result{}, nil
 	}
@@ -73,6 +74,7 @@ func (h *SyncMetadataHandler) Handle(ctx context.Context, s state.VirtualMachine
 
 	// Propagate user specified labels and annotations from the d8 VM to kubevirt VM.
 	kvvmNewMetadata := &metav1.ObjectMeta{}
+
 	kvvmMetaUpdated, err := PropagateVMMetadata(current, kvvm, kvvm, kvvmNewMetadata)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -85,6 +87,7 @@ func (h *SyncMetadataHandler) Handle(ctx context.Context, s state.VirtualMachine
 	// Propagate user specified labels and annotations from the d8 VM to the kubevirt VirtualMachineInstance.
 	if kvvmi != nil {
 		kvvmiNewMetadata := &metav1.ObjectMeta{}
+
 		metaUpdated, err := PropagateVMMetadata(current, kvvm, kvvmi, kvvmiNewMetadata)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -114,6 +117,7 @@ func (h *SyncMetadataHandler) Handle(ctx context.Context, s state.VirtualMachine
 				if err = h.releaseNode(ctx, &pod); err != nil {
 					return reconcile.Result{}, err
 				}
+
 				continue
 			}
 
@@ -121,7 +125,9 @@ func (h *SyncMetadataHandler) Handle(ctx context.Context, s state.VirtualMachine
 			if pod.Status.Phase != corev1.PodRunning {
 				continue
 			}
+
 			podNewMetadata := &metav1.ObjectMeta{}
+
 			metaUpdated, err := PropagateVMMetadata(current, kvvm, &pod, podNewMetadata)
 			if err != nil {
 				return reconcile.Result{}, err
@@ -179,6 +185,7 @@ func (h *SyncMetadataHandler) syncMigrationNodeAffinityTerms(ctx context.Context
 	if err != nil {
 		return err
 	}
+
 	if class == nil {
 		return nil
 	}
@@ -221,6 +228,7 @@ func MigrationNodeAffinityTerms(
 	if err != nil {
 		return "", fmt.Errorf("marshal node affinity terms: %w", err)
 	}
+
 	return string(value), nil
 }
 
@@ -261,6 +269,7 @@ func (h *SyncMetadataHandler) patchLabelsAndAnnotations(ctx context.Context, obj
 			patch.WithTest("/metadata/labels", obj.GetLabels()),
 			patch.WithReplace("/metadata/labels", newLabels),
 		)
+
 		if objIsKVVM {
 			currSpecTemplateLabels := kvvm.Spec.Template.ObjectMeta.Labels
 			syncedSpecTemplateLabels := h.updateKVVMSpecTemplateMetadataLabels(currSpecTemplateLabels, newLabels)
@@ -276,6 +285,7 @@ func (h *SyncMetadataHandler) patchLabelsAndAnnotations(ctx context.Context, obj
 			patch.WithTest("/metadata/annotations", obj.GetAnnotations()),
 			patch.WithReplace("/metadata/annotations", newAnnotations),
 		)
+
 		if objIsKVVM {
 			currSpecTemplateAnno := kvvm.Spec.Template.ObjectMeta.Annotations
 			syncedSpecTemplateAnno := h.updateKVVMSpecTemplateMetadataAnnotations(currSpecTemplateAnno, newAnnotations)
@@ -388,6 +398,7 @@ func PropagateVMMetadata(vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachin
 	if !vm.Status.Resources.CPU.RuntimeOverhead.IsZero() {
 		propagateLabels[annotations.QuotaDiscountCPU] = vm.Status.Resources.CPU.RuntimeOverhead.String()
 	}
+
 	if !vm.Status.Resources.Memory.RuntimeOverhead.IsZero() {
 		propagateLabels[annotations.QuotaDiscountMemory] = vm.Status.Resources.Memory.RuntimeOverhead.String()
 	}
@@ -420,6 +431,7 @@ func GetLastPropagatedLabels(kvvm *virtv1.VirtualMachine) (map[string]string, er
 	var lastPropagatedLabels map[string]string
 
 	key := annotations.LastPropagatedVMLabelsAnnotation
+
 	lastPropagatedVMLabelsAnnotation, ok := kvvm.Annotations[key]
 	if !ok {
 		key = annotations.LastPropagatedVMLabelsAnnotationLegacy
@@ -449,6 +461,7 @@ func SetLastPropagatedLabels(metadata *metav1.ObjectMeta, vm *v1alpha2.VirtualMa
 	}
 
 	annotations.AddAnnotation(metadata, annotations.LastPropagatedVMLabelsAnnotation, newAnnoValue)
+
 	return true, nil
 }
 
@@ -456,6 +469,7 @@ func GetLastPropagatedAnnotations(kvvm *virtv1.VirtualMachine) (map[string]strin
 	var lastPropagatedAnno map[string]string
 
 	key := annotations.LastPropagatedVMAnnotationsAnnotation
+
 	lastPropagatedAnnotations, ok := kvvm.Annotations[key]
 	if !ok {
 		key = annotations.LastPropagatedVMAnnotationsAnnotationLegacy
@@ -485,5 +499,6 @@ func SetLastPropagatedAnnotations(metadata *metav1.ObjectMeta, vm *v1alpha2.Virt
 	}
 
 	annotations.AddAnnotation(metadata, annotations.LastPropagatedVMAnnotationsAnnotation, newAnnoValue)
+
 	return true, nil
 }

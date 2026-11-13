@@ -44,6 +44,7 @@ func (s *scraper) updateMetricClusterVirtualImageStatusPhase(m *dataMetric) {
 	if phase == "" {
 		phase = v1alpha2.ImagePending
 	}
+
 	phases := []struct {
 		value bool
 		name  string
@@ -65,6 +66,7 @@ func (s *scraper) updateMetricClusterVirtualImageStatusPhase(m *dataMetric) {
 
 func (s *scraper) defaultUpdate(descName string, value float64, m *dataMetric, labels ...string) {
 	info := cviMetrics[descName]
+
 	metric, err := prometheus.NewConstMetric(
 		info.Desc,
 		prometheus.GaugeValue,
@@ -75,5 +77,6 @@ func (s *scraper) defaultUpdate(descName string, value float64, m *dataMetric, l
 		s.log.Warn(fmt.Sprintf("Error creating the new const dataMetric for %s: %s", info.Desc, err))
 		return
 	}
+
 	s.ch <- metric
 }

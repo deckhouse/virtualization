@@ -74,11 +74,13 @@ var _ = Describe("SizePolicyHandler", func() {
 		It("Should add condition if it was absent and size policy does not match", func() {
 			vm := newVM("")
 			fakeClient, resource, vmState = setupEnvironment(vm)
+
 			reconcile()
 
 			newVM := &v1alpha2.VirtualMachine{}
 			err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 			Expect(err).NotTo(HaveOccurred())
+
 			cond, exists := conditions.GetCondition(vmcondition.TypeSizingPolicyMatched, newVM.Status.Conditions)
 			Expect(exists).To(BeTrue())
 			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
@@ -99,11 +101,13 @@ var _ = Describe("SizePolicyHandler", func() {
 				},
 			}
 			fakeClient, resource, vmState = setupEnvironment(vm, vmClass)
+
 			reconcile()
 
 			newVM := &v1alpha2.VirtualMachine{}
 			err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 			Expect(err).NotTo(HaveOccurred())
+
 			_, exists := conditions.GetCondition(vmcondition.TypeSizingPolicyMatched, newVM.Status.Conditions)
 			Expect(exists).To(BeFalse())
 		})
@@ -117,11 +121,13 @@ var _ = Describe("SizePolicyHandler", func() {
 				},
 			}
 			fakeClient, resource, vmState = setupEnvironment(vm, vmClass)
+
 			reconcile()
 
 			newVM := &v1alpha2.VirtualMachine{}
 			err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 			Expect(err).NotTo(HaveOccurred())
+
 			_, exists := conditions.GetCondition(vmcondition.TypeSizingPolicyMatched, newVM.Status.Conditions)
 			Expect(exists).To(BeFalse())
 		})

@@ -70,5 +70,6 @@ func NewController(
 	}
 
 	log.Info("Initialized NodePCIDevice controller")
+
 	return c, nil
 }

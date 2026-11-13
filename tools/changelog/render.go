@@ -51,7 +51,9 @@ func RenderYAML(entries []Entry, warn func(string)) string {
 		features []Entry
 		fixes    []Entry
 	}
+
 	grouped := map[string]*buckets{}
+
 	for _, entry := range entries {
 		bucket, published := typeBuckets[entry.Type]
 		if !published {
@@ -59,11 +61,14 @@ func RenderYAML(entries []Entry, warn func(string)) string {
 				warn(fmt.Sprintf("!%d has type '%s', which is not published (only feature and fix are), skipping",
 					entry.MRIID, entry.Type))
 			}
+
 			continue
 		}
+
 		if grouped[entry.Section] == nil {
 			grouped[entry.Section] = &buckets{}
 		}
+
 		if bucket == "features" {
 			grouped[entry.Section].features = append(grouped[entry.Section].features, entry)
 		} else {
@@ -88,8 +93,10 @@ func RenderYAML(entries []Entry, warn func(string)) string {
 			if len(bucket.entries) == 0 {
 				continue
 			}
+
 			items := append([]Entry(nil), bucket.entries...)
 			sort.SliceStable(items, func(i, j int) bool { return items[i].MRIID > items[j].MRIID })
+
 			lines = append(lines, "  "+bucket.name+":")
 			for _, entry := range items {
 				lines = append(lines,
@@ -100,6 +107,7 @@ func RenderYAML(entries []Entry, warn func(string)) string {
 			}
 		}
 	}
+
 	return strings.Join(lines, "\n") + "\n\n"
 }
 
@@ -113,14 +121,18 @@ func impactLines(impact string) []string {
 	case !strings.Contains(impact, "\n"):
 		return []string{"      impact: " + yamlScalar(impact)}
 	}
+
 	lines := []string{"      impact: |-"}
+
 	for _, line := range strings.Split(impact, "\n") {
 		if line == "" {
 			lines = append(lines, "")
 			continue
 		}
+
 		lines = append(lines, "        "+line)
 	}
+
 	return lines
 }
 
@@ -130,12 +142,14 @@ func yamlScalar(value string) string {
 	if value == "" {
 		return `""`
 	}
+
 	if strings.ContainsAny(value, ":#") ||
 		strings.ContainsAny(value[:1], "-?,[]{}'\"&*!|>%@`") ||
 		strings.HasSuffix(value, " ") ||
 		strings.Contains(value, "\n") {
 		return quote(value)
 	}
+
 	return value
 }
 
@@ -144,12 +158,15 @@ func yamlScalar(value string) string {
 // and the escapes would show up in the published changelog.
 func quote(value string) string {
 	var out bytes.Buffer
+
 	encoder := json.NewEncoder(&out)
 	encoder.SetEscapeHTML(false)
+
 	if err := encoder.Encode(value); err != nil {
 		// A string always encodes.
 		return strconv.Quote(value)
 	}
+
 	return strings.TrimRight(out.String(), "\n")
 }
 
@@ -162,11 +179,13 @@ func quote(value string) string {
 // deciding to update.
 func RenderReleaseMarkdown(entries []Entry, sections Sections, milestone string) string {
 	var notes []string
+
 	for _, entry := range entries {
 		if sections.Level(entry) == levelHigh && entry.Impact != "" {
 			notes = append(notes, entry.Impact)
 		}
 	}
+
 	sort.Strings(notes)
 
 	groups := []struct {
@@ -180,11 +199,13 @@ func RenderReleaseMarkdown(entries []Entry, sections Sections, milestone string)
 		{"Chore", "chore"},
 	} {
 		var matching []Entry
+
 		for _, entry := range entries {
 			if entry.Type == group.changeType && sections.Level(entry) != levelLow {
 				matching = append(matching, entry)
 			}
 		}
+
 		sort.SliceStable(matching, func(i, j int) bool { return matching[i].Section < matching[j].Section })
 
 		items := make([]string, 0, len(matching))
@@ -193,8 +214,10 @@ func RenderReleaseMarkdown(entries []Entry, sections Sections, milestone string)
 			if entry.Impact != "" {
 				line += "\n" + entry.Impact
 			}
+
 			items = append(items, line)
 		}
+
 		groups = append(groups, struct {
 			heading string
 			items   []string
@@ -202,10 +225,12 @@ func RenderReleaseMarkdown(entries []Entry, sections Sections, milestone string)
 	}
 
 	lines := []string{"# Changelog " + milestone}
+
 	for _, group := range groups {
 		if len(group.items) == 0 {
 			continue
 		}
+
 		lines = append(lines, "\n## "+group.heading+"\n")
 		for _, item := range group.items {
 			// The continuation lines of an item — a summary or a note of
@@ -215,6 +240,7 @@ func RenderReleaseMarkdown(entries []Entry, sections Sections, milestone string)
 			lines = append(lines, " - "+strings.ReplaceAll(item, "\n", "\n   "))
 		}
 	}
+
 	return strings.Join(lines, "\n") + "\n"
 }
 
@@ -232,14 +258,17 @@ func RenderMilestoneBlock(entries []Entry, sections Sections, milestone string) 
 		lines = append(lines, "_No changelog entries._")
 		return strings.TrimRight(strings.Join(lines, "\n"), "\n \t") + "\n"
 	}
+
 	for _, section := range sortedKeys(grouped) {
 		lines = append(lines, "### "+section, "")
 		for _, entry := range grouped[section] {
 			lines = append(lines, fmt.Sprintf("- **%s** (%s): %s ([!%d](%s))",
 				entry.Type, sections.Level(entry), entry.Summary, entry.MRIID, entry.MRURL))
 		}
+
 		lines = append(lines, "")
 	}
+
 	return strings.TrimRight(strings.Join(lines, "\n"), "\n \t") + "\n"
 }
 
@@ -253,24 +282,32 @@ func RenderMilestoneBlock(entries []Entry, sections Sections, milestone string) 
 func ParseMinorBlocks(text string) map[string]string {
 	blocks := map[string]string{}
 	title := ""
+
 	var current []string
+
 	flush := func() {
 		if title != "" {
 			blocks[title] = strings.TrimRight(strings.Join(current, "\n"), "\n \t") + "\n"
 		}
 	}
+
 	for _, line := range strings.Split(text, "\n") {
 		if strings.HasPrefix(line, "## ") {
 			flush()
+
 			title = strings.TrimSpace(line[3:])
 			current = []string{line}
+
 			continue
 		}
+
 		if title != "" {
 			current = append(current, line)
 		}
 	}
+
 	flush()
+
 	return blocks
 }
 
@@ -287,6 +324,7 @@ func MergeMinorMarkdown(existing, minorVersion, milestone, block string) string 
 	for title := range blocks {
 		titles = append(titles, title)
 	}
+
 	sort.SliceStable(titles, func(i, j int) bool {
 		return compareVersions(titles[i], titles[j]) > 0
 	})
@@ -295,6 +333,7 @@ func MergeMinorMarkdown(existing, minorVersion, milestone, block string) string 
 	for _, title := range titles {
 		out = append(out, strings.TrimRight(blocks[title], "\n \t"), "")
 	}
+
 	return strings.TrimRight(strings.Join(out, "\n"), "\n \t") + "\n"
 }
 
@@ -310,21 +349,26 @@ func compareVersions(a, b string) int {
 			if left[i] > right[i] {
 				return 1
 			}
+
 			return -1
 		}
 	}
+
 	return 0
 }
 
 func versionParts(title string) [3]int {
 	var parts [3]int
+
 	match := versionRE.FindStringSubmatch(title)
 	if match == nil {
 		return parts
 	}
+
 	for i := 0; i < 3; i++ {
 		parts[i], _ = strconv.Atoi(match[i+1])
 	}
+
 	return parts
 }
 
@@ -337,6 +381,7 @@ func MinorVersion(milestone string) string {
 	if match == nil {
 		return milestone
 	}
+
 	return "v" + match[1]
 }
 
@@ -345,6 +390,8 @@ func sortedKeys[V any](m map[string]V) []string {
 	for key := range m {
 		keys = append(keys, key)
 	}
+
 	sort.Strings(keys)
+
 	return keys
 }

@@ -62,6 +62,7 @@ func GetFinalReportFromPod(pod *corev1.Pod) (*FinalReport, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return parseFinalReport(status.State.Terminated)
 }
 
@@ -81,10 +82,12 @@ func GetLastFinalReportFromPod(pod *corev1.Pod) (*FinalReport, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	terminated := status.State.Terminated
 	if terminated == nil {
 		terminated = status.LastTerminationState.Terminated
 	}
+
 	return parseFinalReport(terminated)
 }
 
@@ -92,9 +95,11 @@ func firstContainerStatus(pod *corev1.Pod) (*corev1.ContainerStatus, error) {
 	if pod == nil {
 		return nil, errors.New("got nil Pod: unable to get the final report from the nil Pod")
 	}
+
 	if len(pod.Status.ContainerStatuses) == 0 {
 		return nil, ErrTerminationMessageNotFound
 	}
+
 	return &pod.Status.ContainerStatuses[0], nil
 }
 
@@ -104,6 +109,7 @@ func parseFinalReport(terminated *corev1.ContainerStateTerminated) (*FinalReport
 	}
 
 	var report FinalReport
+
 	err := json.Unmarshal([]byte(terminated.Message), &report)
 	if err != nil {
 		return nil, fmt.Errorf("problem parsing final report %s: %w", terminated.Message, err)

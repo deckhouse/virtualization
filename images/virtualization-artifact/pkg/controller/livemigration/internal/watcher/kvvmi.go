@@ -51,5 +51,6 @@ func (w *KVVMIWatcher) Watch(mgr manager.Manager, ctr controller.Controller) err
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualMachineInstance: %w", err)
 	}
+
 	return nil
 }

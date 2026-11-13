@@ -71,6 +71,7 @@ func (v liveMigrationValidator) validate(ctx context.Context, mc *mcapi.ModuleCo
 
 	sn := &unstructured.Unstructured{}
 	sn.SetGroupVersionKind(systemNetworkGVK)
+
 	err := v.client.Get(ctx, client.ObjectKey{Name: name}, sn)
 	switch {
 	case meta.IsNoMatchError(err):
@@ -84,6 +85,7 @@ func (v liveMigrationValidator) validate(ctx context.Context, mc *mcapi.ModuleCo
 	if !isSystemNetworkReady(sn) {
 		return nil, fmt.Errorf("liveMigration.network.systemNetwork.name=%q: SystemNetwork is not Ready", name)
 	}
+
 	return nil, nil
 }
 
@@ -92,18 +94,23 @@ func parseLiveMigrationSystemNetworkName(settings mcapi.SettingsValues) string {
 	if !ok {
 		return ""
 	}
+
 	network, ok := lm[networkKey].(map[string]any)
 	if !ok {
 		return ""
 	}
+
 	if t, _ := network[networkTypeKey].(string); t != systemNetworkType {
 		return ""
 	}
+
 	sn, ok := network[systemNetworkKey].(map[string]any)
 	if !ok {
 		return ""
 	}
+
 	name, _ := sn[nameKey].(string)
+
 	return name
 }
 
@@ -112,16 +119,20 @@ func isSystemNetworkReady(sn *unstructured.Unstructured) bool {
 	if err != nil || !found {
 		return false
 	}
+
 	for _, c := range conds {
 		m, ok := c.(map[string]any)
 		if !ok {
 			continue
 		}
+
 		t, _ := m["type"].(string)
+
 		s, _ := m["status"].(string)
 		if t == conditionTypeReady && s == conditionStatusTrue {
 			return true
 		}
 	}
+
 	return false
 }

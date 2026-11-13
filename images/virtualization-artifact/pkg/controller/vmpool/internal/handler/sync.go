@@ -88,6 +88,7 @@ func (h *SyncHandler) Handle(ctx context.Context, pool *v1alpha2.VirtualMachineP
 	if !h.exp.Satisfied(key) {
 		return reconcile.Result{RequeueAfter: expectationsRecheck}, nil
 	}
+
 	ReportFrom(ctx).ScaleAttempted()
 
 	desired := int(ptr.Deref(pool.Spec.Replicas, 0))
@@ -114,7 +115,9 @@ func (h *SyncHandler) scaleUp(ctx context.Context, pool *v1alpha2.VirtualMachine
 	// Record the expectation before creating so a create event cannot be observed
 	// before we start waiting for it.
 	h.exp.ExpectCreations(key, n)
+
 	var errs error
+
 	for range n {
 		vm := h.newMember(pool)
 		if err := h.client.Create(ctx, vm); err != nil {
@@ -122,15 +125,20 @@ func (h *SyncHandler) scaleUp(ctx context.Context, pool *v1alpha2.VirtualMachine
 			h.exp.CreationObserved(key)
 			h.recorder.Eventf(pool, corev1.EventTypeWarning, reasonFailedCreate,
 				"Failed to create a VirtualMachine from the template: %v", err)
+
 			if isPersistent(err) {
 				ReportFrom(ctx).CreationFailed("Cannot create a VirtualMachine from the template: " + explain(err, vmTemplatePath))
 			}
+
 			errs = errors.Join(errs, fmt.Errorf("create replica: %w", err))
+
 			continue
 		}
+
 		h.recorder.Eventf(pool, corev1.EventTypeNormal, reasonSuccessfulCreate,
 			"Created VirtualMachine %q.", vm.GetName())
 	}
+
 	return errs
 }
 
@@ -138,12 +146,14 @@ func (h *SyncHandler) scaleDown(ctx context.Context, pool *v1alpha2.VirtualMachi
 	// Terminating members already count toward the reduction (invariant 2), so
 	// subtract them and only remove additional healthy replicas for the remainder.
 	terminating := 0
+
 	candidates := make([]v1alpha2.VirtualMachine, 0, len(members))
 	for i := range members {
 		if members[i].GetDeletionTimestamp() != nil {
 			terminating++
 			continue
 		}
+
 		candidates = append(candidates, members[i])
 	}
 
@@ -159,30 +169,39 @@ func (h *SyncHandler) scaleDown(ctx context.Context, pool *v1alpha2.VirtualMachi
 		// blocked by an admission webhook.
 		return nil
 	}
+
 	uids := make([]types.UID, 0, len(victims))
 	for i := range victims {
 		uids = append(uids, victims[i].GetUID())
 	}
+
 	h.exp.ExpectDeletions(key, uids...)
 
 	var errs error
+
 	for i := range victims {
 		if err := h.client.Delete(ctx, &victims[i]); err != nil {
 			// Already gone or failed — stop waiting for that deletion event.
 			h.exp.DeletionObserved(key, victims[i].GetUID())
+
 			if !apierrors.IsNotFound(err) {
 				h.recorder.Eventf(pool, corev1.EventTypeWarning, reasonFailedDelete,
 					"Failed to delete VirtualMachine %q: %v", victims[i].GetName(), err)
+
 				if isPersistent(err) {
 					ReportFrom(ctx).DeletionFailed(fmt.Sprintf("Cannot delete VirtualMachine %q: %s", victims[i].GetName(), explainDeletion(err)))
 				}
+
 				errs = errors.Join(errs, fmt.Errorf("delete replica %s: %w", victims[i].GetName(), err))
 			}
+
 			continue
 		}
+
 		h.recorder.Eventf(pool, corev1.EventTypeNormal, reasonSuccessfulDelete,
 			"Deleted VirtualMachine %q.", victims[i].GetName())
 	}
+
 	return errs
 }
 
@@ -193,17 +212,22 @@ func pickVictims(policy v1alpha2.ScaleDownPolicy, candidates []v1alpha2.VirtualM
 	if n <= 0 || policy == v1alpha2.ScaleDownPolicyExplicit {
 		return nil
 	}
+
 	oldestFirst := policy == v1alpha2.ScaleDownPolicyOldestFirst
+
 	slices.SortStableFunc(candidates, func(a, b v1alpha2.VirtualMachine) int {
 		c := a.GetCreationTimestamp().Compare(b.GetCreationTimestamp().Time)
 		if oldestFirst {
 			return c
 		}
+
 		return -c // NewestFirst: youngest removed first
 	})
+
 	if n > len(candidates) {
 		n = len(candidates)
 	}
+
 	return candidates[:n]
 }
 
@@ -216,6 +240,7 @@ func (h *SyncHandler) newMember(pool *v1alpha2.VirtualMachinePool) *v1alpha2.Vir
 	for k, v := range tmpl.Metadata.Labels {
 		labels[k] = v
 	}
+
 	for k, v := range poollabels.Member(pool) {
 		labels[k] = v
 	}

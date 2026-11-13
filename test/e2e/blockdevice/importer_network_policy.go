@@ -47,6 +47,7 @@ var _ = Describe("ImporterNetworkPolicy", Label(label.SIGStorage, precheck.NoPre
 		f   *framework.Framework
 		ctx context.Context
 	)
+
 	BeforeEach(func() {
 		ctx = context.Background()
 		f = framework.NewFramework("")
@@ -56,14 +57,17 @@ var _ = Describe("ImporterNetworkPolicy", Label(label.SIGStorage, precheck.NoPre
 
 	It("test network policy isolation for vi importer", func() {
 		By("Create isolated project")
+
 		project := object.NewIsolatedProject(testName, framework.NamespaceBasePrefix)
 		err := f.CreateWithDeferredDeletion(ctx, project)
 		Expect(err).NotTo(HaveOccurred())
+
 		projObs := projobs.StartObserver(ctx, f, project.Name)
 		err = projObs.WaitFor(projobs.BeDeployed(), framework.ShortTimeout)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Create virtual image")
+
 		vi := object.NewGeneratedHTTPVICustomBIOS("vi-", project.Name)
 		err = f.CreateWithDeferredDeletion(ctx, vi)
 		Expect(err).NotTo(HaveOccurred())
@@ -85,14 +89,17 @@ var _ = Describe("ImporterNetworkPolicy", Label(label.SIGStorage, precheck.NoPre
 
 	It("test network policy isolation for vd importer", func() {
 		By("Create isolated project")
+
 		project := object.NewIsolatedProject(testName, framework.NamespaceBasePrefix)
 		err := f.CreateWithDeferredDeletion(ctx, project)
 		Expect(err).NotTo(HaveOccurred())
+
 		projObs := projobs.StartObserver(ctx, f, project.Name)
 		err = projObs.WaitFor(projobs.BeDeployed(), framework.ShortTimeout)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Create virtual disk")
+
 		vd := object.NewHTTPVDCustomBIOS("vd", project.Name, vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))))
 		err = f.CreateWithDeferredDeletion(ctx, vd)
 		Expect(err).NotTo(HaveOccurred())
@@ -114,14 +121,17 @@ var _ = Describe("ImporterNetworkPolicy", Label(label.SIGStorage, precheck.NoPre
 
 	It("test network policy isolation for vi upload", func() {
 		By("Create isolated project")
+
 		project := object.NewIsolatedProject(testName, framework.NamespaceBasePrefix)
 		err := f.CreateWithDeferredDeletion(ctx, project)
 		Expect(err).NotTo(HaveOccurred())
+
 		projObs := projobs.StartObserver(ctx, f, project.Name)
 		err = projObs.WaitFor(projobs.BeDeployed(), framework.ShortTimeout)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Download source image to upload")
+
 		uploadFilePath, err := downloadImageToTempFile(object.ImageURLCustomBIOS)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() {
@@ -131,6 +141,7 @@ var _ = Describe("ImporterNetworkPolicy", Label(label.SIGStorage, precheck.NoPre
 		})
 
 		By("Create virtual image with Upload data source")
+
 		vi := object.NewVI(
 			vibuilder.WithGenerateName("vi-upload-"),
 			vibuilder.WithNamespace(project.Name),
@@ -169,14 +180,17 @@ var _ = Describe("ImporterNetworkPolicy", Label(label.SIGStorage, precheck.NoPre
 
 	It("test network policy isolation for vd upload", func() {
 		By("Create isolated project")
+
 		project := object.NewIsolatedProject(testName, framework.NamespaceBasePrefix)
 		err := f.CreateWithDeferredDeletion(ctx, project)
 		Expect(err).NotTo(HaveOccurred())
+
 		projObs := projobs.StartObserver(ctx, f, project.Name)
 		err = projObs.WaitFor(projobs.BeDeployed(), framework.ShortTimeout)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Download source image to upload")
+
 		uploadFilePath, err := downloadImageToTempFile(object.ImageURLCustomBIOS)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() {
@@ -186,6 +200,7 @@ var _ = Describe("ImporterNetworkPolicy", Label(label.SIGStorage, precheck.NoPre
 		})
 
 		By("Create virtual disk with Upload data source")
+
 		vd := object.NewVD(
 			vdbuilder.WithGenerateName("vd-upload-"),
 			vdbuilder.WithNamespace(project.Name),

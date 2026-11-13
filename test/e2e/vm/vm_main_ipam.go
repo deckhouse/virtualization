@@ -93,10 +93,12 @@ var _ = Describe("VirtualMachineMainIPAM", Serial, Label(label.SIGCompute, prech
 
 		By("Wait for VM Running", func() {
 			Expect(testVMObs.WaitFor(vmobs.BeRunning(), framework.LongTimeout)).To(Succeed())
+
 			testVM = refreshVM(ctx, f, testVM)
 		})
 
 		var ipaName, ipAddress string
+
 		By("Verify the auto IPAddress owned by the VM is Allocated", func() {
 			eventually.UntilAssertion(func(g Gomega) {
 				ipa := findMainIPAddressByVMUID(ctx, g, testVM)
@@ -410,6 +412,7 @@ var _ = Describe("VirtualMachineMainIPAM", Serial, Label(label.SIGCompute, prech
 		By("Migrate the VM", func() {
 			vmop := util.MigrateVirtualMachine(f, testVM)
 			util.UntilVMOPMigrationSucceeded(ctx, vmop, framework.MaxTimeout)
+
 			if err := testVMObs.WaitFor(vmobs.HaveMigrationSucceeded(), framework.MaxTimeout); err != nil {
 				util.SkipIfKnownMigrationFailureWithContext(ctx, testVM)
 				Expect(err).NotTo(HaveOccurred())
@@ -451,6 +454,7 @@ func buildMainIPAMVM(name, ns, vdRootName string, extraOpts ...vm.Option) *v1alp
 		}),
 	}
 	opts = append(opts, extraOpts...)
+
 	return vm.New(opts...)
 }
 
@@ -460,6 +464,7 @@ func getMainNetworkStatus(vm *v1alpha2.VirtualMachine) *v1alpha2.NetworksStatus 
 			return &vm.Status.Networks[i]
 		}
 	}
+
 	return nil
 }
 
@@ -467,11 +472,13 @@ func findMainIPAddressByVMUID(ctx context.Context, g Gomega, vm *v1alpha2.Virtua
 	ipas := &sdnapi.IPAddressList{}
 	g.Expect(framework.GetClients().GenericClient().List(ctx, ipas, crclient.InNamespace(vm.Namespace),
 		crclient.MatchingLabels{annotations.LabelVirtualMachineUID: string(vm.UID)})).To(Succeed())
+
 	for i := range ipas.Items {
 		if network.IsMainNetworkIPAddress(&ipas.Items[i]) {
 			return &ipas.Items[i]
 		}
 	}
+
 	return nil
 }
 
@@ -481,16 +488,20 @@ func isOwnedByVM(ipa *sdnapi.IPAddress, vm *v1alpha2.VirtualMachine) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
 func getSDNIPAddress(ctx context.Context, g Gomega, ns, name string) *sdnapi.IPAddress {
 	ipa := &sdnapi.IPAddress{}
+
 	err := framework.GetClients().GenericClient().Get(ctx, k8stypes.NamespacedName{Namespace: ns, Name: name}, ipa)
 	if k8serrors.IsNotFound(err) {
 		return nil
 	}
+
 	g.Expect(err).NotTo(HaveOccurred())
+
 	return ipa
 }
 
@@ -568,6 +579,7 @@ func pickFreeMainAddress(ctx context.Context, namespace string) string {
 	Expect(genericClient.Create(ctx, probe)).To(Succeed())
 
 	var address string
+
 	eventually.UntilAssertion(func(g Gomega) {
 		ipa := getSDNIPAddress(ctx, g, namespace, probe.Name)
 		g.Expect(ipa).NotTo(BeNil())
@@ -579,5 +591,6 @@ func pickFreeMainAddress(ctx context.Context, namespace string) string {
 	eventually.UntilAssertion(func(g Gomega) {
 		g.Expect(getSDNIPAddress(ctx, g, namespace, probe.Name)).To(BeNil())
 	}, framework.MiddleTimeout, eventually.WithPolling(time.Second))
+
 	return address
 }

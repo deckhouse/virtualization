@@ -78,6 +78,7 @@ func NewD8Virtualization(conf D8VirtualizationConf) (*D8VirtualizationCMD, error
 	if _, found := os.LookupEnv("HOME"); !found {
 		return nil, fmt.Errorf("HOME environment variable shoule be set")
 	}
+
 	if _, found := os.LookupEnv("PATH"); !found {
 		return nil, fmt.Errorf("PATH environment variable shoule be set")
 	}
@@ -88,6 +89,7 @@ func NewD8Virtualization(conf D8VirtualizationConf) (*D8VirtualizationCMD, error
 	}
 
 	e := executor.NewExecutor(connEnvs)
+
 	return &D8VirtualizationCMD{
 		Executor: e,
 		cmd:      strings.Join(append([]string{Cmd}, connArgs...), " "),
@@ -201,6 +203,7 @@ func (v D8VirtualizationCMD) DataExportDownload(resourceType, name string, opts 
 	}
 
 	cmd = fmt.Sprintf("%s 2>&1", cmd)
+
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
@@ -220,5 +223,6 @@ func (v D8VirtualizationCMD) addNamespace(cmd, ns string) string {
 	if ns != "" {
 		return fmt.Sprintf("%s -n %s", cmd, ns)
 	}
+
 	return cmd
 }

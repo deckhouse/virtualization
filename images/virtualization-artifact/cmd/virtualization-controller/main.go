@@ -132,8 +132,11 @@ func main() {
 	var logLevel string
 	pflag.StringVar(&logLevel, "log-level", os.Getenv(logLevelEnv), "log level")
 
-	var err error
-	var defaultDebugVerbosity int64
+	var (
+		err                   error
+		defaultDebugVerbosity int64
+	)
+
 	logDebugVerbosityRaw := os.Getenv(logDebugVerbosityEnv)
 	if logDebugVerbosityRaw != "" {
 		defaultDebugVerbosity, err = strconv.ParseInt(logDebugVerbosityRaw, 10, 64)
@@ -144,6 +147,7 @@ func main() {
 	}
 
 	var logDebugControllerList []string
+
 	logDebugControllerListRaw := os.Getenv(logDebugControllerListEnv)
 	if logDebugControllerListRaw != "" {
 		logDebugControllerListRaw = strings.ReplaceAll(logDebugControllerListRaw, " ", "")
@@ -172,6 +176,7 @@ func main() {
 	pflag.StringVar(&virtControllerName, "virt-controller-name", getEnv(VirtControllerNameEnv, "virt-controller"), "Virt controller name")
 
 	var disableFirmwareUpdate bool
+
 	disableFirmwareUpdateRaw := os.Getenv(DisableFirmwareUpdateEnv)
 	if disableFirmwareUpdateRaw != "" {
 		disableFirmwareUpdate, err = strconv.ParseBool(disableFirmwareUpdateRaw)
@@ -180,6 +185,7 @@ func main() {
 			os.Exit(1)
 		}
 	}
+
 	pflag.BoolVar(&disableFirmwareUpdate, "disable-firmware-update", disableFirmwareUpdate, "disable automatic firmware update migrations")
 
 	var unifiedSnapshotterPresent bool
@@ -211,6 +217,7 @@ func main() {
 			os.Exit(1)
 		}
 	}
+
 	pflag.BoolVar(&leaderElection, "leader-election", leaderElection, "Leader election")
 
 	pflag.NewFlagSet("feature-gates", pflag.ExitOnError)
@@ -362,6 +369,7 @@ func main() {
 	}
 
 	virtualMachineCIDRs := make([]string, 0)
+
 	vmCIDRsRaw := os.Getenv(virtualMachineCIDRsEnv)
 	if vmCIDRsRaw == "" {
 		log.Warn("virtualMachineCIDRs not found: IPAM operations are reduced: 'Main' network is forbidden, VMIP resources are forbidden")
@@ -372,6 +380,7 @@ func main() {
 	virtualMachineIPLeasesRetentionDuration := os.Getenv(virtualMachineIPLeasesRetentionDurationEnv)
 	if virtualMachineIPLeasesRetentionDuration == "" {
 		log.Info("virtualMachineIPLeasesRetentionDuration not found -> set default value '10m'")
+
 		virtualMachineIPLeasesRetentionDuration = "10m"
 	}
 
@@ -426,6 +435,7 @@ func main() {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
+
 	mCtrl.Run(ctx)
 
 	if err = crd.EnsureVMClassConversionWebhook(ctx, preManagerClient, controllerNamespace); err != nil {
@@ -473,10 +483,12 @@ func main() {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
+
 	if err = vm.SetupGC(mgr, vmLogger, gcSettings.VMIMigration); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
+
 	if err = vm.SetupPodGC(mgr, vmLogger, gcSettings.VMPod); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
@@ -571,6 +583,7 @@ func main() {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
+
 	if err = vmop.SetupGC(mgr, vmopLogger, gcSettings.VMOP); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
@@ -581,6 +594,7 @@ func main() {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
+
 	if err = vmsop.SetupGC(mgr, vmsopLogger, gcSettings.VMOP); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
@@ -708,5 +722,6 @@ func getEnv(env, defaultEnv string) string {
 	if e, found := os.LookupEnv(env); found {
 		return e
 	}
+
 	return defaultEnv
 }

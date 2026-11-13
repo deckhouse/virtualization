@@ -83,6 +83,7 @@ func (h *EvacuationHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualMach
 	var requeueAfter time.Duration
 	if err = h.removeFinalizerFromVMOPs(ctx, finishedVMOPs); err != nil {
 		requeueAfter = 100 * time.Millisecond
+
 		if k8serrors.IsConflict(err) {
 			log.Debug("Conflict occurred during handler execution", logger.SlogErr(err))
 		} else {
@@ -102,10 +103,12 @@ func (h *EvacuationHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualMach
 		if err != nil {
 			return reconcile.Result{}, err
 		}
+
 		if giveUp {
 			if err = h.dropEvacuations(ctx, migrationVMOPs, log); err != nil {
 				return reconcile.Result{}, err
 			}
+
 			return reconcile.Result{RequeueAfter: 100 * time.Millisecond}, nil
 		}
 
@@ -135,6 +138,7 @@ func (h *EvacuationHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualMach
 		if err != nil {
 			return reconcile.Result{}, err
 		}
+
 		if approved {
 			return h.restartToReleaseNode(ctx, vm, log)
 		}
@@ -146,6 +150,7 @@ func (h *EvacuationHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualMach
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	if retryAfter > 0 {
 		return reconcile.Result{RequeueAfter: retryAfter}, nil
 	}
@@ -159,7 +164,9 @@ func (h *EvacuationHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualMach
 // that the machine would keep a condition promising retries while nothing retries.
 func (h *EvacuationHandler) evacuate(ctx context.Context, vm *v1alpha2.VirtualMachine, finishedVMOPs []*v1alpha2.VirtualMachineOperation, log *slog.Logger) (time.Duration, error) {
 	failedCount := 0
+
 	var lastFailure time.Time
+
 	for _, vmop := range finishedVMOPs {
 		_, isEvacuation := vmop.GetAnnotations()[annotations.AnnVMOPEvacuation]
 		if !isEvacuation || vmop.Status.Phase != v1alpha2.VMOPPhaseFailed {
@@ -167,6 +174,7 @@ func (h *EvacuationHandler) evacuate(ctx context.Context, vm *v1alpha2.VirtualMa
 		}
 
 		failedCount++
+
 		if failedAt := evacuationFailedAt(vmop); failedAt.After(lastFailure) {
 			lastFailure = failedAt
 		}
@@ -199,6 +207,7 @@ func (h *EvacuationHandler) Name() string {
 
 func (h *EvacuationHandler) getVMOPsByVM(ctx context.Context, vm *v1alpha2.VirtualMachine) ([]*v1alpha2.VirtualMachineOperation, []*v1alpha2.VirtualMachineOperation, error) {
 	vmops := v1alpha2.VirtualMachineOperationList{}
+
 	err := h.client.List(ctx, &vmops, client.InNamespace(vm.GetNamespace()))
 	if err != nil {
 		return nil, nil, err
@@ -213,6 +222,7 @@ func (h *EvacuationHandler) getVMOPsByVM(ctx context.Context, vm *v1alpha2.Virtu
 		if vmop.Spec.VirtualMachine != vm.GetName() || !commonvmop.IsMigration(&vmop) {
 			continue
 		}
+
 		if commonvmop.IsFinished(&vmop) {
 			finishedVMOPs = append(finishedVMOPs, &vmop)
 		} else {
@@ -225,11 +235,13 @@ func (h *EvacuationHandler) getVMOPsByVM(ctx context.Context, vm *v1alpha2.Virtu
 
 func (h *EvacuationHandler) removeFinalizerFromVMOPs(ctx context.Context, vmops []*v1alpha2.VirtualMachineOperation) error {
 	var errs error
+
 	for _, vmop := range vmops {
 		if err := h.removeFinalizer(ctx, vmop); err != nil {
 			errs = errors.Join(errs, err)
 		}
 	}
+
 	return errs
 }
 
@@ -237,6 +249,7 @@ func (h *EvacuationHandler) removeFinalizer(ctx context.Context, vmop *v1alpha2.
 	if controllerutil.RemoveFinalizer(vmop, v1alpha2.FinalizerVMOPProtectionByEvacuationController) {
 		return h.client.Update(ctx, vmop)
 	}
+
 	return nil
 }
 
@@ -256,10 +269,12 @@ func (h *EvacuationHandler) restartCannotWait(ctx context.Context, vm *v1alpha2.
 // releases it, which is the same path a manually deleted evacuation takes.
 func (h *EvacuationHandler) dropEvacuations(ctx context.Context, vmops []*v1alpha2.VirtualMachineOperation, log *slog.Logger) error {
 	var errs error
+
 	for _, vmop := range vmops {
 		if _, isEvacuation := vmop.GetAnnotations()[annotations.AnnVMOPEvacuation]; !isEvacuation {
 			continue
 		}
+
 		if !vmop.GetDeletionTimestamp().IsZero() {
 			continue
 		}
@@ -268,15 +283,18 @@ func (h *EvacuationHandler) dropEvacuations(ctx context.Context, vmops []*v1alph
 			slog.String("VMOPName", vmop.GetName()),
 			slog.String("VMOPNamespace", vmop.GetNamespace()),
 		)
+
 		if err := h.client.Delete(ctx, vmop); err != nil && !k8serrors.IsNotFound(err) {
 			errs = errors.Join(errs, err)
 		}
 	}
+
 	return errs
 }
 
 func (h *EvacuationHandler) cancelEvacuationForTerminatingVMOPs(ctx context.Context, vmops []*v1alpha2.VirtualMachineOperation, log *slog.Logger) error {
 	var errs error
+
 	for _, vmop := range vmops {
 		_, isEvacuation := vmop.GetAnnotations()[annotations.AnnVMOPEvacuation]
 		if isEvacuation && !vmop.GetDeletionTimestamp().IsZero() {
@@ -284,15 +302,18 @@ func (h *EvacuationHandler) cancelEvacuationForTerminatingVMOPs(ctx context.Cont
 				slog.String("VMOPName", vmop.GetName()),
 				slog.String("VMOPNamespace", vmop.GetNamespace()),
 			)
+
 			if err := h.evacuateCanceler.Cancel(ctx, vmop.Spec.VirtualMachine, vmop.GetNamespace()); err != nil {
 				errs = errors.Join(errs, err)
 				continue
 			}
+
 			if err := h.removeFinalizer(ctx, vmop); err != nil {
 				errs = errors.Join(errs, err)
 			}
 		}
 	}
+
 	return errs
 }
 
@@ -336,6 +357,7 @@ func (h *EvacuationHandler) restartToReleaseNode(ctx context.Context, vm *v1alph
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	if handled {
 		return reconcile.Result{}, nil
 	}
@@ -362,11 +384,13 @@ func (h *EvacuationHandler) restartApprovedOnNode(ctx context.Context, vm *v1alp
 	}
 
 	node := &corev1.Node{}
+
 	err := h.client.Get(ctx, types.NamespacedName{Name: vm.Status.Node}, node)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return false, nil
 		}
+
 		return false, fmt.Errorf("failed to get node %s: %w", vm.Status.Node, err)
 	}
 
@@ -375,6 +399,7 @@ func (h *EvacuationHandler) restartApprovedOnNode(ctx context.Context, vm *v1alp
 	}
 
 	_, found := node.GetAnnotations()[annotations.AnnNodeVMRestartApproved]
+
 	return found, nil
 }
 
@@ -395,12 +420,15 @@ func (h *EvacuationHandler) restartAlreadyHandled(ctx context.Context, vm *v1alp
 		if vmop.Spec.VirtualMachine != vm.GetName() {
 			continue
 		}
+
 		if !commonvmop.IsFinished(&vmop) {
 			return true, nil
 		}
+
 		if _, found := vmop.GetAnnotations()[annotations.AnnVMOPNodeMaintenance]; !found {
 			continue
 		}
+
 		if !vmop.GetCreationTimestamp().Time.Before(maintenanceStartedAt) {
 			return true, nil
 		}

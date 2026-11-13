@@ -32,13 +32,16 @@ func IndexKVVMIByVolume() (obj client.Object, field string, extractValue client.
 		if !ok || kvvmi == nil {
 			return nil
 		}
+
 		names := make([]string, 0, len(kvvmi.Spec.Volumes)+len(kvvmi.Status.VolumeStatus))
 		for _, v := range kvvmi.Spec.Volumes {
 			names = append(names, v.Name)
 		}
+
 		for _, vs := range kvvmi.Status.VolumeStatus {
 			names = append(names, vs.Name)
 		}
+
 		return names
 	}
 }
@@ -50,12 +53,15 @@ func IndexKVVMByAddVolumeRequest() (obj client.Object, field string, extractValu
 		if !ok || kvvm == nil {
 			return nil
 		}
+
 		var names []string
+
 		for _, vr := range kvvm.Status.VolumeRequests {
 			if vr.AddVolumeOptions != nil {
 				names = append(names, vr.AddVolumeOptions.Name)
 			}
 		}
+
 		return names
 	}
 }
@@ -68,6 +74,7 @@ func IndexVDByVolumeName() (obj client.Object, field string, extractValue client
 		if !ok || vd == nil {
 			return nil
 		}
+
 		return []string{kvbuilder.GenerateVDDiskName(vd.Name)}
 	}
 }

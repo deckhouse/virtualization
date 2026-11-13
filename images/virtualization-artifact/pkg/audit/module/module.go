@@ -49,8 +49,10 @@ func (in *Module) DeepCopy() *Module {
 	if in == nil {
 		return nil
 	}
+
 	out := new(Module)
 	in.DeepCopyInto(out)
+
 	return out
 }
 
@@ -59,7 +61,9 @@ func (in *Module) DeepCopyObject() runtime.Object {
 	if in == nil {
 		return nil
 	}
+
 	out := in.DeepCopy()
+
 	return out
 }
 
@@ -73,7 +77,9 @@ func (in *ModuleProperties) DeepCopy() *ModuleProperties {
 	if in == nil {
 		return nil
 	}
+
 	out := new(ModuleProperties)
 	in.DeepCopyInto(out)
+
 	return out
 }

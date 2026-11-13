@@ -67,6 +67,7 @@ linters:
     - tparallel # detects inappropriate usage of t.Parallel() method in your Go test codes
     - whitespace # detects leading and trailing whitespace
     - wastedassign # finds wasted assignment statements
+    - wsl_v5 # enforces empty lines and cuddling rules for statements
     - importas # checks import aliases against the configured convention
   settings:
     errcheck:
@@ -131,3 +132,7 @@ linters:
           alias: metav1
         - pkg: k8s.io/api/resource/v1
           alias: resourcev1
+        - pkg: github.com/deckhouse/virtualization-controller/pkg/controller/service/stat
+          alias: servicestat
+        - pkg: github.com/deckhouse/virtualization-controller/pkg/controller/service/uploader
+          alias: serviceuploader

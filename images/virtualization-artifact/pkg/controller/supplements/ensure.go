@@ -50,6 +50,7 @@ func EnsureForPod(ctx context.Context, client client.Client, supGen Generator, p
 			Destination:    caBundleCM,
 			OwnerReference: podutil.MakeOwnerReference(pod),
 		}
+
 		_, err := caBundleCopier.Create(ctx, client, ds.GetCABundle())
 		if err != nil {
 			return fmt.Errorf("create ConfigMap/%s with ca bundle: %w", caBundleCM.Name, err)
@@ -78,6 +79,7 @@ func EnsureForPod(ctx context.Context, client client.Client, supGen Generator, p
 			Destination:    imgPull,
 			OwnerReference: podutil.MakeOwnerReference(pod),
 		}
+
 		err := imgPullCopier.Copy(ctx, client)
 		if err != nil {
 			return err
@@ -111,6 +113,7 @@ func ShouldCopyImagePullSecret(ctrImg *datasource.ContainerRegistry, targetNS st
 func EnsureForIngress(ctx context.Context, client client.Client, supGen Generator, ing *netv1.Ingress, dvcrSettings *dvcr.Settings) error {
 	if ShouldCopyUploaderTLSSecret(dvcrSettings, supGen) {
 		tlsSecret := supGen.UploaderTLSSecretForIngress()
+
 		tlsCopier := copier.Secret{
 			Source: types.NamespacedName{
 				Name:      dvcrSettings.UploaderIngressSettings.TLSSecret,
@@ -123,5 +126,6 @@ func EnsureForIngress(ctx context.Context, client client.Client, supGen Generato
 			return err
 		}
 	}
+
 	return nil
 }

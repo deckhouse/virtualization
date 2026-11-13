@@ -97,13 +97,17 @@ func (f *Framework) captureSerialConsole(ctx context.Context, vmName, fileName s
 		data []byte
 		err  error
 	}
+
 	resultChan := make(chan result, 1)
+
 	go func() {
 		var buf bytes.Buffer
+
 		_, copyErr := io.CopyN(&buf, conn, serialConsoleMaxBytes)
 		if errors.Is(copyErr, io.EOF) || errors.Is(copyErr, io.ErrUnexpectedEOF) {
 			copyErr = nil
 		}
+
 		resultChan <- result{data: buf.Bytes(), err: copyErr}
 	}()
 
@@ -111,6 +115,7 @@ func (f *Framework) captureSerialConsole(ctx context.Context, vmName, fileName s
 		if werr := os.WriteFile(fileName, data, 0o644); werr != nil {
 			return fmt.Errorf("write serial console file: %w", werr)
 		}
+
 		return nil
 	}
 
@@ -119,12 +124,15 @@ func (f *Framework) captureSerialConsole(ctx context.Context, vmName, fileName s
 		if werr := writeCaptured(res.data); werr != nil {
 			return werr
 		}
+
 		return res.err
 	case <-time.After(serialConsoleReadTimeout):
 		// Expected path for a live console: close to unblock the reader, then
 		// persist whatever streamed within the window.
 		conn.Close()
+
 		res := <-resultChan
+
 		return writeCaptured(res.data)
 	}
 }

@@ -27,6 +27,7 @@ func IndexPVByStorageClass() (obj client.Object, field string, extractValue clie
 		if !ok || pv == nil || pv.Spec.StorageClassName == "" {
 			return nil
 		}
+
 		return []string{pv.Spec.StorageClassName}
 	}
 }

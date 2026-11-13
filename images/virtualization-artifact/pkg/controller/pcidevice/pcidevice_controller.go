@@ -68,5 +68,6 @@ func NewController(
 	}
 
 	log.Info("Initialized PCIDevice controller")
+
 	return c, nil
 }

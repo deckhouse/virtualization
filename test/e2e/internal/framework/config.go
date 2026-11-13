@@ -37,6 +37,7 @@ func onceLoadConfig() {
 		if err != nil {
 			panic(err)
 		}
+
 		setConfig(c)
 	})
 }
@@ -55,6 +56,7 @@ func InitStorageClasses() error {
 
 		errStorageClasses = conf.SetStorageClasses(context.Background(), clients.client)
 	})
+
 	return errStorageClasses
 }
 
@@ -64,7 +66,9 @@ func GetConfig() *config.Config {
 	onceLoadConfig()
 
 	confMu.RLock()
+
 	copied := *conf
+
 	confMu.RUnlock()
 
 	return &copied

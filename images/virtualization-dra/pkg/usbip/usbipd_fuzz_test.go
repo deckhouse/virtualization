@@ -140,6 +140,7 @@ func requireHeaderRefused(t *testing.T, data, reply []byte, err error) {
 		if err == nil {
 			t.Fatalf(format+" was accepted", args...)
 		}
+
 		if len(reply) != 0 {
 			t.Fatalf(format+" was refused but answered with %d bytes: %x", append(args, len(reply), reply)...)
 		}

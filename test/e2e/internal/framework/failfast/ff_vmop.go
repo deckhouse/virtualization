@@ -56,7 +56,9 @@ func VMOPFailed(vmops Client[*v1alpha2.VirtualMachineOperation], namespace strin
 		if vmop.Status.Phase != v1alpha2.VMOPPhaseFailed {
 			return nil
 		}
+
 		cond, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
+
 		return &Finding{
 			Message: fmt.Sprintf("is Failed: reason: %s, message: %s", cond.Reason, cond.Message),
 			Grace:   defaultGrace,
@@ -72,13 +74,16 @@ func VMOPStuckPending(vmops Client[*v1alpha2.VirtualMachineOperation], namespace
 		if vmop.Status.Phase != v1alpha2.VMOPPhasePending {
 			return nil
 		}
+
 		cond, found := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
 		if !found {
 			return nil
 		}
+
 		if _, deadEnd := vmopDeadEndReasons[cond.Reason]; !deadEnd {
 			return nil
 		}
+
 		return &Finding{
 			Message: fmt.Sprintf("stays Pending with the dead-end reason %s: %s", cond.Reason, cond.Message),
 			Grace:   defaultGrace,

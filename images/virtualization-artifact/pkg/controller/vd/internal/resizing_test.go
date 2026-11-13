@@ -39,9 +39,11 @@ import (
 )
 
 var _ = Describe("Resizing handler Run", func() {
-	var vd *v1alpha2.VirtualDisk
-	var pvc *corev1.PersistentVolumeClaim
-	var diskService *DiskServiceMock
+	var (
+		vd          *v1alpha2.VirtualDisk
+		pvc         *corev1.PersistentVolumeClaim
+		diskService *DiskServiceMock
+	)
 
 	size := resource.MustParse("10G")
 
@@ -106,6 +108,7 @@ var _ = Describe("Resizing handler Run", func() {
 					Status: corev1.ConditionTrue,
 				},
 			}
+
 			return pvc, nil
 		}
 
@@ -113,6 +116,7 @@ var _ = Describe("Resizing handler Run", func() {
 
 		_, err := h.Handle(testContext(), vd)
 		Expect(err).To(BeNil())
+
 		resized, _ := conditions.GetCondition(vdcondition.ResizingType, vd.Status.Conditions)
 		Expect(resized.Status).To(Equal(metav1.ConditionTrue))
 		Expect(resized.Reason).To(Equal(vdcondition.InProgress.String()))
@@ -125,6 +129,7 @@ var _ = Describe("Resizing handler Run", func() {
 
 		_, err := h.Handle(testContext(), vd)
 		Expect(err).To(BeNil())
+
 		_, ok := conditions.GetCondition(vdcondition.ResizingType, vd.Status.Conditions)
 		Expect(ok).Should(BeFalse())
 	})
@@ -136,6 +141,7 @@ var _ = Describe("Resizing handler Run", func() {
 
 		_, err := h.Handle(testContext(), vd)
 		Expect(err).To(BeNil())
+
 		_, ok := conditions.GetCondition(vdcondition.ResizingType, vd.Status.Conditions)
 		Expect(ok).Should(BeFalse())
 	})
@@ -145,6 +151,7 @@ var _ = Describe("Resizing handler Run", func() {
 
 		_, err := h.Handle(testContext(), vd)
 		Expect(err).To(BeNil())
+
 		_, ok := conditions.GetCondition(vdcondition.ResizingType, vd.Status.Conditions)
 		Expect(ok).Should(BeFalse())
 	})
@@ -156,6 +163,7 @@ var _ = Describe("Resizing handler Run", func() {
 
 		_, err := h.Handle(testContext(), vd)
 		Expect(err).To(BeNil())
+
 		resized, _ := conditions.GetCondition(vdcondition.ResizingType, vd.Status.Conditions)
 		Expect(resized.Status).To(Equal(metav1.ConditionTrue))
 		Expect(resized.Reason).To(Equal(vdcondition.InProgress.String()))
@@ -172,6 +180,7 @@ var _ = Describe("Resizing handler Run", func() {
 
 		_, err := h.Handle(testContext(), vd)
 		Expect(err).To(BeNil())
+
 		_, ok := conditions.GetCondition(vdcondition.ResizingType, vd.Status.Conditions)
 		Expect(ok).Should(BeFalse())
 	})
@@ -210,6 +219,7 @@ var _ = Describe("Resizing handler Run", func() {
 				if args.isPVCGetError {
 					return nil, errors.New("test error")
 				}
+
 				return args.pvc, nil
 			},
 			ResizeFunc: func(ctx context.Context, pvc *corev1.PersistentVolumeClaim, newSize resource.Quantity) error {
@@ -224,11 +234,13 @@ var _ = Describe("Resizing handler Run", func() {
 		handler := NewResizingHandler(recorder, diskService)
 		result, err := handler.Handle(testContext(), vd)
 		Expect(result).To(Equal(reconcile.Result{}))
+
 		if args.isErrorNil {
 			Expect(err).To(BeNil())
 		} else {
 			Expect(err).To(HaveOccurred())
 		}
+
 		Expect(vd.Status.Phase).To(Equal(args.expectedVdPhase))
 	},
 		Entry("Virtual Disk deleting", handleTestArgs{
@@ -322,9 +334,11 @@ var _ = Describe("Resizing handler Run", func() {
 		diskService := &DiskServiceMock{
 			ResizeFunc: func(ctx context.Context, pvc *corev1.PersistentVolumeClaim, newSize resource.Quantity) error {
 				resizeCalled = true
+
 				if args.isResizeReturnErr {
 					return errors.New("test error")
 				}
+
 				return nil
 			},
 		}
@@ -341,11 +355,13 @@ var _ = Describe("Resizing handler Run", func() {
 		result, err := handler.ResizeNeeded(testContext(), vd, pvc, cb, log)
 
 		Expect(result).To(Equal(reconcile.Result{}))
+
 		if args.expectedHaveError {
 			Expect(err).To(HaveOccurred())
 		} else {
 			Expect(err).To(BeNil())
 		}
+
 		Expect(vd.Status.Phase).To(Equal(args.expectedPhase))
 		Expect(resizeCalled).To(Equal(args.expectedResizeCalled))
 		Expect(cb.Condition().Status).To(Equal(args.expectedStatus))

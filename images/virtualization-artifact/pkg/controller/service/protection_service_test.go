@@ -52,6 +52,7 @@ var _ = Describe("ProtectionService", func() {
 	newScheme := func() *runtime.Scheme {
 		scheme := runtime.NewScheme()
 		Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
+
 		return scheme
 	}
 

@@ -67,13 +67,16 @@ func (v *PCIDevicesValidator) validate(ctx context.Context, vm *v1alpha2.Virtual
 // PCI device is not used by another VM in the namespace.
 func (v *PCIDevicesValidator) validatePCIDevicesUnique(ctx context.Context, vm *v1alpha2.VirtualMachine) error {
 	seen := make(map[string]struct{})
+
 	for _, ref := range vm.Spec.PCIDevices {
 		if ref.Name == "" {
 			continue
 		}
+
 		if _, exists := seen[ref.Name]; exists {
 			return fmt.Errorf("duplicate PCI device %s in spec.pciDevices", ref.Name)
 		}
+
 		seen[ref.Name] = struct{}{}
 
 		var vmList v1alpha2.VirtualMachineList
@@ -86,6 +89,7 @@ func (v *PCIDevicesValidator) validatePCIDevicesUnique(ctx context.Context, vm *
 			if otherVM.Name == vm.Name {
 				continue
 			}
+
 			return fmt.Errorf("PCI device %s is already used by VirtualMachine %s/%s", ref.Name, otherVM.Namespace, otherVM.Name)
 		}
 	}
@@ -99,28 +103,34 @@ func (v *PCIDevicesValidator) validatePCIDevicesUnique(ctx context.Context, vm *
 func (v *PCIDevicesValidator) validatePCIDevicesOnSingleNode(ctx context.Context, vm *v1alpha2.VirtualMachine) error {
 	nodeName := ""
 	nodeOwner := ""
+
 	for _, ref := range vm.Spec.PCIDevices {
 		if ref.Name == "" {
 			continue
 		}
 
 		pciDevice := &v1alpha2.PCIDevice{}
+
 		err := v.client.Get(ctx, client.ObjectKey{Name: ref.Name, Namespace: vm.Namespace}, pciDevice)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				continue
 			}
+
 			return fmt.Errorf("failed to get PCI device %s: %w", ref.Name, err)
 		}
 
 		if pciDevice.Status.NodeName == "" {
 			continue
 		}
+
 		if nodeName == "" {
 			nodeName = pciDevice.Status.NodeName
 			nodeOwner = ref.Name
+
 			continue
 		}
+
 		if pciDevice.Status.NodeName != nodeName {
 			return fmt.Errorf("PCI devices %s and %s reside on different nodes (%s and %s); all PCI devices of a virtual machine must reside on the same node",
 				nodeOwner, ref.Name, nodeName, pciDevice.Status.NodeName)

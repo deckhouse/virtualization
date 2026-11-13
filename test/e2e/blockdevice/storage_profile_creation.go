@@ -102,6 +102,7 @@ var _ = Describe("StorageProfileCreation", Label(label.SIGStorage, precheck.NoPr
 func newTestStorageClass(name string) *storagev1.StorageClass {
 	reclaimPolicy := corev1.PersistentVolumeReclaimDelete
 	volumeBindingMode := storagev1.VolumeBindingWaitForFirstConsumer
+
 	return &storagev1.StorageClass{
 		ObjectMeta:        metav1.ObjectMeta{Name: name},
 		Provisioner:       "kubernetes.io/no-provisioner",
@@ -122,6 +123,7 @@ func waitForStorageClassDeleted(ctx context.Context, f *framework.Framework, nam
 			if k8serrors.IsNotFound(err) {
 				return true, nil
 			}
+
 			return false, err
 		},
 	)
@@ -129,6 +131,7 @@ func waitForStorageClassDeleted(ctx context.Context, f *framework.Framework, nam
 
 func waitForStorageProfileDeleted(ctx context.Context, f *framework.Framework, name string, timeout time.Duration) error {
 	spGVR := rewrite.StorageProfile{}.GVR()
+
 	return observer.WaitForDeleted(
 		ctx,
 		observer.DynamicWatcher(f.DynamicClient(), spGVR, ""),
@@ -140,6 +143,7 @@ func waitForStorageProfileDeleted(ctx context.Context, f *framework.Framework, n
 			if k8serrors.IsNotFound(err) {
 				return true, nil
 			}
+
 			return false, err
 		},
 	)

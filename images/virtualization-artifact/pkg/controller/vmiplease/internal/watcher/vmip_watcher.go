@@ -60,6 +60,7 @@ func (w VirtualMachineIPAddressWatcher) Watch(mgr manager.Manager, ctr controlle
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualMachineIPAddress: %w", err)
 	}
+
 	return nil
 }
 
@@ -74,6 +75,7 @@ func (w VirtualMachineIPAddressWatcher) enqueueRequests(ctx context.Context, vmi
 	}
 
 	var leases v1alpha2.VirtualMachineIPAddressLeaseList
+
 	err := w.client.List(ctx, &leases, &client.MatchingFields{
 		indexer.IndexFieldVMIPLeaseByVMIP: fmt.Sprintf("%s/%s", vmip.GetNamespace(), vmip.GetName()),
 	})

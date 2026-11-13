@@ -159,6 +159,7 @@ func resolveSpeedLabel(speed uint32) string {
 	if libusb.ResolveDeviceSpeed(speed) >= libusb.USBDeviceSpeedSuper {
 		return consts.USBGatewaySuperSpeedLabel
 	}
+
 	return consts.USBGatewayHighSpeedLabel
 }
 

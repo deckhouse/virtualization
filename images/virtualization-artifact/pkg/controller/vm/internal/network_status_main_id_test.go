@@ -43,6 +43,7 @@ var _ = Describe("NetworkInterfaceHandler reporting the id of the only Main netw
 		changed := vmState.VirtualMachine().Changed()
 		_, err := h.UpdateNetworkStatus(ctx, vmState, changed)
 		Expect(err).NotTo(HaveOccurred())
+
 		return changed.Status.Networks
 	}
 

@@ -67,6 +67,7 @@ func (h *AttachedHandler) Handle(ctx context.Context, s state.NodeUSBDeviceState
 	}
 
 	usbDevice := &v1alpha2.USBDevice{}
+
 	err := h.client.Get(ctx, types.NamespacedName{Namespace: assignedNamespace, Name: current.Name}, usbDevice)
 	if err != nil {
 		if errors.IsNotFound(err) {

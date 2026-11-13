@@ -82,6 +82,7 @@ func (s *CoreFractionService) Calculate(vm *v1alpha2.VirtualMachine, class *v1al
 	// it stays inside the recommended range.
 	currentReqMilli := int64(cores) * 10 * int64(current)
 	belowLower := rec.LowerMilli > 0 && currentReqMilli < rec.LowerMilli
+
 	aboveUpper := rec.UpperMilli > 0 && currentReqMilli > rec.UpperMilli
 	if !belowLower && !aboveUpper {
 		return Decision{CurrentCoreFraction: current, DesiredCoreFraction: current, Direction: DirectionNone}, nil

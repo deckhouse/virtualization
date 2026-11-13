@@ -142,9 +142,11 @@ func requireBoundedValidation(t *testing.T, data []byte) {
 		if warning == "" {
 			t.Fatalf("warning %d is empty", i)
 		}
+
 		if !utf8.ValidString(warning) {
 			t.Fatalf("warning %d is not valid UTF-8: %q", i, warning)
 		}
+
 		if len(warning) > fuzzMaxWarningLen {
 			t.Fatalf(
 				"warning %d is %d bytes long, past the bound of %d, for a payload of %d bytes: %q...",
@@ -172,6 +174,7 @@ func gzipped(data []byte) []byte {
 	if _, err := w.Write(data); err != nil {
 		panic(err)
 	}
+
 	if err := w.Close(); err != nil {
 		panic(err)
 	}
@@ -184,10 +187,12 @@ func nestedCloudConfig(depth int) []byte {
 	var buf bytes.Buffer
 
 	buf.WriteString("#cloud-config\n")
+
 	for i := 0; i < depth; i++ {
 		buf.WriteString(strings.Repeat(" ", i))
 		buf.WriteString("k:\n")
 	}
+
 	buf.WriteString(strings.Repeat(" ", depth))
 	buf.WriteString("v\n")
 
@@ -199,6 +204,7 @@ func wideCloudConfig(keys int) []byte {
 	var buf bytes.Buffer
 
 	buf.WriteString("#cloud-config\n")
+
 	for i := 0; i < keys; i++ {
 		buf.WriteString("k")
 		buf.WriteString(strconv.Itoa(i))

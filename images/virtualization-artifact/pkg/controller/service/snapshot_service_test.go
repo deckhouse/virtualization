@@ -76,6 +76,7 @@ var _ = Describe("SnapshotService", func() {
 			} else {
 				Expect(err).NotTo(HaveOccurred())
 			}
+
 			Expect(isFSFrozen).To(Equal(isFrozen))
 		},
 			Entry(
@@ -176,12 +177,14 @@ var _ = Describe("SnapshotService", func() {
 			virtClientMock.VirtualMachinesFunc = func(namespace string) v1alpha2clientsetcore.VirtualMachineInterface {
 				return &VirtualMachineInterfaceMock{}
 			}
+
 			err := snapshotter.Freeze(ctx, kvvmi)
 			if specialErr != nil {
 				Expect(err).To(MatchError(specialErr))
 			} else {
 				Expect(err).To(Not(HaveOccurred()))
 			}
+
 			Expect(kvvmi.Annotations).To(HaveKeyWithValue(annotations.AnnVMFilesystemRequest, RequestFSFreeze))
 		},
 			Entry(
@@ -551,12 +554,14 @@ var _ = Describe("SnapshotService", func() {
 			virtClientMock.VirtualMachinesFunc = func(namespace string) v1alpha2clientsetcore.VirtualMachineInterface {
 				return &VirtualMachineInterfaceMock{}
 			}
+
 			err := snapshotter.Unfreeze(ctx, kvvmi)
 			if specialErr != nil {
 				Expect(err).To(MatchError(specialErr))
 				// A rejected call leaves whatever request was already there untouched.
 				return
 			}
+
 			Expect(err).To(Not(HaveOccurred()))
 			Expect(kvvmi.Annotations).To(HaveKeyWithValue(annotations.AnnVMFilesystemRequest, RequestFSUnfreeze))
 		},
@@ -623,11 +628,13 @@ var _ = Describe("SnapshotService", func() {
 
 		DescribeTable("SyncFSFreezeRequest", func(kvvmi *virtv1.VirtualMachineInstance, annotationExistsAfterSync bool, specialErr error) {
 			clientMock.PatchFunc = applyAnnotationMergePatch
+
 			err := snapshotter.SyncFSFreezeRequest(ctx, kvvmi)
 			if kvvmi != nil {
 				_, ok := kvvmi.Annotations[annotations.AnnVMFilesystemRequest]
 				Expect(ok).To(Equal(annotationExistsAfterSync))
 			}
+
 			if specialErr != nil {
 				Expect(err).To(MatchError(specialErr))
 			} else {
@@ -732,11 +739,13 @@ func applyAnnotationMergePatch(_ context.Context, obj client.Object, p client.Pa
 	if err = json.Unmarshal(data, &body); err != nil {
 		return err
 	}
+
 	if len(body.Metadata.Annotations) == 0 {
 		return fmt.Errorf("the patch carries no annotation: %s", data)
 	}
 
 	anns := obj.GetAnnotations()
+
 	for key, value := range body.Metadata.Annotations {
 		switch {
 		case value == nil:
@@ -747,6 +756,7 @@ func applyAnnotationMergePatch(_ context.Context, obj client.Object, p client.Pa
 			anns[key] = *value
 		}
 	}
+
 	obj.SetAnnotations(anns)
 
 	return nil

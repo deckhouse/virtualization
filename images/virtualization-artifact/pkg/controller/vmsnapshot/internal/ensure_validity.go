@@ -37,5 +37,6 @@ func (h EnsureValidityHandler) Handle(_ context.Context, vmSnapshot *v1alpha2.Vi
 	if vmSnapshot.Status.Phase == "" {
 		vmSnapshot.Status.Phase = v1alpha2.VirtualMachineSnapshotPhasePending
 	}
+
 	return reconcile.Result{}, nil
 }

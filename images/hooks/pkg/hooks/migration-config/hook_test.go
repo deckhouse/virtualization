@@ -54,8 +54,10 @@ var _ = Describe("MigrationConfig", func() {
 		return mock.NewSnapshotMock(GinkgoT()).UnmarshalToMock.Set(func(v any) (err error) {
 			data, ok := v.(*map[string]string)
 			Expect(ok).To(BeTrue())
+
 			*data = make(map[string]string)
 			maps.Copy(*data, annos)
+
 			return nil
 		})
 	}
@@ -76,10 +78,12 @@ var _ = Describe("MigrationConfig", func() {
 		values = mock.NewOutputPatchableValuesCollectorMock(GinkgoT())
 		configValues = mock.NewOutputPatchableValuesCollectorMock(GinkgoT())
 		migrationNetworkType = ""
+
 		configValues.GetMock.Set(func(path string) gjson.Result {
 			if path == liveMigrationNetworkTypeConfigPath && migrationNetworkType != "" {
 				return gjson.Result{Type: gjson.String, Str: migrationNetworkType}
 			}
+
 			return gjson.Result{}
 		})
 	})
@@ -116,10 +120,12 @@ var _ = Describe("MigrationConfig", func() {
 			case disableFirmwareUpdateValuesPath:
 				return gjson.Result{Type: gjson.False}
 			}
+
 			return gjson.Result{}
 		})
 
 		setValues := map[string]any{}
+
 		values.SetMock.Set(func(path string, v any) {
 			setValues[path] = v
 		})
@@ -153,10 +159,12 @@ var _ = Describe("MigrationConfig", func() {
 			case disableFirmwareUpdateValuesPath:
 				return gjson.Result{Type: gjson.True}
 			}
+
 			return gjson.Result{}
 		})
 
 		setValues := map[string]any{}
+
 		values.SetMock.Set(func(path string, v any) {
 			setValues[path] = v
 		})
@@ -208,6 +216,7 @@ var _ = Describe("MigrationConfig", func() {
 			case disableFirmwareUpdateValuesPath:
 				return gjson.Result{Type: gjson.False}
 			}
+
 			return gjson.Result{}
 		})
 
@@ -298,10 +307,12 @@ var _ = Describe("MigrationConfig", func() {
 			case disableTLSValuesPath:
 				return gjson.Result{Type: gjson.False}
 			}
+
 			return gjson.Result{}
 		})
 
 		setValues := map[string]any{}
+
 		values.SetMock.Set(func(path string, v any) {
 			setValues[path] = v
 		})
@@ -316,11 +327,15 @@ var _ = Describe("MigrationConfig", func() {
 		reconcileSlots := func(annos map[string]string) (map[string]any, error) {
 			setSnapshots(newSnapshot(annos))
 			values.GetMock.Set(func(string) gjson.Result { return gjson.Result{} })
+
 			setValues := map[string]any{}
+
 			values.SetMock.Set(func(path string, v any) {
 				setValues[path] = v
 			})
+
 			err := reconcile(context.Background(), newInput())
+
 			return setValues, err
 		}
 
@@ -445,6 +460,7 @@ var _ = Describe("MigrationConfig", func() {
 		})
 
 		setValues := map[string]any{}
+
 		values.SetMock.Set(func(path string, v any) {
 			setValues[path] = v
 		})
@@ -457,16 +473,19 @@ var _ = Describe("MigrationConfig", func() {
 
 	It("Should not limit bandwidth by default when a dedicated migration network is configured", func() {
 		migrationNetworkType = "SystemNetwork"
+
 		setSnapshots(newSnapshot(map[string]string{}))
 
 		values.GetMock.Set(func(path string) gjson.Result {
 			if path == bandwidthPerMigrationValuesPath {
 				return gjson.Result{Type: gjson.String, Str: defaultBandwidthPerMigration}
 			}
+
 			return gjson.Result{}
 		})
 
 		setValues := map[string]any{}
+
 		values.SetMock.Set(func(path string, v any) {
 			setValues[path] = v
 		})
@@ -479,6 +498,7 @@ var _ = Describe("MigrationConfig", func() {
 
 	It("Should prefer the bandwidth annotation over the dedicated migration network default", func() {
 		migrationNetworkType = "SystemNetwork"
+
 		setSnapshots(newSnapshot(map[string]string{
 			bandwidthPerMigrationAnnotation: "1Gi",
 		}))
@@ -488,6 +508,7 @@ var _ = Describe("MigrationConfig", func() {
 		})
 
 		setValues := map[string]any{}
+
 		values.SetMock.Set(func(path string, v any) {
 			setValues[path] = v
 		})

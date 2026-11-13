@@ -1165,12 +1165,14 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 })
 
 var _ = Describe("BlockDeviceHandler", func() {
-	var h *BlockDeviceHandler
-	var vm *v1alpha2.VirtualMachine
-	var vi *v1alpha2.VirtualImage
-	var cvi *v1alpha2.ClusterVirtualImage
-	var vdFoo *v1alpha2.VirtualDisk
-	var vdBar *v1alpha2.VirtualDisk
+	var (
+		h     *BlockDeviceHandler
+		vm    *v1alpha2.VirtualMachine
+		vi    *v1alpha2.VirtualImage
+		cvi   *v1alpha2.ClusterVirtualImage
+		vdFoo *v1alpha2.VirtualDisk
+		vdBar *v1alpha2.VirtualDisk
+	)
 
 	blockDeviceHandlerMock := &BlockDeviceServiceMock{}
 	blockDeviceHandlerMock.CountBlockDevicesAttachedToVMFunc = func(_ context.Context, vm *v1alpha2.VirtualMachine) (int, error) {
@@ -1386,6 +1388,7 @@ var _ = Describe("Capacity check", func() {
 			result, err := handler.Handle(ctx, vmState)
 			Expect(err).To(BeNil())
 			Expect(result).To(Equal(reconcile.Result{}))
+
 			readyCondition, ok := conditions.GetCondition(vmcondition.TypeBlockDevicesReady, vmState.VirtualMachine().Changed().Status.Conditions)
 			Expect(ok).To(BeTrue())
 			Expect(readyCondition.Status).To(Equal(metav1.ConditionTrue))
@@ -1402,6 +1405,7 @@ var _ = Describe("Capacity check", func() {
 			result, err := handler.Handle(ctx, vmState)
 			Expect(err).To(BeNil())
 			Expect(result).To(Equal(reconcile.Result{}))
+
 			readyCondition, ok := conditions.GetCondition(vmcondition.TypeBlockDevicesReady, vmState.VirtualMachine().Changed().Status.Conditions)
 			Expect(ok).To(BeTrue())
 			Expect(readyCondition.Status).To(Equal(metav1.ConditionFalse))
@@ -1591,10 +1595,12 @@ var _ = Describe("Capacity check", func() {
 			handler := NewBlockDeviceHandler(fakeClient, blockDeviceServiceMock)
 			_, err := handler.Handle(ctx, vmState)
 			Expect(err).NotTo(HaveOccurred(), "failed to handle VirtualMachineState: %s", err)
+
 			vm = vmState.VirtualMachine().Changed()
 			for _, bd := range vm.Status.BlockDeviceRefs {
 				Expect(bd.Attached).To(BeTrue(), "`attached` field should be `true`")
 				Expect(bd.Hotplugged).To(BeTrue(), "`hotplugged` field should be `true`")
+
 				switch bd.Kind {
 				case v1alpha2.ClusterVirtualImageKind:
 					Expect(bd.Name).To(Equal(namespacedClusterVirtualImage.Name), "`Name` should be %q", namespacedClusterVirtualImage.Name)
@@ -1655,6 +1661,7 @@ var _ = Describe("BlockDeviceHandler attachment name of a hot-plugged block devi
 				vmbda := newVMBDA("b-old", v1alpha2.BlockDeviceAttachmentPhaseTerminating)
 				vmbda.Finalizers = []string{v1alpha2.FinalizerVMBDACleanup}
 				vmbda.DeletionTimestamp = &metav1.Time{Time: time.Now()}
+
 				return vmbda
 			}(),
 		),

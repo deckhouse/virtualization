@@ -45,6 +45,7 @@ func (v removeCIDRsValidator) ValidateUpdate(ctx context.Context, oldMC, newMC *
 	if err != nil {
 		return admission.Warnings{}, err
 	}
+
 	newCIDRs, err := ParseCIDRs(newMC.Spec.Settings)
 	if err != nil {
 		return admission.Warnings{}, err
@@ -59,6 +60,7 @@ loop:
 				continue loop
 			}
 		}
+
 		removedCIDRs = append(removedCIDRs, oldCIDR)
 	}
 
@@ -101,11 +103,13 @@ loop:
 	if err != nil && !meta.IsNoMatchError(err) {
 		return nil, err
 	}
+
 	for addr, ipaName := range ipas {
 		addrIP, err := netip.ParseAddr(addr)
 		if err != nil {
 			continue
 		}
+
 		for _, CIDR := range removedCIDRs {
 			if CIDR.Contains(addrIP) {
 				return nil, fmt.Errorf("virtualMachineCIDRs item %q can't be removed: IPAddress %s uses IP address %s from this network; delete the IPAddress resources with addresses from it first", CIDR, ipaName, addr)

@@ -56,6 +56,7 @@ var _ = Describe("VirtualDiskResizing", Label(label.SIGStorage, precheck.NoPrech
 	It("resizes virtual disks", func() {
 		// TODO(e2e-flaky-parallel): flaky under parallel load on the 3-node cluster. Re-enable once stabilized.
 		Skip("flaky under parallel load")
+
 		vdRoot := object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVICustomBIOS, vd.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))), vd.WithStorageClass(defaultStorageClass()))
 		vdBlank := object.NewBlankVD("vd-blank", f.Namespace().Name, defaultStorageClass(), ptr.To(resource.MustParse(vdCreationImageSize)))
 		vdAttach := object.NewBlankVD("vd-attach", f.Namespace().Name, defaultStorageClass(), ptr.To(resource.MustParse(vdCreationImageSize)))
@@ -78,12 +79,15 @@ var _ = Describe("VirtualDiskResizing", Label(label.SIGStorage, precheck.NoPrech
 
 		vdRootObs := vdobs.StartObserver(ctx, f, vdRoot)
 		vdBlankObs := vdobs.StartObserver(ctx, f, vdBlank)
+
 		vdAttachObs := vdobs.StartObserver(ctx, f, vdAttach)
 		for _, o := range []vdobs.Observer{vdRootObs, vdBlankObs, vdAttachObs} {
 			o.Never(vdobs.BeFailed())
 		}
+
 		vmObs := vmobs.StartObserver(ctx, f, vm)
 		vmObs.Never(vmobs.BeFailed())
+
 		vmbdaObs := vmbdaobs.StartObserver(ctx, f, vmbdaAttach)
 		vmbdaObs.Never(vmbdaobs.BeFailed())
 
@@ -108,14 +112,17 @@ var _ = Describe("VirtualDiskResizing", Label(label.SIGStorage, precheck.NoPrech
 			// Resizing is transient: register the WaitFor listeners before
 			// triggering the resize so the phase is observed as it passes through.
 			resizing := make(chan error, 3)
+
 			for _, o := range []vdobs.Observer{vdRootObs, vdBlankObs, vdAttachObs} {
 				go func() {
 					defer GinkgoRecover()
+
 					resizing <- o.WaitFor(vdobs.BeResizing(), framework.LongTimeout)
 				}()
 			}
 
 			var err error
+
 			newVDRootSize, err = increaseDiskSize(ctx, f, vdRoot)
 			Expect(err).NotTo(HaveOccurred())
 			newVDBlankSize, err = increaseDiskSize(ctx, f, vdBlank)

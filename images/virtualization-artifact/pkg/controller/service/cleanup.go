@@ -92,6 +92,7 @@ func CleanUpReasonForObject(role string, obj client.Object) string {
 
 func MergeCleanUpReasons(reasons ...string) string {
 	var merged []string
+
 	seen := make(map[string]struct{}, len(reasons))
 
 	for _, reason := range reasons {
@@ -154,6 +155,7 @@ func truncateMessage(s string) string {
 	if cut < 0 {
 		cut = strings.LastIndex(kept, " ")
 	}
+
 	if cut > 0 {
 		kept = kept[:cut]
 	}

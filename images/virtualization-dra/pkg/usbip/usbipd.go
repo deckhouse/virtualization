@@ -104,6 +104,7 @@ func (u *USBIPD) Start(ctx context.Context) error {
 	go func() {
 		<-ctx.Done()
 		close(u.quit)
+
 		if u.listener != nil {
 			if err := u.listener.Close(); err != nil {
 				u.logger.Error("failed to close listener", slog.Any("error", err))
@@ -112,6 +113,7 @@ func (u *USBIPD) Start(ctx context.Context) error {
 	}()
 
 	u.connWg.Add(1)
+
 	go u.run()
 
 	return nil
@@ -125,6 +127,7 @@ func (u *USBIPD) Run(ctx context.Context) error {
 	go func() {
 		<-ctx.Done()
 		close(u.quit)
+
 		if u.listener != nil {
 			if err := u.listener.Close(); err != nil {
 				u.logger.Error("failed to close listener", slog.Any("error", err))
@@ -147,10 +150,12 @@ func (u *USBIPD) Run(ctx context.Context) error {
 // waitWithTimeout waits for wg to complete; returns true if done before timeout.
 func waitWithTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
 	done := make(chan struct{})
+
 	go func() {
 		wg.Wait()
 		close(done)
 	}()
+
 	select {
 	case <-done:
 		return true
@@ -166,6 +171,7 @@ func (u *USBIPD) setup() (err error) {
 
 func (u *USBIPD) run() {
 	defer u.connWg.Done()
+
 	for {
 		conn, err := u.listener.Accept()
 		// Error occurred when
@@ -178,6 +184,7 @@ func (u *USBIPD) run() {
 			default:
 				u.logger.Error("unable to accept request", slog.String("address", u.addr), slog.Any("err", err))
 			}
+
 			continue
 		}
 		{
@@ -185,15 +192,19 @@ func (u *USBIPD) run() {
 			count := u.connCount.Load()
 			if count+1 > int64(u.maxTCPConnection) {
 				u.logger.Error("maximum TCP connection reached, drop the connection", slog.Int64("count", count))
+
 				if err := conn.Close(); err != nil {
 					u.logger.Error("failed to close connection", slog.String("error", err.Error()))
 				}
+
 				continue
 			}
 
 			// TCP connection handler
 			u.connWg.Add(1)
+
 			u.connCount.Add(1)
+
 			go func() {
 				defer u.connCount.Add(-1)
 				defer u.connWg.Done()
@@ -204,6 +215,7 @@ func (u *USBIPD) run() {
 				}()
 
 				u.logger.Info("new connection established", slog.String("addr", conn.RemoteAddr().String()))
+
 				err = u.handleConnection(conn)
 				if err != nil {
 					if !errors.Is(err, io.EOF) {
@@ -212,6 +224,7 @@ func (u *USBIPD) run() {
 						u.logger.Info("connection EOF", slog.String("addr", conn.RemoteAddr().String()))
 					}
 				}
+
 				u.logger.Info("connection closed", slog.String("addr", conn.RemoteAddr().String()))
 			}()
 		}
@@ -243,6 +256,7 @@ func (u *USBIPD) handleConnection(conn net.Conn) error {
 		if err := u.handleImportRequest(conn); err != nil {
 			return fmt.Errorf("failed to handle OpReqImport: %w", err)
 		}
+
 		return nil
 	case protocol.OpReqExport:
 		if err := u.handleExportRequest(conn); err != nil {
@@ -267,7 +281,9 @@ func (u *USBIPD) handleDeviceList(conn net.Conn) error {
 	if len(info) == 0 {
 		slog.Info("no USB devices found")
 	}
+
 	devList := protocol.NewDeviceList(protocol.OpStatusOk, info)
+
 	return devList.Encode(conn)
 }
 
@@ -316,6 +332,7 @@ func (u *USBIPD) exportDevice(conn net.Conn, device *libusb.USBDevice) protocol.
 
 	if usbIpStatus != protocol.DeviceStatusAvailable {
 		log.Info("USBIP status is not available")
+
 		switch usbIpStatus {
 		case protocol.DeviceStatusError:
 			log.Debug("USBIP status is error")
@@ -336,11 +353,13 @@ func (u *USBIPD) exportDevice(conn net.Conn, device *libusb.USBDevice) protocol.
 	}
 
 	var sockFd int
+
 	rawConn, err := syscallConn.SyscallConn()
 	if err != nil {
 		log.Error("failed to get raw connection", slog.Any("error", err))
 		return protocol.OpStatusNA
 	}
+
 	err = rawConn.Control(func(fd uintptr) {
 		sockFd = int(fd)
 	})
@@ -399,6 +418,7 @@ func (u *USBIPD) handleExportRequest(conn net.Conn) error {
 	}
 
 	log.Info("USB device bound")
+
 	return protocol.NewExportReply(protocol.OpStatusOk).Encode(conn)
 }
 
@@ -441,6 +461,7 @@ func (u *USBIPD) handleUnexportRequest(conn net.Conn) error {
 	}
 
 	log.Info("USB device unbound")
+
 	return protocol.NewUnExportReply(protocol.OpStatusOk).Encode(conn)
 }
 
@@ -479,8 +500,10 @@ func (u *USBIPD) setNoDelay(conn net.Conn) {
 		if err != nil {
 			u.logger.Error("failed to set TCP_NODELAY", slog.String("error", err.Error()))
 		}
+
 		return
 	}
+
 	u.logger.Error("failed to cast connection to TCPConn")
 }
 
@@ -503,6 +526,7 @@ func toUSBDeviceInfo(device *libusb.USBDevice) protocol.USBDeviceInfo {
 	if device == nil {
 		return protocol.USBDeviceInfo{}
 	}
+
 	return protocol.USBDeviceInfo{
 		USBDevice: protocol.USBDevice{
 			Path:                protocol.ToDevicePath(device.DevicePath),
@@ -533,6 +557,7 @@ func toInterfaces(interfaces []libusb.USBDeviceInterface) []protocol.USBDeviceIn
 			BInterfaceProtocol: iface.BInterfaceProtocol,
 		}
 	}
+
 	return result
 }
 

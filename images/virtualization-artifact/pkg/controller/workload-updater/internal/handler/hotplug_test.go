@@ -133,6 +133,7 @@ var _ = Describe("TestHotplugResourcesHandler", func() {
 				Reason: resizeState.podResizePendingReason,
 			})
 		}
+
 		if resizeState.podResizeInProgressReason != "" {
 			pod.Status.Conditions = append(pod.Status.Conditions, corev1.PodCondition{
 				Type:   corev1.PodResizeInProgress,
@@ -166,6 +167,7 @@ var _ = Describe("TestHotplugResourcesHandler", func() {
 				LastTransitionTime: metav1.NewTime(finished),
 			}}
 		}
+
 		return vmop
 	}
 
@@ -175,6 +177,7 @@ var _ = Describe("TestHotplugResourcesHandler", func() {
 				if shouldMigrate {
 					return true, serviceCompleteErr
 				}
+
 				return false, nil
 			},
 		}
@@ -188,12 +191,14 @@ var _ = Describe("TestHotplugResourcesHandler", func() {
 			string(featuregates.HotplugCPUWithLiveMigration):          true,
 			string(featuregates.HotplugCPUAndMemoryWithInPlaceResize): true,
 		})).To(Succeed())
+
 		return gate
 	}
 
 	kvvmiMark := func() string {
 		kvvmi := &virtv1.VirtualMachineInstance{}
 		Expect(fakeClient.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, kvvmi)).To(Succeed())
+
 		return kvvmi.Annotations[hotplugmigration.Annotation]
 	}
 
@@ -221,20 +226,24 @@ var _ = Describe("TestHotplugResourcesHandler", func() {
 					Reason: vmcondition.ReasonChangesPendingRestart.String(),
 				})
 			}
+
 			if settings.notMigratable {
 				kvvmi.Status.Conditions = append(kvvmi.Status.Conditions, virtv1.VirtualMachineInstanceCondition{
 					Type:   virtv1.VirtualMachineInstanceMigrationTargetAvailable,
 					Status: corev1.ConditionFalse,
 				})
 			}
+
 			fakeClient = setupEnvironment(vm, kvvmi, newLauncherPod(kvvmi, settings.resizeState))
 
 			mockMigration := newMigrationMock(settings.shouldMigrate)
 			gate := newGate()
+
 			h := NewHotplugHandler(fakeClient, mockMigration, inplaceresize.New(gate, fakeClient), gate, newNoOpRecorder())
 			if settings.waitTimeoutExpired {
 				h.inplaceResizeTimeout = 0
 			}
+
 			result, err := h.Handle(ctx, vm)
 
 			Expect(mockMigration.MigrateCalls()).To(HaveLen(settings.expectedMigrationCalls))
@@ -420,12 +429,14 @@ var _ = Describe("TestHotplugResourcesHandler", func() {
 
 		handle := func(objs ...client.Object) (*HotplugMigrationMock, time.Duration) {
 			GinkgoHelper()
+
 			fakeClient = setupEnvironment(vm, append(objs, kvvmi, newLauncherPod(kvvmi, inPlaceResizeState{}))...)
 			mockMigration := newMigrationMock(false)
 			gate := newGate()
 			h := NewHotplugHandler(fakeClient, mockMigration, inplaceresize.New(gate, fakeClient), gate, newNoOpRecorder())
 			result, err := h.Handle(ctx, vm)
 			Expect(err).NotTo(HaveOccurred())
+
 			return mockMigration, result.RequeueAfter
 		}
 
@@ -446,10 +457,12 @@ var _ = Describe("TestHotplugResourcesHandler", func() {
 
 		It("stops after the last attempt has failed", func() {
 			var failed []client.Object
+
 			for i := range hotplugmigration.MaxAttempts {
 				finished := time.Now().Add(-time.Duration(hotplugmigration.MaxAttempts-i) * time.Minute)
 				failed = append(failed, newHotplugVMOP(name, key, v1alpha2.VMOPPhaseFailed, finished.Add(-time.Second), finished))
 			}
+
 			mockMigration, requeueAfter := handle(failed...)
 			Expect(mockMigration.MigrateCalls()).To(BeEmpty())
 			Expect(requeueAfter).To(BeZero())
@@ -474,7 +487,9 @@ var _ = Describe("TestHotplugResourcesHandler", func() {
 
 		It("checks the configuration again once the runtime has had time to apply it after a migration", func() {
 			podCreated = time.Now().Add(-20 * time.Second)
+
 			DeferCleanup(func() { podCreated = time.Now().Add(-time.Hour) })
+
 			produced := newHotplugVMOP(name, key, v1alpha2.VMOPPhaseCompleted, podCreated.Add(-time.Minute), podCreated.Add(time.Second))
 			mockMigration, requeueAfter := handle(produced)
 			Expect(mockMigration.MigrateCalls()).To(BeEmpty())
@@ -531,7 +546,9 @@ var _ = Describe("TestHotplugResourcesHandler", func() {
 		fakeClient = setupEnvironment(vm, kvvmi, newLauncherPod(kvvmi, resizeState))
 
 		events := 0
+
 		var recorder *eventrecord.EventRecorderLoggerMock
+
 		recorder = &eventrecord.EventRecorderLoggerMock{
 			EventFunc:           func(_ client.Object, _, _, _ string) { events++ },
 			EventfFunc:          func(_ client.Object, _, _, _ string, _ ...any) {},
@@ -570,6 +587,7 @@ var _ = Describe("TestHotplugResourcesHandler", func() {
 
 		// A new desired state must get the full timeout instead of being migrated immediately.
 		h.inplaceResizeTimeout = time.Minute
+
 		Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(kvvmi), kvvmi)).To(Succeed())
 		kvvmi.Spec.Domain.CPU.Sockets = 2
 		Expect(fakeClient.Update(ctx, kvvmi)).To(Succeed())
@@ -591,11 +609,13 @@ var _ = Describe("TestHotplugResourcesHandler", func() {
 
 		setMemoryChange := func(status corev1.ConditionStatus) {
 			Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(kvvmi), kvvmi)).To(Succeed())
+
 			for i := range kvvmi.Status.Conditions {
 				if kvvmi.Status.Conditions[i].Type == virtv1.VirtualMachineInstanceMemoryChange {
 					kvvmi.Status.Conditions[i].Status = status
 				}
 			}
+
 			Expect(fakeClient.Status().Update(ctx, kvvmi)).To(Succeed())
 		}
 
@@ -605,6 +625,7 @@ var _ = Describe("TestHotplugResourcesHandler", func() {
 
 		// The runtime drops the condition on a failed attempt and puts it back right after.
 		setMemoryChange(corev1.ConditionFalse)
+
 		_, err = h.Handle(ctx, vm)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -616,6 +637,7 @@ var _ = Describe("TestHotplugResourcesHandler", func() {
 		Expect(found).To(BeTrue(), "the wait must survive the flicker")
 
 		setMemoryChange(corev1.ConditionTrue)
+
 		_, err = h.Handle(ctx, vm)
 		Expect(err).To(MatchError(serviceCompleteErr))
 		Expect(mockMigration.MigrateCalls()).To(HaveLen(1))
@@ -629,7 +651,9 @@ var _ = Describe("TestHotplugResourcesHandler", func() {
 			fakeClient = setupEnvironment(vm, kvvmi, newLauncherPod(kvvmi, resizeState))
 
 			events := 0
+
 			var recorder *eventrecord.EventRecorderLoggerMock
+
 			recorder = &eventrecord.EventRecorderLoggerMock{
 				EventFunc:           func(_ client.Object, _, _, _ string) { events++ },
 				EventfFunc:          func(_ client.Object, _, _, _ string, _ ...any) {},

@@ -47,6 +47,7 @@ var _ = Describe("WaitingDisksReadyStep", func() {
 			vmop.Spec.Restore.Mode = v1alpha2.SnapshotOperationModeDryRun
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -62,6 +63,7 @@ var _ = Describe("WaitingDisksReadyStep", func() {
 			vmop.Spec.Clone.Mode = v1alpha2.SnapshotOperationModeDryRun
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -83,6 +85,7 @@ var _ = Describe("WaitingDisksReadyStep", func() {
 			vd := createVirtualDisk("default", "test-disk", "test-vmop-uid", v1alpha2.DiskProvisioning)
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop, vd)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -102,6 +105,7 @@ var _ = Describe("WaitingDisksReadyStep", func() {
 			vd := createVirtualDisk("default", "test-disk", "test-vmop-uid", v1alpha2.DiskReady)
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop, vd)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -121,6 +125,7 @@ var _ = Describe("WaitingDisksReadyStep", func() {
 			vd := createVirtualDisk("default", "test-disk", "test-vmop-uid", v1alpha2.DiskWaitForFirstConsumer)
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop, vd)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -140,6 +145,7 @@ var _ = Describe("WaitingDisksReadyStep", func() {
 			vd := createVirtualDisk("default", "test-disk", "test-vmop-uid", v1alpha2.DiskFailed)
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop, vd)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -160,6 +166,7 @@ var _ = Describe("WaitingDisksReadyStep", func() {
 			vd := createVirtualDisk("default", "test-disk", "test-vmop-uid", v1alpha2.DiskReady)
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop, vd)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -186,6 +193,7 @@ var _ = Describe("WaitingDisksReadyStep", func() {
 			vd := createVirtualDisk("default", "test-disk", "test-vmop-uid", v1alpha2.DiskProvisioning)
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop, vd)
 			Expect(err).NotTo(HaveOccurred())
 

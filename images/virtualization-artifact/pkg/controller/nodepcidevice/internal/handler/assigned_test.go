@@ -75,11 +75,13 @@ var _ = Describe("AssignedHandler", func() {
 			if assignedNamespace != "" && namespaceExists {
 				objects = append(objects, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: assignedNamespace}})
 			}
+
 			if seedPCI {
 				seedNS := assignedNamespace
 				if seedNS == "" {
 					seedNS = "stale-namespace"
 				}
+
 				objects = append(objects, &v1alpha2.PCIDevice{ObjectMeta: metav1.ObjectMeta{Name: "pci-device-1", Namespace: seedNS}})
 			}
 
@@ -92,6 +94,7 @@ var _ = Describe("AssignedHandler", func() {
 					if !ok || pciDevice == nil {
 						return nil
 					}
+
 					return []string{pciDevice.Name}
 				}).
 				Build()
@@ -114,6 +117,7 @@ var _ = Describe("AssignedHandler", func() {
 
 			if assignedNamespace != "" {
 				pci := &v1alpha2.PCIDevice{}
+
 				err = cl.Get(ctx, types.NamespacedName{Name: "pci-device-1", Namespace: assignedNamespace}, pci)
 				if expectPCIInAssignedNS {
 					Expect(err).NotTo(HaveOccurred())
@@ -164,6 +168,7 @@ var _ = Describe("AssignedHandler", func() {
 		result, err := NewAssignedHandler(cl).Handle(ctx, state.New(cl, res))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(result.RequeueAfter).To(BeNumerically(">", 0))
+
 		assigned := meta.FindStatusCondition(res.Changed().Status.Conditions, string(nodepcidevicecondition.AssignedType))
 		Expect(assigned).NotTo(BeNil())
 		Expect(assigned.Reason).To(Equal(string(nodepcidevicecondition.InProgress)))
@@ -191,6 +196,7 @@ var _ = Describe("AssignedHandler", func() {
 				if !ok || pciDevice == nil {
 					return nil
 				}
+
 				return []string{pciDevice.Name}
 			}).
 			WithInterceptorFuncs(interceptor.Funcs{
@@ -198,6 +204,7 @@ var _ = Describe("AssignedHandler", func() {
 					if _, ok := obj.(*v1alpha2.PCIDevice); ok {
 						return errors.New(`pcidevices.virtualization.deckhouse.io "pci-device-1" not found`)
 					}
+
 					return nil
 				},
 			}).
@@ -247,6 +254,7 @@ var _ = Describe("AssignedHandler", func() {
 				if !ok || pciDevice == nil {
 					return nil
 				}
+
 				return []string{pciDevice.Name}
 			}).
 			Build()

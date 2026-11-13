@@ -45,13 +45,16 @@ func addAllUnknown(vm *v1alpha2.VirtualMachine, conds ...vmcondition.Type) (upda
 		if conditions.HasCondition(cond, vm.Status.Conditions) {
 			continue
 		}
+
 		cb := conditions.NewConditionBuilder(cond).
 			Generation(vm.GetGeneration()).
 			Reason(conditions.ReasonUnknown).
 			Status(metav1.ConditionUnknown)
 		conditions.SetCondition(cb, &vm.Status.Conditions)
+
 		update = true
 	}
+
 	return update
 }
 
@@ -91,9 +94,11 @@ func isKVVMStartExpected(kvvm *virtv1.VirtualMachine) bool {
 	if kvvm.Spec.RunStrategy == nil || *kvvm.Spec.RunStrategy != virtv1.RunStrategyManual {
 		return true
 	}
+
 	if kvvm.Annotations[annotations.AnnVMStartRequested] == "true" || kvvm.Annotations[annotations.AnnVMRestartRequested] == "true" {
 		return true
 	}
+
 	return slices.ContainsFunc(kvvm.Status.StateChangeRequests, func(r virtv1.VirtualMachineStateChangeRequest) bool {
 		return r.Action == virtv1.StartRequest
 	})
@@ -289,6 +294,7 @@ func synchronizedError(kvvm *virtv1.VirtualMachine) *virtv1.VirtualMachineCondit
 	if c != nil && c.Status == corev1.ConditionFalse {
 		return c
 	}
+
 	return nil
 }
 
@@ -310,14 +316,18 @@ func vmStartupMessage(kvvm *virtv1.VirtualMachine) string {
 		if synchronized.Message != "" {
 			msg = fmt.Sprintf("%s: %s", msg, strings.TrimRight(synchronized.Message, "."))
 		}
+
 		return msg + "."
 	}
+
 	if synchronized != nil && synchronized.Reason == failedCreatePodReason {
 		return "Cannot start the virtual machine: creating its instance failed."
 	}
+
 	if msg, ok := vmPrintableStatusMessages[kvvm.Status.PrintableStatus]; ok {
 		return msg
 	}
+
 	return "The virtual machine failed to start."
 }
 
@@ -327,9 +337,11 @@ func vmStartupDetail(kvvm *virtv1.VirtualMachine, kvvmi *virtv1.VirtualMachineIn
 	if kvvmi != nil {
 		parts = append(parts, fmt.Sprintf("vmiPhase=%q", kvvmi.Status.Phase))
 	}
+
 	if synchronized := synchronizedError(kvvm); synchronized != nil && synchronized.Message != "" {
 		parts = append(parts, fmt.Sprintf("synchronized=%q: %s", synchronized.Reason, synchronized.Message))
 	}
+
 	return strings.Join(parts, ", ")
 }
 
@@ -406,5 +418,6 @@ func virtualMachineDependenciesAreReady(vm *v1alpha2.VirtualMachine) bool {
 			}
 		}
 	}
+
 	return true
 }

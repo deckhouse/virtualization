@@ -150,6 +150,7 @@ func FetchSupplement[T client.Object](
 	if err == nil {
 		return obj, nil
 	}
+
 	if !k8serrors.IsNotFound(err) {
 		return empty, err
 	}
@@ -164,6 +165,7 @@ func FetchSupplement[T client.Object](
 		if k8serrors.IsNotFound(err) {
 			return empty, nil
 		}
+
 		return empty, err
 	}
 
@@ -173,12 +175,15 @@ func FetchSupplement[T client.Object](
 // GetTLSSecret fetches the TLS secret for the uploader ingress with fallback to legacy naming.
 func GetTLSSecret(ctx context.Context, c client.Client, gen Generator) (*corev1.Secret, error) {
 	var secret corev1.Secret
+
 	obj, err := FetchSupplement(ctx, c, gen, SupplementUploaderTLSSecret, &secret)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get TLS secret: %w", err)
 	}
+
 	if obj == nil {
 		return nil, nil
 	}
+
 	return obj, nil
 }

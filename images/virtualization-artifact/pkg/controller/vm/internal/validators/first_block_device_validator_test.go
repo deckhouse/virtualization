@@ -38,6 +38,7 @@ var _ = DescribeTable("TestFirstBlockDeviceValidator", func(args firstBlockDevic
 	fakeClient := setupEnvironment(objs...)
 
 	validator := validators.NewFirstDiskValidator(fakeClient)
+
 	_, err := validator.Validate(testutil.ContextBackgroundWithNoOpLogger(), args.VM)
 	if args.ExpectedError == nil {
 		Expect(err).Should(BeNil())
@@ -139,6 +140,7 @@ func setupEnvironment(objs ...client.Object) client.Client {
 	GinkgoHelper()
 
 	var allObjects []client.Object
+
 	allObjects = append(allObjects, objs...)
 
 	fakeClient, err := testutil.NewFakeClientWithObjects(allObjects...)

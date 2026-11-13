@@ -106,6 +106,7 @@ func (v *PVCSizeValidator) ValidateUpdate(ctx context.Context, oldVD, newVD *v1a
 	if sizeEqual {
 		return nil, nil
 	}
+
 	var (
 		oldSize resource.Quantity
 		newSize resource.Quantity

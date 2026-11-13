@@ -75,6 +75,7 @@ var _ = Describe("CreateImporterStep", func() {
 		pods := &corev1.PodList{}
 		Expect(fakeClient.List(context.Background(), pods)).To(Succeed())
 		Expect(pods.Items).To(HaveLen(1))
+
 		return &pods.Items[0]
 	}
 

@@ -100,6 +100,7 @@ var _ = Describe("SnapshottingHandler", func() {
 			vm := newVM()
 			snapshot := newVMSnapshot(vm.Name, v1alpha2.VirtualMachineSnapshotPhaseReady)
 			fakeClient, resource, vmState = setupEnvironment(vm, snapshot)
+
 			reconcile()
 
 			newVM := &v1alpha2.VirtualMachine{}
@@ -113,6 +114,7 @@ var _ = Describe("SnapshottingHandler", func() {
 		It("Should not add condition if no snapshots exist", func() {
 			vm := newVM()
 			fakeClient, resource, vmState = setupEnvironment(vm)
+
 			reconcile()
 
 			newVM := &v1alpha2.VirtualMachine{}
@@ -132,6 +134,7 @@ var _ = Describe("SnapshottingHandler", func() {
 				},
 			}
 			fakeClient, resource, vmState = setupEnvironment(vm)
+
 			reconcile()
 
 			newVM := &v1alpha2.VirtualMachine{}

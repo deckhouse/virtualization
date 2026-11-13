@@ -46,9 +46,11 @@ func TestGetLastFinalReportFromCrashLoopingPod(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if report.ErrMessage != "Unable to process data: no space" {
 		t.Fatalf("got %q, want the message from the last termination state", report.ErrMessage)
 	}
+
 	if !report.Permanent {
 		t.Fatal("permanent flag lost")
 	}
@@ -62,6 +64,7 @@ func TestGetLastFinalReportPrefersCurrentState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if report.ErrMessage != "current" {
 		t.Fatalf("got %q, want the current termination state to win", report.ErrMessage)
 	}
@@ -93,6 +96,7 @@ func TestGetFinalReportFromTerminatedPod(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if report.ErrMessage != "current" {
 		t.Fatalf("got %q, want the current termination state", report.ErrMessage)
 	}

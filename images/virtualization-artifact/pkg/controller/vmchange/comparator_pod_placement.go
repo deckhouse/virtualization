@@ -114,6 +114,7 @@ func isMainNetworkUnchanged(current, desired []v1alpha2.NetworksSpec) bool {
 	if network.UsesMainNetwork(current) != network.UsesMainNetwork(desired) {
 		return false
 	}
+
 	return mainIPAddressName(current) == mainIPAddressName(desired)
 }
 
@@ -121,6 +122,7 @@ func mainIPAddressName(networks []v1alpha2.NetworksSpec) string {
 	if main := network.MainNetworkSpec(networks); main != nil {
 		return main.IPAddressName
 	}
+
 	return ""
 }
 
@@ -134,17 +136,21 @@ func isUnderlayNetworksChanged(current, desired []v1alpha2.NetworksSpec) bool {
 		if n.VLANID != nil {
 			vlan = *n.VLANID
 		}
+
 		return fmt.Sprintf("%s/%d/%s", n.Name, vlan, n.VirtualMachineMACAddressName)
 	}
 	underlaySet := func(networks []v1alpha2.NetworksSpec) map[string]struct{} {
 		set := make(map[string]struct{})
+
 		for _, n := range networks {
 			if n.Type == v1alpha2.NetworksTypeUnderlayNetwork {
 				set[key(n)] = struct{}{}
 			}
 		}
+
 		return set
 	}
+
 	return !maps.Equal(underlaySet(current), underlaySet(desired))
 }
 

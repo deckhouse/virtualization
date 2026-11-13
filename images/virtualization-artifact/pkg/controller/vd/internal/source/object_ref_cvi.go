@@ -64,6 +64,7 @@ func (ds ObjectRefClusterVirtualImage) Sync(ctx context.Context, vd *v1alpha2.Vi
 	supgen := vdsupplements.NewGenerator(vd)
 
 	cb := conditions.NewConditionBuilder(vdcondition.ReadyType).Generation(vd.Generation)
+
 	defer func() { conditions.SetCondition(cb, &vd.Status.Conditions) }()
 
 	pvc, err := object.FetchObject(ctx, supgen.PersistentVolumeClaim(), ds.client, &corev1.PersistentVolumeClaim{})
@@ -85,6 +86,7 @@ func (ds ObjectRefClusterVirtualImage) Validate(ctx context.Context, vd *v1alpha
 	}
 
 	cviRefKey := types.NamespacedName{Name: vd.Spec.DataSource.ObjectRef.Name}
+
 	cviRef, err := object.FetchObject(ctx, cviRefKey, ds.client, &v1alpha2.ClusterVirtualImage{})
 	if err != nil {
 		return fmt.Errorf("fetch vi %q: %w", cviRefKey, err)

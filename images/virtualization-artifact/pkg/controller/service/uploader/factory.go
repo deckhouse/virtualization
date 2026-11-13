@@ -294,6 +294,7 @@ func (f factory) NetworkPolicy() *unstructured.Unstructured {
 	cnp.SetLabels(f.commonLabels())
 	cnp.SetOwnerReferences([]metav1.OwnerReference{f.ownerReference})
 	cnp.Object["spec"] = uploaderCNPSpec(f.networkPolicySpec)
+
 	return cnp
 }
 
@@ -545,6 +546,7 @@ func uploadURL(host string, withTLS bool, path string) string {
 	if withTLS {
 		scheme = "https"
 	}
+
 	return fmt.Sprintf("%s://%s%s", scheme, host, path)
 }
 
@@ -608,14 +610,17 @@ func uploaderCNPSpec(s *NetworkPolicySettings) map[string]interface{} {
 			ingressRules = append(ingressRules, namespaceIngressRule(s.IngressNamespace, uploaderUploadPort))
 		}
 	}
+
 	if s.OwnNamespace != "" {
 		ingressRules = append(ingressRules, namespaceIngressRule(s.OwnNamespace, uploaderUploadPort))
 	}
+
 	ingressRules = append(ingressRules, entitiesIngressRule([]string{"cluster"}, uploaderUploadPort))
 
 	if len(ingressRules) > 0 {
 		spec["ingress"] = ingressRules
 	}
+
 	return spec
 }
 
@@ -656,6 +661,7 @@ func entitiesIngressRule(entities []string, port int) map[string]interface{} {
 	for i, e := range entities {
 		entityVals[i] = e
 	}
+
 	return map[string]interface{}{
 		"fromEntities": entityVals,
 		"toPorts": []interface{}{

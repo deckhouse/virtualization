@@ -40,6 +40,7 @@ var _ = Describe("Default core fraction validator", func() {
 			string(featuregates.VerticalVirtualMachineAutoscaler):     enabled,
 			string(featuregates.HotplugCPUAndMemoryWithInPlaceResize): enabled,
 		})).To(Succeed())
+
 		return g
 	}
 
@@ -48,6 +49,7 @@ var _ = Describe("Default core fraction validator", func() {
 		for i, cf := range coreFractions {
 			cfs[i] = v1alpha2.CoreFractionValue(cf)
 		}
+
 		return &v1alpha2.VirtualMachineClass{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-class"},
 			Spec: v1alpha2.VirtualMachineClassSpec{

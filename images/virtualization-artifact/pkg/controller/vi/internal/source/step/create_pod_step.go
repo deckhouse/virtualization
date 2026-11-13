@@ -94,24 +94,28 @@ func (s CreatePodStep) Take(ctx context.Context, vi *v1alpha2.VirtualImage) (*re
 	podSettings := s.importer.GetPodSettingsWithPVC(ownerRef, supgen, pvcKey.Name, pvcKey.Namespace)
 
 	vds := &v1alpha2.VirtualDiskSnapshot{}
+
 	err := s.client.Get(ctx, types.NamespacedName{Name: vi.Spec.DataSource.ObjectRef.Name, Namespace: vi.Namespace}, vds)
 	if err != nil {
 		return &reconcile.Result{}, err
 	}
 
 	vd := &v1alpha2.VirtualDisk{}
+
 	err = s.client.Get(ctx, types.NamespacedName{Name: vds.SourceVirtualDiskName(), Namespace: vds.Namespace}, vd)
 	if err != nil {
 		return &reconcile.Result{}, err
 	}
 
 	pvc := &corev1.PersistentVolumeClaim{}
+
 	err = s.client.Get(ctx, types.NamespacedName{Name: vd.Status.Target.PersistentVolumeClaim, Namespace: vd.Namespace}, pvc)
 	if err != nil {
 		return &reconcile.Result{}, err
 	}
 
 	envSettings := s.getEnvSettings(vi, supgen, pvc.Spec.VolumeMode)
+
 	err = s.importer.StartWithPodSetting(ctx, envSettings, supgen, datasource.NewCABundleForVMI(vi.GetNamespace(), vi.Spec.DataSource), podSettings, service.WithSystemNodeToleration())
 	switch {
 	case err == nil:
@@ -156,6 +160,7 @@ const retryPeriod = 1
 
 func setQuotaExceededPhaseCondition(cb *conditions.ConditionBuilder, phase *v1alpha2.ImagePhase, err error, creationTimestamp metav1.Time) *reconcile.Result {
 	*phase = v1alpha2.ImageFailed
+
 	cb.
 		Status(metav1.ConditionFalse).
 		Reason(vicondition.ProvisioningFailed)
@@ -166,11 +171,13 @@ func setQuotaExceededPhaseCondition(cb *conditions.ConditionBuilder, phase *v1al
 	}
 
 	cb.Message(fmt.Sprintf("Quota exceeded: %s; Retry in %d minute.", err, retryPeriod))
+
 	return &reconcile.Result{RequeueAfter: retryPeriod * time.Minute}
 }
 
 func setPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *v1alpha2.ImagePhase, err error) {
 	*phase = v1alpha2.ImageFailed
+
 	cb.
 		Status(metav1.ConditionFalse).
 		Reason(vicondition.ProvisioningFailed).

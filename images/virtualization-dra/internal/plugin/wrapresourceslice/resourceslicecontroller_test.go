@@ -72,6 +72,7 @@ var _ = Describe("Controller", func() {
 		slices := func(g Gomega) []resourcev1.ResourceSlice {
 			list, err := client.ResourceV1().ResourceSlices().List(ctx, metav1.ListOptions{})
 			g.Expect(err).NotTo(HaveOccurred())
+
 			return list.Items
 		}
 		hasNewDevice := func(g Gomega) {

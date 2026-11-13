@@ -51,12 +51,14 @@ func (h *FirmwareHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 	}
 
 	changed := s.VirtualMachine().Changed()
+
 	kvvmi, err := s.KVVMI(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
 	h.syncFirmwareUpToDate(changed, kvvmi)
+
 	return reconcile.Result{}, nil
 }
 
@@ -68,6 +70,7 @@ func (h *FirmwareHandler) syncFirmwareUpToDate(vm *v1alpha2.VirtualMachine, kvvm
 	upToDate := kvvmi == nil || kvvmi.Status.Phase == virtv1.Succeeded || kvvmi.Status.Phase == virtv1.Failed || kvvmi.Status.LauncherContainerImageVersion == "" || kvvmi.Status.LauncherContainerImageVersion == h.image
 
 	cb := conditions.NewConditionBuilder(vmcondition.TypeFirmwareUpToDate).Generation(vm.GetGeneration())
+
 	defer func() {
 		switch vm.Status.Phase {
 		case v1alpha2.MachinePending, v1alpha2.MachineStarting, v1alpha2.MachineStopped:

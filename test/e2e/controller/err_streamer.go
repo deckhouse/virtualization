@@ -60,6 +60,7 @@ func NewErrStreamer(excludedPatterns []string, excludedRegexpPattens []regexp.Re
 	for i, s := range excludedPatterns {
 		patterns[i] = []byte(s)
 	}
+
 	return &ErrStreamer{
 		excludedPatterns:      patterns,
 		excludedRegexpPattens: excludedRegexpPattens,
@@ -79,6 +80,7 @@ func (l *ErrStreamer) Stream(r io.Reader, w io.Writer) (int, error) {
 		rawEntry := scanner.Bytes()
 
 		var entry LogEntry
+
 		err := json.Unmarshal(rawEntry, &entry)
 		if err != nil {
 			continue
@@ -89,11 +91,13 @@ func (l *ErrStreamer) Stream(r io.Reader, w io.Writer) (int, error) {
 			if err != nil {
 				continue
 			}
+
 			if errTime.After(startTime) {
 				jsonData, err := json.MarshalIndent(entry, "", "  ")
 				if err != nil {
 					continue
 				}
+
 				msg := formatMessage(
 					"this is the `Virtualization-controller` error! not the current `Ginkgo` context error:",
 					string(jsonData),
@@ -114,11 +118,13 @@ func (l *ErrStreamer) isMsgIgnoredByPattern(msg []byte) bool {
 			return true
 		}
 	}
+
 	for _, r := range l.excludedRegexpPattens {
 		if r.Match(msg) {
 			return true
 		}
 	}
+
 	return false
 }
 

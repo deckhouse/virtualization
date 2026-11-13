@@ -75,12 +75,14 @@ func (h *AssignedHandler) Handle(ctx context.Context, s state.NodeUSBDeviceState
 		if err := h.removeOrphanedUSBDevices(ctx, current.Name, assignedNamespace, true); err != nil {
 			return reconcile.Result{}, err
 		}
+
 		setAssignedInProgressCondition(current, &changed.Status.Conditions, "Device is absent on the host, USBDevice is removed.")
 
 	case assignedNamespace == "":
 		if err := h.removeOrphanedUSBDevices(ctx, current.Name, assignedNamespace, false); err != nil {
 			return reconcile.Result{}, err
 		}
+
 		setAssignedAvailableCondition(current, &changed.Status.Conditions, "No namespace is assigned for the device.")
 
 	default:
@@ -92,6 +94,7 @@ func (h *AssignedHandler) Handle(ctx context.Context, s state.NodeUSBDeviceState
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("failed to check namespace %s: %w", assignedNamespace, err)
 		}
+
 		if !exists {
 			setAssignedAvailableCondition(current, &changed.Status.Conditions, fmt.Sprintf("Namespace %s does not exist.", assignedNamespace))
 			return reconcile.Result{}, nil
@@ -109,10 +112,12 @@ func (h *AssignedHandler) Handle(ctx context.Context, s state.NodeUSBDeviceState
 
 func (h *AssignedHandler) namespaceExists(ctx context.Context, name string) (bool, error) {
 	var namespace corev1.Namespace
+
 	err := h.client.Get(ctx, types.NamespacedName{Name: name}, &namespace)
 	if err == nil {
 		return true, nil
 	}
+
 	if errors.IsNotFound(err) {
 		return false, nil
 	}
@@ -148,11 +153,13 @@ func (h *AssignedHandler) ensureUSBDevice(ctx context.Context, nodeUSBDevice *v1
 	if err == nil {
 		if !equality.Semantic.DeepEqual(usbDevice.Status.Attributes, nodeUSBDevice.Status.Attributes) || usbDevice.Status.NodeName != nodeUSBDevice.Status.NodeName {
 			usbDevice.Status.Attributes = nodeUSBDevice.Status.Attributes
+
 			usbDevice.Status.NodeName = nodeUSBDevice.Status.NodeName
 			if err := h.client.Status().Update(ctx, usbDevice); err != nil {
 				return nil, fmt.Errorf("failed to update USBDevice status: %w", err)
 			}
 		}
+
 		return usbDevice, nil
 	}
 
@@ -186,15 +193,19 @@ func (h *AssignedHandler) ensureUSBDevice(ctx context.Context, nodeUSBDevice *v1
 			if err := h.client.Get(ctx, key, usbDevice); err != nil {
 				return nil, fmt.Errorf("failed to get existing USBDevice: %w", err)
 			}
+
 			if !equality.Semantic.DeepEqual(usbDevice.Status.Attributes, nodeUSBDevice.Status.Attributes) || usbDevice.Status.NodeName != nodeUSBDevice.Status.NodeName {
 				usbDevice.Status.Attributes = nodeUSBDevice.Status.Attributes
+
 				usbDevice.Status.NodeName = nodeUSBDevice.Status.NodeName
 				if err := h.client.Status().Update(ctx, usbDevice); err != nil {
 					return nil, fmt.Errorf("failed to update USBDevice status: %w", err)
 				}
 			}
+
 			return usbDevice, nil
 		}
+
 		return nil, fmt.Errorf("failed to create USBDevice: %w", err)
 	}
 
@@ -214,6 +225,7 @@ func (h *AssignedHandler) deleteUSBDevice(ctx context.Context, namespace, name s
 			// USBDevice doesn't exist - nothing to delete
 			return nil
 		}
+
 		return fmt.Errorf("failed to get USBDevice: %w", err)
 	}
 
@@ -221,6 +233,7 @@ func (h *AssignedHandler) deleteUSBDevice(ctx context.Context, namespace, name s
 		if isNotFoundUSBDeviceError(err, namespace, name) {
 			return nil
 		}
+
 		return fmt.Errorf("failed to delete USBDevice: %w", err)
 	}
 
@@ -233,5 +246,6 @@ func isNotFoundUSBDeviceError(err error, namespace, name string) bool {
 	}
 
 	errText := err.Error()
+
 	return namespace != "" && strings.Contains(errText, "usbdevices.virtualization.deckhouse.io") && strings.Contains(errText, name) && strings.Contains(errText, "not found")
 }

@@ -43,18 +43,22 @@ import (
 // directory.
 func repoRoot(t *testing.T) string {
 	t.Helper()
+
 	dir, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("working directory: %v", err)
 	}
+
 	for {
 		if info, err := os.Stat(filepath.Join(dir, "crds")); err == nil && info.IsDir() {
 			return dir
 		}
+
 		parent := filepath.Dir(dir)
 		if parent == dir {
 			t.Skip("no crds directory above the working directory: not running from a repository checkout")
 		}
+
 		dir = parent
 	}
 }
@@ -73,15 +77,18 @@ func specValidator(t *testing.T, crdName string) (*schemacel.Validator, *structu
 	if err := yaml.NewYAMLOrJSONDecoder(f, 4096).Decode(&crd); err != nil {
 		t.Fatalf("decode %s: %v", crdName, err)
 	}
+
 	if len(crd.Spec.Versions) == 0 || crd.Spec.Versions[0].Schema == nil {
 		t.Fatalf("%s has no versions[0].schema", crdName)
 	}
 
 	versioned := crd.Spec.Versions[0].Schema.OpenAPIV3Schema.Properties["spec"]
+
 	var internal apiextensions.JSONSchemaProps
 	if err := apiextensionsv1.Convert_v1_JSONSchemaProps_To_apiextensions_JSONSchemaProps(&versioned, &internal, nil); err != nil {
 		t.Fatalf("convert the spec schema of %s: %v", crdName, err)
 	}
+
 	if !hasXValidations(&internal) {
 		t.Fatalf("the spec schema of %s carries no x-kubernetes-validations", crdName)
 	}
@@ -95,6 +102,7 @@ func specValidator(t *testing.T, crdName string) (*schemacel.Validator, *structu
 	if validator == nil {
 		t.Fatalf("no CEL validator was built for %s", crdName)
 	}
+
 	return validator, structural
 }
 
@@ -103,14 +111,17 @@ func hasXValidations(s *apiextensions.JSONSchemaProps) bool {
 	if s == nil {
 		return false
 	}
+
 	if len(s.XValidations) > 0 {
 		return true
 	}
+
 	for _, p := range s.Properties {
 		if hasXValidations(&p) {
 			return true
 		}
 	}
+
 	return s.Items != nil && hasXValidations(s.Items.Schema)
 }
 
@@ -135,17 +146,21 @@ func runCELCases(t *testing.T, crdName string, cases []celCase) {
 			for _, err := range errs {
 				got = append(got, err.Error())
 			}
+
 			joined := strings.Join(got, " | ")
 
 			if tt.want == "" {
 				if joined != "" {
 					t.Fatalf("rejected, want accepted: %s", joined)
 				}
+
 				return
 			}
+
 			if joined == "" {
 				t.Fatalf("accepted, want a rejection mentioning %q", tt.want)
 			}
+
 			if !strings.Contains(joined, tt.want) {
 				t.Fatalf("rejection is %q, want it to mention %q", joined, tt.want)
 			}
@@ -236,11 +251,14 @@ func TestVirtualMachineClassCPUCEL(t *testing.T) {
 		if nested != nil {
 			c["enableNestedVirtualization"] = nested
 		}
+
 		fs := make([]interface{}, 0, len(features))
 		for _, f := range features {
 			fs = append(fs, f)
 		}
+
 		c["features"] = fs
+
 		return map[string]interface{}{"cpu": c}
 	}
 

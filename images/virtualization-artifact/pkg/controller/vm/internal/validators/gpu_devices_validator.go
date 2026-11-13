@@ -56,6 +56,7 @@ func (v *GPUDevicesValidator) ValidateUpdate(ctx context.Context, oldVM, newVM *
 	if reflect.DeepEqual(kvbuilder.SortGPUDevices(oldVM.Spec.GPUs), kvbuilder.SortGPUDevices(newVM.Spec.GPUs)) {
 		return nil, nil
 	}
+
 	return nil, v.validateGPUDevices(ctx, newVM)
 }
 
@@ -78,6 +79,7 @@ func (v *GPUDevicesValidator) validateGPUDevices(ctx context.Context, vm *v1alph
 	for _, device := range vm.Spec.GPUs {
 		gpuClass := &unstructured.Unstructured{}
 		gpuClass.SetGroupVersionKind(kvbuilder.GPUClassGVK)
+
 		err := v.client.Get(ctx, types.NamespacedName{Name: device.GPUClassName}, gpuClass)
 		switch {
 		case apierrors.IsNotFound(err):

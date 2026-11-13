@@ -36,6 +36,7 @@ func (f *fakeBinder) Bind(busID string) error { f.bound[busID] = true; return ni
 func (f *fakeBinder) Unbind(busID string) error {
 	f.unbound = append(f.unbound, busID)
 	f.bound[busID] = false
+
 	return nil
 }
 func (f *fakeBinder) IsBound(busID string) (bool, error)     { return f.bound[busID], f.checkErr }
@@ -59,12 +60,14 @@ var _ = Describe("AllocationStore reclaimExportedDevice", func() {
 
 	It("unbinds a device exported to another node", func() {
 		binder.bound["8-1"] = true
+
 		Expect(store.reclaimExportedDevice("usb-a", "8-1")).To(Succeed())
 		Expect(binder.unbound).To(Equal([]string{"8-1"}))
 	})
 
 	It("fails when the export state cannot be read", func() {
 		binder.checkErr = errors.New("sysfs is gone")
+
 		Expect(store.reclaimExportedDevice("usb-a", "8-1")).To(MatchError(ContainSubstring("sysfs is gone")))
 	})
 })

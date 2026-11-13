@@ -63,6 +63,7 @@ func (h InUseHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (rec
 	// Two instances with the volume mean two writers, left from before the owner election took in the
 	// attachments and the instances. Nothing is taken from a running VM: the condition names all of them.
 	inUseBy := mountedVirtualMachineNames(vd)
+
 	if len(holders) > 1 {
 		logger.FromContext(ctx).Warn("The virtual disk is plugged into several virtual machines", "vms", holders)
 		inUseBy = holders
@@ -81,6 +82,7 @@ func (h InUseHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (rec
 			return reconcile.Result{}, err
 		}
 	}
+
 	if !usedByVM && usedByImage == "" {
 		usedByDataExport, err = h.checkDataExportUsage(ctx, vd)
 		if err != nil {
@@ -92,6 +94,7 @@ func (h InUseHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (rec
 	// the disk not detach" and, since a disk in use is protected from deletion, to
 	// "why does the disk stay in Terminating".
 	cb := conditions.NewConditionBuilder(vdcondition.InUseType).Generation(vd.Generation)
+
 	switch {
 	case usedByVM:
 		cb.
@@ -116,6 +119,7 @@ func (h InUseHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (rec
 	}
 
 	conditions.SetCondition(cb, &vd.Status.Conditions)
+
 	return reconcile.Result{}, nil
 }
 
@@ -129,6 +133,7 @@ func (h InUseHandler) checkDataExportUsage(ctx context.Context, vd *v1alpha2.Vir
 	if err != nil {
 		return false, fmt.Errorf("fetch pvc: %w", err)
 	}
+
 	if pvc == nil {
 		return false, nil
 	}
@@ -149,6 +154,7 @@ func (h InUseHandler) checkImageUsage(ctx context.Context, vd *v1alpha2.VirtualD
 	if err != nil {
 		return "", err
 	}
+
 	if usedByImage == "" {
 		usedByImage, err = h.checkUsageByCVI(ctx, vd)
 		if err != nil {
@@ -162,6 +168,7 @@ func (h InUseHandler) checkImageUsage(ctx context.Context, vd *v1alpha2.VirtualD
 // updateAttachedVirtualMachines elects the disk owner and returns the VMs whose instances hold the volume.
 func (h InUseHandler) updateAttachedVirtualMachines(ctx context.Context, vd *v1alpha2.VirtualDisk) ([]string, error) {
 	var vms v1alpha2.VirtualMachineList
+
 	err := h.client.List(ctx, &vms, &client.ListOptions{
 		Namespace: vd.GetNamespace(),
 	})
@@ -182,12 +189,14 @@ func (h InUseHandler) updateAttachedVirtualMachines(ctx context.Context, vd *v1a
 		if err != nil {
 			return nil, err
 		}
+
 		if usedByImage != "" {
 			owner = ""
 		}
 	}
 
 	var holders []string
+
 	attachedVMs := make([]v1alpha2.AttachedVirtualMachine, 0, len(candidates))
 	for _, c := range candidates {
 		if c.holds {
@@ -198,10 +207,12 @@ func (h InUseHandler) updateAttachedVirtualMachines(ctx context.Context, vd *v1a
 		if !c.listed && !c.holds && c.name != owner {
 			continue
 		}
+
 		attachedVMs = append(attachedVMs, v1alpha2.AttachedVirtualMachine{Name: c.name, Mounted: c.name == owner})
 	}
 
 	vd.Status.AttachedToVirtualMachines = attachedVMs
+
 	return holders, nil
 }
 
@@ -222,17 +233,21 @@ type ownerCandidate struct {
 func electOwner(current string, candidates []ownerCandidate) string {
 	pick := func(eligible func(ownerCandidate) bool) string {
 		first := ""
+
 		for _, c := range candidates {
 			if !eligible(c) {
 				continue
 			}
+
 			if c.name == current {
 				return current
 			}
+
 			if first == "" || c.name < first {
 				first = c.name
 			}
 		}
+
 		return first
 	}
 
@@ -255,6 +270,7 @@ func (h InUseHandler) getOwnerCandidates(ctx context.Context, vd *v1alpha2.Virtu
 	}
 
 	var candidates []ownerCandidate
+
 	for _, vm := range vms.Items {
 		c := ownerCandidate{
 			name:   vm.GetName(),
@@ -282,12 +298,14 @@ func (h InUseHandler) getOwnerCandidates(ctx context.Context, vd *v1alpha2.Virtu
 // getVMsClaimingByAttachment returns the VMs whose attachments of the disk are still in force.
 func (h InUseHandler) getVMsClaimingByAttachment(ctx context.Context, vd *v1alpha2.VirtualDisk) (map[string]bool, error) {
 	var vmbdas v1alpha2.VirtualMachineBlockDeviceAttachmentList
+
 	err := h.client.List(ctx, &vmbdas, &client.ListOptions{Namespace: vd.GetNamespace()})
 	if err != nil {
 		return nil, fmt.Errorf("error getting virtual machine block device attachments: %w", err)
 	}
 
 	claimed := make(map[string]bool)
+
 	for _, vmbda := range vmbdas.Items {
 		if vmbda.Spec.BlockDeviceRef.Kind != v1alpha2.VMBDAObjectRefKindVirtualDisk || vmbda.Spec.BlockDeviceRef.Name != vd.GetName() {
 			continue
@@ -296,6 +314,7 @@ func (h InUseHandler) getVMsClaimingByAttachment(ctx context.Context, vd *v1alph
 		if vmbda.DeletionTimestamp != nil || vmbda.Status.Phase == v1alpha2.BlockDeviceAttachmentPhaseFailed {
 			continue
 		}
+
 		claimed[vmbda.Spec.VirtualMachineName] = true
 	}
 
@@ -310,19 +329,23 @@ func (h InUseHandler) getVMsHoldingVolume(ctx context.Context, namespace, volume
 	holders := make(map[string]bool)
 
 	var kvvmis virtv1.VirtualMachineInstanceList
+
 	err := h.client.List(ctx, &kvvmis, client.InNamespace(namespace), client.MatchingFields{indexer.IndexFieldKVVMIByVolume: volumeName})
 	if err != nil {
 		return nil, fmt.Errorf("list the internal virtual machine instances with the volume: %w", err)
 	}
+
 	for _, kvvmi := range kvvmis.Items {
 		holders[kvvmi.Name] = true
 	}
 
 	var kvvms virtv1.VirtualMachineList
+
 	err = h.client.List(ctx, &kvvms, client.InNamespace(namespace), client.MatchingFields{indexer.IndexFieldKVVMByAddVolumeRequest: volumeName})
 	if err != nil {
 		return nil, fmt.Errorf("list the internal virtual machines with an attach request for the volume: %w", err)
 	}
+
 	for _, kvvm := range kvvms.Items {
 		if holders[kvvm.Name] {
 			continue
@@ -332,6 +355,7 @@ func (h InUseHandler) getVMsHoldingVolume(ctx context.Context, namespace, volume
 		if err != nil {
 			return nil, fmt.Errorf("fetch the internal virtual machine instance: %w", err)
 		}
+
 		if kvvmi != nil {
 			holders[kvvm.Name] = true
 		}
@@ -352,6 +376,7 @@ func (h InUseHandler) checkUsageByVM(vd *v1alpha2.VirtualDisk) bool {
 
 func (h InUseHandler) checkUsageByVI(ctx context.Context, vd *v1alpha2.VirtualDisk) (string, error) {
 	var vis v1alpha2.VirtualImageList
+
 	err := h.client.List(ctx, &vis, &client.ListOptions{
 		Namespace: vd.GetNamespace(),
 	})
@@ -383,6 +408,7 @@ func (h InUseHandler) checkUsageByVI(ctx context.Context, vd *v1alpha2.VirtualDi
 
 func (h InUseHandler) checkUsageByCVI(ctx context.Context, vd *v1alpha2.VirtualDisk) (string, error) {
 	var cvis v1alpha2.ClusterVirtualImageList
+
 	err := h.client.List(ctx, &cvis, &client.ListOptions{})
 	if err != nil {
 		return "", fmt.Errorf("error getting cluster virtual images: %w", err)

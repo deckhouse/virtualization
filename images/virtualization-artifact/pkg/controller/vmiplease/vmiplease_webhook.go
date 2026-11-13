@@ -55,12 +55,14 @@ func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admis
 func (v *Validator) ValidateUpdate(_ context.Context, _, _ runtime.Object) (admission.Warnings, error) {
 	err := fmt.Errorf("misconfigured webhook rules: update operation not implemented")
 	v.log.Error("Ensure the correctness of ValidatingWebhookConfiguration", "err", err)
+
 	return nil, nil
 }
 
 func (v *Validator) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
 	err := fmt.Errorf("misconfigured webhook rules: delete operation not implemented")
 	v.log.Error("Ensure the correctness of ValidatingWebhookConfiguration", "err", err)
+
 	return nil, nil
 }
 

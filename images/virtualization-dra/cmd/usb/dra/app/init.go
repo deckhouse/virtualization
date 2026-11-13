@@ -109,6 +109,7 @@ func (o *initOptions) loadCustomBuildPath(path string) error {
 	}
 
 	slog.Info("Modules loaded successfully")
+
 	return nil
 }
 
@@ -130,6 +131,7 @@ func (o *initOptions) loadPreInstalled() error {
 	}
 
 	slog.Info("Modules loaded successfully")
+
 	return nil
 }
 
@@ -145,6 +147,7 @@ func (o *initOptions) getPreInstalledModules(kernelRelease string) ([]string, er
 		if err != nil {
 			return nil, err
 		}
+
 		modules[i] = resolved
 	}
 
@@ -157,10 +160,12 @@ func (o *initOptions) getPreInstalledModules(kernelRelease string) ([]string, er
 func resolveModulePath(base string) (string, error) {
 	for _, suffix := range []string{"", ".zst", ".xz", ".gz"} {
 		candidate := base + suffix
+
 		exists, err := fileExists(candidate)
 		if err != nil {
 			return "", err
 		}
+
 		if exists {
 			return candidate, nil
 		}
@@ -174,8 +179,10 @@ func fileExists(path string) (bool, error) {
 	if err == nil {
 		return true, nil
 	}
+
 	if os.IsNotExist(err) {
 		return false, nil
 	}
+
 	return false, err
 }

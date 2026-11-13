@@ -91,6 +91,7 @@ func HaveMoreReplicasThan(n int32) Predicate {
 		if p.Status.Replicas > n {
 			return true, fmt.Errorf("pool %s/%s has %d replicas, expected at most %d", p.Namespace, p.Name, p.Status.Replicas, n)
 		}
+
 		return false, nil
 	}
 }

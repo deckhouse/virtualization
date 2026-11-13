@@ -50,20 +50,24 @@ func (r *recorder) handle(b []byte) error {
 	defer r.mu.Unlock()
 	// scanner.Bytes() reuses its buffer, so copy before keeping the slice.
 	r.lines = append(r.lines, append([]byte(nil), b...))
+
 	return nil
 }
 
 func (r *recorder) count() int {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+
 	return len(r.lines)
 }
 
 func (r *recorder) get() [][]byte {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+
 	out := make([][]byte, len(r.lines))
 	copy(out, r.lines)
+
 	return out
 }
 
@@ -72,8 +76,10 @@ func (r *recorder) get() [][]byte {
 func freeAddr() string {
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	Expect(err).NotTo(HaveOccurred())
+
 	addr := l.Addr().String()
 	Expect(l.Close()).To(Succeed())
+
 	return addr
 }
 
@@ -93,6 +99,7 @@ func issue(cn string, parent *x509.Certificate, parentKey *ecdsa.PrivateKey, isC
 		NotAfter:              time.Now().Add(time.Hour),
 		BasicConstraintsValid: true,
 	}
+
 	switch {
 	case isCA:
 		tmpl.IsCA = true
@@ -119,6 +126,7 @@ func issue(cn string, parent *x509.Certificate, parentKey *ecdsa.PrivateKey, isC
 	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
 	keyDER, err := x509.MarshalPKCS8PrivateKey(key)
 	Expect(err).NotTo(HaveOccurred())
+
 	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyDER})
 
 	return cert, key, certPEM, keyPEM
@@ -127,6 +135,7 @@ func issue(cn string, parent *x509.Certificate, parentKey *ecdsa.PrivateKey, isC
 func writeFile(dir, name string, data []byte) string {
 	p := filepath.Join(dir, name)
 	Expect(os.WriteFile(p, data, 0o600)).To(Succeed())
+
 	return p
 }
 
@@ -138,8 +147,11 @@ func startServer(handler func([]byte) error, opts ...Option) (string, context.Ca
 	Expect(err).NotTo(HaveOccurred())
 
 	ctx, cancel := context.WithCancel(context.Background())
+
 	runErr := make(chan error, 1)
+
 	go func() { runErr <- srv.Run(ctx, opts...) }()
+
 	return addr, cancel, runErr
 }
 
@@ -165,6 +177,7 @@ var _ = Describe("Audit server", func() {
 				if err == nil {
 					_ = c.Close()
 				}
+
 				return err
 			}, "2s", "20ms").Should(Succeed())
 		})
@@ -177,6 +190,7 @@ var _ = Describe("Audit server", func() {
 		It("delivers newline-delimited lines to the handler in order", func() {
 			conn, err := net.Dial("tcp", addr)
 			Expect(err).NotTo(HaveOccurred())
+
 			defer func() { _ = conn.Close() }()
 
 			_, err = conn.Write([]byte("first\nsecond\nthird\n"))
@@ -194,6 +208,7 @@ var _ = Describe("Audit server", func() {
 
 			conn, err := net.Dial("tcp", addr)
 			Expect(err).NotTo(HaveOccurred())
+
 			defer func() { _ = conn.Close() }()
 
 			_, err = conn.Write([]byte(big + "\n"))
@@ -206,6 +221,7 @@ var _ = Describe("Audit server", func() {
 		It("does not deliver a line exceeding maxAuditEventSize", func() {
 			conn, err := net.Dial("tcp", addr)
 			Expect(err).NotTo(HaveOccurred())
+
 			defer func() { _ = conn.Close() }()
 
 			oversized := strings.Repeat("a", maxAuditEventSize+1)
@@ -218,16 +234,19 @@ var _ = Describe("Audit server", func() {
 	Context("graceful shutdown", func() {
 		It("returns promptly and closes active connections cleanly", func() {
 			addr, cancel, runErr := startServer(rec.handle)
+
 			Eventually(func() error {
 				c, err := net.Dial("tcp", addr)
 				if err == nil {
 					_ = c.Close()
 				}
+
 				return err
 			}, "2s", "20ms").Should(Succeed())
 
 			conn, err := net.Dial("tcp", addr)
 			Expect(err).NotTo(HaveOccurred())
+
 			defer func() { _ = conn.Close() }()
 
 			_, err = conn.Write([]byte("ping\n"))
@@ -249,17 +268,21 @@ var _ = Describe("Audit server", func() {
 	Context("waitWithTimeout", func() {
 		It("returns immediately once the WaitGroup drains", func() {
 			var wg sync.WaitGroup
+
 			start := time.Now()
+
 			waitWithTimeout(&wg, time.Second)
 			Expect(time.Since(start)).To(BeNumerically("<", 500*time.Millisecond))
 		})
 
 		It("returns after the timeout when the WaitGroup never drains", func() {
 			var wg sync.WaitGroup
+
 			wg.Add(1)
 			defer wg.Done()
 
 			start := time.Now()
+
 			waitWithTimeout(&wg, 100*time.Millisecond)
 			Expect(time.Since(start)).To(BeNumerically(">=", 100*time.Millisecond))
 		})
@@ -279,6 +302,7 @@ var _ = Describe("Audit server", func() {
 
 		BeforeEach(func() {
 			var caCertPEM []byte
+
 			ca, caKey, caCertPEM, _ = issue("test-ca", nil, nil, true, false)
 			caPEM = caCertPEM
 
@@ -301,12 +325,14 @@ var _ = Describe("Audit server", func() {
 		caPool := func() *x509.CertPool {
 			pool := x509.NewCertPool()
 			Expect(pool.AppendCertsFromPEM(caPEM)).To(BeTrue())
+
 			return pool
 		}
 
 		dialTLS := func(cfg *tls.Config) (*tls.Conn, error) {
 			cfg.ServerName = "127.0.0.1"
 			d := &net.Dialer{Timeout: 2 * time.Second}
+
 			return tls.DialWithDialer(d, "tcp", addr, cfg)
 		}
 
@@ -318,12 +344,16 @@ var _ = Describe("Audit server", func() {
 			if err != nil {
 				return true
 			}
+
 			defer func() { _ = conn.Close() }()
+
 			Expect(conn.SetDeadline(time.Now().Add(2 * time.Second))).To(Succeed())
+
 			_, err = conn.Write([]byte("audit-event\n"))
 			if err == nil {
 				_, err = conn.Read(make([]byte, 1))
 			}
+
 			return err != nil && !errors.Is(err, io.EOF)
 		}
 
@@ -332,13 +362,16 @@ var _ = Describe("Audit server", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			var conn *tls.Conn
+
 			Eventually(func() error {
 				conn, err = dialTLS(&tls.Config{
 					Certificates: []tls.Certificate{pair},
 					RootCAs:      caPool(),
 				})
+
 				return err
 			}, "2s", "20ms").Should(Succeed())
+
 			defer func() { _ = conn.Close() }()
 
 			_, err = conn.Write([]byte("audit-event\n"))

@@ -27,6 +27,7 @@ func newGenericOptions(opts ...Option) *genericOptions {
 	for _, opt := range opts {
 		opt(o)
 	}
+
 	return o
 }
 
@@ -43,6 +44,7 @@ func WithSystemNodeToleration() Option {
 		if o.nodePlacement == nil {
 			o.nodePlacement = &provisioner.NodePlacement{}
 		}
+
 		provisioner.AddTolerationForSystemNodes(o.nodePlacement)
 	}
 }

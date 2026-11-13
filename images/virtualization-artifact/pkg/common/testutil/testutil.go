@@ -70,15 +70,20 @@ func NewFakeClientWithObjects(objs ...client.Object) (client.WithWatch, error) {
 			return nil, err
 		}
 	}
+
 	registerNetworkGVKs(scheme)
 	registerGPUGVKs(scheme)
+
 	var newObjs []client.Object
+
 	for _, obj := range objs {
 		if reflect.ValueOf(obj).IsNil() {
 			continue
 		}
+
 		newObjs = append(newObjs, obj)
 	}
+
 	b := fake.NewClientBuilder().WithScheme(scheme).WithObjects(newObjs...).WithStatusSubresource(newObjs...)
 	for _, fn := range indexer.IndexGetters {
 		b.WithIndex(fn())
@@ -102,15 +107,20 @@ func NewFakeClientWithInterceptorWithObjects(interceptor interceptor.Funcs, objs
 			return nil, err
 		}
 	}
+
 	registerNetworkGVKs(scheme)
 	registerGPUGVKs(scheme)
+
 	var newObjs []client.Object
+
 	for _, obj := range objs {
 		if reflect.ValueOf(obj).IsNil() {
 			continue
 		}
+
 		newObjs = append(newObjs, obj)
 	}
+
 	b := fake.NewClientBuilder().WithScheme(scheme).WithObjects(newObjs...).WithStatusSubresource(newObjs...).WithInterceptorFuncs(interceptor)
 	for _, fn := range indexer.IndexGetters {
 		b.WithIndex(fn())

@@ -144,6 +144,7 @@ type OpCommon struct {
 
 func (op *OpCommon) Decode(r io.Reader) error {
 	buf := make([]byte, 8)
+
 	_, err := io.ReadFull(r, buf)
 	if err != nil {
 		return fmt.Errorf("failed to read OpCommon: %w", err)
@@ -152,6 +153,7 @@ func (op *OpCommon) Decode(r io.Reader) error {
 	op.Version = USBVersion(binary.BigEndian.Uint16(buf[0:2]))
 	op.Code = Op(binary.BigEndian.Uint16(buf[2:4]))
 	op.Status = OpStatus(binary.BigEndian.Uint32(buf[4:8]))
+
 	return nil
 }
 
@@ -161,5 +163,6 @@ func (op *OpCommon) Encode(w io.Writer) error {
 	binary.BigEndian.PutUint16(buf[2:4], uint16(op.Code))
 	binary.BigEndian.PutUint32(buf[4:8], uint32(op.Status))
 	_, err := w.Write(buf)
+
 	return err
 }

@@ -30,9 +30,11 @@ func ParseTarget(arg string) (namespace, name string, err error) {
 	if len(arg) == 0 {
 		return "", "", errors.New("name is empty")
 	}
+
 	if arg[0] == '.' {
 		return "", "", errors.New("expected name before '.'")
 	}
+
 	if arg[len(arg)-1] == '.' {
 		return "", "", errors.New("expected namespace after '.'")
 	}
@@ -58,6 +60,7 @@ func ParseSSHTarget(arg string) (namespace, name, username string, err error) {
 		if len(username) < 1 {
 			return "", "", "", errors.New("expected username before '@'")
 		}
+
 		arg = usernameAndTarget[1]
 	}
 
@@ -66,6 +69,7 @@ func ParseSSHTarget(arg string) (namespace, name, username string, err error) {
 	}
 
 	namespace, name, err = ParseTarget(arg)
+
 	return namespace, name, username, err
 }
 
@@ -84,6 +88,7 @@ func ParseSCPArguments(arg1, arg2 string) (local LocalSCPArgument, remote Remote
 	remoteArg := arg1
 	localArg := arg2
 	toRemote = false
+
 	switch {
 	case strings.Contains(arg1, ":") && strings.Contains(arg2, ":"):
 		err = fmt.Errorf("copying from a remote location to another remote location is not supported: %q to %q", arg1, arg2)
@@ -98,11 +103,14 @@ func ParseSCPArguments(arg1, arg2 string) (local LocalSCPArgument, remote Remote
 	}
 
 	split := strings.SplitN(remoteArg, ":", 2)
+
 	remote.Namespace, remote.Name, remote.Username, err = ParseSSHTarget(split[0])
 	if err != nil {
 		return local, remote, toRemote, err
 	}
+
 	remote.Path = split[1]
 	local.Path = localArg
+
 	return local, remote, toRemote, err
 }

@@ -38,7 +38,9 @@ var _ = Describe("LifeCycleHandler Run", func() {
 		"Check on LifeCycle.Cleanup after spec changes",
 		func(args cleanupAfterSpecChangeTestArgs) {
 			args.ReadyCondition.Type = vicondition.ReadyType.String()
+
 			var sourcesMock SourcesMock
+
 			cleanUpCalled := false
 			vi := v1alpha2.VirtualImage{
 				Status: v1alpha2.VirtualImageStatus{
@@ -122,7 +124,9 @@ var _ = Describe("LifeCycleHandler Run", func() {
 		func(args cleanupAfterScNotReadyTestArgs) {
 			args.ReadyCondition.Type = vicondition.ReadyType.String()
 			args.StorageClassReadyCondition.Type = vicondition.StorageClassReadyType.String()
+
 			var sourcesMock SourcesMock
+
 			cleanUpCalled := false
 			vi := v1alpha2.VirtualImage{
 				Spec: v1alpha2.VirtualImageSpec{
@@ -228,6 +232,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 		"Phase/progress invariants on the final status",
 		func(phase v1alpha2.ImagePhase, syncProgress, expectedProgress string) {
 			var sourcesMock SourcesMock
+
 			sourcesMock.ChangedFunc = func(_ context.Context, _ *v1alpha2.VirtualImage) bool {
 				return false
 			}
@@ -235,6 +240,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 				return &source.HandlerMock{StoreToDVCRFunc: func(_ context.Context, vi *v1alpha2.VirtualImage) (reconcile.Result, error) {
 					vi.Status.Phase = phase
 					vi.Status.Progress = syncProgress
+
 					return reconcile.Result{}, nil
 				}}, true
 			}
@@ -273,6 +279,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 
 	It("surfaces a namespace-terminating store error on the Ready condition without failing the reconcile", func() {
 		var sourcesMock SourcesMock
+
 		sourcesMock.ChangedFunc = func(_ context.Context, _ *v1alpha2.VirtualImage) bool {
 			return false
 		}

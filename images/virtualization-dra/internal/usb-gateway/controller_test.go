@@ -58,6 +58,7 @@ func TestGetAttachInfoAfterStore(t *testing.T) {
 	if !ok {
 		t.Fatalf("getAttachInfo() ok = false after store, want true")
 	}
+
 	if got.NPorts != want.NPorts {
 		t.Fatalf("getAttachInfo() NPorts = %d, want %d", got.NPorts, want.NPorts)
 	}
@@ -73,6 +74,7 @@ func TestEnsureAttachInfoNotCollectedDoesNotPanic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ensureAttachInfo() error = %v, want nil", err)
 	}
+
 	if got != node {
 		t.Fatalf("ensureAttachInfo() returned a modified node, want the original")
 	}

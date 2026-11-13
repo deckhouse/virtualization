@@ -85,6 +85,7 @@ func GetMainIPAddressTakingAddress(ctx context.Context, c client.Client, namespa
 	if err := c.List(ctx, ipas, client.InNamespace(namespace)); err != nil {
 		return nil, fmt.Errorf("list the IPAddresses of the namespace %s: %w", namespace, err)
 	}
+
 	for i := range ipas.Items {
 		ipa := &ipas.Items[i]
 		if ipa.GetDeletionTimestamp() == nil && network.IsMainNetworkIPAddress(ipa) &&
@@ -92,6 +93,7 @@ func GetMainIPAddressTakingAddress(ctx context.Context, c client.Client, namespa
 			return ipa, nil
 		}
 	}
+
 	return nil, nil
 }
 
@@ -100,6 +102,7 @@ func (v *MainIPAddressHandler) ValidateRestore(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
 	return v.validate(ctx, existing)
 }
 
@@ -111,15 +114,18 @@ func (v *MainIPAddressHandler) validate(ctx context.Context, existing *sdnapi.IP
 		if err != nil {
 			return err
 		}
+
 		if ipaTakingAddress != nil {
 			return fmt.Errorf("the address %s is %w by the IPAddress %q: delete that IPAddress first", v.address, common.ErrAlreadyInUse, ipaTakingAddress.GetName())
 		}
+
 		return nil
 	}
 
 	if existing.GetAnnotations()[annotations.AnnVMOPRestore] == v.restoreUID {
 		return nil
 	}
+
 	if address := network.AddressOfIPAddress(existing); address != v.address {
 		return fmt.Errorf("the IPAddress %q is %w: it has the address %s, and the snapshot has %s; delete it, or restore it under another name with nameReplacements", v.name, common.ErrAlreadyInUse, address, v.address)
 	}
@@ -128,6 +134,7 @@ func (v *MainIPAddressHandler) validate(ctx context.Context, existing *sdnapi.IP
 	if vmUID := existing.GetLabels()[annotations.LabelVirtualMachineUID]; vmUID != "" && !slices.Contains(v.vmUIDs, vmUID) {
 		return fmt.Errorf("the IPAddress %q is %w by another virtual machine: free the address of that virtual machine first", v.name, common.ErrAlreadyInUse)
 	}
+
 	return nil
 }
 
@@ -136,6 +143,7 @@ func (v *MainIPAddressHandler) ProcessRestore(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
 	if err := v.validate(ctx, existing); err != nil {
 		return err
 	}
@@ -152,6 +160,7 @@ func (v *MainIPAddressHandler) ProcessRestore(ctx context.Context) error {
 		if err := v.client.Create(ctx, ipa); err != nil {
 			return fmt.Errorf("failed to create the IPAddress: %w", err)
 		}
+
 		return nil
 	}
 
@@ -159,15 +168,19 @@ func (v *MainIPAddressHandler) ProcessRestore(ctx context.Context) error {
 	if existing.GetAnnotations()[annotations.AnnVMOPRestore] == v.restoreUID && len(existing.GetOwnerReferences()) == 0 {
 		return nil
 	}
+
 	patch := client.MergeFrom(existing.DeepCopy())
 	network.DetachIPAddressFromVM(existing)
 	existing.Spec = network.MainStaticIPAddressSpec(v.address)
+
 	anns := existing.GetAnnotations()
 	if anns == nil {
 		anns = map[string]string{}
 	}
+
 	anns[annotations.AnnVMOPRestore] = v.restoreUID
 	existing.SetAnnotations(anns)
+
 	return v.client.Patch(ctx, existing, patch)
 }
 

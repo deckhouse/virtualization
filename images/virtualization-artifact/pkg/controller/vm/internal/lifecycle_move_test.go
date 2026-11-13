@@ -37,6 +37,7 @@ var _ = Describe("LifeCycleHandler move to a peer cluster", func() {
 				Status:     v1alpha2.VirtualMachineStatus{Phase: phase},
 			}
 			vmim := &virtv1.VirtualMachineInstanceMigration{ObjectMeta: metav1.ObjectMeta{Name: "vmop-move", Namespace: "default", UID: "move-uid"}}
+
 			kvvmi := &virtv1.VirtualMachineInstance{
 				ObjectMeta: metav1.ObjectMeta{Name: "vm", Namespace: "default"},
 				Status: virtv1.VirtualMachineInstanceStatus{MigrationState: &virtv1.VirtualMachineInstanceMigrationState{
@@ -46,6 +47,7 @@ var _ = Describe("LifeCycleHandler move to a peer cluster", func() {
 			if migrationUID != "" {
 				kvvmi.Status.MigrationState.MigrationUID = "move-uid"
 			}
+
 			fakeClient, err := testutil.NewFakeClientWithObjects(vm, vmim, kvvmi)
 			Expect(err).NotTo(HaveOccurred())
 

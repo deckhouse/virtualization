@@ -61,6 +61,7 @@ var _ = Describe("EnsureForPod", func() {
 		Expect(err).ToNot(HaveOccurred())
 		signer, err := registrytoken.NewSignerFromPEM(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der}))
 		Expect(err).ToNot(HaveOccurred())
+
 		return signer
 	}
 

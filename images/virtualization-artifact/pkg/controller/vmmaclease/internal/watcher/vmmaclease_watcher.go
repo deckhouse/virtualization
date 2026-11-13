@@ -68,5 +68,6 @@ func (w *VirtualMachineMACAddressLeaseWatcher) Watch(mgr manager.Manager, ctr co
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualMachineMACAddressLease: %w", err)
 	}
+
 	return nil
 }

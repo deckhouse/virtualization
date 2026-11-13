@@ -55,11 +55,13 @@ var _ = Describe("Upload DataSource", func() {
 	newUploadDataSource := func() *UploadDataSource {
 		scheme := runtime.NewScheme()
 		Expect(corev1.AddToScheme(scheme)).To(Succeed())
+
 		recorder := &eventrecord.EventRecorderLoggerMock{
 			EventFunc: func(_ client.Object, _, reason, _ string) {
 				recordedEvents = append(recordedEvents, reason)
 			},
 		}
+
 		return NewUploadDataSource(
 			recorder,
 			statMock,

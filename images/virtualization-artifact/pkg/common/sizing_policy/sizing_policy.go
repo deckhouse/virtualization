@@ -30,6 +30,7 @@ func FormatCoreFractionValues(cf []v1alpha2.CoreFractionValue) []string {
 	for i, v := range cf {
 		result[i] = fmt.Sprintf("%d%%", v)
 	}
+
 	return result
 }
 
@@ -66,14 +67,17 @@ func MatchSizingPolicy(class *v1alpha2.VirtualMachineClass, cores int) *v1alpha2
 	if class == nil {
 		return nil
 	}
+
 	for _, sp := range class.Spec.SizingPolicies {
 		if sp.Cores == nil {
 			continue
 		}
+
 		if cores >= sp.Cores.Min && cores <= sp.Cores.Max {
 			return sp.DeepCopy()
 		}
 	}
+
 	return nil
 }
 
@@ -87,8 +91,10 @@ func NeededCoreFraction(cores int, targetMilliCPU int64) int {
 	if cores <= 0 {
 		return MaxAutoCoreFraction
 	}
+
 	denom := int64(cores) * 10
 	fraction := int((targetMilliCPU + denom - 1) / denom) // ceil division
+
 	return clamp(fraction, MinCoreFraction, MaxAutoCoreFraction)
 }
 
@@ -105,6 +111,7 @@ func QuantizeCoreFractionUp(raw int, allowed []v1alpha2.CoreFractionValue) int {
 	for i, a := range allowed {
 		sorted[i] = int(a)
 	}
+
 	slices.Sort(sorted)
 
 	for _, v := range sorted {
@@ -125,12 +132,14 @@ func MaxAllowedCoreFraction(class *v1alpha2.VirtualMachineClass, cores int) int 
 	if sp == nil || len(sp.CoreFractions) == 0 {
 		return MaxCoreFraction
 	}
+
 	max := MinCoreFraction
 	for _, f := range sp.CoreFractions {
 		if int(f) > max {
 			max = int(f)
 		}
 	}
+
 	return max
 }
 
@@ -161,20 +170,26 @@ func AutoCoreFractionSteps(sp *v1alpha2.SizingPolicy) []v1alpha2.CoreFractionVal
 	if sp == nil || len(sp.CoreFractions) == 0 {
 		return slices.Clone(DefaultAutoCoreFractionSteps)
 	}
+
 	seen := make(map[int]struct{}, len(sp.CoreFractions))
+
 	steps := make([]v1alpha2.CoreFractionValue, 0, len(sp.CoreFractions))
 	for _, f := range sp.CoreFractions {
 		v := int(f)
 		if v >= MaxCoreFraction {
 			continue
 		}
+
 		if _, ok := seen[v]; ok {
 			continue
 		}
+
 		seen[v] = struct{}{}
 		steps = append(steps, v1alpha2.CoreFractionValue(v))
 	}
+
 	slices.SortFunc(steps, func(a, b v1alpha2.CoreFractionValue) int { return int(a) - int(b) })
+
 	return steps
 }
 
@@ -205,6 +220,7 @@ func SeedAutoCoreFraction(class *v1alpha2.VirtualMachineClass, cores int) int {
 			seed = int(s)
 		}
 	}
+
 	return seed
 }
 
@@ -217,9 +233,11 @@ func EffectiveCoreFraction(vm *v1alpha2.VirtualMachine, class *v1alpha2.VirtualM
 	if vm.Spec.CPU.CoreFraction != v1alpha2.CoreFractionAuto {
 		return vm.Spec.CPU.CoreFraction
 	}
+
 	if recommended := RecommendedCoreFraction(vm); recommended != "" {
 		return recommended
 	}
+
 	return fmt.Sprintf("%d%%", SeedAutoCoreFraction(class, vm.Spec.CPU.Cores))
 }
 
@@ -230,6 +248,7 @@ func RecommendedCoreFraction(vm *v1alpha2.VirtualMachine) string {
 	if vm == nil || vm.Status.RecommendedResources == nil {
 		return ""
 	}
+
 	return vm.Status.RecommendedResources.CPU.CoreFraction
 }
 
@@ -241,9 +260,11 @@ func SetRecommendedCoreFraction(vm *v1alpha2.VirtualMachine, coreFraction string
 		vm.Status.RecommendedResources = nil
 		return
 	}
+
 	if vm.Status.RecommendedResources == nil {
 		vm.Status.RecommendedResources = &v1alpha2.RecommendedResourcesStatus{}
 	}
+
 	vm.Status.RecommendedResources.CPU.CoreFraction = coreFraction
 }
 
@@ -256,6 +277,7 @@ func abs(v int) int {
 	if v < 0 {
 		return -v
 	}
+
 	return v
 }
 
@@ -263,8 +285,10 @@ func clamp(v, lo, hi int) int {
 	if v < lo {
 		return lo
 	}
+
 	if v > hi {
 		return hi
 	}
+
 	return v
 }

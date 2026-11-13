@@ -68,6 +68,7 @@ func (h *DeletionHandler) Handle(ctx context.Context, s state.NodeUSBDeviceState
 			if err := h.client.Delete(ctx, current); err != nil && !apierrors.IsNotFound(err) {
 				return reconcile.Result{}, fmt.Errorf("failed to delete NodeUSBDevice: %w", err)
 			}
+
 			return reconcile.Result{}, reconciler.ErrStopHandlerChain
 		}
 
@@ -77,6 +78,7 @@ func (h *DeletionHandler) Handle(ctx context.Context, s state.NodeUSBDeviceState
 		if err := h.cleanupOwnedUSBDevices(ctx, current); err != nil {
 			return reconcile.Result{}, err
 		}
+
 		controllerutil.RemoveFinalizer(changed, v1alpha2.FinalizerNodeUSBDeviceCleanup)
 	}
 

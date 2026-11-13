@@ -51,5 +51,6 @@ func (w *VerticalPodAutoscalerWatcher) Watch(mgr manager.Manager, ctr controller
 	); err != nil {
 		return fmt.Errorf("error setting watch on VerticalPodAutoscaler: %w", err)
 	}
+
 	return nil
 }

@@ -97,6 +97,7 @@ func (e *ModuleEventLog) fillNodeInfo(nodeInformer cache.Store, pod *corev1.Pod)
 	}
 
 	addresses := []string{}
+
 	for _, addr := range node.Status.Addresses {
 		if addr.Type != corev1.NodeHostName && addr.Address != "" {
 			addresses = append(addresses, addr.Address)

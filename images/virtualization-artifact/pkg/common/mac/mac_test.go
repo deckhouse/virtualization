@@ -64,6 +64,7 @@ var _ = Describe("MAC Utilities", func() {
 		It("should return false for a MAC address with incorrect length", func() {
 			addressShort := "00:1A:2B:3C:4D"
 			addressLong := "00:1A:2B:3C:4D:5E:6F"
+
 			Expect(IsValidAddressFormat(addressShort)).To(BeFalse())
 			Expect(IsValidAddressFormat(addressLong)).To(BeFalse())
 		})

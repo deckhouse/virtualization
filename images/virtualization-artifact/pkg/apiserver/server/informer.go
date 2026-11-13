@@ -37,5 +37,6 @@ func virtualizationInformerFactory(rest *rest.Config) (virtInformers.SharedInfor
 	if err != nil {
 		return nil, fmt.Errorf("unable to construct client: %w", err)
 	}
+
 	return virtInformers.NewSharedInformerFactory(client, defaultResync), nil
 }

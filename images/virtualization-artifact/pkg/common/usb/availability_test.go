@@ -69,6 +69,7 @@ var _ = Describe("availability helpers", func() {
 		Expect(corev1.AddToScheme(scheme)).To(Succeed())
 
 		vmNodeObj, vmNodeField, vmNodeExtractValue := indexer.IndexVMByNode()
+
 		return fake.NewClientBuilder().
 			WithScheme(scheme).
 			WithObjects(objects...).

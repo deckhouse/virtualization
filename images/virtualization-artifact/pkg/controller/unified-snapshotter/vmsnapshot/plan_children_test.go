@@ -54,17 +54,21 @@ func TestPlanChildren_AddressesDisksBySourceRef(t *testing.T) {
 	if err != nil {
 		t.Fatalf("planChildren: %v", err)
 	}
+
 	if got, want := len(specs), 2; got != want {
 		t.Fatalf("planned %d children, want %d (images carry no data leg)", got, want)
 	}
+
 	for i, wantDisk := range []string{"disk-a", "disk-b"} {
 		child, ok := specs[i].Object.(*v1alpha2.VirtualDiskSnapshot)
 		if !ok {
 			t.Fatalf("child %d is %T, want *VirtualDiskSnapshot", i, specs[i].Object)
 		}
+
 		if child.Spec.SourceRef == nil {
 			t.Fatalf("child %d has no spec.sourceRef", i)
 		}
+
 		if child.Spec.SourceRef.Name != wantDisk ||
 			child.Spec.SourceRef.Kind != v1alpha2.VirtualDiskKind ||
 			child.Spec.SourceRef.APIVersion != v1alpha2.SchemeGroupVersion.String() {
@@ -75,13 +79,16 @@ func TestPlanChildren_AddressesDisksBySourceRef(t *testing.T) {
 		if child.Spec.VirtualDiskName != "" {
 			t.Errorf("child %d also sets spec.virtualDiskName = %q; the CRD rejects both at once", i, child.Spec.VirtualDiskName)
 		}
+
 		if !child.Spec.RequiredConsistency {
 			t.Errorf("child %d did not inherit requiredConsistency", i)
 		}
+
 		driven, err := annotation.DrivenByUnifiedVirtualDiskSnapshot(context.Background(), r.APIReader, child)
 		if err != nil {
 			t.Errorf("error detecting snapshot mechanism for child %d: %v", i, err)
 		}
+
 		if !driven {
 			t.Errorf("child %d is not routed to the unified snapshotter", i)
 		}
@@ -90,6 +97,7 @@ func TestPlanChildren_AddressesDisksBySourceRef(t *testing.T) {
 			t.Errorf("child %d namespace = %q, want %q", i, child.Namespace, testNamespace)
 		}
 	}
+
 	if specs[0].Object.GetName() == specs[1].Object.GetName() {
 		t.Error("children share a name; create-or-adopt would collapse them into one")
 	}
@@ -147,9 +155,11 @@ func TestPlanChildren_ChildrenInheritTheConsistencyMandate(t *testing.T) {
 				if err != nil {
 					t.Fatalf("planChildren: %v", err)
 				}
+
 				if len(specs) != 1 {
 					t.Fatalf("planned %d children, want 1", len(specs))
 				}
+
 				child := specs[0].Object.(*v1alpha2.VirtualDiskSnapshot)
 				if got := child.Spec.RequiredConsistency; got != mandate {
 					t.Errorf("child requiredConsistency = %v, want %v (inherited verbatim)", got, mandate)
@@ -187,6 +197,7 @@ func TestPlanChildren_HonoursTheExcludeVeto(t *testing.T) {
 	if len(specs) != 1 {
 		t.Fatalf("planned %d children, want 1 (the vetoed disk must not be captured)", len(specs))
 	}
+
 	child := specs[0].Object.(*v1alpha2.VirtualDiskSnapshot)
 	if child.Spec.SourceRef.Name != "disk-kept" {
 		t.Errorf("planned a child for %q, want disk-kept", child.Spec.SourceRef.Name)
@@ -195,6 +206,7 @@ func TestPlanChildren_HonoursTheExcludeVeto(t *testing.T) {
 	if len(excluded) != 1 {
 		t.Fatalf("reported %d excluded refs, want 1: %+v", len(excluded), excluded)
 	}
+
 	want := snapshotsdk.ExcludedObjectRef{
 		APIVersion: v1alpha2.SchemeGroupVersion.String(),
 		Kind:       v1alpha2.VirtualDiskKind,
@@ -247,12 +259,15 @@ func TestPlanChildren_ChildNameIsBoundedRegardlessOfDiskName(t *testing.T) {
 	if err != nil {
 		t.Fatalf("planChildren: %v", err)
 	}
+
 	if len(specs) != 1 {
 		t.Fatalf("planned %d children, want 1", len(specs))
 	}
+
 	if got := len(specs[0].Object.GetName()); got > 253 {
 		t.Errorf("child name is %d characters, over the Kubernetes limit of 253", got)
 	}
+
 	want := snapshotsdk.ChildSnapshotName(vms.UID, types.UID("disk-uid-long"))
 	if got := specs[0].Object.GetName(); got != want {
 		t.Errorf("child name = %q, want the core's own scheme %q", got, want)

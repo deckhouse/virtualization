@@ -49,6 +49,7 @@ func addWatches(mgr manager.Manager, ctr controller.Controller, volumeSnapshotAP
 					if !hasPopulationStrategy(e.ObjectNew) {
 						return false
 					}
+
 					return e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase ||
 						e.ObjectOld.Spec.VolumeName != e.ObjectNew.Spec.VolumeName ||
 						e.ObjectOld.Annotations[service.SelectedNodeAnnotation] != e.ObjectNew.Annotations[service.SelectedNodeAnnotation]
@@ -73,6 +74,7 @@ func addWatches(mgr manager.Manager, ctr controller.Controller, volumeSnapshotAP
 					if !isPopulationHelperPVC(e.ObjectNew) {
 						return false
 					}
+
 					return e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase ||
 						e.ObjectOld.Spec.VolumeName != e.ObjectNew.Spec.VolumeName
 				},
@@ -130,11 +132,13 @@ func isPopulationHelperPVC(pvc *corev1.PersistentVolumeClaim) bool {
 	if pvc == nil || hasPopulationStrategy(pvc) {
 		return false
 	}
+
 	for _, ref := range pvc.OwnerReferences {
 		if ref.Kind == "PersistentVolumeClaim" {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -142,14 +146,17 @@ func isImporterPod(pod *corev1.Pod) bool {
 	if pod == nil {
 		return false
 	}
+
 	if pod.Labels[annotations.AppLabel] != annotations.CDILabelValue {
 		return false
 	}
+
 	for _, ref := range pod.OwnerReferences {
 		if ref.Kind == "PersistentVolumeClaim" {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -164,12 +171,15 @@ func helperPopulationTargetName(ctx context.Context, c client.Client, helper *co
 		if ref.Kind != "PersistentVolumeClaim" {
 			continue
 		}
+
 		owner, err := object.FetchObject(ctx, types.NamespacedName{Name: ref.Name, Namespace: helper.Namespace}, c, &corev1.PersistentVolumeClaim{})
 		if err != nil || owner == nil || !hasPopulationStrategy(owner) {
 			continue
 		}
+
 		return owner.Name
 	}
+
 	return ""
 }
 
@@ -179,12 +189,15 @@ func enqueuePopulationTargetFromImporterPod(c client.Client) func(context.Contex
 			if ref.Kind != "PersistentVolumeClaim" {
 				continue
 			}
+
 			target, err := object.FetchObject(ctx, types.NamespacedName{Name: ref.Name, Namespace: pod.Namespace}, c, &corev1.PersistentVolumeClaim{})
 			if err != nil || target == nil || !hasPopulationStrategy(target) {
 				continue
 			}
+
 			return populationTargetRequests(target.Namespace, target.Name)
 		}
+
 		return nil
 	}
 }
@@ -197,24 +210,31 @@ func enqueuePopulationTargetFromVolumeSnapshot(c client.Client) func(context.Con
 		}
 
 		var requests []reconcile.Request
+
 		seen := make(map[string]struct{})
+
 		for i := range pvcList.Items {
 			pvc := &pvcList.Items[i]
 			if !hasPopulationStrategy(pvc) {
 				continue
 			}
+
 			if pvc.Annotations[annotations.AnnPVCPopulationStrategy] != service.PopulationStrategySnapshot {
 				continue
 			}
+
 			if snapshotNameFromPVC(pvc) != vs.Name {
 				continue
 			}
+
 			if _, ok := seen[pvc.Name]; ok {
 				continue
 			}
+
 			seen[pvc.Name] = struct{}{}
 			requests = append(requests, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(pvc)})
 		}
+
 		return requests
 	}
 }
@@ -223,6 +243,7 @@ func populationTargetRequests(namespace, name string) []reconcile.Request {
 	if name == "" {
 		return nil
 	}
+
 	return []reconcile.Request{{NamespacedName: types.NamespacedName{Name: name, Namespace: namespace}}}
 }
 
@@ -230,5 +251,6 @@ func volumeSnapshotReadyToUse(vs *vsv1.VolumeSnapshot) bool {
 	if vs == nil || vs.Status == nil || vs.Status.ReadyToUse == nil {
 		return false
 	}
+
 	return *vs.Status.ReadyToUse
 }

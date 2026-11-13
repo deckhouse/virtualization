@@ -67,11 +67,13 @@ func (w VirtualImageWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 	); err != nil {
 		return fmt.Errorf("error setting watch on VIs: %w", err)
 	}
+
 	return nil
 }
 
 func (w VirtualImageWatcher) enqueueRequests(ctx context.Context, vi *v1alpha2.VirtualImage) (requests []reconcile.Request) {
 	var vmbdas v1alpha2.VirtualMachineBlockDeviceAttachmentList
+
 	err := w.client.List(ctx, &vmbdas, &client.ListOptions{
 		Namespace: vi.GetNamespace(),
 	})

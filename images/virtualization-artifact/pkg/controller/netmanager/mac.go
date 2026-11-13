@@ -55,6 +55,7 @@ func (m MACManager) CheckMACAddressAvailableForBinding(vmmac *v1alpha2.VirtualMa
 
 func (m MACManager) CreateMACAddress(ctx context.Context, vm *v1alpha2.VirtualMachine, client client.Client, macAddress string) error {
 	ownerRef := metav1.NewControllerRef(vm, vm.GroupVersionKind())
+
 	vmmac := &v1alpha2.VirtualMachineMACAddress{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{

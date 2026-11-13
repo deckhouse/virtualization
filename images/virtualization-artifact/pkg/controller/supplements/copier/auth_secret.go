@@ -78,6 +78,7 @@ func (a AuthSecret) CreateScopedTokenDockerConfig(ctx context.Context, client cl
 		if err != nil {
 			return nil, "", err
 		}
+
 		return map[string][]byte{corev1.DockerConfigJsonKey: cfg}, corev1.SecretTypeDockerConfigJson, nil
 	})
 }
@@ -89,6 +90,7 @@ func (a AuthSecret) ensureScopedToken(ctx context.Context, client client.Client,
 	now := time.Now()
 
 	existing := &corev1.Secret{}
+
 	err := client.Get(ctx, a.Destination, existing)
 	switch {
 	case err == nil:
@@ -103,6 +105,7 @@ func (a AuthSecret) ensureScopedToken(ctx context.Context, client client.Client,
 	if err != nil {
 		return fmt.Errorf("mint scoped DVCR token: %w", err)
 	}
+
 	data, secretType, err := build(raw)
 	if err != nil {
 		return err
@@ -115,13 +118,17 @@ func (a AuthSecret) ensureScopedToken(ctx context.Context, client client.Client,
 		if !k8serrors.IsAlreadyExists(createErr) {
 			return createErr
 		}
+
 		existing.Data = secret.Data
 		if existing.Annotations == nil {
 			existing.Annotations = map[string]string{}
 		}
+
 		existing.Annotations[scopedTokenExpiryAnnotation] = secret.Annotations[scopedTokenExpiryAnnotation]
+
 		return client.Update(ctx, existing)
 	}
+
 	return nil
 }
 
@@ -132,10 +139,12 @@ func scopedTokenValidFor(secret *corev1.Secret, now time.Time) time.Duration {
 	if raw == "" {
 		return 0
 	}
+
 	exp, err := time.Parse(time.RFC3339, raw)
 	if err != nil || exp.Before(now) {
 		return 0
 	}
+
 	return exp.Sub(now)
 }
 
@@ -146,6 +155,7 @@ func dockerConfigJSON(registryURL, username, password string) ([]byte, error) {
 		"password": password,
 		"auth":     base64.StdEncoding.EncodeToString([]byte(username + ":" + password)),
 	}
+
 	return json.Marshal(map[string]any{
 		"auths": map[string]any{registryURL: entry},
 	})

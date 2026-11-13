@@ -88,6 +88,7 @@ func countLocalAttachedUSBsOnNodeBySpeed(ctx context.Context, cl client.Client, 
 
 	count := 0
 	usbCache := make(map[client.ObjectKey]*v1alpha2.USBDevice)
+
 	for i := range vmList.Items {
 		vm := &vmList.Items[i]
 		for _, usbStatus := range vm.Status.USBDevices {
@@ -96,6 +97,7 @@ func countLocalAttachedUSBsOnNodeBySpeed(ctx context.Context, cl client.Client, 
 			}
 
 			key := client.ObjectKey{Name: usbStatus.Name, Namespace: vm.Namespace}
+
 			usbDevice, ok := usbCache[key]
 			if !ok {
 				usbDevice = &v1alpha2.USBDevice{}
@@ -103,8 +105,10 @@ func countLocalAttachedUSBsOnNodeBySpeed(ctx context.Context, cl client.Client, 
 					if apierrors.IsNotFound(err) {
 						continue
 					}
+
 					return 0, err
 				}
+
 				usbCache[key] = usbDevice
 			}
 

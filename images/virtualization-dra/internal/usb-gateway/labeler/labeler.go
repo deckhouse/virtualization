@@ -59,9 +59,11 @@ func (l *genericLabeler) Label(ctx context.Context, name, namespace string, addL
 	oldLabels := obj.GetLabels()
 	newLabels := make(map[string]string)
 	maps.Copy(newLabels, oldLabels)
+
 	for _, k := range removeLabels {
 		delete(newLabels, k)
 	}
+
 	maps.Copy(newLabels, addLabels)
 
 	if equality.Semantic.DeepEqual(oldLabels, newLabels) {
@@ -77,6 +79,7 @@ func (l *genericLabeler) Label(ctx context.Context, name, namespace string, addL
 	}
 
 	_, err = l.client.Resource(l.gvr).Namespace(namespace).Patch(ctx, name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+
 	return err
 }
 

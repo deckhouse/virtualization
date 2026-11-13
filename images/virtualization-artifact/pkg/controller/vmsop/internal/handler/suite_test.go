@@ -37,11 +37,13 @@ func TestVmopHandlers(t *testing.T) {
 func setupEnvironment(vmsop *v1alpha2.VirtualMachineSnapshotOperation, objs ...client.Object) (client.WithWatch, *reconciler.Resource[*v1alpha2.VirtualMachineSnapshotOperation, v1alpha2.VirtualMachineSnapshotOperationStatus]) {
 	GinkgoHelper()
 	Expect(vmsop).ToNot(BeNil())
+
 	for _, obj := range objs {
 		Expect(obj).ToNot(BeNil())
 	}
 
 	allObjects := make([]client.Object, len(objs)+1)
+
 	allObjects[0] = vmsop
 	for i := range objs {
 		allObjects[i+1] = objs[i]

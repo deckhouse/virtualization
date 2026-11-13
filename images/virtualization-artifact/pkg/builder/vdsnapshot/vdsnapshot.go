@@ -25,6 +25,7 @@ import (
 func New(options ...Option) *v1alpha2.VirtualDiskSnapshot {
 	vdsnapshot := NewEmpty("", "")
 	ApplyOptions(vdsnapshot, options...)
+
 	return vdsnapshot
 }
 
@@ -32,6 +33,7 @@ func ApplyOptions(vdsnapshot *v1alpha2.VirtualDiskSnapshot, opts ...Option) {
 	if vdsnapshot == nil {
 		return
 	}
+
 	for _, opt := range opts {
 		opt(vdsnapshot)
 	}

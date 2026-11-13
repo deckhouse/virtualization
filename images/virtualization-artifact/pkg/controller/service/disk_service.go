@@ -107,6 +107,7 @@ func (s DiskService) GetPVCImporterPod(ctx context.Context, sup supplements.Gene
 	if err != nil || pod != nil {
 		return pod, err
 	}
+
 	return object.FetchObject(ctx, sup.PVCImporterPod(), s.client, &corev1.Pod{})
 }
 
@@ -186,6 +187,7 @@ func (s DiskService) CleanUpSupplements(ctx context.Context, sup supplements.Gen
 			Namespace: sup.PersistentVolumeClaim().Namespace,
 		},
 	}
+
 	importSupplementsDeleted, err := s.pvc.Cleanup(ctx, sup, target)
 	if err != nil {
 		return false, "", fmt.Errorf("delete pvc import supplements: %w", err)
@@ -274,6 +276,7 @@ func (s DiskService) GetClusterVirtualImage(ctx context.Context, name string) (*
 
 func (s DiskService) ListVirtualDiskSnapshots(ctx context.Context, namespace string) ([]v1alpha2.VirtualDiskSnapshot, error) {
 	var vdSnapshots v1alpha2.VirtualDiskSnapshotList
+
 	err := s.client.List(ctx, &vdSnapshots, &client.ListOptions{
 		Namespace: namespace,
 	})
@@ -308,7 +311,9 @@ func alignUpToBlockSize(size int64) int64 {
 	if size <= 0 {
 		return size
 	}
+
 	blocks := (size + DefaultAlignBlockSize - 1) / DefaultAlignBlockSize
+
 	return blocks * DefaultAlignBlockSize
 }
 

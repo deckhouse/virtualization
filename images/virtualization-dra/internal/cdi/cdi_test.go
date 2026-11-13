@@ -34,6 +34,7 @@ func newTestManager(t *testing.T) Manager {
 	if err != nil {
 		t.Fatalf("new manager: %v", err)
 	}
+
 	return m
 }
 
@@ -51,6 +52,7 @@ func TestCreateClaimSpecFileRejectsDeviceNameWithoutPrefix(t *testing.T) {
 			t.Errorf("device name %q: expected an error", deviceName)
 			continue
 		}
+
 		if !strings.Contains(err.Error(), USBDeviceNamePrefix) {
 			t.Errorf("device name %q: error does not mention the expected prefix: %v", deviceName, err)
 		}
@@ -59,6 +61,7 @@ func TestCreateClaimSpecFileRejectsDeviceNameWithoutPrefix(t *testing.T) {
 
 func TestCreateClaimSpecFileStripsPrefixFromEnv(t *testing.T) {
 	specDir := t.TempDir()
+
 	m, err := NewManager(specDir, "usb", "dra.virtualization.deckhouse.io", "node-1", "DRA_USB")
 	if err != nil {
 		t.Fatalf("new manager: %v", err)
@@ -72,10 +75,12 @@ func TestCreateClaimSpecFileStripsPrefixFromEnv(t *testing.T) {
 	if err != nil || len(specs) != 1 {
 		t.Fatalf("expected exactly one spec file, got %v (err %v)", specs, err)
 	}
+
 	content, err := os.ReadFile(specs[0])
 	if err != nil {
 		t.Fatalf("read spec file: %v", err)
 	}
+
 	want := "DRA_USB_c0ffee_RESOURCE_CLAIM=" + testClaimUID
 	if !strings.Contains(string(content), want) {
 		t.Errorf("spec file does not contain %q:\n%s", want, content)

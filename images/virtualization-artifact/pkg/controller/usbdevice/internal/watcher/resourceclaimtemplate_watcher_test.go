@@ -38,12 +38,14 @@ func TestShouldProcessResourceClaimTemplateUpdate(t *testing.T) {
 	}
 
 	changedOwners := oldObj.DeepCopy()
+
 	changedOwners.OwnerReferences = []metav1.OwnerReference{{Kind: "USBDevice", Name: "usb-b"}}
 	if !shouldProcessResourceClaimTemplateUpdate(oldObj, changedOwners) {
 		t.Fatal("expected owner references update to be processed")
 	}
 
 	changedSpec := oldObj.DeepCopy()
+
 	changedSpec.Spec = resourcev1.ResourceClaimTemplateSpec{
 		Spec: resourcev1.ResourceClaimSpec{
 			Devices: resourcev1.DeviceClaim{
@@ -60,6 +62,7 @@ func TestShouldProcessResourceClaimTemplateUpdate(t *testing.T) {
 	if shouldProcessResourceClaimTemplateUpdate(nil, changedOwners) {
 		t.Fatal("expected nil old object to be ignored")
 	}
+
 	if shouldProcessResourceClaimTemplateUpdate(oldObj, nil) {
 		t.Fatal("expected nil new object to be ignored")
 	}

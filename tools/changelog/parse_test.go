@@ -88,6 +88,7 @@ func TestBlocksIgnoresWhatIsNotACodeBlock(t *testing.T) {
 			if len(got) != len(test.want) {
 				t.Fatalf("got %d block(s), want %d: %q", len(got), len(test.want), got)
 			}
+
 			for i := range got {
 				if got[i] != test.want[i] {
 					t.Errorf("block %d:\n got: %q\nwant: %q", i+1, got[i], test.want[i])
@@ -105,6 +106,7 @@ func TestTemplateExampleIsNotAnEntry(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	description := strings.Replace(string(template),
 		"```changes\nsection:\ntype:\nsummary:\n```",
 		fence("section: vd\ntype: fix\nsummary: what the author wrote"), 1)
@@ -113,9 +115,11 @@ func TestTemplateExampleIsNotAnEntry(t *testing.T) {
 	if len(blocks) != 1 {
 		t.Fatalf("got %d block(s) in the template, want 1", len(blocks))
 	}
+
 	if blocks[0].Err != nil {
 		t.Fatalf("the block of the template does not parse: %v", blocks[0].Err)
 	}
+
 	if len(blocks[0].Entries) != 1 || blocks[0].Entries[0].Summary != "what the author wrote" {
 		t.Errorf("got %+v, want the entry of the author", blocks[0].Entries)
 	}
@@ -128,6 +132,7 @@ func TestTemplateStubIsRefused(t *testing.T) {
 	if len(blocks) != 1 || blocks[0].Err != nil {
 		t.Fatalf("the stub of the template does not parse: %+v", blocks)
 	}
+
 	problems := blockProblems(blocks[0], Sections{"vm": ""})
 	for _, want := range []string{"missing section", "missing summary", "missing type"} {
 		if !containsSubstring(problems, want) {
@@ -216,9 +221,11 @@ func TestParseBlock(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
+
 			if len(got) != len(test.want) {
 				t.Fatalf("got %d entries, want %d: %+v", len(got), len(test.want), got)
 			}
+
 			for i := range got {
 				if got[i] != test.want[i] {
 					t.Errorf("entry %d:\n got: %+v\nwant: %+v", i+1, got[i], test.want[i])
@@ -263,9 +270,11 @@ func TestParseBlockReportsWhatItCannotRead(t *testing.T) {
 			if err == nil {
 				t.Fatal("got no error, want one")
 			}
+
 			if !strings.Contains(err.Error(), test.want) {
 				t.Errorf("got %q, want it to mention %q", err, test.want)
 			}
+
 			if strings.Contains(err.Error(), "rawEntry") {
 				t.Errorf("the message names a Go type: %q", err)
 			}
@@ -284,12 +293,15 @@ func TestOneBrokenBlockDoesNotHideTheOthers(t *testing.T) {
 	if len(blocks) != 3 {
 		t.Fatalf("got %d blocks, want 3", len(blocks))
 	}
+
 	if blocks[0].Err != nil || blocks[2].Err != nil {
 		t.Errorf("a readable block was reported as broken: %v, %v", blocks[0].Err, blocks[2].Err)
 	}
+
 	if blocks[1].Err == nil {
 		t.Error("the broken block was not reported")
 	}
+
 	if len(blocks[0].Entries) != 1 || len(blocks[2].Entries) != 1 {
 		t.Errorf("the readable blocks lost their entries: %+v", blocks)
 	}
@@ -301,5 +313,6 @@ func containsSubstring(values []string, want string) bool {
 			return true
 		}
 	}
+
 	return false
 }

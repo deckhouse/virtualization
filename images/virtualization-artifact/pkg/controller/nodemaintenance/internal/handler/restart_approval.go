@@ -62,6 +62,7 @@ func (h *RestartApprovalHandler) Handle(ctx context.Context, node *corev1.Node) 
 	switch {
 	case held && !requested:
 		logger.FromContext(ctx).Info("Ask an administrator to allow restarting the machines that hold the node")
+
 		return reconcile.Result{}, h.patchAnnotations(ctx, node, map[string]interface{}{
 			annotations.AnnNodeVMRestartRequired: "",
 		})
@@ -71,8 +72,10 @@ func (h *RestartApprovalHandler) Handle(ctx context.Context, node *corev1.Node) 
 		toRemove := map[string]interface{}{annotations.AnnNodeVMRestartRequired: nil}
 		if approved {
 			toRemove[annotations.AnnNodeVMRestartApproved] = nil
+
 			logger.FromContext(ctx).Info("The node is released, the restart approval is spent")
 		}
+
 		return reconcile.Result{}, h.patchAnnotations(ctx, node, toRemove)
 	}
 

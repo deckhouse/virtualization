@@ -74,6 +74,7 @@ type VirtualMachineState interface {
 func New(c client.Client, vm *reconciler.Resource[*v1alpha2.VirtualMachine, v1alpha2.VirtualMachineStatus]) VirtualMachineState {
 	state := &state{client: c, vm: vm}
 	state.fill()
+
 	return state
 }
 
@@ -113,6 +114,7 @@ func (s *state) fill() {
 	for _, bd := range s.vm.Current().Spec.BlockDeviceRefs {
 		mapRefs[blockDeviceRef{Name: bd.Name, Kind: bd.Kind}] = struct{}{}
 	}
+
 	for _, bd := range s.vm.Current().Status.BlockDeviceRefs {
 		mapRefs[blockDeviceRef{Name: bd.Name, Kind: bd.Kind}] = struct{}{}
 	}
@@ -140,11 +142,14 @@ func (s *state) UsesVMIP(ctx context.Context) (bool, error) {
 	if s.usesVMIP != nil {
 		return *s.usesVMIP, nil
 	}
+
 	usesVMIP, err := network.UsesVMIP(ctx, s.client, s.vm.Current())
 	if err != nil {
 		return false, err
 	}
+
 	s.usesVMIP = &usesVMIP
+
 	return usesVMIP, nil
 }
 
@@ -153,19 +158,24 @@ func (s *state) MainInterfaceSpecEnabled(ctx context.Context) (bool, error) {
 	if s.mainInterfaceSpecEnabled != nil {
 		return *s.mainInterfaceSpecEnabled, nil
 	}
+
 	kvvm, err := s.KVVM(ctx)
 	if err != nil {
 		return false, err
 	}
+
 	usesVMIP, err := s.UsesVMIP(ctx)
 	if err != nil {
 		return false, err
 	}
+
 	enabled, err := network.MainInterfaceSpecEnabled(ctx, s.client, usesVMIP, kvvm)
 	if err != nil {
 		return false, err
 	}
+
 	s.mainInterfaceSpecEnabled = &enabled
+
 	return enabled, nil
 }
 
@@ -174,6 +184,7 @@ func (s *state) KVVM(ctx context.Context) (*virtv1.VirtualMachine, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch KVVM: %w", err)
 	}
+
 	return kvvm, nil
 }
 
@@ -182,11 +193,13 @@ func (s *state) KVVMI(ctx context.Context) (*virtv1.VirtualMachineInstance, erro
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch KVVMI: %w", err)
 	}
+
 	return kvvmi, nil
 }
 
 func (s *state) Pods(ctx context.Context) (*corev1.PodList, error) {
 	podList := corev1.PodList{}
+
 	err := s.client.List(ctx, &podList, &client.ListOptions{
 		Namespace:     s.vm.Current().GetNamespace(),
 		LabelSelector: labels.SelectorFromSet(map[string]string{virtv1.VirtualMachineNameLabel: s.vm.Current().GetName()}),
@@ -194,6 +207,7 @@ func (s *state) Pods(ctx context.Context) (*corev1.PodList, error) {
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return nil, fmt.Errorf("unable to list virt-launcher Pod for KubeVirt VM %q: %w", s.vm.Current().GetName(), err)
 	}
+
 	return &podList, nil
 }
 
@@ -202,19 +216,23 @@ func (s *state) Pod(ctx context.Context) (*corev1.Pod, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch pod for VirtualMachine %q: %w", s.vm.Current().GetName(), err)
 	}
+
 	kvvmi, err := s.KVVMI(ctx)
 	if err != nil {
 		return nil, err
 	}
+
 	var pod *corev1.Pod
 	if len(pods.Items) > 0 {
 		pod = kvvmutil.GetVMPod(kvvmi, pods)
 	}
+
 	return pod, nil
 }
 
 func (s *state) VirtualMachineBlockDeviceAttachments(ctx context.Context) (map[v1alpha2.VMBDAObjectRef][]*v1alpha2.VirtualMachineBlockDeviceAttachment, error) {
 	var vmbdas v1alpha2.VirtualMachineBlockDeviceAttachmentList
+
 	err := s.client.List(ctx, &vmbdas, &client.ListOptions{
 		Namespace: s.vm.Name().Namespace,
 	})
@@ -223,6 +241,7 @@ func (s *state) VirtualMachineBlockDeviceAttachments(ctx context.Context) (map[v
 	}
 
 	vmbdasByRef := make(map[v1alpha2.VMBDAObjectRef][]*v1alpha2.VirtualMachineBlockDeviceAttachment)
+
 	for _, vmbda := range vmbdas.Items {
 		if vmbda.Spec.VirtualMachineName != s.vm.Name().Name {
 			continue
@@ -261,6 +280,7 @@ func (s *state) ClusterVirtualImage(ctx context.Context, name string) (*v1alpha2
 
 func (s *state) VirtualDisksByName(ctx context.Context) (map[string]*v1alpha2.VirtualDisk, error) {
 	vdByName := make(map[string]*v1alpha2.VirtualDisk)
+
 	for _, bd := range s.bdRefs {
 		switch bd.Kind {
 		case v1alpha2.DiskDevice:
@@ -271,19 +291,23 @@ func (s *state) VirtualDisksByName(ctx context.Context) (map[string]*v1alpha2.Vi
 			if err != nil {
 				return nil, fmt.Errorf("unable to get virtual disk %q: %w", bd.Name, err)
 			}
+
 			if vd == nil {
 				continue
 			}
+
 			vdByName[bd.Name] = vd
 		default:
 			continue
 		}
 	}
+
 	return vdByName, nil
 }
 
 func (s *state) VirtualImagesByName(ctx context.Context) (map[string]*v1alpha2.VirtualImage, error) {
 	viByName := make(map[string]*v1alpha2.VirtualImage)
+
 	for _, bd := range s.bdRefs {
 		switch bd.Kind {
 		case v1alpha2.ImageDevice:
@@ -294,19 +318,23 @@ func (s *state) VirtualImagesByName(ctx context.Context) (map[string]*v1alpha2.V
 			if err != nil {
 				return nil, fmt.Errorf("unable to get VI %q: %w", bd.Name, err)
 			}
+
 			if vi == nil {
 				continue
 			}
+
 			viByName[bd.Name] = vi
 		default:
 			continue
 		}
 	}
+
 	return viByName, nil
 }
 
 func (s *state) ClusterVirtualImagesByName(ctx context.Context) (map[string]*v1alpha2.ClusterVirtualImage, error) {
 	cviByName := make(map[string]*v1alpha2.ClusterVirtualImage)
+
 	for _, bd := range s.bdRefs {
 		switch bd.Kind {
 		case v1alpha2.ClusterImageDevice:
@@ -317,14 +345,17 @@ func (s *state) ClusterVirtualImagesByName(ctx context.Context) (map[string]*v1a
 			if err != nil {
 				return nil, fmt.Errorf("unable to get CVI %q: %w", bd.Name, err)
 			}
+
 			if cvi == nil {
 				continue
 			}
+
 			cviByName[bd.Name] = cvi
 		default:
 			continue
 		}
 	}
+
 	return cviByName, nil
 }
 
@@ -338,22 +369,28 @@ func (s *state) VirtualMachineMACAddresses(ctx context.Context) ([]*v1alpha2.Vir
 		if ns.VirtualMachineMACAddressName == "" {
 			continue
 		}
+
 		vmmacKey := types.NamespacedName{Name: ns.VirtualMachineMACAddressName, Namespace: s.vm.Current().GetNamespace()}
+
 		vmmac, err := object.FetchObject(ctx, vmmacKey, s.client, &v1alpha2.VirtualMachineMACAddress{})
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch VirtualMachineMACAddress: %w", err)
 		}
+
 		if vmmac == nil {
 			continue
 		}
+
 		if _, ok := added[vmmac.GetName()]; ok {
 			continue
 		}
+
 		added[vmmac.GetName()] = struct{}{}
 		vmmacs = append(vmmacs, vmmac)
 	}
 
 	vmmacList := &v1alpha2.VirtualMachineMACAddressList{}
+
 	err := s.client.List(ctx, vmmacList, &client.ListOptions{
 		Namespace:     s.vm.Current().GetNamespace(),
 		LabelSelector: labels.SelectorFromSet(map[string]string{annotations.LabelVirtualMachineUID: string(s.vm.Current().GetUID())}),
@@ -367,6 +404,7 @@ func (s *state) VirtualMachineMACAddresses(ctx context.Context) ([]*v1alpha2.Vir
 		if _, ok := added[vmmac.GetName()]; ok {
 			continue
 		}
+
 		added[vmmac.GetName()] = struct{}{}
 		vmmacs = append(vmmacs, vmmac)
 	}
@@ -408,16 +446,19 @@ func (s *state) IPAddress(ctx context.Context) (*v1alpha2.VirtualMachineIPAddres
 func (s *state) Class(ctx context.Context) (*v1alpha2.VirtualMachineClass, error) {
 	className := s.vm.Current().Spec.VirtualMachineClassName
 	classKey := types.NamespacedName{Name: className}
+
 	class, err := object.FetchObject(ctx, classKey, s.client, &v1alpha2.VirtualMachineClass{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch VirtualMachineClass: %w", err)
 	}
+
 	return class, nil
 }
 
 func (s *state) VMOPs(ctx context.Context) ([]*v1alpha2.VirtualMachineOperation, error) {
 	vm := s.vm.Current()
 	vmops := &v1alpha2.VirtualMachineOperationList{}
+
 	err := s.client.List(ctx, vmops,
 		client.InNamespace(vm.Namespace),
 		client.MatchingFields{indexer.IndexFieldVMOPByVM: vm.Name},
@@ -445,22 +486,26 @@ func (s *state) ReadWriteOnceVirtualDisks(ctx context.Context) ([]*v1alpha2.Virt
 
 	for _, vd := range vdByName {
 		pvcKey := types.NamespacedName{Name: vd.Status.Target.PersistentVolumeClaim, Namespace: vd.Namespace}
+
 		pvc, err := object.FetchObject(ctx, pvcKey, s.client, &corev1.PersistentVolumeClaim{})
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch PersistentVolumeClaim: %w", err)
 		}
+
 		if pvc == nil {
 			nonMigratableVirtualDisks = append(nonMigratableVirtualDisks, vd)
 			continue
 		}
 
 		rwx := false
+
 		for _, mode := range pvc.Spec.AccessModes {
 			if mode == corev1.ReadWriteMany {
 				rwx = true
 				break
 			}
 		}
+
 		if !rwx {
 			nonMigratableVirtualDisks = append(nonMigratableVirtualDisks, vd)
 		}
@@ -484,6 +529,7 @@ func (s *state) PVNodeAffinityTerms(ctx context.Context) (terms, stayingTerms []
 		terms, stayingTerms, err = s.collectPVNodeAffinityTerms(ctx)
 		s.pvNodeAffinity = &pvNodeAffinity{terms: terms, stayingTerms: stayingTerms, err: err}
 	}
+
 	return s.pvNodeAffinity.terms, s.pvNodeAffinity.stayingTerms, s.pvNodeAffinity.err
 }
 
@@ -499,6 +545,7 @@ func (s *state) collectPVNodeAffinityTerms(ctx context.Context) (terms, stayingT
 	}
 
 	var perPVTerms, stayingPerPVTerms [][]corev1.NodeSelectorTerm
+
 	namespace := s.vm.Current().GetNamespace()
 
 	for _, ref := range refs {
@@ -506,6 +553,7 @@ func (s *state) collectPVNodeAffinityTerms(ctx context.Context) (terms, stayingT
 		if err != nil {
 			return nil, nil, fmt.Errorf("resolve PVC name for %s/%s: %w", ref.Kind, ref.Name, err)
 		}
+
 		if pvcName == "" {
 			continue
 		}
@@ -514,9 +562,11 @@ func (s *state) collectPVNodeAffinityTerms(ctx context.Context) (terms, stayingT
 		if err != nil {
 			return nil, nil, fmt.Errorf("get PV node affinity for PVC %s: %w", pvcName, err)
 		}
+
 		if refTerms == nil {
 			continue
 		}
+
 		perPVTerms = append(perPVTerms, refTerms)
 		if ref.Kind != v1alpha2.DiskDevice {
 			stayingPerPVTerms = append(stayingPerPVTerms, refTerms)
@@ -530,6 +580,7 @@ func (s *state) collectPVNodeAffinityTerms(ctx context.Context) (terms, stayingT
 		if err != nil {
 			return nil, nil, fmt.Errorf("get storage class node affinity for %s/%s: %w", ref.Kind, ref.Name, err)
 		}
+
 		if scTerms != nil {
 			stayingPerPVTerms = append(stayingPerPVTerms, scTerms)
 		}
@@ -543,22 +594,27 @@ func (s *state) isVolumeMigrating(ctx context.Context, refs []blockDeviceRef) (b
 		if ref.Kind != v1alpha2.DiskDevice {
 			continue
 		}
+
 		vd, err := s.VirtualDisk(ctx, ref.Name)
 		if err != nil {
 			return false, err
 		}
+
 		if vd == nil {
 			continue
 		}
+
 		if commonvd.IsMigrating(vd) {
 			return true, nil
 		}
 	}
+
 	return false, nil
 }
 
 func (s *state) collectBlockDeviceRefs(ctx context.Context) ([]blockDeviceRef, error) {
 	seen := make(map[blockDeviceRef]struct{})
+
 	var refs []blockDeviceRef
 
 	for _, bd := range s.vm.Current().Spec.BlockDeviceRefs {
@@ -570,6 +626,7 @@ func (s *state) collectBlockDeviceRefs(ctx context.Context) ([]blockDeviceRef, e
 	}
 
 	var vmbdaList v1alpha2.VirtualMachineBlockDeviceAttachmentList
+
 	err := s.client.List(ctx, &vmbdaList,
 		client.InNamespace(s.vm.Current().GetNamespace()),
 		client.MatchingFields{indexer.IndexFieldVMBDAByVM: s.vm.Current().GetName()},
@@ -582,6 +639,7 @@ func (s *state) collectBlockDeviceRefs(ctx context.Context) ([]blockDeviceRef, e
 		if vmbda.Status.Phase == v1alpha2.BlockDeviceAttachmentPhaseTerminating || vmbda.DeletionTimestamp != nil {
 			continue
 		}
+
 		ref := blockDeviceRef{
 			Name: vmbda.Spec.BlockDeviceRef.Name,
 			Kind: v1alpha2.BlockDeviceKind(vmbda.Spec.BlockDeviceRef.Kind),
@@ -602,24 +660,30 @@ func (s *state) resolvePVCName(ctx context.Context, kind v1alpha2.BlockDeviceKin
 		if err != nil {
 			return "", err
 		}
+
 		if vd == nil {
 			return "", nil
 		}
+
 		if vmMigrating {
 			return vd.Status.MigrationState.TargetPVC, nil
 		}
+
 		return vd.Status.Target.PersistentVolumeClaim, nil
 	case v1alpha2.ImageDevice:
 		vi, err := s.VirtualImage(ctx, name)
 		if err != nil {
 			return "", err
 		}
+
 		if vi == nil {
 			return "", nil
 		}
+
 		if vi.Spec.Storage != v1alpha2.StorageKubernetes && vi.Spec.Storage != v1alpha2.StoragePersistentVolumeClaim {
 			return "", nil
 		}
+
 		return vi.Status.Target.PersistentVolumeClaim, nil
 	default:
 		return "", nil
@@ -633,6 +697,7 @@ func (s *state) resolveStorageClassName(ctx context.Context, kind v1alpha2.Block
 		if err != nil {
 			return "", err
 		}
+
 		if vd == nil {
 			return "", nil
 		}
@@ -641,21 +706,26 @@ func (s *state) resolveStorageClassName(ctx context.Context, kind v1alpha2.Block
 		if commonvd.IsMigrating(vd) && vd.Status.MigrationState.TargetPVC == pvcName {
 			return "", nil
 		}
+
 		return commonvd.ResolveStorageClassName(ctx, vd, nil)
 	case v1alpha2.ImageDevice:
 		vi, err := s.VirtualImage(ctx, name)
 		if err != nil {
 			return "", err
 		}
+
 		if vi == nil {
 			return "", nil
 		}
+
 		if vi.Status.StorageClassName != "" {
 			return vi.Status.StorageClassName, nil
 		}
+
 		if vi.Spec.PersistentVolumeClaim.StorageClass != nil {
 			return *vi.Spec.PersistentVolumeClaim.StorageClass, nil
 		}
+
 		return "", nil
 	default:
 		return "", nil
@@ -669,6 +739,7 @@ func (s *state) pvNodeAffinityTermsForPVC(ctx context.Context, kind v1alpha2.Blo
 	if err != nil {
 		return nil, err
 	}
+
 	if pvc == nil {
 		return nil, nil
 	}
@@ -687,6 +758,7 @@ func (s *state) nodeAffinityTermsFromBoundPV(ctx context.Context, pvName string)
 	if err != nil {
 		return nil, err
 	}
+
 	if pv == nil {
 		return nil, nil
 	}
@@ -694,6 +766,7 @@ func (s *state) nodeAffinityTermsFromBoundPV(ctx context.Context, pvName string)
 	if pv.Spec.NodeAffinity != nil && pv.Spec.NodeAffinity.Required != nil && len(pv.Spec.NodeAffinity.Required.NodeSelectorTerms) > 0 {
 		return pv.Spec.NodeAffinity.Required.NodeSelectorTerms, nil
 	}
+
 	return nil, nil
 }
 
@@ -711,6 +784,7 @@ func (s *state) nodeAffinityTermsFromUnboundPVC(ctx context.Context, kind v1alph
 	if storageClassName == "" && pvc.Spec.StorageClassName != nil {
 		storageClassName = *pvc.Spec.StorageClassName
 	}
+
 	if storageClassName == "" {
 		return nil, nil
 	}
@@ -721,17 +795,21 @@ func (s *state) nodeAffinityTermsFromUnboundPVC(ctx context.Context, kind v1alph
 	}
 
 	var allTerms []corev1.NodeSelectorTerm
+
 	for i := range pvList.Items {
 		pv := &pvList.Items[i]
 		if pv.Status.Phase != corev1.VolumeAvailable {
 			continue
 		}
+
 		if pv.Spec.StorageClassName != storageClassName {
 			continue
 		}
+
 		if pv.Spec.NodeAffinity == nil || pv.Spec.NodeAffinity.Required == nil {
 			continue
 		}
+
 		allTerms = append(allTerms, pv.Spec.NodeAffinity.Required.NodeSelectorTerms...)
 	}
 
@@ -758,9 +836,11 @@ func (s *state) nodeAffinityTermsFromStorageClassOf(ctx context.Context, ref blo
 	if err != nil {
 		return nil, fmt.Errorf("resolve StorageClass: %w", err)
 	}
+
 	if storageClassName == "" {
 		return nil, nil
 	}
+
 	return s.nodeAffinityTermsFromStorageClassTopology(ctx, storageClassName)
 }
 
@@ -769,6 +849,7 @@ func (s *state) nodeAffinityTermsFromStorageClassTopology(ctx context.Context, s
 	if err != nil {
 		return nil, fmt.Errorf("get StorageClass %s: %w", storageClassName, err)
 	}
+
 	if sc == nil || sc.Provisioner != localCSIProvisioner {
 		return nil, nil
 	}
@@ -786,11 +867,13 @@ func (s *state) nodeAffinityTermsFromStorageClassTopology(ctx context.Context, s
 	}
 
 	var nodeNames []string
+
 	for _, lvg := range lvgs {
 		nodeName, err := s.getNodeNameFromLVMVolumeGroup(ctx, lvg.Name)
 		if err != nil {
 			return nil, err
 		}
+
 		if nodeName != "" {
 			nodeNames = append(nodeNames, nodeName)
 		}
@@ -824,15 +907,18 @@ func (s *state) getNodeNameFromLVMVolumeGroup(ctx context.Context, name string) 
 		if k8serrors.IsNotFound(err) {
 			return "", nil
 		}
+
 		return "", fmt.Errorf("get LVMVolumeGroup %s: %w", name, err)
 	}
 
 	nodeName, _, _ := unstructured.NestedString(lvg.Object, "spec", "local", "nodeName")
+
 	return nodeName, nil
 }
 
 func (s *state) PCIDevicesByName(ctx context.Context) (map[string]*v1alpha2.PCIDevice, error) {
 	pciDevicesByName := make(map[string]*v1alpha2.PCIDevice)
+
 	for _, pciDeviceRef := range s.vm.Current().Spec.PCIDevices {
 		pciDevice, err := object.FetchObject(ctx, types.NamespacedName{
 			Name:      pciDeviceRef.Name,
@@ -841,11 +927,14 @@ func (s *state) PCIDevicesByName(ctx context.Context) (map[string]*v1alpha2.PCID
 		if err != nil {
 			return nil, fmt.Errorf("unable to get PCI device %q: %w", pciDeviceRef.Name, err)
 		}
+
 		if pciDevice == nil {
 			continue
 		}
+
 		pciDevicesByName[pciDeviceRef.Name] = pciDevice
 	}
+
 	return pciDevicesByName, nil
 }
 
@@ -858,15 +947,19 @@ func (s *state) USBDevice(ctx context.Context, name string) (*v1alpha2.USBDevice
 
 func (s *state) USBDevicesByName(ctx context.Context) (map[string]*v1alpha2.USBDevice, error) {
 	usbDevicesByName := make(map[string]*v1alpha2.USBDevice)
+
 	for _, usbDeviceRef := range s.vm.Current().Spec.USBDevices {
 		usbDevice, err := s.USBDevice(ctx, usbDeviceRef.Name)
 		if err != nil {
 			return nil, fmt.Errorf("unable to get USB device %q: %w", usbDeviceRef.Name, err)
 		}
+
 		if usbDevice == nil {
 			continue
 		}
+
 		usbDevicesByName[usbDeviceRef.Name] = usbDevice
 	}
+
 	return usbDevicesByName, nil
 }

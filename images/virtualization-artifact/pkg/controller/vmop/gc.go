@@ -47,9 +47,11 @@ func newVMOPGCManager(client client.Client, ttl time.Duration, max int) *vmopGCM
 	if ttl == 0 {
 		ttl = 24 * time.Hour
 	}
+
 	if max == 0 {
 		max = 10
 	}
+
 	return &vmopGCManager{
 		client: client,
 		ttl:    ttl,
@@ -74,11 +76,13 @@ func (m *vmopGCManager) ShouldBeDeleted(obj client.Object) bool {
 	if !ok {
 		return false
 	}
+
 	return commonvmop.IsFinished(vmop)
 }
 
 func (m *vmopGCManager) ListForDelete(ctx context.Context, now time.Time) ([]client.Object, error) {
 	vmopList := &v1alpha2.VirtualMachineOperationList{}
+
 	err := m.client.List(ctx, vmopList)
 	if err != nil {
 		return nil, err
@@ -99,5 +103,6 @@ func (m *vmopGCManager) getIndex(obj client.Object) string {
 	if !ok {
 		return ""
 	}
+
 	return vmop.Spec.VirtualMachine
 }

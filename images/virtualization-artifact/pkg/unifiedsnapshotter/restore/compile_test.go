@@ -49,7 +49,9 @@ func (f *fakeManifests) NodeBaseManifests(_ context.Context, contentName string)
 	if f.err != nil {
 		return nil, f.err
 	}
+
 	f.fetched = append(f.fetched, contentName)
+
 	return f.byContent[contentName], nil
 }
 
@@ -77,14 +79,18 @@ func obj(kind, name string) unstructured.Unstructured {
 
 func newCompiler(t *testing.T, manifests NodeManifestFetcher, objs ...apiruntime.Object) *Compiler {
 	t.Helper()
+
 	scheme := apiruntime.NewScheme()
 	if err := v1alpha2.AddToScheme(scheme); err != nil {
 		t.Fatalf("add v1alpha2 to scheme: %v", err)
 	}
+
 	if err := storagev1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatalf("add state-snapshotter storage/v1alpha1 to scheme: %v", err)
 	}
+
 	objs = append(objs, boundContentsFor(objs)...)
+
 	return NewCompiler(fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(objs...).Build(), manifests)
 }
 
@@ -94,6 +100,7 @@ func newCompiler(t *testing.T, manifests NodeManifestFetcher, objs ...apiruntime
 // one already present for a given name is left alone.
 func boundContentsFor(objs []apiruntime.Object) []apiruntime.Object {
 	existing := make(map[string]struct{})
+
 	for _, o := range objs {
 		if content, ok := o.(*storagev1alpha1.SnapshotContent); ok {
 			existing[content.Name] = struct{}{}
@@ -101,8 +108,10 @@ func boundContentsFor(objs []apiruntime.Object) []apiruntime.Object {
 	}
 
 	var out []apiruntime.Object
+
 	for _, o := range objs {
 		var name, kind, namespace, contentName string
+
 		switch snapshot := o.(type) {
 		case *v1alpha2.VirtualMachineSnapshot:
 			name, kind, namespace, contentName = snapshot.Name, v1alpha2.VirtualMachineSnapshotKind, snapshot.Namespace, snapshot.Status.BoundSnapshotContentName
@@ -111,15 +120,19 @@ func boundContentsFor(objs []apiruntime.Object) []apiruntime.Object {
 		default:
 			continue
 		}
+
 		if contentName == "" {
 			continue
 		}
+
 		if _, ok := existing[contentName]; ok {
 			continue
 		}
+
 		existing[contentName] = struct{}{}
 		out = append(out, boundContent(contentName, kind, namespace, name))
 	}
+
 	return out
 }
 
@@ -145,6 +158,7 @@ func vmSnapshot(children ...string) *v1alpha2.VirtualMachineSnapshot {
 			BoundSnapshotContentName: vmsContent,
 		},
 	}
+
 	vms.Status.Conditions = readyConditions()
 	for _, child := range children {
 		vms.Status.ChildrenSnapshotRefs = append(vms.Status.ChildrenSnapshotRefs, v1alpha2.UnifiedSnapshotterChildRef{
@@ -153,6 +167,7 @@ func vmSnapshot(children ...string) *v1alpha2.VirtualMachineSnapshot {
 			Name:       child,
 		})
 	}
+
 	return vms
 }
 
@@ -166,6 +181,7 @@ func vdSnapshot(ready bool, content string) *v1alpha2.VirtualDiskSnapshot {
 	if ready {
 		vds.Status.Conditions = readyConditions()
 	}
+
 	return vds
 }
 
@@ -183,6 +199,7 @@ func TestCompileVirtualMachineSnapshot_PostOrderAndTransform(t *testing.T) {
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
+
 	if got, want := len(objs), 2; got != want {
 		t.Fatalf("compiled %d objects, want %d", got, want)
 	}
@@ -199,11 +216,13 @@ func TestCompileVirtualMachineSnapshot_PostOrderAndTransform(t *testing.T) {
 	if _, found, _ := unstructured.NestedMap(objs[0].Object, "status"); found {
 		t.Error("status survived sanitization")
 	}
+
 	if objs[0].GetResourceVersion() != "" || objs[0].GetUID() != "" {
 		t.Error("runtime metadata survived sanitization")
 	}
 	// The restored disk provisions from its own VirtualDiskSnapshot.
 	kind, _, _ := unstructured.NestedString(objs[0].Object, "spec", "dataSource", "objectRef", "kind")
+
 	name, _, _ := unstructured.NestedString(objs[0].Object, "spec", "dataSource", "objectRef", "name")
 	if kind != string(v1alpha2.VirtualDiskObjectRefKindVirtualDiskSnapshot) || name != "vds" {
 		t.Errorf("dataSource.objectRef = %s/%s, want VirtualDiskSnapshot/vds", kind, name)
@@ -264,6 +283,7 @@ func TestCompileVirtualMachineSnapshot_RefusesAContentThatDoesNotPointBack(t *te
 	if !apierrors.IsForbidden(err) {
 		t.Fatalf("err = %v, want a Forbidden error", err)
 	}
+
 	if len(manifests.fetched) != 0 {
 		t.Errorf("fetched %v; a refused handshake must not read any manifests", manifests.fetched)
 	}
@@ -273,10 +293,12 @@ func TestCompileVirtualMachineSnapshot_RefusesAContentThatDoesNotPointBack(t *te
 func TestCompileVirtualMachineSnapshot_RefusesAMissingContent(t *testing.T) {
 	manifests := &fakeManifests{byContent: map[string][]unstructured.Unstructured{}}
 	vms := vmSnapshot()
+
 	scheme := apiruntime.NewScheme()
 	if err := v1alpha2.AddToScheme(scheme); err != nil {
 		t.Fatalf("add v1alpha2 to scheme: %v", err)
 	}
+
 	if err := storagev1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatalf("add state-snapshotter storage/v1alpha1 to scheme: %v", err)
 	}

@@ -133,9 +133,12 @@ func (s *AllocationStore) subscribeToDeviceChanges(ctx context.Context) {
 			s.log.Error("failed to sync usb state", slog.Any("err", err))
 		}
 	}
+
 	go func() {
 		syncFunc()
+
 		changes := s.monitor.DeviceChanges()
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -144,6 +147,7 @@ func (s *AllocationStore) subscribeToDeviceChanges(ctx context.Context) {
 				if !ok {
 					return
 				}
+
 				syncFunc()
 			}
 		}
@@ -282,11 +286,13 @@ func (s *AllocationStore) reclaimExportedDevice(deviceName, busID string) error 
 	if err != nil {
 		return fmt.Errorf("failed to check whether device %s (%s) is exported: %w", deviceName, busID, err)
 	}
+
 	if !bound {
 		return nil
 	}
 
 	s.log.Info("Device is exported to another node, reclaiming it for the local claim", slog.String("device", deviceName), slog.String("busID", busID))
+
 	if err := s.usbBinder.Unbind(busID); err != nil {
 		return fmt.Errorf("failed to reclaim exported device %s (%s): %w", deviceName, busID, err)
 	}
@@ -330,6 +336,7 @@ func (s *AllocationStore) ensureAnnotationDeviceAddresses(ctx context.Context, c
 		slices.SortFunc(oldUsbDeviceInfos, func(a, b usbDeviceInfo) int {
 			return cmp.Compare(a.DeviceName, b.DeviceName)
 		})
+
 		if slices.Equal(oldUsbDeviceInfos, usbDeviceInfos) {
 			return nil
 		}
@@ -346,10 +353,12 @@ func (s *AllocationStore) ensureAnnotationDeviceAddresses(ctx context.Context, c
 	}
 
 	s.log.Debug("Patching resource claim", slog.String("uid", string(claim.UID)), slog.Any("patch", string(bytes)))
+
 	_, err = s.kubeClient.ResourceV1().ResourceClaims(claim.Namespace).Patch(ctx, claim.Name, types.JSONPatchType, bytes, metav1.PatchOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to patch resource claim: %w", err)
 	}
+
 	return nil
 }
 
@@ -365,8 +374,10 @@ func loadUsbDeviceInfos(obj metav1.Object) (string, []usbDeviceInfo, error) {
 		if err != nil {
 			return "", nil, fmt.Errorf("failed to unmarshal annotation %s: %w", consts.AnnUSBDeviceAddresses, err)
 		}
+
 		return data, usbDeviceInfos, nil
 	}
+
 	return "", nil, nil
 }
 
@@ -390,13 +401,16 @@ func (c containerEditsOptions) withUserGroup(claim *resourcev1.ResourceClaim) co
 			c.UID = ptr.To(uint32(uid))
 		}
 	}
+
 	if claim.GetAnnotations()[consts.AnnUSBDeviceGroup] != "" {
 		gid, err := strconv.ParseUint(claim.GetAnnotations()[consts.AnnUSBDeviceGroup], 10, 32)
 		if err != nil {
 			slog.Warn("Failed to parse annotation", slog.String("annotation", consts.AnnUSBDeviceGroup), slog.String("value", claim.GetAnnotations()[consts.AnnUSBDeviceGroup]), slog.Any("error", err))
 		}
+
 		c.GID = ptr.To(uint32(gid))
 	}
+
 	return c
 }
 
@@ -479,14 +493,17 @@ func (s *AllocationStore) Unprepare(_ context.Context, claimUID types.UID) error
 			if usbGatewayEnabled {
 				count, hasCount := s.usbipAllocatedDevicesCount[device]
 				s.log.Info("Device attached by USBGateway", slog.String("device", device), slog.Int("count", count), slog.Bool("tracked", hasCount))
+
 				switch {
 				case !hasCount:
 					s.log.Info("Device is not tracked by USBGateway, skipping detach", slog.String("device", device))
 				case count == 1:
 					s.log.Info("Device has no tracked consumers, attempting detach cleanup", slog.String("device", device), slog.Int("count", count))
+
 					if err := s.usbGateway.Detach(device); err != nil {
 						return fmt.Errorf("failed to detach device %s: %w", device, err)
 					}
+
 					delete(s.usbipAllocatedDevicesCount, device)
 				case count > 1:
 					s.log.Info("Decrementing device consumer count", slog.String("device", device), slog.Int("newCount", count-1))
@@ -502,6 +519,7 @@ func (s *AllocationStore) Unprepare(_ context.Context, claimUID types.UID) error
 	}
 
 	s.log.Info("Deleting CDI claim spec file", slog.String("claimUID", string(claimUID)))
+
 	if err := s.cdi.DeleteClaimSpecFile(string(claimUID)); err != nil {
 		return fmt.Errorf("unable to delete CDI spec file for claim: %w", err)
 	}
@@ -521,11 +539,13 @@ func (s *AllocationStore) Synchronize(_ context.Context, pods []*api.PodSandbox,
 	}
 
 	var uspIPDeviceNames map[string]struct{}
+
 	if featuregates.Default().USBGatewayEnabled() {
 		names, err := s.usbGateway.GetAttachedDeviceNames()
 		if err != nil {
 			return nil, fmt.Errorf("failed to get attached device names: %w", err)
 		}
+
 		uspIPDeviceNames = names
 	}
 
@@ -539,6 +559,7 @@ func (s *AllocationStore) Synchronize(_ context.Context, pods []*api.PodSandbox,
 				s.log.Error("failed to parse dra env", slog.String("name", pod.Name), slog.String("namespace", pod.Namespace), slog.Any("err", err))
 				continue
 			}
+
 			for claimUID, deviceNames := range claimUIDDeviceNames {
 				s.resourceClaimAllocations[claimUID] = append(s.resourceClaimAllocations[claimUID], deviceNames...)
 				for _, deviceName := range deviceNames {
@@ -567,6 +588,7 @@ func parseDraEnvToClaimAllocations(envs []string) (map[types.UID][]string, error
 		if len(parts) != 2 {
 			return nil, fmt.Errorf("invalid dra env: %s", env)
 		}
+
 		key := parts[0]
 		value := parts[1]
 
@@ -596,8 +618,11 @@ func (s *AllocationStore) makeResources(devicesByName map[string]Device) resourc
 	}
 
 	poolName := s.nodeName
-	var perDeviceNodeSelection *bool
-	var nodeSelector *corev1.NodeSelector
+
+	var (
+		perDeviceNodeSelection *bool
+		nodeSelector           *corev1.NodeSelector
+	)
 
 	if featuregates.Default().USBGatewayEnabled() {
 		if featuregates.Default().DRAPartitionableDevicesEnabled() {

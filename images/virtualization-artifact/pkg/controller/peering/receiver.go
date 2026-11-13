@@ -79,19 +79,24 @@ func ParseReceiver(r *intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiv
 	if err := json.Unmarshal(r.Spec.VirtualMachineTemplate.Raw, rcv.VirtualMachine); err != nil {
 		return nil, fmt.Errorf("spec.virtualMachineTemplate: %w", err)
 	}
+
 	for i, raw := range r.Spec.VirtualDiskTemplates {
 		vd := &v1alpha2.VirtualDisk{}
 		if err := json.Unmarshal(raw.Raw, vd); err != nil {
 			return nil, fmt.Errorf("spec.virtualDiskTemplates[%d]: %w", i, err)
 		}
+
 		if vd.Name == "" {
 			return nil, fmt.Errorf("spec.virtualDiskTemplates[%d] has no name", i)
 		}
+
 		rcv.VirtualDisks = append(rcv.VirtualDisks, vd)
 	}
+
 	if err := json.Unmarshal(r.Spec.InternalVirtualizationVirtualMachineInstance.Raw, rcv.Instance); err != nil {
 		return nil, fmt.Errorf("spec.internalVirtualizationVirtualMachineInstance: %w", err)
 	}
+
 	return rcv, nil
 }
 
@@ -121,9 +126,11 @@ func (r *ReceiverReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 	if err := r.client.Get(ctx, req.NamespacedName, &rcvr); err != nil {
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
+
 	if !rcvr.DeletionTimestamp.IsZero() {
 		return r.cleanup(ctx, &rcvr)
 	}
+
 	if controllerutil.AddFinalizer(&rcvr, FinalizerReceiverCleanup) {
 		if err := r.client.Update(ctx, &rcvr); err != nil {
 			return reconcile.Result{}, err
@@ -141,28 +148,34 @@ func (r *ReceiverReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 			return reconcile.Result{}, err
 		}
 	}
+
 	if rcvr.Status.Phase != intvirtv1alpha1.ReceiverRunning && rcvr.Status.Phase != intvirtv1alpha1.ReceiverFailed {
 		if err := r.publishExchange(ctx, &rcvr); err != nil {
 			return reconcile.Result{}, err
 		}
+
 		if !rcvr.CreationTimestamp.IsZero() && time.Since(rcvr.CreationTimestamp.Time) > receiverIdleTTL && !rcvr.Status.ReceiverStarted {
 			state, err := r.cleanupState(ctx, &rcvr)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
+
 			if state == receiverCleanupUnstarted {
 				return reconcile.Result{}, client.IgnoreNotFound(r.client.Delete(ctx, &rcvr))
 			}
 		}
 	}
+
 	if rcvr.Status.Phase == intvirtv1alpha1.ReceiverRunning || rcvr.Status.Phase == intvirtv1alpha1.ReceiverFailed {
 		ttl := receiverRunningTTL
 		if rcvr.Status.Phase == intvirtv1alpha1.ReceiverFailed {
 			ttl = receiverFailedTTL
 		}
+
 		if left := ttl - time.Since(receiverPhaseSince(&rcvr)); left > 0 {
 			return reconcile.Result{RequeueAfter: left}, nil
 		}
+
 		return reconcile.Result{}, client.IgnoreNotFound(r.client.Delete(ctx, &rcvr))
 	}
 
@@ -170,9 +183,11 @@ func (r *ReceiverReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 	if err != nil {
 		return reconcile.Result{}, SetReceiverFailed(ctx, r.client, &rcvr, ReceiverReasonInvalidRequest, err.Error())
 	}
+
 	uid := string(rcvr.UID)
 
 	var vm v1alpha2.VirtualMachine
+
 	err = r.client.Get(ctx, types.NamespacedName{Namespace: rcvr.Namespace, Name: rcvr.Name}, &vm)
 	switch {
 	case err == nil && vm.Labels[annotations.LabelVMReceiver] != uid && vm.DeletionTimestamp != nil:
@@ -191,6 +206,7 @@ func (r *ReceiverReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		if err != nil {
 			return reconcile.Result{}, err
 		}
+
 		return reconcile.Result{}, SetReceiverFailed(ctx, r.client, &rcvr, reason, msg)
 	}
 
@@ -201,9 +217,11 @@ func (r *ReceiverReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 			if err = r.client.Get(ctx, client.ObjectKeyFromObject(vd), &existing); err != nil {
 				return reconcile.Result{}, err
 			}
+
 			if existing.Labels[annotations.LabelVMReceiver] != uid && existing.DeletionTimestamp != nil {
 				return reconcile.Result{RequeueAfter: receiverCleanupRequeue}, r.setPending(ctx, &rcvr)
 			}
+
 			if existing.Labels[annotations.LabelVMReceiver] != uid {
 				return reconcile.Result{}, SetReceiverFailed(ctx, r.client, &rcvr, ReceiverReasonVirtualDiskExists,
 					fmt.Sprintf("another virtual disk named %q exists in namespace %q. Rename or delete it there and retry the move", vd.Name, rcvr.Namespace))
@@ -218,11 +236,13 @@ func (r *ReceiverReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	newVM := receivedVM(rcv.VirtualMachine, rcvr.Namespace, rcvr.Name, uid, ipName)
 	if err = r.client.Create(ctx, newVM); err != nil && !k8serrors.IsAlreadyExists(err) {
 		return reconcile.Result{}, SetReceiverFailed(ctx, r.client, &rcvr, ReceiverReasonInvalidRequest,
 			fmt.Sprintf("the virtual machine cannot be created: %s", err))
 	}
+
 	return reconcile.Result{}, r.setPending(ctx, &rcvr)
 }
 
@@ -236,14 +256,17 @@ func (r *ReceiverReconciler) publishExchange(ctx context.Context, rcvr *intvirtv
 	if err != nil {
 		return err
 	}
+
 	pin, err := MigrationSyncPin(ctx, r.client, types.NamespacedName{Namespace: rcvr.Namespace, Name: rcvr.Name}, "targetState")
 	if err != nil {
 		return err
 	}
+
 	migration := types.NamespacedName{Namespace: rcvr.Namespace, Name: string(rcvr.UID)}
 	if err = SetMigrationPeerSyncPin(ctx, r.client, migration, rcvr.Annotations[annotations.AnnReceiverSourceSyncPin]); err != nil {
 		return err
 	}
+
 	return PatchReceiverStatus(ctx, r.client, rcvr, func(st *intvirtv1alpha1.VirtualMachineReceiverStatus) {
 		st.SynchronizationAddress, st.SyncPin = address, pin
 	})
@@ -261,30 +284,39 @@ func (r *ReceiverReconciler) cleanupState(ctx context.Context, rcvr *intvirtv1al
 	if rcvr.Status.ReceiverStarted {
 		return receiverCleanupArrived, nil
 	}
+
 	key := types.NamespacedName{Namespace: rcvr.Namespace, Name: string(rcvr.UID)}
+
 	var vmim virtv1.VirtualMachineInstanceMigration
+
 	migrationErr := r.client.Get(ctx, key, &vmim)
 	if migrationErr != nil && !k8serrors.IsNotFound(migrationErr) {
 		return receiverCleanupDeferred, migrationErr
 	}
+
 	if migrationErr == nil && (vmim.Spec.Receive == nil || vmim.Spec.Receive.MigrationID != string(rcvr.UID) || vmim.Spec.VMIName != rcvr.Name) {
 		return receiverCleanupDeferred, nil
 	}
 	// The VMI of a VM this request did not create, which a request refused for the name meets, is not its
 	// business.
 	var vm v1alpha2.VirtualMachine
+
 	vmErr := r.client.Get(ctx, types.NamespacedName{Namespace: rcvr.Namespace, Name: rcvr.Name}, &vm)
 	if vmErr != nil && !k8serrors.IsNotFound(vmErr) {
 		return receiverCleanupDeferred, vmErr
 	}
+
 	if migrationErr != nil && vmErr == nil && vm.Labels[annotations.LabelVMReceiver] != string(rcvr.UID) {
 		return receiverCleanupUnstarted, nil
 	}
+
 	var vmi virtv1.VirtualMachineInstance
+
 	vmiErr := r.client.Get(ctx, types.NamespacedName{Namespace: rcvr.Namespace, Name: rcvr.Name}, &vmi)
 	if vmiErr != nil && !k8serrors.IsNotFound(vmiErr) {
 		return receiverCleanupDeferred, vmiErr
 	}
+
 	if vmiErr == nil {
 		if vmi.Status.Phase == virtv1.Running {
 			return receiverCleanupDeferred, nil
@@ -301,14 +333,17 @@ func (r *ReceiverReconciler) cleanupState(ctx context.Context, rcvr *intvirtv1al
 			return receiverCleanupDeferred, nil
 		}
 	}
+
 	if migrationErr == nil {
 		if vmim.Status.Phase == virtv1.MigrationSucceeded {
 			return receiverCleanupArrived, nil
 		}
+
 		if vmim.Status.Phase != virtv1.MigrationFailed {
 			return receiverCleanupDeferred, nil
 		}
 	}
+
 	return receiverCleanupUnstarted, nil
 }
 
@@ -324,13 +359,16 @@ func (r *ReceiverReconciler) confirmArrival(ctx context.Context, rcvr *intvirtv1
 	if rcvr.Status.ReceiverStarted {
 		return nil
 	}
+
 	var vmim virtv1.VirtualMachineInstanceMigration
 	if err := r.client.Get(ctx, types.NamespacedName{Namespace: rcvr.Namespace, Name: string(rcvr.UID)}, &vmim); err != nil {
 		return client.IgnoreNotFound(err)
 	}
+
 	if vmim.Status.Phase != virtv1.MigrationSucceeded || vmim.Spec.Receive == nil || vmim.Spec.Receive.MigrationID != string(rcvr.UID) || vmim.Spec.VMIName != rcvr.Name {
 		return nil
 	}
+
 	return PatchReceiverStatus(ctx, r.client, rcvr, func(st *intvirtv1alpha1.VirtualMachineReceiverStatus) {
 		st.ReceiverStarted = true
 	})
@@ -343,6 +381,7 @@ func LocalSynchronizationAddress(ctx context.Context, c client.Client, namespace
 	if err != nil || len(kv.Status.SynchronizationAddresses) == 0 {
 		return "", err
 	}
+
 	return kv.Status.SynchronizationAddresses[0], nil
 }
 
@@ -352,10 +391,13 @@ func LocalSynchronizationAddress(ctx context.Context, c client.Client, namespace
 func MigrationSyncPin(ctx context.Context, reader client.Reader, vmi types.NamespacedName, side string) (string, error) {
 	obj := &unstructured.Unstructured{}
 	obj.SetGroupVersionKind(virtv1.VirtualMachineInstanceGroupVersionKind)
+
 	if err := reader.Get(ctx, vmi, obj); err != nil {
 		return "", client.IgnoreNotFound(err)
 	}
+
 	pin, _, err := unstructured.NestedString(obj.Object, "status", "migrationState", side, "syncPin")
+
 	return pin, err
 }
 
@@ -366,17 +408,21 @@ func SetMigrationPeerSyncPin(ctx context.Context, cl client.Client, migration ty
 	if pin == "" {
 		return nil
 	}
+
 	var vmim virtv1.VirtualMachineInstanceMigration
 	if err := cl.Get(ctx, migration, &vmim); err != nil {
 		return client.IgnoreNotFound(err)
 	}
+
 	if vmim.Annotations[annotations.AnnMigrationPeerSyncPin] == pin {
 		return nil
 	}
+
 	patch, _ := json.Marshal(map[string]any{"metadata": map[string]any{"annotations": map[string]string{annotations.AnnMigrationPeerSyncPin: pin}}})
 	if err := cl.Patch(ctx, &vmim, client.RawPatch(types.MergePatchType, patch)); err != nil {
 		return fmt.Errorf("give the receiving migration the pin of the peer: %w", err)
 	}
+
 	return nil
 }
 
@@ -384,6 +430,7 @@ func (r *ReceiverReconciler) setPending(ctx context.Context, rcvr *intvirtv1alph
 	if rcvr.Status.Phase != "" {
 		return nil
 	}
+
 	return PatchReceiverStatus(ctx, r.client, rcvr, func(st *intvirtv1alpha1.VirtualMachineReceiverStatus) {
 		st.Phase = intvirtv1alpha1.ReceiverPending
 	})
@@ -398,45 +445,56 @@ func (r *ReceiverReconciler) check(ctx context.Context, rcv *ReceivedObjects, na
 		if k8serrors.IsNotFound(err) {
 			return ReceiverReasonNotFound, fmt.Sprintf("the VirtualMachineClass %q does not exist", spec.VirtualMachineClassName), nil
 		}
+
 		return "", "", err
 	}
+
 	if spec.PriorityClassName != "" {
 		if err := r.client.Get(ctx, types.NamespacedName{Name: spec.PriorityClassName}, &schedulingv1.PriorityClass{}); err != nil {
 			if k8serrors.IsNotFound(err) {
 				return ReceiverReasonNotFound, fmt.Sprintf("the PriorityClass %q does not exist", spec.PriorityClassName), nil
 			}
+
 			return "", "", err
 		}
 	}
+
 	for _, vd := range rcv.VirtualDisks {
 		sc := ptr.Deref(vd.Spec.PersistentVolumeClaim.StorageClass, "")
 		if sc == "" {
 			continue
 		}
+
 		if err := r.client.Get(ctx, types.NamespacedName{Name: sc}, &storagev1.StorageClass{}); err != nil {
 			if k8serrors.IsNotFound(err) {
 				return ReceiverReasonNotFound, fmt.Sprintf("the StorageClass %q of the disk %q does not exist", sc, vd.Name), nil
 			}
+
 			return "", "", err
 		}
 	}
+
 	if p := spec.Provisioning; p != nil {
 		secret := ""
+
 		switch {
 		case p.Type == v1alpha2.ProvisioningTypeUserDataRef && p.UserDataRef != nil:
 			secret = p.UserDataRef.Name
 		case p.Type == v1alpha2.ProvisioningTypeSysprepRef && p.SysprepRef != nil:
 			secret = p.SysprepRef.Name
 		}
+
 		if secret != "" {
 			if err := r.client.Get(ctx, types.NamespacedName{Namespace: namespace, Name: secret}, &corev1.Secret{}); err != nil {
 				if k8serrors.IsNotFound(err) {
 					return ReceiverReasonNotFound, fmt.Sprintf("the provisioning Secret %q does not exist in namespace %q: create it there before the move", secret, namespace), nil
 				}
+
 				return "", "", err
 			}
 		}
 	}
+
 	return "", "", nil
 }
 
@@ -446,15 +504,18 @@ func (r *ReceiverReconciler) freeIPAddress(ctx context.Context, namespace, addre
 	if address == "" {
 		return "", nil
 	}
+
 	var vmips v1alpha2.VirtualMachineIPAddressList
 	if err := r.client.List(ctx, &vmips, client.InNamespace(namespace)); err != nil {
 		return "", err
 	}
+
 	for _, vmip := range vmips.Items {
 		if vmip.Status.Address == address && vmip.Status.VirtualMachine == "" && vmip.DeletionTimestamp.IsZero() {
 			return vmip.Name, nil
 		}
 	}
+
 	return "", nil
 }
 
@@ -474,12 +535,14 @@ func receivedDisk(src *v1alpha2.VirtualDisk, instance *virtv1.VirtualMachineInst
 			Size:         src.Spec.PersistentVolumeClaim.Size,
 		}},
 	}
+
 	diskName := kvbuilder.GenerateVDDiskName(src.Name)
 	for _, d := range instance.Spec.Domain.Devices.Disks {
 		if d.Name == diskName && d.Serial != "" {
 			vd.Annotations = withValue(vd.Annotations, annotations.AnnVDSerial, d.Serial)
 		}
 	}
+
 	return vd
 }
 
@@ -487,6 +550,7 @@ func receivedDisk(src *v1alpha2.VirtualDisk, instance *virtv1.VirtualMachineInst
 // this cluster. The MAC addresses of the source are in its domain, which the VM runs with.
 func receivedVM(src *v1alpha2.VirtualMachine, namespace, name, uid, ipName string) *v1alpha2.VirtualMachine {
 	spec := *src.Spec.DeepCopy()
+
 	spec.VirtualMachineIPAddress = ipName
 	for i := range spec.Networks {
 		spec.Networks[i].VirtualMachineMACAddressName = ""
@@ -495,6 +559,7 @@ func receivedVM(src *v1alpha2.VirtualMachine, namespace, name, uid, ipName strin
 			spec.Networks[i].IPAddressName = ""
 		}
 	}
+
 	return &v1alpha2.VirtualMachine{
 		TypeMeta: metav1.TypeMeta{APIVersion: v1alpha2.SchemeGroupVersion.String(), Kind: v1alpha2.VirtualMachineKind},
 		ObjectMeta: metav1.ObjectMeta{
@@ -513,38 +578,48 @@ func (r *ReceiverReconciler) cleanup(ctx context.Context, rcvr *intvirtv1alpha1.
 	if !controllerutil.ContainsFinalizer(rcvr, FinalizerReceiverCleanup) {
 		return reconcile.Result{}, nil
 	}
+
 	state, err := r.cleanupState(ctx, rcvr)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	if state == receiverCleanupDeferred {
 		return reconcile.Result{RequeueAfter: receiverCleanupRequeue}, nil
 	}
+
 	if state == receiverCleanupUnstarted {
 		marked := client.MatchingLabels{annotations.LabelVMReceiver: string(rcvr.UID)}
+
 		var vms v1alpha2.VirtualMachineList
 		if err := r.client.List(ctx, &vms, client.InNamespace(rcvr.Namespace), marked); err != nil {
 			return reconcile.Result{}, err
 		}
+
 		var vds v1alpha2.VirtualDiskList
 		if err := r.client.List(ctx, &vds, client.InNamespace(rcvr.Namespace), marked); err != nil {
 			return reconcile.Result{}, err
 		}
+
 		for i := range vms.Items {
 			if err := r.client.Delete(ctx, &vms.Items[i]); client.IgnoreNotFound(err) != nil {
 				return reconcile.Result{}, err
 			}
 		}
+
 		for i := range vds.Items {
 			if err := r.client.Delete(ctx, &vds.Items[i]); client.IgnoreNotFound(err) != nil {
 				return reconcile.Result{}, err
 			}
 		}
+
 		if len(vms.Items)+len(vds.Items) > 0 {
 			return reconcile.Result{RequeueAfter: receiverCleanupRequeue}, nil
 		}
 	}
+
 	controllerutil.RemoveFinalizer(rcvr, FinalizerReceiverCleanup)
+
 	return reconcile.Result{}, r.client.Update(ctx, rcvr)
 }
 
@@ -563,6 +638,7 @@ func ReceiverIPAddress(r *intvirtv1alpha1.InternalVirtualizationVirtualMachineRe
 	if r == nil || r.Annotations[annotations.AnnReceiverNewIPAddress] == "true" {
 		return ""
 	}
+
 	return r.Spec.IPAddress
 }
 
@@ -578,12 +654,14 @@ func SetReceiverFailed(ctx context.Context, cl client.Client, r *intvirtv1alpha1
 func PatchReceiverStatus(ctx context.Context, cl client.Client, r *intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver, mutate func(*intvirtv1alpha1.VirtualMachineReceiverStatus)) error {
 	before := r.DeepCopy()
 	mutate(&r.Status)
+
 	r.Status.ObservedGeneration = r.Generation
 	if before.Status != r.Status {
 		if err := cl.Status().Patch(ctx, r, client.MergeFrom(before)); err != nil {
 			if k8serrors.IsNotFound(err) {
 				return nil
 			}
+
 			return err
 		}
 	}
@@ -592,18 +670,24 @@ func PatchReceiverStatus(ctx context.Context, cl client.Client, r *intvirtv1alph
 	if r.Status.Phase != intvirtv1alpha1.ReceiverRunning && r.Status.Phase != intvirtv1alpha1.ReceiverFailed {
 		return nil
 	}
+
 	if before.Status.Phase == r.Status.Phase && r.Annotations[annotations.AnnReceiverPhaseSince] != "" {
 		return nil
 	}
+
 	since := time.Now().UTC().Format(time.RFC3339)
+
 	patch, _ := json.Marshal(map[string]any{"metadata": map[string]any{"annotations": map[string]string{annotations.AnnReceiverPhaseSince: since}}})
 	if err := cl.Patch(ctx, r, client.RawPatch(types.MergePatchType, patch)); client.IgnoreNotFound(err) != nil {
 		return err
 	}
+
 	if r.Annotations == nil {
 		r.Annotations = map[string]string{}
 	}
+
 	r.Annotations[annotations.AnnReceiverPhaseSince] = since
+
 	return nil
 }
 
@@ -615,6 +699,7 @@ func receiverPhaseSince(r *intvirtv1alpha1.InternalVirtualizationVirtualMachineR
 			return since
 		}
 	}
+
 	return r.CreationTimestamp.Time
 }
 
@@ -623,7 +708,9 @@ func withValue(m map[string]string, key, value string) map[string]string {
 	if out == nil {
 		out = map[string]string{}
 	}
+
 	out[key] = value
+
 	return out
 }
 
@@ -642,8 +729,10 @@ func SetupReceiverController(mgr manager.Manager, namespace string) error {
 		if !ok || vmim.Spec.Receive == nil {
 			return nil
 		}
+
 		return []reconcile.Request{{NamespacedName: types.NamespacedName{Namespace: vmim.Namespace, Name: vmim.Spec.VMIName}}}
 	})
+
 	return builder.ControllerManagedBy(mgr).
 		Named(receiverControllerName).
 		For(&intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{}).

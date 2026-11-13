@@ -90,6 +90,7 @@ func GetBlockDeviceHash(ctx context.Context, f *framework.Framework, vm *v1alpha
 	// We use dd to ensure the entire disk is read.
 	cmdOut, err := f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("dd if=%s bs=4M 2>/dev/null | sha256sum | cut -d \" \" -f 1", devicePath), framework.WithSSHUser("root"))
 	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("failed to get hash for block device %s/%s", bdKind, bdName))
+
 	return strings.TrimSpace(cmdOut)
 }
 
@@ -104,10 +105,12 @@ func getVMIDisk(ctx context.Context, vm *v1alpha2.VirtualMachine, bdKind v1alpha
 	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("failed to get InternalVirtualizationVirtualMachineInstance %s/%s", vm.Namespace, vm.Name))
 
 	var kvvmi virtv1.VirtualMachineInstance
+
 	err = runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredVMI.Object, &kvvmi)
 	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("failed to convert InternalVirtualizationVirtualMachineInstance %s/%s to kubevirt VMI", vm.Namespace, vm.Name))
 
 	var blockDeviceName string
+
 	switch bdKind {
 	case v1alpha2.DiskDevice:
 		blockDeviceName = fmt.Sprintf("vd-%s", bdName)
@@ -133,6 +136,7 @@ func GetBlockDeviceSerialNumber(ctx context.Context, vm *v1alpha2.VirtualMachine
 	if !ok {
 		return "", false
 	}
+
 	return disk.Serial, true
 }
 
@@ -143,12 +147,14 @@ func GetBlockDeviceBus(ctx context.Context, vm *v1alpha2.VirtualMachine, bdKind 
 	if !ok {
 		return "", false
 	}
+
 	switch {
 	case disk.Disk != nil:
 		return disk.Disk.Bus, true
 	case disk.CDRom != nil:
 		return disk.CDRom.Bus, true
 	}
+
 	return "", false
 }
 
@@ -168,6 +174,7 @@ func ReadFile(f *framework.Framework, vm *v1alpha2.VirtualMachine, path string) 
 
 	cmdOut, err := f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("cat %s", path), framework.WithSSHUser("root"))
 	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("failed to read file %s on vm %s/%s", path, vm.Namespace, vm.Name))
+
 	return strings.TrimSpace(cmdOut)
 }
 
@@ -179,6 +186,7 @@ func GetExpectedDiskPhaseByVolumeBindingMode() string {
 	if sc == nil || sc.VolumeBindingMode == nil {
 		return string(v1alpha2.DiskReady)
 	}
+
 	switch *sc.VolumeBindingMode {
 	case storagev1.VolumeBindingImmediate:
 		return string(v1alpha2.DiskReady)
@@ -194,6 +202,7 @@ func GetExpectedDiskPhaseByVolumeBindingMode() string {
 // Immediate, WaitForFirstConsumer otherwise).
 func WaitDiskInExpectedPhase(ctx context.Context, f *framework.Framework, vd *v1alpha2.VirtualDisk) {
 	GinkgoHelper()
+
 	expected := GetExpectedDiskPhaseByVolumeBindingMode()
 	obs := vdobs.StartObserver(ctx, f, vd)
 	obs.Never(vdobs.BeFailed())
@@ -205,12 +214,14 @@ func WaitDiskInExpectedPhase(ctx context.Context, f *framework.Framework, vd *v1
 // Uses lsblk --nodeps --json to get the list of block devices.
 func GetDiskCount(f *framework.Framework, vmName, vmNamespace string) (int, error) {
 	cmd := "lsblk --nodeps --json"
+
 	result, err := f.SSHCommand(vmName, vmNamespace, cmd)
 	if err != nil {
 		return 0, fmt.Errorf("failed to execute command: %w: %s", err, result)
 	}
 
 	var disks Disks
+
 	err = json.Unmarshal([]byte(result), &disks)
 	if err != nil {
 		return 0, fmt.Errorf("failed to parse lsblk output: %w", err)
@@ -251,6 +262,7 @@ const guestSerialByDeviceCmd = `for d in /sys/block/sd* /sys/block/sr*; do [ -e 
 // in as root without sudo (custom image guests).
 func GuestDeviceBySerial(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName string) string {
 	GinkgoHelper()
+
 	serial, ok := GetBlockDeviceSerialNumber(ctx, vm, bdKind, bdName)
 	Expect(ok).To(BeTrue(), "failed to get block device %s/%s serial number", bdKind, bdName)
 
@@ -272,7 +284,9 @@ func GuestDeviceBySerialString(f *framework.Framework, vm *v1alpha2.VirtualMachi
 			return fields[0]
 		}
 	}
+
 	Fail(fmt.Sprintf("no block device with serial %s found in guest; device/serial map:\n%s", serial, out))
+
 	return ""
 }
 
@@ -305,6 +319,7 @@ func GetDiskCountAsRoot(f *framework.Framework, vmName, vmNamespace string) (int
 	}
 
 	var disks Disks
+
 	err = json.Unmarshal([]byte(out), &disks)
 	if err != nil {
 		return 0, fmt.Errorf("failed to parse lsblk output: %w", err)

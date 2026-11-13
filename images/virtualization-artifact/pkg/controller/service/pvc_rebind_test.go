@@ -47,6 +47,7 @@ func rebindClient(objs ...client.Object) client.Client {
 func rebindScheme() *runtime.Scheme {
 	scheme := runtime.NewScheme()
 	_ = corev1.AddToScheme(scheme)
+
 	return scheme
 }
 
@@ -81,25 +82,31 @@ func newPV(claimRefName string, claimRefUID types.UID, reclaim corev1.Persistent
 			UID:       claimRefUID,
 		}
 	}
+
 	return pv
 }
 
 func getPVC(t *testing.T, c client.Client, name string) *corev1.PersistentVolumeClaim {
 	t.Helper()
+
 	pvc := &corev1.PersistentVolumeClaim{}
+
 	err := c.Get(context.Background(), types.NamespacedName{Namespace: rebindNS, Name: name}, pvc)
 	if err != nil {
 		t.Fatalf("get pvc %s: %v", name, err)
 	}
+
 	return pvc
 }
 
 func getPV(t *testing.T, c client.Client, name string) *corev1.PersistentVolume {
 	t.Helper()
+
 	pv := &corev1.PersistentVolume{}
 	if err := c.Get(context.Background(), types.NamespacedName{Name: name}, pv); err != nil {
 		t.Fatalf("get pv %s: %v", name, err)
 	}
+
 	return pv
 }
 
@@ -125,6 +132,7 @@ func TestRebindTransfersPVAndDeletesPrime(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Rebind returned error: %v", err)
 	}
+
 	if done {
 		t.Fatalf("expected done=false while target is not yet Bound")
 	}
@@ -133,9 +141,11 @@ func TestRebindTransfersPVAndDeletesPrime(t *testing.T) {
 	if gotPV.Spec.PersistentVolumeReclaimPolicy != corev1.PersistentVolumeReclaimRetain {
 		t.Errorf("expected PV reclaim policy Retain, got %q", gotPV.Spec.PersistentVolumeReclaimPolicy)
 	}
+
 	if got := gotPV.Annotations[rebindOriginalReclaimPolicyAnnotation]; got != string(corev1.PersistentVolumeReclaimDelete) {
 		t.Errorf("expected saved original reclaim policy Delete, got %q", got)
 	}
+
 	if gotPV.Spec.ClaimRef == nil || gotPV.Spec.ClaimRef.Name != rebindTargetNm || gotPV.Spec.ClaimRef.UID != "target-uid" {
 		t.Errorf("expected PV claimRef pointing to target, got %#v", gotPV.Spec.ClaimRef)
 	}
@@ -164,6 +174,7 @@ func TestRebindCompletesWhenTargetBound(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Rebind returned error: %v", err)
 	}
+
 	if !done {
 		t.Fatalf("expected done=true when target is Bound")
 	}
@@ -172,6 +183,7 @@ func TestRebindCompletesWhenTargetBound(t *testing.T) {
 	if gotPV.Spec.PersistentVolumeReclaimPolicy != corev1.PersistentVolumeReclaimDelete {
 		t.Errorf("expected reclaim policy restored to Delete, got %q", gotPV.Spec.PersistentVolumeReclaimPolicy)
 	}
+
 	if _, ok := gotPV.Annotations[rebindOriginalReclaimPolicyAnnotation]; ok {
 		t.Errorf("expected original-reclaim-policy annotation to be removed")
 	}
@@ -200,6 +212,7 @@ func TestRebindEndToEnd(t *testing.T) {
 
 	// Simulate the cluster PV binder finishing the bind (status subresource).
 	gotTarget := getPVC(t, c, rebindTargetNm)
+
 	gotTarget.Status.Phase = corev1.ClaimBound
 	if err := c.Status().Update(ctx, gotTarget); err != nil {
 		t.Fatalf("simulate binder: %v", err)
@@ -210,6 +223,7 @@ func TestRebindEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("pass 3: err=%v", err)
 	}
+
 	if !done {
 		t.Fatalf("pass 3: expected done=true after target Bound")
 	}
@@ -218,6 +232,7 @@ func TestRebindEndToEnd(t *testing.T) {
 	if gotPV.Spec.PersistentVolumeReclaimPolicy != corev1.PersistentVolumeReclaimDelete {
 		t.Errorf("expected reclaim policy restored to Delete, got %q", gotPV.Spec.PersistentVolumeReclaimPolicy)
 	}
+
 	if gotPV.Spec.ClaimRef == nil || gotPV.Spec.ClaimRef.UID != "target-uid" {
 		t.Errorf("expected PV claimRef to target, got %#v", gotPV.Spec.ClaimRef)
 	}
@@ -253,6 +268,7 @@ func TestRebindWaitsWhenPrimeNotBound(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if done {
 		t.Fatalf("expected done=false while prime is not bound")
 	}

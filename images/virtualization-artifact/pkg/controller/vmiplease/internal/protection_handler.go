@@ -49,5 +49,6 @@ func (h *ProtectionHandler) Handle(_ context.Context, lease *v1alpha2.VirtualMac
 
 	// 3. All checks have passed, the resource can be deleted.
 	controllerutil.RemoveFinalizer(lease, v1alpha2.FinalizerIPAddressLeaseCleanup)
+
 	return reconcile.Result{}, nil
 }

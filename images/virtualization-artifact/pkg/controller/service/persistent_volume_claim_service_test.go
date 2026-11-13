@@ -114,15 +114,19 @@ func TestPVCServiceCreateTargetCreatesPVCWithRegistrySource(t *testing.T) {
 	if err := c.Get(ctx, key, pvc); err != nil {
 		t.Fatalf("target pvc not found: %v", err)
 	}
+
 	if len(pvc.OwnerReferences) != 1 || pvc.OwnerReferences[0].Kind != v1alpha2.VirtualDiskKind {
 		t.Fatalf("target pvc owner reference not set: %#v", pvc.OwnerReferences)
 	}
+
 	if got := pvc.Annotations[annotations.AnnPVCPopulationStrategy]; got != PopulationStrategyDVCR {
 		t.Fatalf("unexpected population strategy: %q", got)
 	}
+
 	if pvc.Spec.DataSourceRef == nil || ptr.Deref(pvc.Spec.DataSourceRef.APIGroup, "") != virtualizationAPIGroup || pvc.Spec.DataSourceRef.Kind != v1alpha2.VirtualDiskKind || pvc.Spec.DataSourceRef.Name != vd.Name {
 		t.Fatalf("target pvc does not reference VirtualDisk populator source: %#v", pvc.Spec.DataSourceRef)
 	}
+
 	if got := pvc.Annotations[annotations.AnnPVCPopulationSourceDVCR]; got != url {
 		t.Fatalf("unexpected dvcr source: %q", got)
 	}
@@ -145,6 +149,7 @@ func TestPVCServiceWaitForImportIsResumable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("WaitForImport failed: %v", err)
 	}
+
 	if phase != corev1.PodPending {
 		t.Fatalf("unexpected phase after first WaitForImport: %s", phase)
 	}
@@ -156,17 +161,21 @@ func TestPVCServiceWaitForImportIsResumable(t *testing.T) {
 
 	// The importer fills the prime PVC, not the target.
 	primeName := primePVCName(target)
+
 	prime := &corev1.PersistentVolumeClaim{}
 	if err := c.Get(ctx, types.NamespacedName{Name: primeName, Namespace: target.Namespace}, prime); err != nil {
 		t.Fatalf("get prime pvc: %v", err)
 	}
+
 	if got := pod.Spec.Volumes; len(got) == 0 {
 		t.Fatalf("importer pod has no volumes")
 	}
+
 	scratch := &corev1.PersistentVolumeClaim{}
 	if err := c.Get(ctx, types.NamespacedName{Name: primeName + "-scratch", Namespace: target.Namespace}, scratch); err != nil {
 		t.Fatalf("get scratch pvc: %v", err)
 	}
+
 	if got, want := scratch.Spec.Resources.Requests[corev1.ResourceStorage], resource.MustParse("1342177280"); got.Cmp(want) != 0 {
 		t.Fatalf("unexpected scratch size: got %s, want %s", got.String(), want.String())
 	}
@@ -176,6 +185,7 @@ func TestPVCServiceWaitForImportIsResumable(t *testing.T) {
 	if err := c.Update(ctx, prime); err != nil {
 		t.Fatalf("bind prime pvc: %v", err)
 	}
+
 	pv := &corev1.PersistentVolume{
 		ObjectMeta: metav1.ObjectMeta{Name: "pv-prime"},
 		Spec: corev1.PersistentVolumeSpec{
@@ -193,6 +203,7 @@ func TestPVCServiceWaitForImportIsResumable(t *testing.T) {
 	if err := c.Status().Update(ctx, pod); err != nil {
 		t.Fatalf("update pod status: %v", err)
 	}
+
 	if err := c.Get(ctx, client.ObjectKeyFromObject(target), target); err != nil {
 		t.Fatalf("refresh target: %v", err)
 	}
@@ -201,6 +212,7 @@ func TestPVCServiceWaitForImportIsResumable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("WaitForImport after pod success failed: %v", err)
 	}
+
 	if phase != corev1.PodSucceeded {
 		t.Fatalf("unexpected final phase: %s", phase)
 	}
@@ -210,6 +222,7 @@ func TestPVCServiceWaitForImportIsResumable(t *testing.T) {
 	if err := c.Get(ctx, client.ObjectKeyFromObject(target), refreshedTarget); err != nil {
 		t.Fatalf("refresh target: %v", err)
 	}
+
 	if refreshedTarget.Spec.VolumeName != "pv-prime" {
 		t.Fatalf("target was not rebound to prime's PV: volumeName=%q", refreshedTarget.Spec.VolumeName)
 	}
@@ -218,9 +231,11 @@ func TestPVCServiceWaitForImportIsResumable(t *testing.T) {
 	if err := c.Get(ctx, types.NamespacedName{Name: primeName, Namespace: target.Namespace}, &corev1.PersistentVolumeClaim{}); client.IgnoreNotFound(err) == nil && err == nil {
 		t.Fatalf("prime pvc still exists")
 	}
+
 	if err := c.Get(ctx, types.NamespacedName{Name: primeName + "-scratch", Namespace: target.Namespace}, &corev1.PersistentVolumeClaim{}); client.IgnoreNotFound(err) == nil && err == nil {
 		t.Fatalf("scratch pvc still exists")
 	}
+
 	if err := c.Get(ctx, types.NamespacedName{Name: importerPodName, Namespace: target.Namespace}, &corev1.Pod{}); client.IgnoreNotFound(err) == nil && err == nil {
 		t.Fatalf("import pod still exists")
 	}
@@ -247,12 +262,15 @@ func TestPVCServiceCreateTargetPicksVolumeSnapshotStrategyWhenPossible(t *testin
 	if err := c.Get(ctx, types.NamespacedName{Name: target.Name, Namespace: target.Namespace}, created); err != nil {
 		t.Fatalf("target pvc not found: %v", err)
 	}
+
 	if got := created.Annotations[annotations.AnnPVCPopulationStrategy]; got != PopulationStrategySnapshot {
 		t.Fatalf("unexpected population strategy: %q", got)
 	}
+
 	if created.Spec.DataSourceRef == nil || created.Spec.DataSourceRef.Kind != "VolumeSnapshot" {
 		t.Fatalf("target pvc does not reference VolumeSnapshot: %#v", created.Spec.DataSourceRef)
 	}
+
 	if got, want := created.Spec.Resources.Requests[corev1.ResourceStorage], resource.MustParse("2Gi"); got.Cmp(want) != 0 {
 		t.Fatalf("unexpected target size: got %s, want %s", got.String(), want.String())
 	}
@@ -261,6 +279,7 @@ func TestPVCServiceCreateTargetPicksVolumeSnapshotStrategyWhenPossible(t *testin
 	if err := c.Get(ctx, types.NamespacedName{Name: created.Spec.DataSourceRef.Name, Namespace: vd.Namespace}, snapshot); err != nil {
 		t.Fatalf("clone snapshot not found: %v", err)
 	}
+
 	if snapshot.Spec.Source.PersistentVolumeClaimName == nil || *snapshot.Spec.Source.PersistentVolumeClaimName != sourceClaim.Name {
 		t.Fatalf("unexpected snapshot source: %#v", snapshot.Spec.Source.PersistentVolumeClaimName)
 	}
@@ -289,6 +308,7 @@ func TestPVCServiceCreateTargetFromVSPinsToSnapshotSourceNode(t *testing.T) {
 	if err := c.Get(ctx, client.ObjectKeyFromObject(target), created); err != nil {
 		t.Fatalf("target pvc not found: %v", err)
 	}
+
 	if got := created.Annotations[SelectedNodeAnnotation]; got != "node-1" {
 		t.Fatalf("target pvc is not pinned to the snapshot source node: %q", got)
 	}
@@ -309,9 +329,11 @@ func TestPVCServiceWaitForImportSmartCloneMarksSucceededAndCleansSnapshot(t *tes
 	if err != nil {
 		t.Fatalf("WaitForImport failed: %v", err)
 	}
+
 	if phase != corev1.PodSucceeded {
 		t.Fatalf("unexpected phase: %s", phase)
 	}
+
 	if err := c.Get(ctx, types.NamespacedName{Name: snapshot.Name, Namespace: snapshot.Namespace}, &vsv1.VolumeSnapshot{}); client.IgnoreNotFound(err) == nil && err == nil {
 		t.Fatalf("clone snapshot still exists")
 	}
@@ -337,6 +359,7 @@ func TestPVCServiceWaitForImportHostAssistedUsesQemuImgConvert(t *testing.T) {
 	if err != nil {
 		t.Fatalf("WaitForImport failed: %v", err)
 	}
+
 	if phase != corev1.PodPending {
 		t.Fatalf("unexpected phase: %s", phase)
 	}
@@ -345,23 +368,30 @@ func TestPVCServiceWaitForImportHostAssistedUsesQemuImgConvert(t *testing.T) {
 	if err := c.Get(ctx, sup.PVCSourceImporterPod(), sourcePod); err != nil {
 		t.Fatalf("get source import pod: %v", err)
 	}
+
 	targetPod := &corev1.Pod{}
 	if err := c.Get(ctx, sup.PVCTargetImporterPod(), targetPod); err != nil {
 		t.Fatalf("get target import pod: %v", err)
 	}
+
 	if err := c.Get(ctx, types.NamespacedName{Name: primePVCName(target) + "-scratch", Namespace: target.Namespace}, &corev1.PersistentVolumeClaim{}); !k8serrors.IsNotFound(err) {
 		t.Fatalf("host-assigned import must not create scratch pvc, got error: %v", err)
 	}
+
 	sourceContainer := sourcePod.Spec.Containers[0]
 	if got := sourceContainer.Command; len(got) != 1 || got[0] != "/usr/sbin/nbdkit" {
 		t.Fatalf("unexpected source command: %#v", got)
 	}
+
 	container := targetPod.Spec.Containers[0]
 	if got := container.Command; len(got) != 1 || got[0] != "/usr/bin/pvc-target-importer" {
 		t.Fatalf("unexpected command: %#v", got)
 	}
+
 	wantNBD := "nbd://" + sup.PVCSourceImporterService().Name + ":10809"
+
 	var gotOwnerUID, gotNBD string
+
 	for _, env := range container.Env {
 		switch env.Name {
 		case common.OwnerUID:
@@ -370,12 +400,15 @@ func TestPVCServiceWaitForImportHostAssistedUsesQemuImgConvert(t *testing.T) {
 			gotNBD = env.Value
 		}
 	}
+
 	if gotOwnerUID != string(vd.UID) {
 		t.Fatalf("unexpected owner UID env: got %q, want %q", gotOwnerUID, vd.UID)
 	}
+
 	if gotNBD != wantNBD {
 		t.Fatalf("unexpected NBD endpoint env: got %q, want %q", gotNBD, wantNBD)
 	}
+
 	if len(container.Ports) != 1 || container.Ports[0].Name != "metrics" || container.Ports[0].ContainerPort != 8443 {
 		t.Fatalf("unexpected metrics port: %#v", container.Ports)
 	}
@@ -398,9 +431,11 @@ func TestPVCServiceCreateTargetFallsBackToCSIClone(t *testing.T) {
 	if err := c.Get(ctx, types.NamespacedName{Name: target.Name, Namespace: target.Namespace}, created); err != nil {
 		t.Fatalf("target pvc not found: %v", err)
 	}
+
 	if got := created.Annotations[annotations.AnnPVCPopulationStrategy]; got != PopulationStrategyCSIClone {
 		t.Fatalf("unexpected population strategy: %q", got)
 	}
+
 	if created.Spec.DataSourceRef == nil || created.Spec.DataSourceRef.Kind != "PersistentVolumeClaim" || created.Spec.DataSourceRef.Name != sourceClaim.Name {
 		t.Fatalf("target pvc does not reference source PVC: %#v", created.Spec.DataSourceRef)
 	}
@@ -435,15 +470,19 @@ func TestPVCServiceCreateTargetFromPVCUsesSnapshotForSDSReplicated(t *testing.T)
 	if err := c.Get(ctx, types.NamespacedName{Name: target.Name, Namespace: target.Namespace}, created); err != nil {
 		t.Fatalf("target pvc not found: %v", err)
 	}
+
 	if got := created.Annotations[annotations.AnnPVCPopulationStrategy]; got != PopulationStrategySnapshot {
 		t.Fatalf("unexpected population strategy: %q", got)
 	}
+
 	if got := created.Annotations[annotations.AnnPVCPopulationSourcePVC]; got != sourceClaim.Name {
 		t.Fatalf("unexpected source pvc: %q", got)
 	}
+
 	if created.Spec.DataSourceRef == nil || created.Spec.DataSourceRef.Kind != "VolumeSnapshot" {
 		t.Fatalf("target pvc does not reference VolumeSnapshot: %#v", created.Spec.DataSourceRef)
 	}
+
 	snapshotObj := &vsv1.VolumeSnapshot{}
 	if err := c.Get(ctx, types.NamespacedName{Name: created.Spec.DataSourceRef.Name, Namespace: vd.Namespace}, snapshotObj); err != nil {
 		t.Fatalf("clone snapshot not found: %v", err)
@@ -452,25 +491,32 @@ func TestPVCServiceCreateTargetFromPVCUsesSnapshotForSDSReplicated(t *testing.T)
 
 func diskImportTestScheme(t *testing.T) *runtime.Scheme {
 	t.Helper()
+
 	scheme := runtime.NewScheme()
 	if err := corev1.AddToScheme(scheme); err != nil {
 		t.Fatal(err)
 	}
+
 	if err := storagev1.AddToScheme(scheme); err != nil {
 		t.Fatal(err)
 	}
+
 	if err := netv1.AddToScheme(scheme); err != nil {
 		t.Fatal(err)
 	}
+
 	if err := vsv1.AddToScheme(scheme); err != nil {
 		t.Fatal(err)
 	}
+
 	if err := storagev1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatal(err)
 	}
+
 	if err := v1alpha2.AddToScheme(scheme); err != nil {
 		t.Fatal(err)
 	}
+
 	return scheme
 }
 

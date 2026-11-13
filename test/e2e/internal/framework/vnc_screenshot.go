@@ -81,19 +81,24 @@ func (f *Framework) saveVMScreenshots(ctx context.Context, dumpDir string) {
 		}
 
 		fileName := path.Join(dumpDir, fmt.Sprintf("vm_%s_screen.png", vm.Name))
+
 		var lastErr error
 		for attempt := 1; attempt <= vncScreenshotAttempts; attempt++ {
 			lastErr = f.captureVNCScreenshot(ctx, vm.Name, fileName)
 			if lastErr == nil {
 				break
 			}
+
 			GinkgoWriter.Printf("VNC screenshot attempt %d/%d failed:\nVirtualMachine: %s\nError: %v\n", attempt, vncScreenshotAttempts, vm.Name, lastErr)
+
 			if attempt < vncScreenshotAttempts {
 				time.Sleep(vncScreenshotRetryDelay)
 			}
 		}
+
 		if lastErr != nil {
 			errFile := path.Join(dumpDir, fmt.Sprintf("vm_%s_screen_error.log", vm.Name))
+
 			msg := fmt.Sprintf("failed to capture VNC screenshot for VirtualMachine %q (phase %s) after %d attempts: %v\n", vm.Name, vm.Status.Phase, vncScreenshotAttempts, lastErr)
 			if werr := os.WriteFile(errFile, []byte(msg), 0o644); werr != nil {
 				GinkgoWriter.Printf("Failed to write VNC screenshot error breadcrumb:\nFile: %s\nError: %v\n", errFile, werr)
@@ -115,7 +120,9 @@ func (f *Framework) captureVNCScreenshot(ctx context.Context, vmName, fileName s
 		img *image.RGBA
 		err error
 	}
+
 	resultChan := make(chan result, 1)
+
 	go func() {
 		img, err := grabRFBFramebuffer(conn)
 		resultChan <- result{img: img, err: err}
@@ -126,11 +133,13 @@ func (f *Framework) captureVNCScreenshot(ctx context.Context, vmName, fileName s
 		if res.err != nil {
 			return res.err
 		}
+
 		file, err := os.Create(fileName)
 		if err != nil {
 			return fmt.Errorf("create screenshot file: %w", err)
 		}
 		defer file.Close()
+
 		return png.Encode(file, res.img)
 	case <-time.After(vncScreenshotTimeout):
 		// Unblock the reader goroutine.
@@ -159,6 +168,7 @@ func grabRFBFramebuffer(conn net.Conn) (*image.RGBA, error) {
 	if _, err := io.ReadFull(conn, buf); err != nil {
 		return nil, fmt.Errorf("read server version: %w", err)
 	}
+
 	if _, err := conn.Write([]byte(rfbVersion)); err != nil {
 		return nil, fmt.Errorf("send client version: %w", err)
 	}
@@ -166,33 +176,42 @@ func grabRFBFramebuffer(conn net.Conn) (*image.RGBA, error) {
 	if _, err := io.ReadFull(conn, buf[:1]); err != nil {
 		return nil, fmt.Errorf("read security types count: %w", err)
 	}
+
 	nsec := int(buf[0])
 	if nsec == 0 {
 		var reasonLen uint32
 		if err := binary.Read(conn, binary.BigEndian, &reasonLen); err != nil {
 			return nil, fmt.Errorf("read handshake error length: %w", err)
 		}
+
 		if reasonLen > maxHandshakeErrLen {
 			reasonLen = maxHandshakeErrLen
 		}
+
 		reason := make([]byte, reasonLen)
 		_, _ = io.ReadFull(conn, reason)
+
 		return nil, fmt.Errorf("server refused handshake: %s", reason)
 	}
+
 	secTypes := make([]byte, nsec)
 	if _, err := io.ReadFull(conn, secTypes); err != nil {
 		return nil, fmt.Errorf("read security types: %w", err)
 	}
+
 	if !slices.Contains(secTypes, byte(securityTypeNone)) {
 		return nil, fmt.Errorf("server offers no None security type: %v", secTypes)
 	}
+
 	if _, err := conn.Write([]byte{securityTypeNone}); err != nil {
 		return nil, fmt.Errorf("send security type: %w", err)
 	}
+
 	var secResult uint32
 	if err := binary.Read(conn, binary.BigEndian, &secResult); err != nil {
 		return nil, fmt.Errorf("read security result: %w", err)
 	}
+
 	if secResult != 0 {
 		return nil, fmt.Errorf("security handshake failed: %d", secResult)
 	}
@@ -201,10 +220,12 @@ func grabRFBFramebuffer(conn net.Conn) (*image.RGBA, error) {
 	if _, err := conn.Write([]byte{1}); err != nil {
 		return nil, fmt.Errorf("send ClientInit: %w", err)
 	}
+
 	var width, height uint16
 	if err := binary.Read(conn, binary.BigEndian, &width); err != nil {
 		return nil, fmt.Errorf("read framebuffer width: %w", err)
 	}
+
 	if err := binary.Read(conn, binary.BigEndian, &height); err != nil {
 		return nil, fmt.Errorf("read framebuffer height: %w", err)
 	}
@@ -212,10 +233,12 @@ func grabRFBFramebuffer(conn net.Conn) (*image.RGBA, error) {
 	if _, err := io.ReadFull(conn, make([]byte, 16)); err != nil {
 		return nil, fmt.Errorf("read server pixel format: %w", err)
 	}
+
 	var nameLen uint32
 	if err := binary.Read(conn, binary.BigEndian, &nameLen); err != nil {
 		return nil, fmt.Errorf("read desktop name length: %w", err)
 	}
+
 	if _, err := io.CopyN(io.Discard, conn, int64(nameLen)); err != nil {
 		return nil, fmt.Errorf("read desktop name: %w", err)
 	}
@@ -240,43 +263,52 @@ func grabRFBFramebuffer(conn net.Conn) (*image.RGBA, error) {
 	updReq[0] = 3
 	binary.BigEndian.PutUint16(updReq[6:], width)
 	binary.BigEndian.PutUint16(updReq[8:], height)
+
 	if _, err := conn.Write(updReq); err != nil {
 		return nil, fmt.Errorf("send FramebufferUpdateRequest: %w", err)
 	}
 
 	img := image.NewRGBA(image.Rect(0, 0, int(width), int(height)))
+
 	remaining := int(width) * int(height)
 	for remaining > 0 {
 		if _, err := io.ReadFull(conn, buf[:1]); err != nil {
 			return nil, fmt.Errorf("read server message type: %w", err)
 		}
+
 		switch buf[0] {
 		case msgFramebufferUpd:
 			var pad [1]byte
 			if _, err := io.ReadFull(conn, pad[:]); err != nil {
 				return nil, err
 			}
+
 			var nrects uint16
 			if err := binary.Read(conn, binary.BigEndian, &nrects); err != nil {
 				return nil, err
 			}
+
 			for range nrects {
 				rectHeader := make([]byte, 12)
 				if _, err := io.ReadFull(conn, rectHeader); err != nil {
 					return nil, err
 				}
+
 				rx := int(binary.BigEndian.Uint16(rectHeader[0:]))
 				ry := int(binary.BigEndian.Uint16(rectHeader[2:]))
 				rw := int(binary.BigEndian.Uint16(rectHeader[4:]))
 				rh := int(binary.BigEndian.Uint16(rectHeader[6:]))
+
 				encoding := int32(binary.BigEndian.Uint32(rectHeader[8:]))
 				if encoding != encodingRaw {
 					return nil, fmt.Errorf("unexpected encoding %d", encoding)
 				}
+
 				rectData := make([]byte, rw*rh*bytesPerPixel)
 				if _, err := io.ReadFull(conn, rectData); err != nil {
 					return nil, err
 				}
+
 				for row := range rh {
 					for col := range rw {
 						offset := (row*rw + col) * bytesPerPixel
@@ -284,6 +316,7 @@ func grabRFBFramebuffer(conn net.Conn) (*image.RGBA, error) {
 						img.SetRGBA(rx+col, ry+row, color.RGBA{R: rectData[offset+2], G: rectData[offset+1], B: rectData[offset], A: 255})
 					}
 				}
+
 				remaining -= rw * rh
 			}
 		case msgSetColourMap:
@@ -291,6 +324,7 @@ func grabRFBFramebuffer(conn net.Conn) (*image.RGBA, error) {
 			if _, err := io.ReadFull(conn, header); err != nil {
 				return nil, err
 			}
+
 			ncolours := int(binary.BigEndian.Uint16(header[3:]))
 			if _, err := io.CopyN(io.Discard, conn, int64(ncolours*6)); err != nil {
 				return nil, err
@@ -301,6 +335,7 @@ func grabRFBFramebuffer(conn net.Conn) (*image.RGBA, error) {
 			if _, err := io.ReadFull(conn, header); err != nil {
 				return nil, err
 			}
+
 			textLen := binary.BigEndian.Uint32(header[3:])
 			if _, err := io.CopyN(io.Discard, conn, int64(textLen)); err != nil {
 				return nil, err

@@ -62,10 +62,12 @@ var _ = Describe("WaitForPVCImportStep", func() {
 			ObjectMeta: metav1.ObjectMeta{Name: "vd-pvc", Namespace: vd.Namespace},
 			Status:     corev1.PersistentVolumeClaimStatus{Phase: corev1.ClaimBound},
 		}
+
 		objects := []client.Object{pvc}
 		if pod != nil {
 			objects = append(objects, pod)
 		}
+
 		fakeClient := fake.NewClientBuilder().WithScheme(newStepScheme()).WithObjects(objects...).Build()
 
 		cb := conditions.NewConditionBuilder(vdcondition.ReadyType)
@@ -75,6 +77,7 @@ var _ = Describe("WaitForPVCImportStep", func() {
 		// The data source commits the condition the step filled in; do the same so a spec can
 		// assert on what the user is told.
 		conditions.SetCondition(cb, &vd.Status.Conditions)
+
 		return vd
 	}
 
@@ -85,6 +88,7 @@ var _ = Describe("WaitForPVCImportStep", func() {
 	takeStep := func(terminationMessage string) *v1alpha2.VirtualDisk {
 		vd := newTestVD(nil)
 		vd.Status.Target.PersistentVolumeClaim = "vd-pvc"
+
 		return takeStepWithPod(newCrashingImporterPod(vd, terminationMessage), vd)
 	}
 
@@ -164,5 +168,6 @@ func (f *fakeProgressStat) GetProgress(_ types.UID, pod *corev1.Pod, _ string, _
 	if pod != nil {
 		f.seenPod = pod.Name
 	}
+
 	return f.progress
 }

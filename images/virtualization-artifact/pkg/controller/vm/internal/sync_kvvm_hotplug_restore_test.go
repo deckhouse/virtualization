@@ -82,6 +82,7 @@ var _ = Describe("SyncKvvmHandler: hotplug volume dropped from the KVVM", func()
 
 	attachedDisk := func() hotplugFixture {
 		const diskName = "hotplug-disk"
+
 		return hotplugFixture{
 			object: &v1alpha2.VirtualDisk{
 				ObjectMeta: metav1.ObjectMeta{Name: diskName, Namespace: namespace, UID: "vd-uid"},
@@ -111,8 +112,11 @@ var _ = Describe("SyncKvvmHandler: hotplug volume dropped from the KVVM", func()
 	}
 
 	attachedClusterImage := func() hotplugFixture {
-		const imageName = "hotplug-image"
-		const registryURL = "dvcr.example/image:tag"
+		const (
+			imageName   = "hotplug-image"
+			registryURL = "dvcr.example/image:tag"
+		)
+
 		return hotplugFixture{
 			object: &v1alpha2.ClusterVirtualImage{
 				ObjectMeta: metav1.ObjectMeta{Name: imageName, UID: "cvi-uid"},
@@ -148,6 +152,7 @@ var _ = Describe("SyncKvvmHandler: hotplug volume dropped from the KVVM", func()
 		vm.Spec.OsType = v1alpha2.GenericOs
 		vm.Spec.Disruptions = &v1alpha2.Disruptions{RestartApprovalMode: v1alpha2.Manual}
 		vm.Status.Phase = v1alpha2.MachineRunning
+
 		return vm
 	}
 
@@ -185,6 +190,7 @@ var _ = Describe("SyncKvvmHandler: hotplug volume dropped from the KVVM", func()
 			DiskDevice:  virtv1.DiskDevice{Disk: &virtv1.DiskTarget{Bus: virtv1.DiskBusSCSI}},
 			ErrorPolicy: ptr.To(virtv1.DiskErrorPolicyReport),
 		}}
+
 		return kvvmi
 	}
 
@@ -221,6 +227,7 @@ var _ = Describe("SyncKvvmHandler: hotplug volume dropped from the KVVM", func()
 		for _, volume := range kvvm.Spec.Template.Spec.Volumes {
 			names = append(names, volume.Name)
 		}
+
 		return names
 	}
 
@@ -305,6 +312,7 @@ var _ = Describe("SyncKvvmHandler: hotplug volume dropped from the KVVM", func()
 
 		// The handler waits for the IPAddress instead of reporting an error.
 		reconcile()
+
 		updated := &virtv1.VirtualMachine{}
 		Expect(fakeClient.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, updated)).To(Succeed())
 		Expect(network.KVVMHasMainInterfaceSpec(updated)).To(BeTrue())

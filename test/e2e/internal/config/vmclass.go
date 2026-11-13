@@ -35,12 +35,16 @@ func CheckDefaultVMClass(virtClient virtclient.Client) error {
 		return fmt.Errorf("list VirtualMachineClasses in cluster: %w", err)
 	}
 
-	var e2eClass *v1alpha2.VirtualMachineClass
-	var currentDefaultClass *v1alpha2.VirtualMachineClass
+	var (
+		e2eClass            *v1alpha2.VirtualMachineClass
+		currentDefaultClass *v1alpha2.VirtualMachineClass
+	)
+
 	for _, vmClass := range vmClasses.Items {
 		if vmClass.Name == DefaultVirtualMachineClassName {
 			e2eClass = &vmClass
 		}
+
 		if _, ok := vmClass.Annotations[annotations.AnnVirtualMachineClassDefault]; ok {
 			currentDefaultClass = &vmClass
 		}

@@ -65,6 +65,7 @@ func newStepFakeClientWithInterceptor(funcs interceptor.Funcs, objs ...client.Ob
 	Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
 	Expect(virtv1.AddToScheme(scheme)).To(Succeed())
 	Expect(sdnapi.AddToScheme(scheme)).To(Succeed())
+
 	return fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).WithInterceptorFuncs(funcs).Build()
 }
 
@@ -80,6 +81,7 @@ func newMainClusterNetworkWithPool() *sdnapi.ClusterNetwork {
 
 func newStaticIPAddress(name, address string, allocated metav1.Condition) *sdnapi.IPAddress {
 	allocated.Type = sdnapi.ConditionAllocated
+
 	return &sdnapi.IPAddress{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "ns"},
 		Spec: sdnapi.IPAddressSpec{
@@ -94,6 +96,7 @@ func newStaticIPAddress(name, address string, allocated metav1.Condition) *sdnap
 func newAllocatedIPAddress(name, address string) *sdnapi.IPAddress {
 	ipa := newStaticIPAddress(name, address, metav1.Condition{Status: metav1.ConditionTrue, Reason: "IPAddressAllocated"})
 	ipa.Status.Address = address
+
 	return ipa
 }
 
@@ -143,6 +146,7 @@ var _ = Describe("MirrorStep", func() {
 	listIPAddresses := func(cl client.Client) []sdnapi.IPAddress {
 		ipas := &sdnapi.IPAddressList{}
 		Expect(cl.List(ctx, ipas, client.InNamespace(namespace))).To(Succeed())
+
 		return ipas.Items
 	}
 
@@ -180,6 +184,7 @@ var _ = Describe("MirrorStep", func() {
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(result).NotTo(BeNil())
+
 		mirrors := listIPAddresses(cl)
 		Expect(mirrors).To(HaveLen(1))
 		Expect(mirrors[0].Spec.Static.IP).To(Equal(address))
@@ -192,9 +197,11 @@ var _ = Describe("MirrorStep", func() {
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(result).NotTo(BeNil())
+
 		mirrors := listIPAddresses(cl)
 		Expect(mirrors).To(HaveLen(1))
 		Expect(mirrors[0].Spec.Static.IP).To(Equal(address))
+
 		cond := cb.Condition()
 		Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 		Expect(cond.Reason).To(Equal(vmipcondition.VirtualMachineIPAddressLeaseNotReady.String()))
@@ -226,6 +233,7 @@ var _ = Describe("MirrorStep", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(result).NotTo(BeNil())
 		Expect(vmip.Status.Address).To(BeEmpty())
+
 		cond := cb.Condition()
 		Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 		Expect(cond.Message).To(ContainSubstring("picking another address"))
@@ -276,6 +284,7 @@ var _ = Describe("MirrorStep", func() {
 		_, err := NewMirrorStep(stale, cl, cb, recorder).Take(ctx, vmip)
 
 		Expect(k8serrors.IsConflict(err)).To(BeTrue())
+
 		got := &v1alpha2.VirtualMachineIPAddressLease{}
 		Expect(cl.Get(ctx, types.NamespacedName{Name: lease.Name}, got)).To(Succeed())
 		Expect(got.GetDeletionTimestamp()).To(BeNil())
@@ -306,12 +315,14 @@ var _ = Describe("MirrorStep", func() {
 
 		It("mirrors the vmip of a VM moved to an IPAddress without the VM label and does not hold Bound back", func() {
 			makeVMIPOfVM()
+
 			cl := newStepFakeClient(newMainClusterNetworkWithPool(), newVM("10.10.10.99"))
 
 			result, err := NewMirrorStep(nil, cl, cb, recorder).Take(ctx, vmip)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeNil(), "a vmip the VM does not run on must not wait for the mirror allocation")
+
 			mirrors := listIPAddresses(cl)
 			Expect(mirrors).To(HaveLen(1))
 			mirror := mirrors[0]
@@ -324,12 +335,14 @@ var _ = Describe("MirrorStep", func() {
 
 		It("labels the mirror with the VM that runs on the vmip address", func() {
 			makeVMIPOfVM()
+
 			cl := newStepFakeClient(newMainClusterNetworkWithPool(), newVM(address))
 
 			result, err := NewMirrorStep(nil, cl, cb, recorder).Take(ctx, vmip)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).NotTo(BeNil(), "the address source vmip waits for the mirror allocation")
+
 			mirrors := listIPAddresses(cl)
 			Expect(mirrors).To(HaveLen(1))
 			mirror := mirrors[0]
@@ -351,12 +364,14 @@ var _ = Describe("MirrorStep", func() {
 
 		It("keeps it Bound when the sdn module refuses the address", func() {
 			markVMIPBound()
+
 			cl := newStepFakeClient(newMainClusterNetworkWithPool(), newRefusedIPAddress(), lease)
 
 			result, err := NewMirrorStep(lease, cl, cb, recorder).Take(ctx, vmip)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).NotTo(BeNil())
+
 			cond := cb.Condition()
 			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
 			Expect(cond.Message).To(ContainSubstring("still reserved by the sdn module"))
@@ -367,6 +382,7 @@ var _ = Describe("MirrorStep", func() {
 
 		It("keeps it Bound when the name of the mirror is taken", func() {
 			markVMIPBound()
+
 			ipaWithMirrorName := newAllocatedIPAddress(vmip.Name, "10.10.10.99")
 			cl := newStepFakeClient(newMainClusterNetworkWithPool(), ipaWithMirrorName, lease)
 
@@ -381,6 +397,7 @@ var _ = Describe("MirrorStep", func() {
 
 		It("does not keep it Bound once the lease no longer backs it", func() {
 			markVMIPBound()
+
 			lease.Spec.VirtualMachineIPAddressRef = &v1alpha2.VirtualMachineIPAddressLeaseIpAddressRef{Name: "another-vmip", Namespace: vmip.Namespace}
 			cl := newStepFakeClient(newMainClusterNetworkWithPool(), newRefusedIPAddress(), lease)
 
@@ -406,6 +423,7 @@ var _ = Describe("MirrorStep", func() {
 		Expect(result).NotTo(BeNil())
 		Expect(vmip.Status.Address).To(Equal(address))
 		Expect(cl.Get(ctx, types.NamespacedName{Name: lease.Name}, &v1alpha2.VirtualMachineIPAddressLease{})).To(Succeed())
+
 		cond := cb.Condition()
 		Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 		Expect(cond.Reason).To(Equal(vmipcondition.VirtualMachineIPAddressLeaseNotReady.String()))
@@ -491,6 +509,7 @@ var _ = Describe("MirrorStep on a deleting vmip", func() {
 	listIPAddresses := func(cl client.Client) []sdnapi.IPAddress {
 		ipas := &sdnapi.IPAddressList{}
 		Expect(cl.List(ctx, ipas, client.InNamespace(namespace))).To(Succeed())
+
 		return ipas.Items
 	}
 
@@ -506,11 +525,13 @@ var _ = Describe("MirrorStep on a deleting vmip", func() {
 
 	It("mirrors the address for the VM that still runs on it", func() {
 		markAttached()
+
 		cl := newStepFakeClient(newMainClusterNetworkWithPool(), vm)
 
 		_, err := NewMirrorStep(nil, cl, cb, recorder).Take(ctx, deletingVMIP)
 
 		Expect(err).NotTo(HaveOccurred())
+
 		mirrors := listIPAddresses(cl)
 		Expect(mirrors).To(HaveLen(1))
 		Expect(mirrors[0].Spec.Static).NotTo(BeNil())

@@ -45,10 +45,12 @@ func (l *iterator) Iter(ctx context.Context, h handler) error {
 
 	for _, vm := range vms.Items {
 		m := newDataMetric(&vm)
+
 		m.AppliedVirtualMachineClassName = appliedClassName(&vm)
 		if stop := h(m); stop {
 			return nil
 		}
+
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -56,6 +58,7 @@ func (l *iterator) Iter(ctx context.Context, h handler) error {
 			continue
 		}
 	}
+
 	return nil
 }
 
@@ -77,6 +80,7 @@ func appliedClassName(vm *v1alpha2.VirtualMachine) string {
 		if err := json.Unmarshal(raw.Raw, &change); err != nil {
 			continue
 		}
+
 		if change.Path == "virtualMachineClassName" {
 			return change.CurrentValue
 		}

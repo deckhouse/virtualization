@@ -107,6 +107,7 @@ func (h *OperationHandler) observe(ctx context.Context, s state.VirtualMachineSt
 		if !commonvmop.IsInProgressOrPending(vmop) {
 			continue
 		}
+
 		if cb := operationRunning(vmop); cb != nil {
 			return cb, nil
 		}
@@ -126,6 +127,7 @@ func (h *OperationHandler) observe(ctx context.Context, s state.VirtualMachineSt
 	if err != nil {
 		return nil, fmt.Errorf("get internal virtual machine: %w", err)
 	}
+
 	return powerStateRequested(kvvm), nil
 }
 
@@ -134,6 +136,7 @@ func (h *OperationHandler) observe(ctx context.Context, s state.VirtualMachineSt
 // FilesystemFrozen condition already describes.
 func (h *OperationHandler) snapshotRunning(ctx context.Context, vm *v1alpha2.VirtualMachine) (*conditions.ConditionBuilder, error) {
 	var snapshots v1alpha2.VirtualMachineSnapshotList
+
 	err := h.client.List(ctx, &snapshots,
 		client.InNamespace(vm.GetNamespace()),
 		client.MatchingFields{indexer.IndexFieldVMSnapshotByVM: vm.GetName()},
@@ -168,6 +171,7 @@ func (h *OperationHandler) snapshotRunning(ctx context.Context, vm *v1alpha2.Vir
 // attachmentRunning reports a block device being hot-plugged into the machine or unplugged from it.
 func (h *OperationHandler) attachmentRunning(ctx context.Context, vm *v1alpha2.VirtualMachine) (*conditions.ConditionBuilder, error) {
 	var vmbdas v1alpha2.VirtualMachineBlockDeviceAttachmentList
+
 	err := h.client.List(ctx, &vmbdas,
 		client.InNamespace(vm.GetNamespace()),
 		client.MatchingFields{indexer.IndexFieldVMBDAByVM: vm.GetName()},
@@ -221,6 +225,7 @@ func powerStateRequested(kvvm *virtv1.VirtualMachine) *conditions.ConditionBuild
 	}
 
 	var start, stop bool
+
 	for _, request := range kvvm.Status.StateChangeRequests {
 		switch request.Action {
 		case virtv1.StartRequest:
@@ -314,6 +319,7 @@ func describeOperation(vmop *v1alpha2.VirtualMachineOperation) operationDescript
 				running: fmt.Sprintf("The virtual machine is being migrated to cluster %q", peer),
 			}
 		}
+
 		return operationDescription{
 			reason:  vmcondition.ReasonVirtualMachineMigrating,
 			running: "The virtual machine is being migrated to another node",
@@ -390,6 +396,7 @@ func oldestBy[T any, PT interface {
 		if !accept(item) {
 			continue
 		}
+
 		if oldest == nil || item.GetCreationTimestamp().Time.Before(oldest.GetCreationTimestamp().Time) {
 			oldest = item
 		}

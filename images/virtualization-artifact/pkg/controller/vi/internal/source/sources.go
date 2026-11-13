@@ -61,9 +61,11 @@ func needBounderForClone(ctx context.Context, cl client.Client, pvc *corev1.Pers
 	if pvc == nil || pvc.Status.Phase == corev1.ClaimBound {
 		return false, nil
 	}
+
 	if !service.IsSmartClonePVC(pvc) {
 		return false, nil
 	}
+
 	if pvc.Spec.StorageClassName == nil || *pvc.Spec.StorageClassName == "" {
 		return false, nil
 	}
@@ -72,6 +74,7 @@ func needBounderForClone(ctx context.Context, cl client.Client, pvc *corev1.Pers
 	if err != nil {
 		return false, fmt.Errorf("fetch storage class: %w", err)
 	}
+
 	if sc == nil || sc.VolumeBindingMode == nil || *sc.VolumeBindingMode != storagev1.VolumeBindingWaitForFirstConsumer {
 		return false, nil
 	}
@@ -124,6 +127,7 @@ func (s Sources) CleanUp(ctx context.Context, vi *v1alpha2.VirtualImage) (requeu
 		}
 
 		requeue = requeue || sourceRequeue
+
 		reasons = append(reasons, sourceReason)
 	}
 
@@ -189,6 +193,7 @@ func refreshPVCImportProgress(
 	if scale != nil {
 		opts = append(opts, scale)
 	}
+
 	vi.Status.Progress = servicestat.CapProgressBelow(statSvc.GetProgress(vi.GetUID(), pod, vi.Status.Progress, opts...), 100)
 }
 
@@ -196,6 +201,7 @@ func pvcImporterPodPhase(pod *corev1.Pod) corev1.PodPhase {
 	if pod == nil || pod.Status.Phase == "" {
 		return corev1.PodPending
 	}
+
 	return pod.Status.Phase
 }
 
@@ -214,11 +220,13 @@ func pvcImportFailed(vi *v1alpha2.VirtualImage, cb *conditions.ConditionBuilder,
 		if pvcImporterPodPhase(pod) != corev1.PodFailed {
 			return false
 		}
+
 		failure = "VirtualImage importer Pod failed"
 	}
 
 	vi.Status.Phase = v1alpha2.ImageFailed
 	cb.Status(metav1.ConditionFalse).Reason(vicondition.ProvisioningFailed).Message(service.CapitalizeFirstLetter(failure) + ".")
+
 	return true
 }
 
@@ -231,12 +239,14 @@ func setPhaseConditionForFinishedImage(
 	switch pvc {
 	case nil:
 		*phase = v1alpha2.ImagePVCLost
+
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.PVCLost).
 			Message(fmt.Sprintf("The underlying PersistentVolumeClaim %q was not found.", supgen.PersistentVolumeClaim().String()))
 	default:
 		*phase = v1alpha2.ImageReady
+
 		cb.
 			Status(metav1.ConditionTrue).
 			Reason(vicondition.Ready).
@@ -246,6 +256,7 @@ func setPhaseConditionForFinishedImage(
 
 func setPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *v1alpha2.ImagePhase, err error) {
 	*phase = v1alpha2.ImageFailed
+
 	cb.
 		Status(metav1.ConditionFalse).
 		Reason(vicondition.ProvisioningFailed).
@@ -261,12 +272,14 @@ func setPhaseConditionFromPodError(cb *conditions.ConditionBuilder, vi *v1alpha2
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.ProvisioningNotStarted).
 			Message(service.CapitalizeFirstLetter(err.Error() + "."))
+
 		return nil
 	case errors.Is(err, servicestat.ErrProvisioningFailed):
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.ProvisioningFailed).
 			Message(service.CapitalizeFirstLetter(err.Error() + "."))
+
 		return nil
 	default:
 		return err
@@ -283,6 +296,7 @@ func setPhaseConditionFromStorageError(err error, vi *v1alpha2.VirtualImage, cb 
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.ProvisioningFailed).
 			Message("The StorageClass is not fully configured in the cluster. Check the StorageClass name or set a default StorageClass.")
+
 		return reconcile.Result{}, true, nil
 	case errors.Is(err, service.ErrDefaultStorageClassNotFound):
 		vi.Status.Phase = v1alpha2.ImagePending
@@ -291,6 +305,7 @@ func setPhaseConditionFromStorageError(err error, vi *v1alpha2.VirtualImage, cb 
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.ProvisioningFailed).
 			Message("Default StorageClass not found in the cluster: please provide a StorageClass name or set a default StorageClass.")
+
 		return reconcile.Result{}, true, nil
 	case common.ErrQuotaExceeded(err):
 		// The result carries the retry the quota branch asks for: dropping it here left that
@@ -315,12 +330,14 @@ func reconcilePVCImportFromDVCR(
 	if pvc == nil {
 		if err := statSvc.CheckPod(pod); err != nil {
 			vi.Status.Phase = v1alpha2.ImageFailed
+
 			switch {
 			case errors.Is(err, servicestat.ErrProvisioningFailed):
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(vicondition.ProvisioningFailed).
 					Message(service.CapitalizeFirstLetter(err.Error() + "."))
+
 				return reconcile.Result{}, nil
 			default:
 				return reconcile.Result{}, err
@@ -333,9 +350,11 @@ func reconcilePVCImportFromDVCR(
 		diskSize, err := getPVCSizeFromPod(statSvc, pod)
 		if err != nil {
 			setPhaseConditionToFailed(cb, &vi.Status.Phase, err)
+
 			if errors.Is(err, service.ErrInsufficientPVCSize) {
 				return reconcile.Result{}, nil
 			}
+
 			return reconcile.Result{}, err
 		}
 
@@ -348,14 +367,17 @@ func reconcilePVCImportFromDVCR(
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("fetch target pvc: %w", err)
 		}
+
 		if target == nil {
 			return reconcile.Result{RequeueAfter: time.Second}, nil
 		}
+
 		vi.Status.Phase = v1alpha2.ImageProvisioning
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.Provisioning).
 			Message("Preparing the PersistentVolumeClaim for the image.")
+
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	}
 
@@ -368,6 +390,7 @@ func reconcilePVCImportFromDVCR(
 		vi.Status.CDROM = statSvc.GetCDROM(pod)
 		vi.Status.Format = imageformat.StorageFormat(pvc)
 		vi.Status.DownloadSpeed = statSvc.GetDownloadSpeed(vi.GetUID(), pod)
+
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	}
 
@@ -377,21 +400,25 @@ func reconcilePVCImportFromDVCR(
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("fetch pvc-importer pod: %w", err)
 	}
+
 	if pvcImportFailed(vi, cb, importPod) {
 		return reconcile.Result{RequeueAfter: pvcImportProgressRequeue}, nil
 	}
 
 	vi.Status.Phase = v1alpha2.ImageProvisioning
 	cb.Status(metav1.ConditionFalse).Reason(vicondition.Provisioning).Message("Importing data into the PersistentVolumeClaim.")
+
 	if vi.Status.Progress == "" {
 		vi.Status.Progress = "50.0%"
 	}
+
 	if pvcImporterPodPhase(importPod) == corev1.PodSucceeded {
 		return reconcile.Result{RequeueAfter: pvcImportProgressRequeue}, nil
 	}
 	// The DVCR phase fills the first half of the overall progress, so the
 	// pvc-importer metric (0..100) is projected into the 50..100 slice.
 	refreshPVCImportProgress(vi, statSvc, importPod, servicestat.NewScaleOption(50, 100))
+
 	return reconcile.Result{RequeueAfter: pvcImportProgressRequeue}, nil
 }
 
@@ -400,9 +427,11 @@ func getPVCSizeFromPod(statSvc Stat, pod *corev1.Pod) (resource.Quantity, error)
 	if err != nil {
 		return resource.Quantity{}, fmt.Errorf("failed to parse unpacked bytes %s: %w", statSvc.GetSize(pod).UnpackedBytes, err)
 	}
+
 	if unpackedSize.IsZero() {
 		return resource.Quantity{}, errors.New("got zero unpacked size from data source")
 	}
+
 	return service.GetValidatedPVCSize(nil, unpackedSize)
 }
 
@@ -431,6 +460,7 @@ func reconcilePVCImportFromReadySource(
 					Status(metav1.ConditionFalse).
 					Reason(vicondition.ProvisioningFailed).
 					Message(service.CapitalizeFirstLetter(err.Error()))
+
 				return reconcile.Result{}, nil
 			}
 		}
@@ -444,11 +474,14 @@ func reconcilePVCImportFromReadySource(
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("fetch target pvc: %w", err)
 		}
+
 		if target == nil {
 			return reconcile.Result{RequeueAfter: time.Second}, nil
 		}
+
 		vi.Status.Phase = v1alpha2.ImageProvisioning
 		cb.Status(metav1.ConditionFalse).Reason(vicondition.Provisioning).Message("Preparing the PersistentVolumeClaim for the image.")
+
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	}
 
@@ -457,8 +490,11 @@ func reconcilePVCImportFromReadySource(
 		vi.Status.Phase = v1alpha2.ImageReady
 		cb.Status(metav1.ConditionTrue).Reason(vicondition.Ready).Message("")
 		vi.Status.Progress = "100%"
+
 		ready()
+
 		vi.Status.Format = imageformat.StorageFormat(pvc)
+
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	}
 
@@ -466,6 +502,7 @@ func reconcilePVCImportFromReadySource(
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("fetch pvc-importer pod: %w", err)
 	}
+
 	if pvcImportFailed(vi, cb, importPod) {
 		return reconcile.Result{RequeueAfter: pvcImportProgressRequeue}, nil
 	}
@@ -474,11 +511,15 @@ func reconcilePVCImportFromReadySource(
 	if vi.Status.Progress == "" {
 		vi.Status.Progress = "0%"
 	}
+
 	cb.Status(metav1.ConditionFalse).Reason(vicondition.Provisioning).Message("Importing data into the PersistentVolumeClaim.")
+
 	if pvcImporterPodPhase(importPod) == corev1.PodSucceeded {
 		return reconcile.Result{RequeueAfter: pvcImportProgressRequeue}, nil
 	}
+
 	refreshPVCImportProgress(vi, statSvc, importPod, nil)
+
 	return reconcile.Result{RequeueAfter: pvcImportProgressRequeue}, nil
 }
 
@@ -491,6 +532,7 @@ func validatePVCSourceProvisionerCompatibility(ctx context.Context, c client.Cli
 	if err != nil {
 		return fmt.Errorf("fetch source pvc: %w", err)
 	}
+
 	if sourceClaim == nil || sourceClaim.Spec.StorageClassName == nil || *sourceClaim.Spec.StorageClassName == "" {
 		return nil
 	}
@@ -526,6 +568,7 @@ func createPVCImportTarget(
 	disk *service.DiskService,
 ) error {
 	key := supgen.PersistentVolumeClaim()
+
 	switch {
 	case source == nil:
 		_, err := disk.PersistentVolumeClaim().CreateBlankTarget(ctx, key, vi.Status.StorageClassName, &size, vi, disk, nil)
@@ -538,10 +581,13 @@ func createPVCImportTarget(
 		if err != nil {
 			return fmt.Errorf("fetch source pvc: %w", err)
 		}
+
 		if sourceClaim == nil {
 			return fmt.Errorf("source pvc %s/%s not found", source.PVC.Namespace, source.PVC.Name)
 		}
+
 		_, err = disk.PersistentVolumeClaim().CreateTargetFromPVC(ctx, key, vi.Status.StorageClassName, &size, vi, sourceClaim, disk, nil)
+
 		return err
 	default:
 		return nil
@@ -552,6 +598,7 @@ const retryPeriod = 1
 
 func setQuotaExceededPhaseCondition(cb *conditions.ConditionBuilder, phase *v1alpha2.ImagePhase, err error, creationTimestamp metav1.Time) reconcile.Result {
 	*phase = v1alpha2.ImageFailed
+
 	cb.
 		Status(metav1.ConditionFalse).
 		// The API declares this reason for exactly this case; the code used to report a
@@ -564,5 +611,6 @@ func setQuotaExceededPhaseCondition(cb *conditions.ConditionBuilder, phase *v1al
 	}
 
 	cb.Message(fmt.Sprintf("Quota exceeded: %s; Retry in %d minute.", err, retryPeriod))
+
 	return reconcile.Result{RequeueAfter: retryPeriod * time.Minute}
 }

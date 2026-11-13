@@ -60,6 +60,7 @@ func (w *VirtualMachineBlockDeviceAttachmentWatcher) Watch(mgr manager.Manager, 
 	); err != nil {
 		return fmt.Errorf("error setting watch on VMBDAs: %w", err)
 	}
+
 	return nil
 }
 
@@ -98,6 +99,7 @@ func (w *KVVMIWatcher) Watch(mgr manager.Manager, ctr controller.Controller) err
 	); err != nil {
 		return fmt.Errorf("error setting watch on KVVMIs: %w", err)
 	}
+
 	return nil
 }
 
@@ -117,6 +119,7 @@ func (w *KVVMWatcher) Watch(mgr manager.Manager, ctr controller.Controller) erro
 	); err != nil {
 		return fmt.Errorf("error setting watch on KVVMs: %w", err)
 	}
+
 	return nil
 }
 
@@ -125,9 +128,11 @@ func instanceVolumeNames(kvvmi *virtv1.VirtualMachineInstance) map[string]struct
 	for _, vs := range kvvmi.Status.VolumeStatus {
 		names[vs.Name] = struct{}{}
 	}
+
 	for _, v := range kvvmi.Spec.Volumes {
 		names[v.Name] = struct{}{}
 	}
+
 	return names
 }
 
@@ -138,6 +143,7 @@ func requestedVolumeNames(kvvm *virtv1.VirtualMachine) map[string]struct{} {
 			names[vr.AddVolumeOptions.Name] = struct{}{}
 		}
 	}
+
 	return names
 }
 
@@ -161,16 +167,19 @@ func volumeNamesHandler[T client.Object](c client.Client, volumeNames func(T) ma
 
 func changedVolumeNames(old, cur map[string]struct{}) map[string]struct{} {
 	changed := make(map[string]struct{})
+
 	for name := range cur {
 		if _, ok := old[name]; !ok {
 			changed[name] = struct{}{}
 		}
 	}
+
 	for name := range old {
 		if _, ok := cur[name]; !ok {
 			changed[name] = struct{}{}
 		}
 	}
+
 	return changed
 }
 
@@ -183,15 +192,18 @@ func enqueueDisksByVolume(ctx context.Context, c client.Client, ns string, volum
 
 func disksByVolume(ctx context.Context, c client.Client, ns string, volumeNames map[string]struct{}) []reconcile.Request {
 	var requests []reconcile.Request
+
 	for name := range volumeNames {
 		var vds v1alpha2.VirtualDiskList
 		if err := c.List(ctx, &vds, client.InNamespace(ns), client.MatchingFields{indexer.IndexFieldVDByVolumeName: name}); err != nil {
 			slog.Default().Error(fmt.Sprintf("failed to list virtual disks by volume %s: %s", name, err))
 			continue
 		}
+
 		for _, vd := range vds.Items {
 			requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{Namespace: vd.Namespace, Name: vd.Name}})
 		}
 	}
+
 	return requests
 }

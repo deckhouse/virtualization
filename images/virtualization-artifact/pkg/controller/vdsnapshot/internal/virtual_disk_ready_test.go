@@ -31,9 +31,11 @@ import (
 )
 
 var _ = Describe("VirtualDiskReady handler", func() {
-	var snapshotter *VirtualDiskReadySnapshotterMock
-	var vd *v1alpha2.VirtualDisk
-	var vdSnapshot *v1alpha2.VirtualDiskSnapshot
+	var (
+		snapshotter *VirtualDiskReadySnapshotterMock
+		vd          *v1alpha2.VirtualDisk
+		vdSnapshot  *v1alpha2.VirtualDiskSnapshot
+	)
 
 	BeforeEach(func() {
 		vd = &v1alpha2.VirtualDisk{
@@ -67,6 +69,7 @@ var _ = Describe("VirtualDiskReady handler", func() {
 
 			_, err := h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
+
 			ready, _ := conditions.GetCondition(vdscondition.VirtualDiskReadyType, vdSnapshot.Status.Conditions)
 			Expect(ready.Status).To(Equal(metav1.ConditionTrue))
 			Expect(ready.Reason).To(Equal(vdscondition.VirtualDiskReady.String()))
@@ -83,6 +86,7 @@ var _ = Describe("VirtualDiskReady handler", func() {
 
 			_, err := h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
+
 			ready, _ := conditions.GetCondition(vdscondition.VirtualDiskReadyType, vdSnapshot.Status.Conditions)
 			Expect(ready.Status).To(Equal(metav1.ConditionFalse))
 			Expect(ready.Reason).To(Equal(vdscondition.VirtualDiskNotReadyForSnapshotting.String()))
@@ -98,6 +102,7 @@ var _ = Describe("VirtualDiskReady handler", func() {
 
 			_, err := h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
+
 			ready, _ := conditions.GetCondition(vdscondition.VirtualDiskReadyType, vdSnapshot.Status.Conditions)
 			Expect(ready.Status).To(Equal(metav1.ConditionFalse))
 			Expect(ready.Reason).To(Equal(vdscondition.VirtualDiskNotReadyForSnapshotting.String()))
@@ -113,6 +118,7 @@ var _ = Describe("VirtualDiskReady handler", func() {
 
 			_, err := h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
+
 			ready, _ := conditions.GetCondition(vdscondition.VirtualDiskReadyType, vdSnapshot.Status.Conditions)
 			Expect(ready.Status).To(Equal(metav1.ConditionFalse))
 			Expect(ready.Reason).To(Equal(vdscondition.VirtualDiskNotReadyForSnapshotting.String()))
@@ -128,12 +134,14 @@ var _ = Describe("VirtualDiskReady handler", func() {
 					Reason:  vdscondition.VirtualDiskNotReadyForSnapshotting.String(),
 					Message: "error",
 				})
+
 				return vd, nil
 			}
 			h := NewVirtualDiskReadyHandler(snapshotter)
 
 			_, err := h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
+
 			ready, _ := conditions.GetCondition(vdscondition.VirtualDiskReadyType, vdSnapshot.Status.Conditions)
 			Expect(ready.Status).To(Equal(metav1.ConditionFalse))
 			Expect(ready.Reason).To(Equal(vdscondition.VirtualDiskNotReadyForSnapshotting.String()))

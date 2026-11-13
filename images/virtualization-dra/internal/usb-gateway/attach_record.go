@@ -43,12 +43,15 @@ func (e AttachEntry) Validate() error {
 	if e.Rhport < 0 {
 		return fmt.Errorf("rhport is required")
 	}
+
 	if e.BusID == "" {
 		return fmt.Errorf("busID is required")
 	}
+
 	if e.DeviceName == "" {
 		return fmt.Errorf("deviceName is required")
 	}
+
 	return nil
 }
 
@@ -76,6 +79,7 @@ func newAttachRecordManager(stateDir string, getter usbip.AttachInfoGetter) (*at
 		if err != nil {
 			return nil, err
 		}
+
 		err = os.WriteFile(recordFile, b, 0o600)
 		if err != nil {
 			return nil, err
@@ -142,6 +146,7 @@ func (r *attachRecordManager) Refresh() error {
 	}
 
 	r.record = newRecord
+
 	return nil
 }
 
@@ -164,9 +169,11 @@ func (r *attachRecordManager) AddEntry(e AttachEntry) error {
 		if entry.Rhport == e.Rhport {
 			return fmt.Errorf("entry with Rhport %d already exists", e.Rhport)
 		}
+
 		if entry.BusID == e.BusID {
 			return fmt.Errorf("entry with BusID %s already exists", e.BusID)
 		}
+
 		if entry.DeviceName == e.DeviceName {
 			return fmt.Errorf("entry with DeviceName %s already exists", e.DeviceName)
 		}
@@ -187,5 +194,6 @@ func (r *attachRecordManager) AddEntry(e AttachEntry) error {
 	}
 
 	r.record = record
+
 	return nil
 }

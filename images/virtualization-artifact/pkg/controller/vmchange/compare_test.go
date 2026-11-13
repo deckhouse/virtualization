@@ -918,6 +918,7 @@ gpus: []
 
 	for _, tt := range tests {
 		var changes SpecChanges
+
 		t.Run(tt.title, func(t *testing.T) {
 			currentSpec := loadVMSpec(t, tt.currentSpec)
 			desiredSpec := loadVMSpec(t, tt.desiredSpec)
@@ -942,8 +943,10 @@ gpus: []
 
 // Test ApplyImmediate to Restart upgraders.
 func TestUpgradeHotplugComputeChangesToRestart(t *testing.T) {
-	const cpuReason = "cpu restart reason"
-	const quotaReason = "quota restart reason"
+	const (
+		cpuReason   = "cpu restart reason"
+		quotaReason = "quota restart reason"
+	)
 
 	changes := SpecChanges{}
 	changes.Add(
@@ -983,9 +986,12 @@ func TestUpgradeHotplugComputeChangesToRestart(t *testing.T) {
 
 func loadVMSpec(t *testing.T, inYAML string) *v1alpha2.VirtualMachineSpec {
 	t.Helper()
+
 	var spec v1alpha2.VirtualMachineSpec
+
 	err := yaml.Unmarshal([]byte(inYAML), &spec)
 	require.NoError(t, err, "Should load vm spec from '%s'", inYAML)
+
 	return &spec
 }
 
@@ -1019,14 +1025,18 @@ func requirePathOperation(path string, operation ChangeOperation) func(t *testin
 		t.Helper()
 
 		hasPathOperation := false
-		var pathOperation ChangeOperation
-		var change FieldChange
+
+		var (
+			pathOperation ChangeOperation
+			change        FieldChange
+		)
 
 		for _, fieldChange := range changes.GetAll() {
 			if fieldChange.Path == path {
 				pathOperation = fieldChange.Operation
 				change = fieldChange
 				hasPathOperation = true
+
 				break
 			}
 		}
@@ -1044,6 +1054,7 @@ func changesToYAML(changes SpecChanges) string {
 	}
 
 	res, _ := yaml.Marshal(status)
+
 	return string(res)
 }
 

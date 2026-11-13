@@ -101,6 +101,7 @@ var _ = Describe("LifecycleHandler", func() {
 		options = append(options, opts...)
 		vmop := vmopbuilder.New(options...)
 		vmop.Status.Phase = v1alpha2.VMOPPhasePending
+
 		return vmop
 	}
 
@@ -128,6 +129,7 @@ var _ = Describe("LifecycleHandler", func() {
 		}
 		options = append(options, opts...)
 		vmop := vmopbuilder.New(options...)
+
 		return vmop
 	}
 
@@ -145,6 +147,7 @@ var _ = Describe("LifecycleHandler", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(srv.Changed().Status.Phase).To(BeEmpty(), "the lifecycle handler must not drive a move to a peer")
+
 		var migrations virtv1.VirtualMachineInstanceMigrationList
 		Expect(fakeClient.List(ctx, &migrations)).To(Succeed())
 		Expect(migrations.Items).To(BeEmpty(), "no migration within this cluster for a move to a peer")
@@ -277,6 +280,7 @@ var _ = Describe("LifecycleHandler", func() {
 			Reason:             vmopcondition.ReasonWaitingForVirtualMachineToBeReadyToMigrate.String(),
 			LastTransitionTime: metav1.NewTime(time.Now().Add(-age)),
 		}}
+
 		return vmop
 	}
 
@@ -554,6 +558,7 @@ var _ = Describe("LifecycleHandler", func() {
 			if pod != nil {
 				objects = append(objects, pod)
 			}
+
 			fakeClient, err := testutil.NewFakeClientWithObjects(objects...)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -736,6 +741,7 @@ var _ = Describe("LifecycleHandler", func() {
 		// which is the consequence of the placement deadline rather than its cause.
 		It("names the cause in the event of a failed migration", func() {
 			var events []string
+
 			recorderMock.EventFunc = func(_ client.Object, _, _, message string) {
 				events = append(events, message)
 			}
@@ -772,6 +778,7 @@ var _ = Describe("LifecycleHandler", func() {
 		// node still lets the migration through, so the warning has to arrive with the answer.
 		It("warns once when the target turns out to be unschedulable", func() {
 			var events []string
+
 			recorderMock.EventFunc = func(_ client.Object, _, _, message string) {
 				events = append(events, message)
 			}
@@ -1293,6 +1300,7 @@ var _ = Describe("LifecycleHandler", func() {
 			if annotationVal != "" {
 				n.Annotations = map[string]string{annotations.AnnMigrationIface: annotationVal}
 			}
+
 			return n
 		}
 
@@ -1358,6 +1366,7 @@ var _ = Describe("LifecycleHandler", func() {
 			if annotationVal != "" {
 				n.Annotations = map[string]string{annotations.AnnMigrationIface: annotationVal}
 			}
+
 			return n
 		}
 
@@ -1367,6 +1376,7 @@ var _ = Describe("LifecycleHandler", func() {
 			vmop := newVMOPMigrate()
 
 			var err error
+
 			fakeClient, srv = setupEnvironment(vmop, vm, makeNode(""))
 			migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
 			base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
@@ -1452,6 +1462,7 @@ var _ = Describe("LifecycleHandler", func() {
 
 		handle := func(vmop *v1alpha2.VirtualMachineOperation, objs ...client.Object) (*v1alpha2.VirtualMachineOperation, error) {
 			GinkgoHelper()
+
 			objs = append(objs, newVM(v1alpha2.AlwaysSafeMigrationPolicy))
 			fakeClient, srv = setupEnvironment(vmop, objs...)
 			h := NewLifecycleHandler(
@@ -1462,6 +1473,7 @@ var _ = Describe("LifecycleHandler", func() {
 				"",
 			)
 			_, err := h.Handle(ctx, srv.Changed())
+
 			return srv.Changed(), err
 		}
 
@@ -1472,6 +1484,7 @@ var _ = Describe("LifecycleHandler", func() {
 					AddVolumeOptions: &virtv1.AddVolumeOptions{Name: volumeName},
 				})
 			}
+
 			return kvvm
 		}
 
@@ -1596,12 +1609,14 @@ var _ = Describe("LifecycleHandler", func() {
 					Reason:             vmopcondition.ReasonWaitingForBlockDeviceAttachment.String(),
 					LastTransitionTime: metav1.NewTime(time.Now().Add(-d)),
 				}}
+
 				return vmop
 			}
 
 			// kvvmiAttaching maps each attaching volume to the pod that attaches it.
 			kvvmiAttaching := func(podNames ...string) *virtv1.VirtualMachineInstance {
 				kvvmi := &virtv1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace}}
+
 				kvvmi.Status.NodeName = "node-a"
 				for i, podName := range podNames {
 					kvvmi.Status.VolumeStatus = append(kvvmi.Status.VolumeStatus, virtv1.VolumeStatus{
@@ -1610,6 +1625,7 @@ var _ = Describe("LifecycleHandler", func() {
 						HotplugVolume: &virtv1.HotplugVolumeStatus{AttachPodName: podName},
 					})
 				}
+
 				return kvvmi
 			}
 
@@ -1686,6 +1702,7 @@ var _ = Describe("LifecycleHandler", func() {
 			attachmentOf := func(phase v1alpha2.BlockDeviceAttachmentPhase, kind v1alpha2.VMBDAObjectRefKind, diskName string) *v1alpha2.VirtualMachineBlockDeviceAttachment {
 				vmbda := attachment(phase)
 				vmbdabuilder.ApplyOptions(vmbda, vmbdabuilder.WithBlockDeviceRef(kind, diskName))
+
 				return vmbda
 			}
 
@@ -1696,6 +1713,7 @@ var _ = Describe("LifecycleHandler", func() {
 					Phase:         phase,
 					HotplugVolume: &virtv1.HotplugVolumeStatus{AttachPodName: "hp"},
 				}}
+
 				return kvvmi
 			}
 
@@ -1735,6 +1753,7 @@ var _ = Describe("LifecycleHandler", func() {
 
 			disk := func(phase v1alpha2.DiskPhase, readyAgo time.Duration) *v1alpha2.VirtualDisk {
 				vd := &v1alpha2.VirtualDisk{ObjectMeta: metav1.ObjectMeta{Name: "vd", Namespace: namespace}}
+
 				vd.Status.Phase = phase
 				if phase == v1alpha2.DiskReady {
 					vd.Status.Conditions = []metav1.Condition{{
@@ -1743,6 +1762,7 @@ var _ = Describe("LifecycleHandler", func() {
 						LastTransitionTime: metav1.NewTime(time.Now().Add(-readyAgo)),
 					}}
 				}
+
 				return vd
 			}
 
@@ -1795,11 +1815,13 @@ var _ = Describe("LifecycleHandler", func() {
 				namedDisk := func(diskName string, phase v1alpha2.DiskPhase, readyAgo time.Duration) *v1alpha2.VirtualDisk {
 					vd := disk(phase, readyAgo)
 					vd.Name = diskName
+
 					return vd
 				}
 				attachmentOfDisk := func(name, diskName string) *v1alpha2.VirtualMachineBlockDeviceAttachment {
 					vmbda := attachmentOf(v1alpha2.BlockDeviceAttachmentPhaseInProgress, v1alpha2.VMBDAObjectRefKindVirtualDisk, diskName)
 					vmbda.Name = name
+
 					return vmbda
 				}
 
@@ -1926,12 +1948,14 @@ var _ = Describe("target preparation timeout", func() {
 			Reason:             reason.String(),
 			LastTransitionTime: metav1.NewTime(time.Now().Add(-age)),
 		}}
+
 		return vmop
 	}
 
 	newHandler := func(objs ...client.Object) (*LifecycleHandler, client.Client) {
 		fakeClient, err := testutil.NewFakeClientWithObjects(objs...)
 		Expect(err).NotTo(HaveOccurred())
+
 		return NewLifecycleHandler(fakeClient, service.NewMigrationService(fakeClient, featuregates.Default()), nil, recorderMock, ""), fakeClient
 	}
 
@@ -2037,6 +2061,7 @@ var _ = Describe("canExecute", func() {
 	vmWithNoTarget := func() *v1alpha2.VirtualMachine {
 		vm := vmWithMigratable(metav1.ConditionFalse, vmcondition.ReasonNoMigrationTarget)
 		vm.Status.Conditions[0].Message = noTargetMessage
+
 		return vm
 	}
 

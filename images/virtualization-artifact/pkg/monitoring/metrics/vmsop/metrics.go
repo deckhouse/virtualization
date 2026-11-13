@@ -41,6 +41,7 @@ func WithBaseLabelsByMetric(m *dataMetric, labels ...string) []string {
 			m.UID,
 		}
 	}
+
 	return append(base, labels...)
 }
 

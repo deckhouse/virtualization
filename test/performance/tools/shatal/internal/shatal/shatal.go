@@ -126,6 +126,7 @@ func (s *Shatal) Run() {
 		r := runner
 
 		s.wg.Add(1)
+
 		go func() {
 			r.Run(ctx)
 			s.wg.Done()
@@ -136,6 +137,7 @@ func (s *Shatal) Run() {
 		select {
 		case <-s.exit:
 			s.logger.Info("Stop runners")
+
 			if s.forceInterruption {
 				fmt.Println("Performing force interruption")
 				os.Exit(1)

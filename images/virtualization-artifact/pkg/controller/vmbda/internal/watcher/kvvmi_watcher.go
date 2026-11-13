@@ -56,6 +56,7 @@ func (w KVVMIWatcher) Watch(mgr manager.Manager, ctr controller.Controller) erro
 	); err != nil {
 		return fmt.Errorf("error setting watch on KVVMI: %w", err)
 	}
+
 	return nil
 }
 
@@ -94,6 +95,7 @@ func (eh KVVMIEventHandler) enqueueRequests(ctx context.Context, ns string, vsTo
 	}
 
 	var vmbdas v1alpha2.VirtualMachineBlockDeviceAttachmentList
+
 	err := eh.client.List(ctx, &vmbdas, &client.ListOptions{
 		Namespace: ns,
 	})

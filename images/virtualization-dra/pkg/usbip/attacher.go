@@ -63,6 +63,7 @@ func (a *usbAttacher) Attach(host, busID string, port int) (int, error) {
 	if err != nil {
 		return -1, fmt.Errorf("failed to connect to usbipd: %w", err)
 	}
+
 	defer func() {
 		if err := conn.Close(); err != nil {
 			slog.Error("failed to close connection", slog.String("error", err.Error()))
@@ -93,11 +94,13 @@ func (a *usbAttacher) Detach(rhport int) error {
 	}
 
 	found := false
+
 	for i := 0; i < driver.nports; i++ {
 		idev := &driver.idevs[i]
 
 		if idev.port == rhport {
 			found = true
+
 			vstatus := protocol.DeviceStatus(idev.status)
 			if vstatus == protocol.VDeviceStatusNull {
 				slog.Info("Port is already detached", slog.Int("rhport", rhport))
@@ -128,6 +131,7 @@ func (a *usbAttacher) Detach(rhport int) error {
 	}
 
 	slog.Info("Port detached", slog.Int("rhport", rhport))
+
 	return nil
 }
 
@@ -211,6 +215,7 @@ func (a *usbAttacher) usbipNetTCPConnect(host, port string) (*net.TCPConn, error
 		if conErr := conn.Close(); conErr != nil {
 			slog.Error("failed to close connection", slog.String("error", conErr.Error()))
 		}
+
 		return nil, fmt.Errorf("set TCP_NODELAY: %w", err)
 	}
 
@@ -242,6 +247,7 @@ func (a *usbAttacher) usbipNetTCPConnect(host, port string) (*net.TCPConn, error
 		if conErr := conn.Close(); conErr != nil {
 			slog.Error("failed to close connection", slog.String("error", conErr.Error()))
 		}
+
 		return nil, fmt.Errorf("configure TCP keepalive: %w", err)
 	}
 
@@ -249,6 +255,7 @@ func (a *usbAttacher) usbipNetTCPConnect(host, port string) (*net.TCPConn, error
 		if conErr := conn.Close(); conErr != nil {
 			slog.Error("failed to close connection", slog.String("error", conErr.Error()))
 		}
+
 		return nil, fmt.Errorf("set TCP user timeout: %w", err)
 	}
 
@@ -262,6 +269,7 @@ func setTCPUserTimeout(conn *net.TCPConn, timeout time.Duration) error {
 	}
 
 	var socketErr error
+
 	err = rawConn.Control(func(fd uintptr) {
 		socketErr = unix.SetsockoptInt(
 			int(fd), unix.IPPROTO_TCP, unix.TCP_USER_TIMEOUT, int(timeout.Milliseconds()),
@@ -270,6 +278,7 @@ func setTCPUserTimeout(conn *net.TCPConn, timeout time.Duration) error {
 	if err != nil {
 		return fmt.Errorf("access socket: %w", err)
 	}
+
 	if socketErr != nil {
 		return fmt.Errorf("set socket option: %w", socketErr)
 	}
@@ -359,6 +368,7 @@ func (a *usbAttacher) getFreePort(speed uint32) (int, error) {
 				continue
 			}
 		}
+
 		vstatus := protocol.DeviceStatus(driver.idevs[i].status)
 		if vstatus == protocol.VDeviceStatusNull {
 			return driver.idevs[i].port, nil

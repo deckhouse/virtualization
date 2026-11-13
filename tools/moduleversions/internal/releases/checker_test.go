@@ -51,9 +51,11 @@ func TestVerifyVersionOnModulePage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("VerifyVersionOnModulePage returned error: %v", err)
 	}
+
 	if !checkPassed {
 		t.Fatal("expected version check to pass")
 	}
+
 	if len(versionInfo.Versions) != 4 {
 		t.Fatalf("expected 4 matching editions, got %d", len(versionInfo.Versions))
 	}
@@ -69,6 +71,7 @@ func TestVerifyVersionOnModulePageNotFound(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
+
 	if !strings.Contains(err.Error(), "version 1.8.3 not found") {
 		t.Fatalf("unexpected error: %v", err)
 	}

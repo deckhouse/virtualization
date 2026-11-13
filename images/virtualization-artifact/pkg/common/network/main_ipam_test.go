@@ -46,6 +46,7 @@ import (
 func newMainClusterNetworkObj(networkType string, withPool bool) *unstructured.Unstructured {
 	u := newNetworkObj("ClusterNetwork", MainClusterNetworkName, "", withPool)
 	Expect(unstructured.SetNestedField(u.Object, networkType, "spec", "type")).To(Succeed())
+
 	return u
 }
 
@@ -95,6 +96,7 @@ var _ = Describe("MainInterfaceSpecEnabled", func() {
 	It("is required for a machine whose address is held by an IPAddress", func() {
 		// Such a machine has nowhere else to take the address from.
 		Expect(MainInterfaceSpecRequired(false, nil)).To(BeTrue())
+
 		enabled, err := MainInterfaceSpecEnabled(ctx, newIPAMFakeClient(), false, nil)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(enabled).To(BeTrue())
@@ -102,7 +104,9 @@ var _ = Describe("MainInterfaceSpecEnabled", func() {
 
 	It("is enabled, but not required, for a vmip-backed machine while the sdn module serves the Main network", func() {
 		cl := newIPAMFakeClient(newMainClusterNetworkObj("PrimaryCNI", true))
+
 		Expect(MainInterfaceSpecRequired(true, nil)).To(BeFalse())
+
 		enabled, err := MainInterfaceSpecEnabled(ctx, cl, true, nil)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(enabled).To(BeTrue())
@@ -293,6 +297,7 @@ var _ = Describe("ProvisionableInterfaceSpecs for the Main network", func() {
 	newVMNaming := func(ipAddressName string) *v1alpha2.VirtualMachine {
 		vm := newVM()
 		vm.Spec.Networks = []v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain, IPAddressName: ipAddressName}}
+
 		return vm
 	}
 	mainSpecs := InterfaceSpecList{
@@ -487,6 +492,7 @@ var _ = Describe("SDN IPAddress lifecycle around deletion", func() {
 		u := newSDNIPAddressObj(name, vmUID, "ClusterNetwork", MainClusterNetworkName, "192.168.1.5", true)
 		u.SetDeletionTimestamp(&metav1.Time{Time: metav1.Now().Time})
 		u.SetFinalizers([]string{"network.deckhouse.io/ip-address-controller"})
+
 		return u
 	}
 
@@ -522,12 +528,14 @@ var _ = Describe("SDN IPAddress access with the sdn module gone", func() {
 					if _, ok := obj.(*sdnapi.IPAddress); ok {
 						return noMatch
 					}
+
 					return nil
 				},
 				List: func(_ context.Context, _ client.WithWatch, list client.ObjectList, _ ...client.ListOption) error {
 					if _, ok := list.(*sdnapi.IPAddressList); ok {
 						return noMatch
 					}
+
 					return nil
 				},
 			}).Build()
@@ -557,6 +565,7 @@ var _ = Describe("Protecting the Main IPAddress of a running virtual machine", f
 	ipAddressesOf := func(cl client.Client, vm *v1alpha2.VirtualMachine) []sdnapi.IPAddress {
 		items, err := ListSDNIPAddressesOfVM(ctx, cl, vm)
 		Expect(err).NotTo(HaveOccurred())
+
 		return items
 	}
 	release := func(cl client.Client, vm *v1alpha2.VirtualMachine) error {
@@ -569,6 +578,7 @@ var _ = Describe("Protecting the Main IPAddress of a running virtual machine", f
 	getIPAddress := func(cl client.Client, name string) *sdnapi.IPAddress {
 		ipa := &sdnapi.IPAddress{}
 		Expect(cl.Get(ctx, types.NamespacedName{Name: name, Namespace: "ns"}, ipa)).To(Succeed())
+
 		return ipa
 	}
 
@@ -588,10 +598,12 @@ var _ = Describe("Protecting the Main IPAddress of a running virtual machine", f
 	terminatingIPAddress := func(pods ...string) *sdnapi.IPAddress {
 		ipa := newSDNIPAddressObj("vm-main", "uid-1", "ClusterNetwork", MainClusterNetworkName, "10.66.10.14", true)
 		ipa.SetOwnerReferences([]metav1.OwnerReference{{APIVersion: "virtualization.deckhouse.io/v1alpha2", Kind: "VirtualMachine", Name: "vm", UID: "uid-1"}})
+
 		now := metav1.Now()
 		ipa.SetDeletionTimestamp(&now)
 		ipa.SetFinalizers([]string{"network.deckhouse.io/ip-address-controller"})
 		ipa.Status.UsedByPods = pods
+
 		return ipa
 	}
 
@@ -704,6 +716,7 @@ var _ = Describe("PreferredSDNIPAddress", func() {
 	newIPAddress := func(name, address string, age time.Duration) sdnapi.IPAddress {
 		ipa := newSDNIPAddressObj(name, "uid-1", "ClusterNetwork", MainClusterNetworkName, address, true)
 		ipa.CreationTimestamp = metav1.NewTime(time.Now().Add(-age))
+
 		return *ipa
 	}
 
@@ -741,6 +754,7 @@ var _ = Describe("PreferredSDNIPAddress", func() {
 
 var _ = Describe("An IPAddress named for the Main network of two virtual machines", func() {
 	ctx := context.Background()
+
 	const address = "10.66.10.20"
 
 	newSharedIPAddress := func(ownerUID string, allocated bool) *sdnapi.IPAddress {
@@ -748,6 +762,7 @@ var _ = Describe("An IPAddress named for the Main network of two virtual machine
 		if allocated {
 			ipa.Status.Address = address
 		}
+
 		return ipa
 	}
 	newVMNaming := func(name, ipAddressName, statusAddress string, phase v1alpha2.MachinePhase) *v1alpha2.VirtualMachine {
@@ -758,16 +773,19 @@ var _ = Describe("An IPAddress named for the Main network of two virtual machine
 		if ipAddressName != "" {
 			vm.Spec.Networks = []v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain, IPAddressName: ipAddressName}}
 		}
+
 		return vm
 	}
 	check := func(cl client.Client, vm *v1alpha2.VirtualMachine) error {
 		ipa, err := GetMainSDNIPAddress(ctx, cl, vm)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ipa).NotTo(BeNil())
+
 		return CheckMainSDNIPAddress(ctx, cl, vm, ipa)
 	}
 	expectConflictWith := func(err error, vmName string) {
 		GinkgoHelper()
+
 		var conflict *IPAddressConflictError
 		Expect(errors.As(err, &conflict)).To(BeTrue(), "got %v", err)
 		Expect(conflict.VMName).To(Equal(vmName))

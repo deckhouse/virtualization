@@ -68,6 +68,7 @@ var _ = Describe("DataExports", label.Slow(), Label(label.SIGStorage, precheck.P
 		f   *framework.Framework
 		ctx context.Context
 	)
+
 	BeforeEach(func() {
 		ctx = context.Background()
 		f = framework.NewFramework("data-exports")
@@ -219,6 +220,7 @@ var _ = Describe("DataExports", label.Slow(), Label(label.SIGStorage, precheck.P
 
 		By("Starting the VM", func() {
 			util.StartVirtualMachine(ctx, f, vm)
+
 			err := vmObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -244,6 +246,7 @@ func IsNFS() bool {
 	if sc == nil {
 		return false
 	}
+
 	return sc.Provisioner == framework.NFS
 }
 
@@ -254,7 +257,9 @@ func IsNFS() bool {
 func runningOnClusterNode(ctx context.Context, f *framework.Framework) bool {
 	hostname, err := os.Hostname()
 	Expect(err).NotTo(HaveOccurred(), "Failed to get hostname")
+
 	var node corev1.Node
+
 	err = f.Clients.GenericClient().Get(
 		ctx,
 		types.NamespacedName{Name: hostname},
@@ -263,7 +268,9 @@ func runningOnClusterNode(ctx context.Context, f *framework.Framework) bool {
 	if k8serrors.IsNotFound(err) {
 		return false
 	}
+
 	Expect(err).NotTo(HaveOccurred(), "Failed to get node %s", hostname)
+
 	return true
 }
 
@@ -284,6 +291,7 @@ func exportData(ctx context.Context, f *framework.Framework, resourceType, name,
 	if IsNFS() {
 		opts.SourcePath = diskImageExportFile
 	}
+
 	err := f.D8Virtualization().DataExportDownload(resourceType, name, opts)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -345,6 +353,7 @@ func uploadFile(ctx context.Context, f *framework.Framework, vd *v1alpha2.Virtua
 		if err != nil && !errors.Is(err, errUploadServiceUnavailable) {
 			return StopTrying("upload failed with a non-retryable error").Wrap(err)
 		}
+
 		return err
 	}, framework.ShortTimeout, eventually.WithPolling(5*time.Second), eventually.WithExplanation("Upload failed"))
 }
@@ -354,6 +363,7 @@ func doUploadAttempt(client *http.Client, url, filePath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open %s: %w", filePath, err)
 	}
+
 	defer func() {
 		if closeErr := file.Close(); closeErr != nil && !errors.Is(closeErr, os.ErrClosed) {
 			Expect(closeErr).NotTo(HaveOccurred(), "Failed to close file %s", filePath)
@@ -364,6 +374,7 @@ func doUploadAttempt(client *http.Client, url, filePath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to stat %s: %w", filePath, err)
 	}
+
 	if stat.Size() == 0 {
 		return fmt.Errorf("file %s is empty", filePath)
 	}
@@ -372,12 +383,14 @@ func doUploadAttempt(client *http.Client, url, filePath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create HTTP request: %w", err)
 	}
+
 	req.ContentLength = stat.Size()
 
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
+
 	defer func() {
 		if closeErr := resp.Body.Close(); closeErr != nil && !errors.Is(closeErr, os.ErrClosed) {
 			Expect(closeErr).NotTo(HaveOccurred(), "Failed to close response body")

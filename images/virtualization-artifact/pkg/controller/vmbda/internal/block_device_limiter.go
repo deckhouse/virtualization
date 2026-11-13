@@ -45,6 +45,7 @@ func (h *BlockDeviceLimiter) Handle(ctx context.Context, vmbda *v1alpha2.Virtual
 	}
 
 	cb := conditions.NewConditionBuilder(vmbdacondition.DiskAttachmentCapacityAvailableType).Generation(vmbda.Generation)
+
 	defer func() { conditions.SetCondition(cb, &vmbda.Status.Conditions) }()
 
 	if vmbda.DeletionTimestamp != nil {

@@ -27,6 +27,7 @@ func IndexVMIMByVMI() (obj client.Object, field string, extractValue client.Inde
 		if !ok || vmim == nil || vmim.Spec.VMIName == "" {
 			return nil
 		}
+
 		return []string{vmim.Spec.VMIName}
 	}
 }

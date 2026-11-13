@@ -58,15 +58,19 @@ func (h *PoolRefHandler) Handle(ctx context.Context) error {
 		if k8serrors.IsNotFound(err) {
 			return nil
 		}
+
 		return err
 	}
+
 	if clusterNetwork.Spec.Type != sdnapi.ClusterNetworkTypePrimaryCNI {
 		return nil
 	}
+
 	var kind, name string
 	if ipam := clusterNetwork.Spec.IPAM; ipam != nil && ipam.IPAddressPoolRef != nil {
 		kind, name = ipam.IPAddressPoolRef.Kind, ipam.IPAddressPoolRef.Name
 	}
+
 	if kind == sdnapi.ClusterIPAddressPoolKind && name == network.MainIPAddressPoolName {
 		return nil
 	}
@@ -75,6 +79,7 @@ func (h *PoolRefHandler) Handle(ctx context.Context) error {
 	if name != "" {
 		logger.FromContext(ctx).Warn("The main ClusterNetwork references another address pool, leaving it as it is",
 			"pool", name, "kind", kind, "ownPool", network.MainIPAddressPoolName)
+
 		return nil
 	}
 
@@ -83,6 +88,7 @@ func (h *PoolRefHandler) Handle(ctx context.Context) error {
 	ref := &unstructured.Unstructured{}
 	ref.SetGroupVersionKind(network.ClusterNetworkGVK)
 	ref.SetName(network.MainClusterNetworkName)
+
 	if err := unstructured.SetNestedField(ref.Object, map[string]any{
 		"kind": sdnapi.ClusterIPAddressPoolKind,
 		"name": network.MainIPAddressPoolName,
@@ -94,5 +100,6 @@ func (h *PoolRefHandler) Handle(ctx context.Context) error {
 	if err := h.client.Patch(ctx, ref, client.Apply, client.FieldOwner(FieldOwner), client.ForceOwnership); err != nil {
 		return fmt.Errorf("apply the ipam reference of ClusterNetwork %s: %w", network.MainClusterNetworkName, err)
 	}
+
 	return nil
 }

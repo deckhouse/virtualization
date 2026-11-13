@@ -49,20 +49,24 @@ func ClientAndNamespaceFromContext(ctx context.Context) (client kubeclient.Clien
 	if !ok {
 		return nil, "", false, fmt.Errorf("unable to get client config from context")
 	}
+
 	restConfig, err := clientConfig.ClientConfig()
 	if err != nil {
 		return nil, "", false, err
 	}
+
 	restConfig.UserAgent = streamUserAgent
 
 	client, err = kubeclient.GetClientFromRESTConfig(restConfig)
 	if err != nil {
 		return nil, "", false, err
 	}
+
 	namespace, overridden, err = clientConfig.Namespace()
 	if err != nil {
 		return nil, "", false, err
 	}
+
 	return client, namespace, overridden, nil
 }
 
@@ -73,7 +77,9 @@ func NamespaceFromContext(ctx context.Context) (string, error) {
 	if !ok {
 		return "", fmt.Errorf("unable to get client config from context")
 	}
+
 	namespace, _, err := clientConfig.Namespace()
+
 	return namespace, err
 }
 
@@ -82,9 +88,11 @@ func GetRESTConfig(ctx context.Context) (*rest.Config, error) {
 	if !ok {
 		return nil, fmt.Errorf("unable to get client config from context")
 	}
+
 	config, err := clientConfig.ClientConfig()
 	if err != nil {
 		return nil, err
 	}
+
 	return config, nil
 }

@@ -78,6 +78,7 @@ func (ds ObjectRefVirtualDiskSnapshotCR) Sync(ctx context.Context, vi *v1alpha2.
 	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
 
 	cb := conditions.NewConditionBuilder(vicondition.ReadyType).Generation(vi.Generation)
+
 	defer func() { conditions.SetCondition(cb, &vi.Status.Conditions) }()
 
 	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen)

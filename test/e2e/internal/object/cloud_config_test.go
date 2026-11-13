@@ -41,6 +41,7 @@ func TestCloudConfigRender(t *testing.T) {
 				"cloud-init must start with #cloud-config header")
 
 			var parsed map[string]interface{}
+
 			err := yaml.Unmarshal([]byte(tt.rendered), &parsed)
 			require.NoError(t, err, "cloud-init must be valid YAML")
 
@@ -67,6 +68,7 @@ func TestCloudConfigRender(t *testing.T) {
 
 func TestPerfCloudInitHasWriteFiles(t *testing.T) {
 	var parsed map[string]interface{}
+
 	err := yaml.Unmarshal([]byte(PerfCloudInit), &parsed)
 	require.NoError(t, err)
 

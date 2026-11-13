@@ -78,6 +78,7 @@ var _ = Describe("AttachedHandler", func() {
 
 	It("is attached to the virtual machine whose status names it", func() {
 		vm.Status.Networks = []v1alpha2.NetworksStatus{{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "net", VirtualMachineMACAddressName: vmmac.Name}}
+
 		handle()
 		Expect(attached()).To(Equal(metav1.ConditionTrue))
 		Expect(vmmac.Status.VirtualMachine).To(Equal(vm.Name))
@@ -85,6 +86,7 @@ var _ = Describe("AttachedHandler", func() {
 
 	It("stays attached while an interface of the virtual machine is on its address without its name", func() {
 		vm.Status.Networks = []v1alpha2.NetworksStatus{{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "net", MAC: macAddress}}
+
 		handle()
 		Expect(attached()).To(Equal(metav1.ConditionTrue))
 		Expect(vmmac.Status.VirtualMachine).To(Equal(vm.Name))
@@ -92,6 +94,7 @@ var _ = Describe("AttachedHandler", func() {
 
 	It("is not attached once the virtual machine neither names it nor uses its address", func() {
 		vm.Status.Networks = []v1alpha2.NetworksStatus{{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "net", MAC: "f6:e1:74:94:12:35"}}
+
 		handle()
 		Expect(attached()).To(Equal(metav1.ConditionFalse))
 	})
@@ -110,6 +113,7 @@ var _ = Describe("AttachedHandler", func() {
 	It("is not attached by an empty address", func() {
 		vmmac.Status.Address = ""
 		vm.Status.Networks = []v1alpha2.NetworksStatus{{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "net"}}
+
 		handle()
 		Expect(attached()).To(Equal(metav1.ConditionFalse))
 	})

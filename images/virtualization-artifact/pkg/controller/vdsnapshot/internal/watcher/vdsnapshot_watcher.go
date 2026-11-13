@@ -53,5 +53,6 @@ func (w VirtualDiskSnapshotWatcher) Watch(mgr manager.Manager, ctr controller.Co
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualDiskSnapshot: %w", err)
 	}
+
 	return nil
 }

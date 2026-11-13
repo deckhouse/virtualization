@@ -67,6 +67,7 @@ func (h DeletionHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (
 		if requeue {
 			h.setTerminatingCondition(vd, vdcondition.CleanupPending, reason)
 			log.Info("VirtualDisk cleanup is pending", slog.String("reason", reason))
+
 			return reconcile.Result{RequeueAfter: time.Second}, nil
 		}
 
@@ -77,11 +78,13 @@ func (h DeletionHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (
 		conditions.RemoveCondition(vdcondition.TerminatingType, &vd.Status.Conditions)
 		log.Info("Deletion observed: remove cleanup finalizer from VirtualDisk")
 		controllerutil.RemoveFinalizer(vd, v1alpha2.FinalizerVDCleanup)
+
 		return reconcile.Result{}, nil
 	}
 
 	conditions.RemoveCondition(vdcondition.TerminatingType, &vd.Status.Conditions)
 	controllerutil.AddFinalizer(vd, v1alpha2.FinalizerVDCleanup)
+
 	return reconcile.Result{}, nil
 }
 

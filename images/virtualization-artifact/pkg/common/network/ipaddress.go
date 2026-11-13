@@ -39,6 +39,7 @@ func SDNNetworkRef(netSpec v1alpha2.NetworksSpec) sdnapi.NetworkRef {
 	if netSpec.Type == v1alpha2.NetworksTypeMain {
 		return sdnapi.NetworkRef{Kind: v1alpha2.NetworksTypeClusterNetwork, Name: MainClusterNetworkName}
 	}
+
 	return sdnapi.NetworkRef{Kind: netSpec.Type, Name: netSpec.Name}
 }
 
@@ -53,6 +54,7 @@ func EnsureSDNIPAddress(ctx context.Context, c client.Client, vm *v1alpha2.Virtu
 	if existing := PreferredSDNIPAddress(vm, ipAddressesOfNetwork(ipAddresses, netSpec)); existing != nil {
 		return liveIPAddressName(existing)
 	}
+
 	return createSDNIPAddress(ctx, c, vm, sdnapi.IPAddressSpec{NetworkRef: SDNNetworkRef(netSpec), Type: sdnapi.IPAddressTypeAuto})
 }
 
@@ -68,15 +70,18 @@ func EnsureMainSDNIPAddress(ctx context.Context, c client.Client, vm *v1alpha2.V
 	}
 
 	spec := sdnapi.IPAddressSpec{NetworkRef: SDNNetworkRef(mainSpec), Type: sdnapi.IPAddressTypeAuto}
+
 	if address != "" {
 		ipas, err := MainSDNIPAddressesByAddress(ctx, c)
 		if err != nil {
 			return "", err
 		}
+
 		if _, ok := ipas[address]; !ok {
 			spec = MainStaticIPAddressSpec(address)
 		}
 	}
+
 	return createSDNIPAddress(ctx, c, vm, spec)
 }
 
@@ -84,6 +89,7 @@ func liveIPAddressName(ipa *sdnapi.IPAddress) (string, error) {
 	if ipa.GetDeletionTimestamp() != nil {
 		return "", ErrIPAddressTerminating
 	}
+
 	return ipa.GetName(), nil
 }
 
@@ -93,12 +99,14 @@ func GetAllocatedMainIPAddress(ctx context.Context, c client.Client, address str
 	if err := c.List(ctx, list, client.UnsafeDisableDeepCopy); err != nil {
 		return nil, fmt.Errorf("list SDN IPAddress: %w", err)
 	}
+
 	for i := range list.Items {
 		ipa := &list.Items[i]
 		if IsMainNetworkIPAddress(ipa) && ipa.GetDeletionTimestamp() == nil && IPAddressAllocated(ipa) && ipa.Status.Address == address {
 			return ipa.DeepCopy(), nil
 		}
 	}
+
 	return nil, nil
 }
 
@@ -109,16 +117,20 @@ func MainSDNIPAddressesByAddress(ctx context.Context, c client.Client) (map[stri
 	if err := c.List(ctx, list, client.UnsafeDisableDeepCopy); err != nil {
 		return nil, fmt.Errorf("list SDN IPAddress: %w", err)
 	}
+
 	result := make(map[string]types.NamespacedName)
+
 	for i := range list.Items {
 		ipa := &list.Items[i]
 		if !IsMainNetworkIPAddress(ipa) {
 			continue
 		}
+
 		if address := AddressOfIPAddress(ipa); address != "" {
 			result[address] = types.NamespacedName{Namespace: ipa.GetNamespace(), Name: ipa.GetName()}
 		}
 	}
+
 	return result, nil
 }
 
@@ -126,6 +138,7 @@ func AddressOfIPAddress(ipa *sdnapi.IPAddress) string {
 	if ipa.Spec.Static != nil && ipa.Spec.Static.IP != "" {
 		return ipa.Spec.Static.IP
 	}
+
 	return ipa.Status.Address
 }
 
@@ -147,6 +160,7 @@ func createSDNIPAddress(ctx context.Context, c client.Client, vm *v1alpha2.Virtu
 	if err := c.Create(ctx, ipa); err != nil {
 		return "", fmt.Errorf("create SDN IPAddress of the network %s/%s: %w", spec.NetworkRef.Kind, spec.NetworkRef.Name, err)
 	}
+
 	return ipa.GetName(), nil
 }
 
@@ -159,36 +173,44 @@ func ReleaseTerminatingSDNIPAddresses(ctx context.Context, c client.Client, vm *
 		if ipa.GetDeletionTimestamp() == nil || len(ipa.GetOwnerReferences()) == 0 || IPAddressInUse(vm, ipa) {
 			continue
 		}
+
 		patched := ipa.DeepCopy()
 		patched.SetOwnerReferences(nil)
+
 		if err := c.Patch(ctx, patched, client.MergeFrom(ipa)); err != nil {
 			if apierrors.IsNotFound(err) {
 				continue
 			}
+
 			return fmt.Errorf("release the terminating IPAddress %q: %w", ipa.GetName(), err)
 		}
 	}
+
 	return nil
 }
 
 func ListSDNIPAddressesOfVM(ctx context.Context, c client.Client, vm *v1alpha2.VirtualMachine) ([]sdnapi.IPAddress, error) {
 	list := &sdnapi.IPAddressList{}
+
 	labelSelector := client.MatchingLabels{
 		annotations.LabelVirtualMachineUID: string(vm.GetUID()),
 	}
 	if err := c.List(ctx, list, client.InNamespace(vm.Namespace), labelSelector); err != nil {
 		return nil, fmt.Errorf("list SDN IPAddress of the virtual machine %s: %w", vm.Name, err)
 	}
+
 	return list.Items, nil
 }
 
 func ipAddressesOfNetwork(ipAddresses []sdnapi.IPAddress, netSpec v1alpha2.NetworksSpec) []sdnapi.IPAddress {
 	var result []sdnapi.IPAddress
+
 	for i := range ipAddresses {
 		if IPAddressBelongsToNetwork(&ipAddresses[i], netSpec) {
 			result = append(result, ipAddresses[i])
 		}
 	}
+
 	return result
 }
 
@@ -198,6 +220,7 @@ func GetSDNIPAddressOfVM(ctx context.Context, c client.Client, vm *v1alpha2.Virt
 	if err != nil {
 		return nil, err
 	}
+
 	return PreferredSDNIPAddress(vm, ipAddressesOfNetwork(items, netSpec)), nil
 }
 
@@ -211,6 +234,7 @@ func PreferredSDNIPAddress(vm *v1alpha2.VirtualMachine, items []sdnapi.IPAddress
 	if len(items) == 0 {
 		return nil
 	}
+
 	preferred := slices.MinFunc(items, func(a, b sdnapi.IPAddress) int {
 		return cmp.Or(
 			compareFirst(a.GetDeletionTimestamp() == nil, b.GetDeletionTimestamp() == nil),
@@ -220,6 +244,7 @@ func PreferredSDNIPAddress(vm *v1alpha2.VirtualMachine, items []sdnapi.IPAddress
 			strings.Compare(a.GetName(), b.GetName()),
 		)
 	})
+
 	return &preferred
 }
 
@@ -260,6 +285,7 @@ func vmRunsOnIPAddress(vm *v1alpha2.VirtualMachine, ipa *sdnapi.IPAddress) bool 
 	default:
 		return false
 	}
+
 	return IsMainNetworkIPAddress(ipa) && ipa.Status.Address != "" && ipa.Status.Address == vm.Status.IPAddress
 }
 
@@ -278,6 +304,7 @@ func DeleteSDNIPAddressByName(ctx context.Context, c client.Client, namespace, n
 	if err := c.Delete(ctx, ipa); err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("delete SDN IPAddress %s/%s: %w", namespace, name, err)
 	}
+
 	return nil
 }
 
@@ -289,8 +316,10 @@ func GetSDNIPAddress(ctx context.Context, c client.Client, namespace, name strin
 		if apierrors.IsNotFound(err) {
 			return nil, nil
 		}
+
 		return nil, fmt.Errorf("get SDN IPAddress %s/%s: %w", namespace, name, err)
 	}
+
 	return ipa, nil
 }
 
@@ -311,12 +340,15 @@ func MainIPAddressToSnapshot(vm *v1alpha2.VirtualMachine) (name, address string)
 	if vm.Status.VirtualMachineIPAddress != "" || MainNetworkSpec(vm.Spec.Networks) == nil {
 		return "", ""
 	}
+
 	for _, status := range vm.Status.Networks {
 		if status.Type != v1alpha2.NetworksTypeMain || status.IPAddress == "" {
 			continue
 		}
+
 		return status.IPAddressName, status.IPAddress
 	}
+
 	return "", ""
 }
 
@@ -326,7 +358,9 @@ func IsStaticOrNamedMainIPAddress(vm *v1alpha2.VirtualMachine, ipa *sdnapi.IPAdd
 	if ipa.Spec.Type == sdnapi.IPAddressTypeStatic {
 		return true
 	}
+
 	mainSpec := MainNetworkSpec(vm.Spec.Networks)
+
 	return mainSpec != nil && mainSpec.IPAddressName == ipa.GetName()
 }
 
@@ -353,9 +387,11 @@ func SetMainIPAddressName(networks []v1alpha2.NetworksSpec, name string) []v1alp
 			return networks
 		}
 	}
+
 	if name != "" && UsesMainNetwork(networks) {
 		return []v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain, IPAddressName: name}}
 	}
+
 	return networks
 }
 
@@ -379,7 +415,9 @@ func allocationFailedWithReason(ipa *sdnapi.IPAddress, reason string) bool {
 	if ipa == nil {
 		return false
 	}
+
 	cond := apimeta.FindStatusCondition(ipa.Status.Conditions, sdnapi.ConditionAllocated)
+
 	return cond != nil && cond.Status != metav1.ConditionTrue && cond.Reason == reason
 }
 
@@ -392,6 +430,7 @@ func AdditionalNetworkIPAddress(ctx context.Context, c client.Client, vm *v1alph
 		if err != nil || ipa == nil || ipa.GetDeletionTimestamp() != nil || !IPAddressAllocated(ipa) {
 			return nil, err
 		}
+
 		return ipa, nil
 	}
 
@@ -399,10 +438,12 @@ func AdditionalNetworkIPAddress(ctx context.Context, c client.Client, vm *v1alph
 	if err != nil || ipa == nil || !IPAddressBelongsToNetwork(ipa, netSpec) || !IPAddressAllocated(ipa) {
 		return nil, err
 	}
+
 	conflictVM, err := OtherVMUsingIPAddress(ctx, c, vm, ipa, netSpec)
 	if err != nil || conflictVM != "" {
 		return nil, err
 	}
+
 	return ipa, nil
 }
 
@@ -413,11 +454,13 @@ func OtherVMUsingIPAddress(ctx context.Context, c client.Client, vm *v1alpha2.Vi
 	if err := c.List(ctx, &vms, client.InNamespace(vm.Namespace)); err != nil {
 		return "", fmt.Errorf("list VMs in namespace %s: %w", vm.Namespace, err)
 	}
+
 	vmNameByUID := make(map[string]string, len(vms.Items))
 	for _, other := range vms.Items {
 		if other.Name == vm.Name {
 			continue
 		}
+
 		vmNameByUID[string(other.UID)] = other.Name
 		for _, net := range other.Spec.Networks {
 			if net.IPAddressName == ipa.GetName() && net.Type == netSpec.Type && net.Name == netSpec.Name {

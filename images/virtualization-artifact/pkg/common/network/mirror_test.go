@@ -37,6 +37,7 @@ func newStaticIPAddressObj(name, address string) *sdnapi.IPAddress {
 	ipa := newSDNIPAddressObj(name, "", v1alpha2.NetworksTypeClusterNetwork, MainClusterNetworkName, address, true)
 	ipa.Spec.Type = sdnapi.IPAddressTypeStatic
 	ipa.Spec.Static = &sdnapi.StaticIPAddress{IP: address}
+
 	return ipa
 }
 
@@ -44,6 +45,7 @@ func newStaticIPAddressObj(name, address string) *sdnapi.IPAddress {
 func ensureVMIPAddressTaken(ctx context.Context, cl client.Client, vmip *v1alpha2.VirtualMachineIPAddress, vmMovedToIPAddress bool) (*sdnapi.IPAddress, error) {
 	vm, err := GetVMOfVMIP(ctx, cl, vmip)
 	Expect(err).NotTo(HaveOccurred())
+
 	return EnsureVMIPAddressTaken(ctx, cl, vmip, MirrorOwnerRef(vmip, vm, vmMovedToIPAddress))
 }
 
@@ -77,6 +79,7 @@ var _ = Describe("EnsureVMIPAddressTaken", func() {
 	getIPAddress := func(cl client.Client, name string) *sdnapi.IPAddress {
 		ipa := &sdnapi.IPAddress{}
 		Expect(cl.Get(ctx, types.NamespacedName{Name: name, Namespace: "ns"}, ipa)).To(Succeed())
+
 		return ipa
 	}
 
@@ -201,6 +204,7 @@ var _ = Describe("EnsureVMIPAddressTaken", func() {
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ipa.GetName()).To(Equal("existing-mirror"))
+
 		ipas := &sdnapi.IPAddressList{}
 		Expect(cl.List(ctx, ipas)).To(Succeed())
 		Expect(ipas.Items).To(HaveLen(1))
@@ -214,6 +218,7 @@ var _ = Describe("EnsureVMIPAddressTaken", func() {
 		ipa, err := ensureVMIPAddressTaken(ctx, cl, vmip, true)
 
 		Expect(err).NotTo(HaveOccurred())
+
 		mirror := getIPAddress(cl, ipa.GetName())
 		Expect(mirror.GetLabels()).To(BeEmpty(), "a second labelled IPAddress would make the lookup of the IPAddress of the VM ambiguous")
 		Expect(mirror.GetOwnerReferences()).To(HaveLen(1))
@@ -240,6 +245,7 @@ var _ = Describe("EnsureVMIPAddressTaken", func() {
 
 var _ = Describe("GetIPAddressTakingVMIPAddress", func() {
 	const address = "10.66.10.14"
+
 	ctx := context.Background()
 
 	vmip := &v1alpha2.VirtualMachineIPAddress{
@@ -249,16 +255,19 @@ var _ = Describe("GetIPAddressTakingVMIPAddress", func() {
 
 	newAutoIPAddress := func(name, mirrorOfVMIPUID string) *sdnapi.IPAddress {
 		ipa := newSDNIPAddressObj(name, "", v1alpha2.NetworksTypeClusterNetwork, MainClusterNetworkName, address, true)
+
 		ipa.Spec.Type = sdnapi.IPAddressTypeAuto
 		if mirrorOfVMIPUID != "" {
 			ipa.SetAnnotations(map[string]string{annotations.AnnMirrorOfVMIP: mirrorOfVMIPUID})
 		}
+
 		return ipa
 	}
 
 	find := func(objs ...client.Object) *sdnapi.IPAddress {
 		ipa, err := GetIPAddressTakingVMIPAddress(ctx, newIPAMFakeClient(objs...), vmip)
 		Expect(err).NotTo(HaveOccurred())
+
 		return ipa
 	}
 
@@ -291,11 +300,13 @@ var _ = Describe("GetIPAddressTakingVMIPAddress", func() {
 
 var _ = Describe("GetAllocatedMainIPAddress", func() {
 	const address = "10.66.10.14"
+
 	ctx := context.Background()
 
 	get := func(objs ...client.Object) *sdnapi.IPAddress {
 		ipa, err := GetAllocatedMainIPAddress(ctx, newIPAMFakeClient(objs...), address)
 		Expect(err).NotTo(HaveOccurred())
+
 		return ipa
 	}
 
@@ -352,6 +363,7 @@ var _ = Describe("EnsureAutoMirror", func() {
 		again, err := EnsureAutoMirror(ctx, cl, newVMIP(), nil)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(again.GetName()).To(Equal(created.GetName()))
+
 		ipas := &sdnapi.IPAddressList{}
 		Expect(cl.List(ctx, ipas)).To(Succeed())
 		Expect(ipas.Items).To(HaveLen(1))
@@ -365,6 +377,7 @@ var _ = Describe("EnsureAutoMirror", func() {
 
 		_, err := EnsureAutoMirror(ctx, cl, newVMIP(), nil)
 		Expect(err).To(MatchError(ErrIPAddressTerminating))
+
 		ipas := &sdnapi.IPAddressList{}
 		Expect(cl.List(ctx, ipas)).To(Succeed())
 		Expect(ipas.Items).To(BeEmpty())
@@ -389,6 +402,7 @@ var _ = Describe("EnsureAutoMirror", func() {
 					stale.DeepCopyInto(ipa)
 					return nil
 				}
+
 				return c.Get(ctx, key, obj, opts...)
 			},
 		})
@@ -396,6 +410,7 @@ var _ = Describe("EnsureAutoMirror", func() {
 		_, err := EnsureAutoMirror(ctx, cl, newVMIP(), nil)
 
 		Expect(apierrors.IsConflict(err)).To(BeTrue())
+
 		raw := &sdnapi.IPAddressList{}
 		Expect(cl.List(ctx, raw)).To(Succeed())
 		Expect(raw.Items).To(HaveLen(1))
@@ -414,6 +429,7 @@ var _ = Describe("EnsureAutoMirror", func() {
 
 var _ = Describe("ReleaseTerminatingMirror", func() {
 	const address = "10.66.10.14"
+
 	ctx := context.Background()
 
 	vmip := &v1alpha2.VirtualMachineIPAddress{
@@ -434,12 +450,14 @@ var _ = Describe("ReleaseTerminatingMirror", func() {
 			Name:       "vm",
 			UID:        "vm-uid",
 		}})
+
 		return terminating
 	}
 
 	getMirror := func(cl client.Client) *sdnapi.IPAddress {
 		mirror := &sdnapi.IPAddress{}
 		Expect(cl.Get(ctx, types.NamespacedName{Name: vmip.Name, Namespace: "ns"}, mirror)).To(Succeed())
+
 		return mirror
 	}
 
@@ -497,6 +515,7 @@ var _ = Describe("ReleaseMirrorsOfPreviousVMIPs", func() {
 		ipa.SetLabels(map[string]string{annotations.LabelVirtualMachineUID: string(vm.UID)})
 		ipa.SetAnnotations(map[string]string{annotations.AnnMirrorOfVMIP: vmipUID})
 		ipa.SetOwnerReferences([]metav1.OwnerReference{*metav1.NewControllerRef(vm, v1alpha2.SchemeGroupVersion.WithKind(v1alpha2.VirtualMachineKind))})
+
 		return ipa
 	}
 

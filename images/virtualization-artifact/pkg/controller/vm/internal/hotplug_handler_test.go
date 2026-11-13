@@ -90,6 +90,7 @@ var _ = Describe("HotplugHandler", func() {
 		kvvm.Spec.Template = &virtv1.VirtualMachineInstanceTemplateSpec{}
 		kvvm.Spec.Template.Spec.Volumes = volumes
 		kvvm.Status.VolumeRequests = volumeRequests
+
 		return kvvm
 	}
 
@@ -201,6 +202,7 @@ var _ = Describe("HotplugHandler", func() {
 		})
 		_, err := blockDevices.Handle(ctx, vmState)
 		Expect(err).NotTo(HaveOccurred())
+
 		bdReady, _ := conditions.GetCondition(vmcondition.TypeBlockDevicesReady, vmState.VirtualMachine().Changed().Status.Conditions)
 		Expect(bdReady.Status).To(Equal(metav1.ConditionFalse))
 
@@ -216,9 +218,11 @@ var _ = Describe("HotplugHandler", func() {
 			if !ready {
 				phase, readyStatus = v1alpha2.DiskWaitForFirstConsumer, metav1.ConditionFalse
 			}
+
 			if len(attached) == 0 {
 				attached = []v1alpha2.AttachedVirtualMachine{{Name: vmName, Mounted: true}}
 			}
+
 			return &v1alpha2.VirtualDisk{
 				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: vmNamespace},
 				Status: v1alpha2.VirtualDiskStatus{
@@ -236,6 +240,7 @@ var _ = Describe("HotplugHandler", func() {
 		// reconcile runs the block device handler and then the hotplug handler, as one reconcile does.
 		reconcileWith := func(extra []v1alpha2.BlockDeviceSpecRef, objs ...client.Object) metav1.Condition {
 			GinkgoHelper()
+
 			refs := append([]v1alpha2.BlockDeviceSpecRef{
 				{Kind: v1alpha2.DiskDevice, Name: "root-vd"},
 				{Kind: v1alpha2.DiskDevice, Name: "wffc-vd"},
@@ -261,6 +266,7 @@ var _ = Describe("HotplugHandler", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			bdReady, _ := conditions.GetCondition(vmcondition.TypeBlockDevicesReady, vmState.VirtualMachine().Changed().Status.Conditions)
+
 			return bdReady
 		}
 
@@ -296,6 +302,7 @@ var _ = Describe("HotplugHandler", func() {
 
 			_, err := runHandle(vm, newKVVM(nil), newEmptyKVVMI(vmName, vmNamespace), newVD(vdName, vdPVCName))
 			Expect(err).NotTo(HaveOccurred())
+
 			if hotplug {
 				Expect(mockSvc.HotPlugDiskCalls()).To(HaveLen(1))
 			} else {
@@ -370,6 +377,7 @@ var _ = Describe("HotplugHandler", func() {
 		})
 		_, err := blockDevices.Handle(ctx, vmState)
 		Expect(err).NotTo(HaveOccurred())
+
 		bdReady, _ := conditions.GetCondition(vmcondition.TypeBlockDevicesReady, vmState.VirtualMachine().Changed().Status.Conditions)
 		Expect(bdReady.Status).To(Equal(metav1.ConditionFalse))
 
@@ -404,11 +412,13 @@ var _ = Describe("HotplugHandler", func() {
 		func(kvvmClaim string, vdDeleted, expectUnplug bool) {
 			now := metav1.Now()
 			vd := newVD("old-vd", "pvc-old")
+
 			vd.Status.MigrationState = v1alpha2.VirtualDiskMigrationState{SourcePVC: "pvc-old", TargetPVC: "pvc-old-target", StartTimestamp: now}
 			if vdDeleted {
 				vd.DeletionTimestamp = &now
 				vd.Finalizers = []string{v1alpha2.FinalizerVDProtection}
 			}
+
 			vm := newVM(v1alpha2.MachineRunning)
 			kvvm := newKVVM([]virtv1.Volume{{
 				Name: "vd-old-vd",
@@ -421,6 +431,7 @@ var _ = Describe("HotplugHandler", func() {
 
 			_, err := runHandle(vm, kvvm, kvvmi, vd)
 			Expect(err).NotTo(HaveOccurred())
+
 			if expectUnplug {
 				Expect(mockSvc.UnplugDiskCalls()).To(HaveLen(1))
 			} else {

@@ -57,10 +57,12 @@ func (s *usbDeviceState) NodeUSBDevice(ctx context.Context) (*v1alpha2.NodeUSBDe
 	}
 
 	nodeUSBDevice := &v1alpha2.NodeUSBDevice{}
+
 	err := s.client.Get(ctx, client.ObjectKey{Name: usbDevice.Name}, nodeUSBDevice)
 	if apierrors.IsNotFound(err) {
 		return nil, nil
 	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -82,6 +84,7 @@ func (s *usbDeviceState) VirtualMachinesReferencingDevice(ctx context.Context) (
 	}
 
 	var result []*v1alpha2.VirtualMachine
+
 	for i := range vmList.Items {
 		vm := &vmList.Items[i]
 		if vm.Namespace == usbDevice.Namespace {
@@ -104,6 +107,7 @@ func (s *usbDeviceState) VirtualMachinesUsingDevice(ctx context.Context) ([]*v1a
 	}
 
 	var result []*v1alpha2.VirtualMachine
+
 	for _, vm := range vms {
 		for _, usbStatus := range vm.Status.USBDevices {
 			if usbStatus.Name == usbDevice.Name && usbStatus.Attached {

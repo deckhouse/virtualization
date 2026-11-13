@@ -102,6 +102,7 @@ func TestNewDataMetric_SetsFinishedAtForSupersededPhase(t *testing.T) {
 	if metric == nil {
 		t.Fatal("expected metric to be created")
 	}
+
 	if metric.FinishedAt != finishedAt.Unix() {
 		t.Fatalf("expected FinishedAt=%d, got %d", finishedAt.Unix(), metric.FinishedAt)
 	}
@@ -136,6 +137,7 @@ func TestNewDataMetric_SetsFinishedAtForTerminalMigrationReasons(t *testing.T) {
 	if metric == nil {
 		t.Fatal("expected metric to be created")
 	}
+
 	if metric.FinishedAt != finishedAt.Unix() {
 		t.Fatalf("expected FinishedAt=%d, got %d", finishedAt.Unix(), metric.FinishedAt)
 	}

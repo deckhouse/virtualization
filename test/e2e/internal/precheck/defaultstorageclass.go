@@ -44,7 +44,9 @@ func (c *defaultStorageClassPrecheck) Run(ctx context.Context, f *framework.Fram
 	}
 
 	k8sClient := f.GenericClient()
+
 	var scList storagev1.StorageClassList
+
 	err := k8sClient.List(ctx, &scList)
 	if err != nil {
 		return fmt.Errorf("%s=no to disable this precheck: list StorageClasses: %w", defaultStorageClassPrecheckEnvName, err)
@@ -54,6 +56,7 @@ func (c *defaultStorageClassPrecheck) Run(ctx context.Context, f *framework.Fram
 	if err != nil {
 		return fmt.Errorf("%s=no to disable this precheck: %w", defaultStorageClassPrecheckEnvName, err)
 	}
+
 	if defaultSC == nil {
 		return fmt.Errorf("%s=no to disable this precheck: cluster has no default StorageClass and %s is not set. "+
 			"Please set %s or set a default StorageClass with: "+

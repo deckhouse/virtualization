@@ -63,13 +63,16 @@ var _ = Describe("device presets", func() {
 			if d.Name != name {
 				continue
 			}
+
 			if d.CDRom != nil {
 				return d.CDRom.Bus
 			}
+
 			if d.Disk != nil {
 				return d.Disk.Bus
 			}
 		}
+
 		return ""
 	}
 
@@ -91,6 +94,7 @@ var _ = Describe("device presets", func() {
 				if hotplugged {
 					want = hotplug
 				}
+
 				Expect(busOf(b, "disk")).To(Equal(want.disk), because("disk bus"))
 				Expect(busOf(b, "cdrom")).To(Equal(want.cdrom), because("cdrom bus"))
 

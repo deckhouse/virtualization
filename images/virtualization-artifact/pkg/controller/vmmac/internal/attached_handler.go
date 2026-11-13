@@ -54,16 +54,19 @@ func (h *AttachedHandler) Handle(ctx context.Context, vmmac *v1alpha2.VirtualMac
 			Reason(conditions.ReasonUnknown).
 			Message(fmt.Sprintf("Failed to get attached virtual machine: %s.", err))
 		conditions.SetCondition(cb, &vmmac.Status.Conditions)
+
 		return reconcile.Result{}, fmt.Errorf("get attached vm: %w", err)
 	}
 
 	if vm == nil {
 		// Only an attached vmmac becomes Detached: a new one is not in the VM status yet.
 		attachedCondition, _ := conditions.GetCondition(vmmaccondition.AttachedType, vmmac.Status.Conditions)
+
 		reason := vmmaccondition.VirtualMachineNotFound
 		if vmmac.Status.VirtualMachine != "" || attachedCondition.Reason == vmmaccondition.Detached.String() {
 			reason = vmmaccondition.Detached
 		}
+
 		vmmac.Status.VirtualMachine = ""
 		cb.
 			Status(metav1.ConditionFalse).
@@ -71,6 +74,7 @@ func (h *AttachedHandler) Handle(ctx context.Context, vmmac *v1alpha2.VirtualMac
 			Message("VirtualMachineMACAddress is not attached to any virtual machine.")
 		conditions.SetCondition(cb, &vmmac.Status.Conditions)
 		h.recorder.Event(vmmac, corev1.EventTypeWarning, v1alpha2.ReasonNotAttached, "VirtualMachineMACAddress is not attached to any virtual machine.")
+
 		return reconcile.Result{}, nil
 	}
 
@@ -87,6 +91,7 @@ func (h *AttachedHandler) Handle(ctx context.Context, vmmac *v1alpha2.VirtualMac
 
 func (h *AttachedHandler) getAttachedVirtualMachine(ctx context.Context, vmmac *v1alpha2.VirtualMachineMACAddress) (*v1alpha2.VirtualMachine, error) {
 	var vms v1alpha2.VirtualMachineList
+
 	err := h.client.List(ctx, &vms, &client.ListOptions{Namespace: vmmac.Namespace})
 	if err != nil {
 		return nil, fmt.Errorf("list vms: %w", err)
@@ -94,13 +99,17 @@ func (h *AttachedHandler) getAttachedVirtualMachine(ctx context.Context, vmmac *
 
 	// Return the first one for which the status matches.
 	// If no status matches, return the first one for which the spec matches.
-	var found bool
-	var attachedVM *v1alpha2.VirtualMachine
+	var (
+		found      bool
+		attachedVM *v1alpha2.VirtualMachine
+	)
+
 	for _, vm := range vms.Items {
 		for _, ns := range vm.Status.Networks {
 			if ns.VirtualMachineMACAddressName == vmmac.Name {
 				attachedVM = &vm
 				found = true
+
 				break
 			}
 		}
@@ -147,5 +156,6 @@ func hasNetworkWithMAC(vm *v1alpha2.VirtualMachine, mac string) bool {
 			return true
 		}
 	}
+
 	return false
 }

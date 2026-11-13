@@ -62,11 +62,14 @@ func (r CancelEvacuationREST) Connect(ctx context.Context, name string, opts run
 	if err != nil {
 		return nil, err
 	}
+
 	hook, err := r.genMutateRequestHook(cancelEvacuationOpts)
 	if err != nil {
 		return nil, err
 	}
+
 	handler := newThrottledUpgradeAwareProxyHandler(location, transport, false, responder, r.kubevirt.ServiceAccount, hook)
+
 	return handler, nil
 }
 

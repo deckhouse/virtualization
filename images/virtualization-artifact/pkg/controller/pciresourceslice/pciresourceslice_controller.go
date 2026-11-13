@@ -67,5 +67,6 @@ func NewController(
 	}
 
 	log.Info("Initialized NodePCIDevice ResourceSlice controller")
+
 	return c, nil
 }

@@ -60,11 +60,13 @@ func (w VirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Control
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualMachine: %w", err)
 	}
+
 	return nil
 }
 
 func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, vm *v1alpha2.VirtualMachine) (requests []reconcile.Request) {
 	var vmSnapshots v1alpha2.VirtualMachineSnapshotList
+
 	err := w.client.List(ctx, &vmSnapshots, &client.ListOptions{
 		Namespace:     vm.GetNamespace(),
 		FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVMSnapshotByVM, vm.GetName()),

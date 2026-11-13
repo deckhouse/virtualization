@@ -58,12 +58,14 @@ func newDataMetric(vmop *v1alpha2.VirtualMachineOperation) *dataMetric {
 	}
 
 	var startedAt int64
+
 	signalSendCond, _ := conditions.GetCondition(vmopcondition.TypeSignalSent, vmop.Status.Conditions)
 	if signalSendCond.Status == metav1.ConditionTrue {
 		startedAt = signalSendCond.LastTransitionTime.Unix()
 	}
 
 	var finishedAt int64
+
 	if isFinishedPhase(vmop.Status.Phase) {
 		completedCond, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
 		if isTerminalCompletedCondition(completedCond) {
@@ -93,9 +95,11 @@ func isTerminalCompletedCondition(cond metav1.Condition) bool {
 		_, ok := successfulTerminalReasons[cond.Reason]
 		return ok
 	}
+
 	if cond.Status == metav1.ConditionFalse {
 		_, ok := failedTerminalReasons[cond.Reason]
 		return ok
 	}
+
 	return false
 }

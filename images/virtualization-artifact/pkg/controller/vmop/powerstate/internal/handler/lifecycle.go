@@ -114,6 +114,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	if !should {
 		return reconcile.Result{}, nil
 	}
@@ -211,8 +212,10 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, changed *v1
 					Status(metav1.ConditionFalse).
 					Message(failureMessage),
 				&changed.Status.Conditions)
+
 			return nil
 		}
+
 		changed.Status.Phase = v1alpha2.VMOPPhaseCompleted
 		h.recorder.Event(changed, corev1.EventTypeNormal, v1alpha2.ReasonVMOPSucceeded, "VirtualMachineOperation succeeded")
 		conditions.SetCondition(
@@ -221,6 +224,7 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, changed *v1
 				Status(metav1.ConditionTrue).
 				Message(""),
 			&changed.Status.Conditions)
+
 		return nil
 	}
 
@@ -267,5 +271,6 @@ func (h LifecycleHandler) recordEvent(ctx context.Context, vmop *v1alpha2.Virtua
 func isOperationInProgress(vmop *v1alpha2.VirtualMachineOperation) bool {
 	sent, _ := conditions.GetCondition(vmopcondition.TypeSignalSent, vmop.Status.Conditions)
 	completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
+
 	return sent.Status == metav1.ConditionTrue && completed.Status != metav1.ConditionTrue
 }

@@ -148,6 +148,7 @@ func New[T Object](
 	}
 
 	ctx, cancel := context.WithCancel(parentCtx)
+
 	wi, err := w.Watch(ctx, metav1.ListOptions{})
 	if err != nil {
 		cancel()
@@ -224,16 +225,21 @@ func (o *observer[T]) run(wi watch.Interface, cancel context.CancelFunc) {
 				if !ok {
 					return
 				}
+
 				wi = next
+
 				continue
 			}
+
 			obj, ok := event.Object.(T)
 			if !ok {
 				continue
 			}
+
 			if obj.GetName() != o.name || obj.GetNamespace() != o.namespace {
 				continue
 			}
+
 			o.broadcast(obj)
 			o.checkInvariants(obj)
 		}
@@ -306,24 +312,31 @@ func (o *observer[T]) checkInvariants(obj T) {
 		if err != nil {
 			o.firstErr = fmt.Errorf("observer: Never predicate: %w", err)
 			o.signalViolationLocked()
+
 			return
 		}
+
 		if ok {
 			o.firstErr = errors.New("observer: Never predicate matched a live observation")
 			o.signalViolationLocked()
+
 			return
 		}
 	}
+
 	for _, p := range o.alwaysPredicates {
 		ok, err := p(obj)
 		if err != nil {
 			o.firstErr = fmt.Errorf("observer: Always predicate: %w", err)
 			o.signalViolationLocked()
+
 			return
 		}
+
 		if !ok {
 			o.firstErr = errors.New("observer: Always predicate did not hold for a live observation")
 			o.signalViolationLocked()
+
 			return
 		}
 	}
@@ -340,18 +353,21 @@ func (o *observer[T]) signalViolationLocked() {
 func (o *observer[T]) Never(predicate Predicate[T]) {
 	o.invMu.Lock()
 	defer o.invMu.Unlock()
+
 	o.neverPredicates = append(o.neverPredicates, predicate)
 }
 
 func (o *observer[T]) Always(predicate Predicate[T]) {
 	o.invMu.Lock()
 	defer o.invMu.Unlock()
+
 	o.alwaysPredicates = append(o.alwaysPredicates, predicate)
 }
 
 func (o *observer[T]) Err() error {
 	o.invMu.Lock()
 	defer o.invMu.Unlock()
+
 	return o.firstErr
 }
 
@@ -405,6 +421,7 @@ func (o *observer[T]) WaitFor(predicate Predicate[T], timeout time.Duration) err
 		if invErr := o.Err(); invErr != nil {
 			return fmt.Errorf("observer: WaitFor aborted by invariant: %w", invErr)
 		}
+
 		if ok {
 			return nil
 		}
@@ -429,6 +446,7 @@ func (o *observer[T]) WaitFor(predicate Predicate[T], timeout time.Duration) err
 			if invErr := o.Err(); invErr != nil {
 				return fmt.Errorf("observer: WaitFor aborted by invariant: %w", invErr)
 			}
+
 			if ok {
 				return nil
 			}
@@ -458,6 +476,7 @@ func (o *observer[T]) describeLatest() string {
 	if !hasLatest {
 		return "; nothing observed yet"
 	}
+
 	return "; last observed state: " + o.describe(latest)
 }
 

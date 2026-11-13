@@ -73,11 +73,13 @@ var _ = Describe("AssignedHandler", func() {
 			if assignedNamespace != "" && namespaceExists {
 				objects = append(objects, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: assignedNamespace}})
 			}
+
 			if seedUSB {
 				seedNS := assignedNamespace
 				if seedNS == "" {
 					seedNS = "stale-namespace"
 				}
+
 				objects = append(objects, &v1alpha2.USBDevice{ObjectMeta: metav1.ObjectMeta{Name: "usb-device-1", Namespace: seedNS}})
 			}
 
@@ -90,6 +92,7 @@ var _ = Describe("AssignedHandler", func() {
 					if !ok || usbDevice == nil {
 						return nil
 					}
+
 					return []string{usbDevice.Name}
 				}).
 				Build()
@@ -112,6 +115,7 @@ var _ = Describe("AssignedHandler", func() {
 
 			if assignedNamespace != "" {
 				usb := &v1alpha2.USBDevice{}
+
 				err = cl.Get(ctx, types.NamespacedName{Name: "usb-device-1", Namespace: assignedNamespace}, usb)
 				if expectUSBInAssignedNS {
 					Expect(err).NotTo(HaveOccurred())
@@ -148,6 +152,7 @@ var _ = Describe("AssignedHandler", func() {
 				if !ok || usbDevice == nil {
 					return nil
 				}
+
 				return []string{usbDevice.Name}
 			}).
 			WithInterceptorFuncs(interceptor.Funcs{
@@ -155,6 +160,7 @@ var _ = Describe("AssignedHandler", func() {
 					if _, ok := obj.(*v1alpha2.USBDevice); ok {
 						return errors.New(`usbdevices.virtualization.deckhouse.io "usb-device-1" not found`)
 					}
+
 					return nil
 				},
 			}).
@@ -204,6 +210,7 @@ var _ = Describe("AssignedHandler", func() {
 				if !ok || usbDevice == nil {
 					return nil
 				}
+
 				return []string{usbDevice.Name}
 			}).
 			Build()

@@ -44,11 +44,13 @@ func newScheme() *runtime.Scheme {
 	Expect(corev1.AddToScheme(scheme)).To(Succeed())
 	Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
 	Expect(intvirtv1alpha1.AddToScheme(scheme)).To(Succeed())
+
 	return scheme
 }
 
 var _ = Describe("ReceiverReconciler", func() {
 	const ns = "app-x"
+
 	ctx := context.Background()
 	key := types.NamespacedName{Namespace: ns, Name: "web"}
 
@@ -56,8 +58,10 @@ var _ = Describe("ReceiverReconciler", func() {
 		cl client.Client
 		r  *ReceiverReconciler
 	)
+
 	const vmSpec = `{"metadata":{"labels":{"app":"web"},"annotations":{"owner":"team-a"}},"spec":{"virtualMachineClassName":"generic",` +
 		`"priorityClassName":"high","nodeSelector":{"zone":"a"},"virtualMachineIPAddressName":"web-ip-a","runPolicy":"AlwaysOn"}}`
+
 	newReceiver := func() *intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver {
 		return &intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{
 			ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: "web", UID: "uid-1"},
@@ -75,13 +79,16 @@ var _ = Describe("ReceiverReconciler", func() {
 	}
 	reconcileOnce := func() {
 		GinkgoHelper()
+
 		_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: key})
 		Expect(err).NotTo(HaveOccurred())
 	}
 	receiver := func() *intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver {
 		GinkgoHelper()
+
 		var rcvr intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver
 		Expect(cl.Get(ctx, key, &rcvr)).To(Succeed())
+
 		return &rcvr
 	}
 	setup := func(objs ...client.Object) {
@@ -104,6 +111,7 @@ var _ = Describe("ReceiverReconciler", func() {
 		rcvr.Annotations = map[string]string{annotations.AnnReceiverSourceSyncPin: "sha256:A"}
 		receiving := &virtv1.VirtualMachineInstanceMigration{ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: "uid-1"}}
 		setup(rcvr, receiving)
+
 		kv := &virtv1.KubeVirt{}
 		Expect(cl.Get(ctx, types.NamespacedName{Namespace: "d8-virtualization", Name: "config"}, kv)).To(Succeed())
 		kv.Status.SynchronizationAddresses = []string{"172.17.9.10:9185"}
@@ -162,6 +170,7 @@ var _ = Describe("ReceiverReconciler", func() {
 				Status:     v1alpha2.VirtualMachineIPAddressStatus{Address: "10.66.10.5", Phase: v1alpha2.VirtualMachineIPAddressPhaseBound},
 			})
 		reconcileOnce()
+
 		var vm v1alpha2.VirtualMachine
 		Expect(cl.Get(ctx, key, &vm)).To(Succeed())
 		Expect(vm.Spec.VirtualMachineIPAddress).To(Equal("web-kept"))
@@ -173,10 +182,13 @@ var _ = Describe("ReceiverReconciler", func() {
 			if extra != nil {
 				objs = append(objs, extra)
 			}
+
 			setup(append(objs, newReceiver())...)
+
 			if drop != nil {
 				Expect(cl.Delete(ctx, drop)).To(Succeed())
 			}
+
 			reconcileOnce()
 			Expect(receiver().Status.Phase).To(Equal(intvirtv1alpha1.ReceiverFailed))
 			Expect(receiver().Status.Reason).To(Equal(reason))
@@ -210,6 +222,7 @@ var _ = Describe("ReceiverReconciler", func() {
 			rcvr := newReceiver()
 			rcvr.Spec.VirtualMachineTemplate.Raw = []byte(`{"spec":{"virtualMachineClassName":"generic",` +
 				`"provisioning":{"type":"UserDataRef","userDataRef":{"kind":"Secret","name":"web-ud"}}}}`)
+
 			return rcvr
 		}
 		setup(withSecret())
@@ -268,23 +281,30 @@ var _ = Describe("ReceiverReconciler", func() {
 			rcvr.Finalizers = []string{FinalizerReceiverCleanup}
 			vm := &v1alpha2.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: "web", Labels: map[string]string{annotations.LabelVMReceiver: "uid-1"}}}
 			disk := &v1alpha2.VirtualDisk{ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: "web-root", Labels: map[string]string{annotations.LabelVMReceiver: "uid-1"}}}
+
 			var objs []client.Object
+
 			objs = append(objs, rcvr, vm, disk)
 			if migration != nil {
 				objs = append(objs, migration)
 			}
+
 			if vmi != nil {
 				objs = append(objs, vmi)
 			}
+
 			setup(objs...)
 			Expect(cl.Delete(ctx, receiver())).To(Succeed())
+
 			for range 2 {
 				res, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: key})
 				Expect(err).NotTo(HaveOccurred())
+
 				if !arrived {
 					Expect(res.RequeueAfter).To(BeNumerically(">", 0))
 					Expect(receiver().Finalizers).To(ContainElement(FinalizerReceiverCleanup))
 				}
+
 				Expect(cl.Get(ctx, key, &v1alpha2.VirtualMachine{})).To(Succeed())
 				Expect(cl.Get(ctx, client.ObjectKeyFromObject(disk), &v1alpha2.VirtualDisk{})).To(Succeed())
 			}
@@ -348,13 +368,17 @@ var _ = Describe("ReceiverReconciler", func() {
 		setup(rcvr, migration,
 			&v1alpha2.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: "web", Labels: map[string]string{annotations.LabelVMReceiver: "uid-1"}}},
 			&v1alpha2.VirtualDisk{ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: "web-root", Labels: map[string]string{annotations.LabelVMReceiver: "uid-1"}}})
+
 		if vmi != nil {
 			Expect(cl.Create(ctx, vmi)).To(Succeed())
 		}
+
 		Expect(cl.Delete(ctx, receiver())).To(Succeed())
+
 		for range 2 {
 			reconcileOnce()
 		}
+
 		Expect(k8serrors.IsNotFound(cl.Get(ctx, key, &v1alpha2.VirtualMachine{}))).To(BeTrue())
 		Expect(k8serrors.IsNotFound(cl.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web-root"}, &v1alpha2.VirtualDisk{}))).To(BeTrue())
 		Expect(k8serrors.IsNotFound(cl.Get(ctx, key, &intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{}))).To(BeTrue())
@@ -392,6 +416,7 @@ var _ = Describe("ReceiverReconciler", func() {
 		fresh.CreationTimestamp = metav1.Now()
 		fresh.Status.Phase = intvirtv1alpha1.ReceiverFailed
 		setup(fresh)
+
 		res, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: key})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.RequeueAfter).To(BeNumerically(">", 0), "a failed request waits for the source to read why")
@@ -410,6 +435,7 @@ var _ = Describe("ReceiverReconciler", func() {
 
 		setup(newReceiver())
 		reconcileOnce()
+
 		rcvr := receiver()
 		Expect(PatchReceiverStatus(ctx, cl, rcvr, func(st *intvirtv1alpha1.VirtualMachineReceiverStatus) {
 			st.Phase, st.ReceiverStarted = intvirtv1alpha1.ReceiverRunning, true

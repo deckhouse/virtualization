@@ -40,6 +40,7 @@ var _ = Describe("SetCPUModel", func() {
 	cpuOf := func(class *v1alpha2.VirtualMachineClass) *virtv1.CPU {
 		b := NewEmptyKVVM(namespacedName("test-vm", "test-ns"), KVVMOptions{})
 		Expect(b.SetCPUModel(class)).To(Succeed())
+
 		return b.Resource.Spec.Template.Spec.Domain.CPU
 	}
 
@@ -184,6 +185,7 @@ var _ = Describe("CPU features of a running virtual machine", func() {
 		kvvmi := &virtv1.VirtualMachineInstance{}
 		kvvmi.Spec.Domain.CPU = &virtv1.CPU{Model: GenericCPUModel, Features: features}
 		kvvmi.Status.Phase = phase
+
 		return kvvmi
 	}
 
@@ -202,6 +204,7 @@ var _ = Describe("CPU features of a running virtual machine", func() {
 		}
 
 		Expect(ApplyVirtualMachineSpec(kvvm, vm, nil, nil, nil, nil, class, "", nil, kvvmi)).To(Succeed())
+
 		return kvvm.GetResource().Spec.Template.Spec.Domain.CPU.Features
 	}
 	newKVVM := func() *KVVM {

@@ -83,6 +83,7 @@ func (s *Service) PodResizeRejection(ctx context.Context, kvvmi *virtv1.VirtualM
 	if err != nil {
 		return "", err
 	}
+
 	if pod == nil {
 		return "", nil
 	}
@@ -91,6 +92,7 @@ func (s *Service) PodResizeRejection(ctx context.Context, kvvmi *virtv1.VirtualM
 	if podResizePending.Reason == corev1.PodReasonDeferred || podResizePending.Reason == corev1.PodReasonInfeasible {
 		return podResizePending.Reason, nil
 	}
+
 	podResizeInProgress, _ := conditions.GetPodCondition(corev1.PodResizeInProgress, pod.Status.Conditions)
 	if podResizeInProgress.Reason == corev1.PodReasonError {
 		return podResizeInProgress.Reason, nil

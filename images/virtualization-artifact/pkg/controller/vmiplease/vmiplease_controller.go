@@ -44,6 +44,7 @@ func NewController(
 	retentionDurationStr string,
 ) (controller.Controller, error) {
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
+
 	retentionDuration, err := time.ParseDuration(retentionDurationStr)
 	if err != nil {
 		return nil, fmt.Errorf("parse retention duration: %w", err)
@@ -80,5 +81,6 @@ func NewController(
 	}
 
 	log.Info("Initialized VirtualMachineIPLease controller")
+
 	return c, nil
 }

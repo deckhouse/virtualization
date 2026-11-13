@@ -33,6 +33,7 @@ type ControllerRestartChecker struct {
 
 func (c *ControllerRestartChecker) Check() error {
 	kubeClient := framework.GetClients().KubeClient()
+
 	pods, err := kubeClient.CoreV1().Pods(VirtualizationNamespace).List(context.Background(), metav1.ListOptions{
 		LabelSelector: labels.SelectorFromSet(map[string]string{"app": VirtualizationController}).String(),
 	})
@@ -41,16 +42,20 @@ func (c *ControllerRestartChecker) Check() error {
 	}
 
 	var errs error
+
 	for _, pod := range pods.Items {
 		foundContainer := false
+
 		for _, containerStatus := range pod.Status.ContainerStatuses {
 			if containerStatus.Name == VirtualizationController && containerStatus.State.Running != nil {
 				foundContainer = true
+
 				if containerStatus.State.Running.StartedAt.After(c.startedAt.Time) {
 					errs = errors.Join(errs, fmt.Errorf("the container %q was restarted: %s", VirtualizationController, pod.Name))
 				}
 			}
 		}
+
 		if !foundContainer {
 			errs = errors.Join(errs, fmt.Errorf("the container %q was not found: %s", VirtualizationController, pod.Name))
 		}

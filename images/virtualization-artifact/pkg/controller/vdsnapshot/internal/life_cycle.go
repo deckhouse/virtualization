@@ -66,6 +66,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 	if vsName == "" {
 		vsName = supplements.NewGenerator("vds", vdSnapshot.Name, vdSnapshot.Namespace, vdSnapshot.UID).CommonSupplement().Name
 	}
+
 	vs, err := h.snapshotter.GetVolumeSnapshot(ctx, vsName, vdSnapshot.Namespace)
 	if err != nil {
 		setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
@@ -113,6 +114,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 				Status(metav1.ConditionFalse).
 				Reason(vdscondition.VolumeSnapshotLost).
 				Message(fmt.Sprintf("The underlying VolumeSnapshot %q is no longer available.", vsName))
+
 			return reconcile.Result{Requeue: true}, nil
 		}
 
@@ -134,6 +136,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 			Status(metav1.ConditionFalse).
 			Reason(vdscondition.VirtualDiskSnapshotFailed).
 			Message("Cannot take a snapshot: the storage-foundation and state-snapshotter modules must be enabled (or snapshot-controller for legacy installations).")
+
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	}
 
@@ -151,8 +154,10 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 			Status(metav1.ConditionFalse).
 			Reason(vdscondition.WaitingForTheVirtualDisk).
 			Message(msg)
+
 		return reconcile.Result{}, nil
 	}
+
 	if virtualDiskReadyCondition.Status != metav1.ConditionTrue {
 		vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseFailed
 		msg := fmt.Sprintf("Cannot take a snapshot: the virtual disk %q is not ready.", vdSnapshot.Spec.VirtualDiskName)
@@ -160,6 +165,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 			Status(metav1.ConditionFalse).
 			Reason(vdscondition.WaitingForTheVirtualDisk).
 			Message(msg)
+
 		return reconcile.Result{}, nil
 	}
 
@@ -179,8 +185,10 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 			Status(metav1.ConditionFalse).
 			Reason(vdscondition.WaitingForTheVirtualDisk).
 			Message(msg)
+
 		return reconcile.Result{}, nil
 	}
+
 	if pvc.Status.Phase != corev1.ClaimBound {
 		vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseFailed
 		msg := fmt.Sprintf("Cannot take a snapshot: the persistent volume claim %q for virtual disk %q is not in phase %s.", pvc.Name, vdSnapshot.Spec.VirtualDiskName, corev1.ClaimBound)
@@ -188,6 +196,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 			Status(metav1.ConditionFalse).
 			Reason(vdscondition.WaitingForTheVirtualDisk).
 			Message(msg)
+
 		return reconcile.Result{}, nil
 	}
 
@@ -213,6 +222,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 			Status(metav1.ConditionFalse).
 			Reason(vdscondition.Snapshotting).
 			Message(service.CapitalizeFirstLetter("Waiting for the filesystem of the virtual machine to be synced."))
+
 		return reconcile.Result{}, nil
 	case k8serrors.IsConflict(err):
 		log.Debug(fmt.Sprintf("failed to sync filesystem status; resource update conflict error: %s", err))
@@ -220,6 +230,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 			Status(metav1.ConditionFalse).
 			Reason(vdscondition.Snapshotting).
 			Message(service.CapitalizeFirstLetter("Waiting for the filesystem of the virtual machine to be synced."))
+
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 	default:
 		setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
@@ -236,11 +247,13 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 	case vs == nil:
 		if vm != nil && vm.Status.Phase != v1alpha2.MachineStopped && !isFSFrozen {
 			var canFreeze bool
+
 			canFreeze, err = h.snapshotter.CanFreeze(ctx, kvvmi)
 			if err != nil {
 				setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
 				return reconcile.Result{}, err
 			}
+
 			if canFreeze {
 				log.Debug("Freeze the virtual machine to take a snapshot")
 
@@ -250,6 +263,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 						Status(metav1.ConditionFalse).
 						Reason(vdscondition.Snapshotting).
 						Message("The snapshotting process has started.")
+
 					return reconcile.Result{Requeue: true}, nil
 				}
 
@@ -261,12 +275,15 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 							Status(metav1.ConditionFalse).
 							Reason(vdscondition.Snapshotting).
 							Message(service.CapitalizeFirstLetter("Waiting for the filesystem of the virtual machine to be synced."))
+
 						return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 					}
+
 					cb.
 						Status(metav1.ConditionFalse).
 						Reason(vdscondition.FileSystemFreezing).
 						Message(service.CapitalizeFirstLetter(err.Error() + "."))
+
 					return reconcile.Result{}, err
 				}
 
@@ -278,6 +295,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 						"The virtual machine %q with an attached virtual disk %q is in the process of being frozen for taking a snapshot.",
 						vm.Name, vdSnapshot.Spec.VirtualDiskName,
 					))
+
 				return reconcile.Result{}, nil
 			}
 
@@ -310,6 +328,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 				Status(metav1.ConditionFalse).
 				Reason(vdscondition.Snapshotting).
 				Message("The snapshotting process has started.")
+
 			return reconcile.Result{Requeue: true}, nil
 		}
 
@@ -392,6 +411,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 			Status(metav1.ConditionFalse).
 			Reason(vdscondition.Snapshotting).
 			Message(fmt.Sprintf("The snapshotting process for virtual disk %q has started.", vdSnapshot.Spec.VirtualDiskName))
+
 		return reconcile.Result{}, nil
 	case vs.Status != nil && vs.Status.Error != nil && vs.Status.Error.Message != nil:
 		log.Debug("The volume snapshot has an error")
@@ -401,6 +421,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 			Status(metav1.ConditionFalse).
 			Reason(vdscondition.VirtualDiskSnapshotFailed).
 			Message(fmt.Sprintf("VolumeSnapshot %q has an error: %s.", vs.Name, *vs.Status.Error.Message))
+
 		return reconcile.Result{}, nil
 	case vs.Status == nil || vs.Status.ReadyToUse == nil || !*vs.Status.ReadyToUse:
 		log.Debug("Waiting for the volume snapshot to be ready to use")
@@ -411,6 +432,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 			Status(metav1.ConditionFalse).
 			Reason(vdscondition.Snapshotting).
 			Message(fmt.Sprintf("Waiting for the snapshot of virtual disk %q to be ready to use.", vdSnapshot.Spec.VirtualDiskName))
+
 		return reconcile.Result{}, nil
 	default:
 		log.Debug("The volume snapshot is ready to use")
@@ -422,12 +444,14 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 					Status(metav1.ConditionFalse).
 					Reason(vdscondition.Snapshotting).
 					Message(service.CapitalizeFirstLetter("The consistent snapshot has been taken."))
+
 				return reconcile.Result{RequeueAfter: 2 * time.Second}, nil
 			}
 
 			if vdSnapshot.Spec.RequiredConsistency {
 				err = fmt.Errorf("virtual disk snapshot is not consistent because the virtual machine %s has not been stopped or its filesystem has not been frozen", vm.Name)
 				setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
+
 				return reconcile.Result{}, err
 			}
 		}
@@ -440,13 +464,16 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 					Status(metav1.ConditionFalse).
 					Reason(vdscondition.Snapshotting).
 					Message(service.CapitalizeFirstLetter("Waiting for the filesystem of the virtual machine to be synced."))
+
 				return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 			}
+
 			vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseInProgress
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vdscondition.FileSystemUnfreezing).
 				Message(service.CapitalizeFirstLetter(err.Error() + "."))
+
 			return reconcile.Result{}, err
 		}
 
@@ -460,6 +487,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 				Status(metav1.ConditionFalse).
 				Reason(vdscondition.Snapshotting).
 				Message(service.CapitalizeFirstLetter("Waiting for the filesystem of the virtual machine to be synced."))
+
 			return reconcile.Result{}, nil
 		case k8serrors.IsConflict(err):
 			log.Debug(fmt.Sprintf("failed to sync filesystem status; resource update conflict error: %s", err))
@@ -467,10 +495,12 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 				Status(metav1.ConditionFalse).
 				Reason(vdscondition.Snapshotting).
 				Message(service.CapitalizeFirstLetter("Waiting for the filesystem of the virtual machine to be synced."))
+
 			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 		default:
 			err = fmt.Errorf("failed to sync filesystem status: %w", err)
 			setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
+
 			return reconcile.Result{}, err
 		}
 
@@ -544,6 +574,7 @@ func (h LifeCycleHandler) backfillOriginalSize(ctx context.Context, vs *vsv1.Vol
 
 func setPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *v1alpha2.VirtualDiskSnapshotPhase, err error) {
 	*phase = v1alpha2.VirtualDiskSnapshotPhaseFailed
+
 	cb.
 		Status(metav1.ConditionFalse).
 		Reason(vdscondition.VirtualDiskSnapshotFailed).

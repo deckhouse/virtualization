@@ -45,6 +45,7 @@ func NewVirtualMachineReadyHandler(snapshotter VirtualMachineReadySnapshotter) *
 
 func (h VirtualMachineReadyHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.VirtualMachineSnapshot) (reconcile.Result, error) {
 	cb := conditions.NewConditionBuilder(vmscondition.VirtualMachineReadyType)
+
 	defer func() { conditions.SetCondition(cb.Generation(vmSnapshot.Generation), &vmSnapshot.Status.Conditions) }()
 
 	if !conditions.HasCondition(cb.GetType(), vmSnapshot.Status.Conditions) {
@@ -71,6 +72,7 @@ func (h VirtualMachineReadyHandler) Handle(ctx context.Context, vmSnapshot *v1al
 			Status(metav1.ConditionFalse).
 			Reason(vmscondition.VirtualMachineNotReadyForSnapshotting).
 			Message(fmt.Sprintf("The virtual machine %q was not found.", vmSnapshot.Spec.VirtualMachineName))
+
 		return reconcile.Result{}, nil
 	}
 
@@ -79,6 +81,7 @@ func (h VirtualMachineReadyHandler) Handle(ctx context.Context, vmSnapshot *v1al
 			Status(metav1.ConditionFalse).
 			Reason(vmscondition.VirtualMachineNotReadyForSnapshotting).
 			Message(fmt.Sprintf("The virtual machine %q is in the process of deletion.", vm.Name))
+
 		return reconcile.Result{}, nil
 	}
 
@@ -89,6 +92,7 @@ func (h VirtualMachineReadyHandler) Handle(ctx context.Context, vmSnapshot *v1al
 		snapshotting, ok := conditions.GetCondition(vmcondition.TypeSnapshotting, vm.Status.Conditions)
 		if ok && (snapshotting.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(snapshotting, vm)) {
 			cb.Status(metav1.ConditionFalse).Reason(vmscondition.VirtualMachineNotReadyForSnapshotting)
+
 			if snapshotting.Message == "" {
 				cb.Message("The VirtualMachineSnapshot resource has not been detected for the virtual machine yet.")
 			} else {
@@ -99,12 +103,14 @@ func (h VirtualMachineReadyHandler) Handle(ctx context.Context, vmSnapshot *v1al
 		}
 
 		cb.Status(metav1.ConditionTrue).Reason(vmscondition.VirtualMachineReady)
+
 		return reconcile.Result{}, nil
 	default:
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmscondition.VirtualMachineNotReadyForSnapshotting).
 			Message(fmt.Sprintf("The virtual machine %q is in the %q phase: waiting for it to reach the Running or Stopped phase.", vm.Name, vm.Status.Phase))
+
 		return reconcile.Result{}, nil
 	}
 }

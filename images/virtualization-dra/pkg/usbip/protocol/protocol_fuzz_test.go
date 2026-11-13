@@ -172,7 +172,9 @@ func requireBoundedStrings(t *testing.T, name string, message decoder) {
 	t.Helper()
 
 	type busIDGetter interface{ BusID() string }
+
 	type pathGetter interface{ GetPath() string }
+
 	type busIDFieldGetter interface{ GetBusID() string }
 
 	check := func(what, value string, limit int) {
@@ -188,9 +190,11 @@ func requireBoundedStrings(t *testing.T, name string, message decoder) {
 	if m, ok := message.(busIDGetter); ok {
 		check("BusID", m.BusID(), sysfsBusIdMax)
 	}
+
 	if m, ok := message.(busIDFieldGetter); ok {
 		check("GetBusID", m.GetBusID(), sysfsBusIdMax)
 	}
+
 	if m, ok := message.(pathGetter); ok {
 		check("GetPath", m.GetPath(), sysfsPathMax)
 	}

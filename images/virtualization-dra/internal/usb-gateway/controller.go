@@ -161,6 +161,7 @@ func (c *USBGatewayController) subscribeVhci(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
 	c.storeAttachInfo(attachInfo)
 
 	ch, err := c.usbIP.WatchAttachInfo(ctx)
@@ -249,13 +250,16 @@ func (c *USBGatewayController) getNode(key string) (*corev1.Node, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get node %s: %w", key, err)
 	}
+
 	if !exists {
 		return nil, nil
 	}
+
 	node, ok := obj.(*corev1.Node)
 	if !ok {
 		return nil, fmt.Errorf("expected node, got %T", obj)
 	}
+
 	return node.DeepCopy(), nil
 }
 
@@ -280,6 +284,7 @@ func (c *USBGatewayController) syncAddresses(node *corev1.Node, key string) {
 	if err != nil {
 		c.log.Error("invalid address", slog.String("address", addr), slog.Any("error", err))
 		c.removeAddr(node.Name)
+
 		return
 	}
 
@@ -293,6 +298,7 @@ func (c *USBGatewayController) addAddr(node, addr string) {
 	if c.nodeAddresses == nil {
 		c.nodeAddresses = make(map[string]string)
 	}
+
 	c.nodeAddresses[node] = addr
 }
 
@@ -348,6 +354,7 @@ func (c *USBGatewayController) ensureAddress(ctx context.Context, node *corev1.N
 	} else {
 		jp.Append(patch.WithAdd(path, c.usbipdAddr))
 	}
+
 	bytes, err := jp.Bytes()
 	if err != nil {
 		return node, fmt.Errorf("failed to generate patch: %w", err)
@@ -370,8 +377,10 @@ func (c *USBGatewayController) ensureAttachInfo(ctx context.Context, node *corev
 	if !ok {
 		c.log.Info("attach info is not collected yet, requeue")
 		c.queueAddAfter(c.nodeName, time.Second)
+
 		return node, nil
 	}
+
 	hsHub, ssHub := calculateUsedPorts(attachInfo)
 
 	jp := patch.NewJSONPatch()
@@ -400,11 +409,13 @@ func (c *USBGatewayController) ensureAttachInfo(ctx context.Context, node *corev
 
 func (c *USBGatewayController) ensureAnno(jp *patch.JSONPatch, anno, newValue string, node *corev1.Node) {
 	path := "/metadata/annotations/" + patch.EscapeJSONPointer(anno)
+
 	oldValue, exists := node.Annotations[anno]
 	if !exists {
 		jp.Append(patch.WithAdd(path, newValue))
 		return
 	}
+
 	if oldValue != newValue {
 		jp.Append(patch.WithTest(path, oldValue), patch.WithReplace(path, newValue))
 	}
@@ -415,6 +426,7 @@ func (c *USBGatewayController) markNode(ctx context.Context) error {
 	if !ok {
 		c.log.Info("attach info is not collected yet, requeue")
 		c.queueAddAfter(c.nodeName, time.Second)
+
 		return nil
 	}
 

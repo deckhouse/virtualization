@@ -45,6 +45,7 @@ func expectedFormatForStorageClass(ctx context.Context, f *framework.Framework, 
 	if storageClassVolumeMode(ctx, f, scName) == corev1.PersistentVolumeBlock {
 		return imageformat.FormatRAW
 	}
+
 	return imageformat.FormatQCOW2
 }
 
@@ -58,6 +59,7 @@ func expectedVirtualImageFormat(ctx context.Context, f *framework.Framework, vi 
 	if vi.Spec.DataSource.HTTP != nil && vi.Spec.DataSource.HTTP.URL == object.ImageURLCustomISO {
 		return imageformat.FormatISO
 	}
+
 	if vi.Spec.DataSource.ObjectRef != nil &&
 		vi.Spec.DataSource.ObjectRef.Kind == v1alpha2.VirtualImageObjectRefKindClusterVirtualImage &&
 		vi.Spec.DataSource.ObjectRef.Name == object.PrecreatedCVICustomISO {
@@ -85,6 +87,7 @@ func expectedClusterVirtualImageFormat(ctx context.Context, f *framework.Framewo
 	if cvi.Spec.DataSource.HTTP != nil && cvi.Spec.DataSource.HTTP.URL == object.ImageURLCustomISO {
 		return imageformat.FormatISO
 	}
+
 	if cvi.Spec.DataSource.ObjectRef != nil &&
 		cvi.Spec.DataSource.ObjectRef.Kind == v1alpha2.ClusterVirtualImageObjectRefKindClusterVirtualImage &&
 		cvi.Spec.DataSource.ObjectRef.Name == object.PrecreatedCVICustomISO {
@@ -111,6 +114,7 @@ func clusterVirtualImageSourceStorageClassName(ctx context.Context, f *framework
 		vdSnapshot := &v1alpha2.VirtualDiskSnapshot{}
 		err := f.Clients.GenericClient().Get(ctx, crclient.ObjectKey{Namespace: ref.Namespace, Name: ref.Name}, vdSnapshot)
 		Expect(err).NotTo(HaveOccurred())
+
 		return virtualDiskStorageClassName(ctx, f, vdSnapshot.Namespace, vdSnapshot.Spec.VirtualDiskName)
 
 	case v1alpha2.ClusterVirtualImageObjectRefKindVirtualDisk:
@@ -120,9 +124,11 @@ func clusterVirtualImageSourceStorageClassName(ctx context.Context, f *framework
 		sourceVI := &v1alpha2.VirtualImage{}
 		err := f.Clients.GenericClient().Get(ctx, crclient.ObjectKey{Namespace: ref.Namespace, Name: ref.Name}, sourceVI)
 		Expect(err).NotTo(HaveOccurred())
+
 		if sourceVI.Spec.Storage != v1alpha2.StoragePersistentVolumeClaim {
 			return ""
 		}
+
 		return ptr.Deref(sourceVI.Spec.PersistentVolumeClaim.StorageClass, "")
 
 	default:
@@ -143,6 +149,7 @@ func virtualImageSourceStorageClassName(ctx context.Context, f *framework.Framew
 		vdSnapshot := &v1alpha2.VirtualDiskSnapshot{}
 		err := f.Clients.GenericClient().Get(ctx, crclient.ObjectKey{Namespace: vi.Namespace, Name: ref.Name}, vdSnapshot)
 		Expect(err).NotTo(HaveOccurred())
+
 		return virtualDiskStorageClassName(ctx, f, vdSnapshot.Namespace, vdSnapshot.Spec.VirtualDiskName)
 
 	case v1alpha2.VirtualImageObjectRefKindVirtualDisk:
@@ -152,9 +159,11 @@ func virtualImageSourceStorageClassName(ctx context.Context, f *framework.Framew
 		sourceVI := &v1alpha2.VirtualImage{}
 		err := f.Clients.GenericClient().Get(ctx, crclient.ObjectKey{Namespace: vi.Namespace, Name: ref.Name}, sourceVI)
 		Expect(err).NotTo(HaveOccurred())
+
 		if sourceVI.Spec.Storage != v1alpha2.StoragePersistentVolumeClaim {
 			return ""
 		}
+
 		return ptr.Deref(sourceVI.Spec.PersistentVolumeClaim.StorageClass, "")
 
 	default:
@@ -172,6 +181,7 @@ func virtualDiskStorageClassName(ctx context.Context, f *framework.Framework, na
 	if vd.Status.StorageClassName != "" {
 		return vd.Status.StorageClassName
 	}
+
 	return ptr.Deref(vd.Spec.PersistentVolumeClaim.StorageClass, "")
 }
 
@@ -182,6 +192,7 @@ func storageClassVolumeMode(ctx context.Context, f *framework.Framework, scName 
 	modeGetter := volumemode.NewVolumeAndAccessModesGetter(f.GenericClient(), storageProfileGetter(f))
 	mode, _, err := modeGetter.GetVolumeAndAccessModes(ctx, sc)
 	Expect(err).NotTo(HaveOccurred(), "failed to resolve volume mode for StorageClass %q", sc.Name)
+
 	return mode
 }
 
@@ -191,21 +202,25 @@ func storageClassByName(ctx context.Context, f *framework.Framework, name string
 	if name == "" {
 		sc := framework.GetConfig().StorageClass.DefaultStorageClass
 		Expect(sc).NotTo(BeNil(), "default StorageClass not found")
+
 		return sc
 	}
 
 	got, err := f.KubeClient().StorageV1().StorageClasses().Get(ctx, name, metav1.GetOptions{})
 	Expect(err).NotTo(HaveOccurred(), "failed to get StorageClass %q", name)
+
 	return got
 }
 
 func storageProfileGetter(f *framework.Framework) func(ctx context.Context, name string) (*storagev1alpha1.StorageProfile, error) {
 	return func(ctx context.Context, name string) (*storagev1alpha1.StorageProfile, error) {
 		obj := &rewrite.StorageProfile{}
+
 		err := f.RewriteClient().Get(ctx, name, obj)
 		if err != nil {
 			return nil, err
 		}
+
 		return obj.StorageProfile, nil
 	}
 }

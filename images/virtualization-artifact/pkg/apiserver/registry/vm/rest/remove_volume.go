@@ -57,6 +57,7 @@ func (r RemoveVolumeREST) Connect(ctx context.Context, name string, opts runtime
 	if !ok {
 		return nil, fmt.Errorf("invalid options object: %#v", opts)
 	}
+
 	var (
 		removeVolumePather pather
 		hooks              []mutateRequestHook
@@ -66,10 +67,12 @@ func (r RemoveVolumeREST) Connect(ctx context.Context, name string, opts runtime
 		removeVolumePather = newKVVMIPather("removevolume")
 	} else {
 		removeVolumePather = newKVVMPather("removevolume")
+
 		h, err := r.genMutateRequestHook(removeVolumeOpts)
 		if err != nil {
 			return nil, err
 		}
+
 		hooks = append(hooks, h)
 	}
 
@@ -77,7 +80,9 @@ func (r RemoveVolumeREST) Connect(ctx context.Context, name string, opts runtime
 	if err != nil {
 		return nil, err
 	}
+
 	handler := newThrottledUpgradeAwareProxyHandler(location, transport, false, responder, r.kubevirt.ServiceAccount, hooks...)
+
 	return handler, nil
 }
 

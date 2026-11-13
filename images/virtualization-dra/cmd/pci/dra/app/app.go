@@ -98,6 +98,7 @@ func (o *draOptions) Validate() error {
 	if o.NodeName == "" {
 		return fmt.Errorf("nodeName is required")
 	}
+
 	if o.CDIRoot == "" {
 		return fmt.Errorf("cdiRoot is required")
 	}
@@ -134,6 +135,7 @@ func (o *draOptions) Run(cmd *cobra.Command, _ []string) error {
 	}
 
 	group, ctx := errgroup.WithContext(ctx)
+
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 

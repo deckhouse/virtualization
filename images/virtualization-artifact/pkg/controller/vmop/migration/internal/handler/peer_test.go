@@ -103,6 +103,7 @@ var _ = Describe("PeerMigrationHandler", func() {
 		running.VirtualMachineClassName = "generic-old"
 		lastApplied, err := json.Marshal(running)
 		Expect(err).NotTo(HaveOccurred())
+
 		kvvm := &virtv1.VirtualMachine{
 			ObjectMeta: metav1.ObjectMeta{Name: "web", Namespace: ns, Annotations: map[string]string{annotations.AnnVMLastAppliedSpec: string(lastApplied)}},
 			Spec: virtv1.VirtualMachineSpec{
@@ -136,24 +137,30 @@ var _ = Describe("PeerMigrationHandler", func() {
 
 	handle := func() {
 		GinkgoHelper()
+
 		_, err := h.Handle(ctx, vmop)
 		Expect(errors.Is(err, reconciler.ErrStopHandlerChain)).To(BeTrue(), "unexpected error: %v", err)
 	}
 	completed := func() metav1.Condition {
 		GinkgoHelper()
+
 		for _, c := range vmop.Status.Conditions {
 			if c.Type == string(vmopcondition.TypeCompleted) {
 				return c
 			}
 		}
+
 		Fail("no Completed condition")
+
 		return metav1.Condition{}
 	}
 	setReceiverPhase := func(phase intvirtv1alpha1.VirtualMachineReceiverPhase, message string) {
 		GinkgoHelper()
+
 		var r intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver
 		Expect(peer.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web"}, &r)).To(Succeed())
 		r.Status.Phase, r.Status.Message = phase, message
+
 		r.Status.ReceiverStarted = r.Status.ReceiverStarted || phase == intvirtv1alpha1.ReceiverRunning
 		if phase == intvirtv1alpha1.ReceiverReady {
 			// What the receiving cluster publishes for the source to start.
@@ -164,12 +171,15 @@ var _ = Describe("PeerMigrationHandler", func() {
 	}
 	sourceMigration := func() *virtv1.VirtualMachineInstanceMigration {
 		GinkgoHelper()
+
 		var mig virtv1.VirtualMachineInstanceMigration
 		Expect(local.Get(ctx, types.NamespacedName{Namespace: ns, Name: service.MigrationName(vmop)}, &mig)).To(Succeed())
+
 		return &mig
 	}
 	setSourcePhase := func(phase virtv1.VirtualMachineInstanceMigrationPhase, state *virtv1.VirtualMachineInstanceMigrationState) {
 		GinkgoHelper()
+
 		mig := sourceMigration()
 		mig.Status.Phase, mig.Status.MigrationState = phase, state
 		Expect(local.Update(ctx, mig)).To(Succeed())
@@ -188,6 +198,7 @@ var _ = Describe("PeerMigrationHandler", func() {
 		var vm v1alpha2.VirtualMachine
 		Expect(local.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web"}, &vm)).To(Succeed())
 		Expect(vm.Annotations).To(HaveKeyWithValue(annotations.AnnVMMovedToPeer, "move"))
+
 		var kvvm virtv1.VirtualMachine
 		Expect(local.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web"}, &kvvm)).To(Succeed())
 		Expect(*kvvm.Spec.RunStrategy).To(Equal(virtv1.RunStrategyManual))
@@ -197,6 +208,7 @@ var _ = Describe("PeerMigrationHandler", func() {
 		Expect(peer.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web"}, &r)).To(Succeed())
 		Expect(r.Labels).To(HaveKeyWithValue(labelPeerVMOPUID, "peering-7c4f"))
 		Expect(r.Spec.IPAddress).To(Equal("10.66.10.5"))
+
 		var sent struct {
 			Metadata metav1.ObjectMeta           `json:"metadata"`
 			Spec     v1alpha2.VirtualMachineSpec `json:"spec"`
@@ -207,11 +219,13 @@ var _ = Describe("PeerMigrationHandler", func() {
 		Expect(sent.Spec.VirtualMachineClassName).To(Equal("generic-old"))
 		Expect(sent.Spec.NodeSelector).To(HaveKeyWithValue("kubernetes.io/hostname", "a-0"))
 		Expect(r.Spec.VirtualDiskTemplates).To(HaveLen(1))
+
 		var disk v1alpha2.VirtualDisk
 		Expect(json.Unmarshal(r.Spec.VirtualDiskTemplates[0].Raw, &disk)).To(Succeed())
 		Expect(disk.Name).To(Equal("web-root"))
 		Expect(*disk.Spec.PersistentVolumeClaim.StorageClass).To(Equal("local"))
 		Expect(disk.Spec.PersistentVolumeClaim.Size.String()).To(Equal("4Gi"))
+
 		var instance virtv1.VirtualMachineInstance
 		Expect(json.Unmarshal(r.Spec.InternalVirtualizationVirtualMachineInstance.Raw, &instance)).To(Succeed())
 		Expect(instance.Spec.Domain.Devices.Disks[0].Serial).To(Equal("3f2a"))
@@ -224,6 +238,7 @@ var _ = Describe("PeerMigrationHandler", func() {
 
 		setReceiverPhase(intvirtv1alpha1.ReceiverReady, "")
 		handle()
+
 		mig := sourceMigration()
 		Expect(mig.Spec.SendTo).To(Equal(&virtv1.VirtualMachineInstanceMigrationSource{MigrationID: string(r.UID), ConnectURL: "172.17.0.101:9185"}))
 
@@ -250,9 +265,11 @@ var _ = Describe("PeerMigrationHandler", func() {
 		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
 		Expect(completed().Reason).To(Equal(string(vmopcondition.ReasonPeerRejected)))
 		Expect(completed().Message).To(ContainSubstring("cannot move to cluster"))
+
 		var vm v1alpha2.VirtualMachine
 		Expect(local.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web"}, &vm)).To(Succeed())
 		Expect(vm.Annotations).NotTo(HaveKey(annotations.AnnVMMovedToPeer))
+
 		var kvvm virtv1.VirtualMachine
 		Expect(local.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web"}, &kvvm)).To(Succeed())
 		Expect(*kvvm.Spec.RunStrategy).To(Equal(virtv1.RunStrategyAlways))
@@ -265,6 +282,7 @@ var _ = Describe("PeerMigrationHandler", func() {
 			Status:     v1alpha2.VirtualDiskStatus{Capacity: "1Gi", StorageClassName: "local"},
 		}
 		Expect(local.Create(ctx, data)).To(Succeed())
+
 		var vm v1alpha2.VirtualMachine
 		Expect(local.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web"}, &vm)).To(Succeed())
 		vm.Spec.BlockDeviceRefs = append(vm.Spec.BlockDeviceRefs, v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "web-data"})
@@ -275,6 +293,7 @@ var _ = Describe("PeerMigrationHandler", func() {
 		var r intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver
 		Expect(peer.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web"}, &r)).To(Succeed())
 		Expect(r.Spec.VirtualDiskTemplates).To(HaveLen(1))
+
 		var sent struct {
 			Spec v1alpha2.VirtualMachineSpec `json:"spec"`
 		}
@@ -284,6 +303,7 @@ var _ = Describe("PeerMigrationHandler", func() {
 
 		setReceiverPhase(intvirtv1alpha1.ReceiverReady, "")
 		handle()
+
 		now := metav1.Now()
 		setSourcePhase(virtv1.MigrationSucceeded, &virtv1.VirtualMachineInstanceMigrationState{StartTimestamp: &now, EndTimestamp: &now})
 		handle()
@@ -303,6 +323,7 @@ var _ = Describe("PeerMigrationHandler", func() {
 		Expect(completed().Reason).To(Equal(string(vmopcondition.ReasonPeerRejected)))
 		Expect(completed().Message).To(ContainSubstring("the IP address is not available"))
 		Expect(isGone(peer, &intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: "web"}})).To(BeTrue())
+
 		var vm v1alpha2.VirtualMachine
 		Expect(local.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web"}, &vm)).To(Succeed())
 		Expect(vm.Annotations).NotTo(HaveKey(annotations.AnnVMMovedToPeer))
@@ -316,20 +337,25 @@ var _ = Describe("PeerMigrationHandler", func() {
 	It("removes the lock and the request a stale copy of a failed operation left", func() {
 		handle()
 		setReceiverPhase(intvirtv1alpha1.ReceiverFailed, "the StorageClass \"nfs\" of the disk \"web-root\" does not exist")
+
 		stale := vmop.DeepCopy()
+
 		handle()
 		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
 
 		// The stale copy asks the peer again; its status write then loses to the failure.
 		_, _ = h.Handle(ctx, stale)
+
 		Expect(isGone(peer, &intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: "web"}})).To(BeFalse())
 
 		handle()
 		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
 		Expect(isGone(peer, &intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: "web"}})).To(BeTrue())
+
 		var vm v1alpha2.VirtualMachine
 		Expect(local.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web"}, &vm)).To(Succeed())
 		Expect(vm.Annotations).NotTo(HaveKey(annotations.AnnVMMovedToPeer))
+
 		var kvvm virtv1.VirtualMachine
 		Expect(local.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web"}, &kvvm)).To(Succeed())
 		Expect(*kvvm.Spec.RunStrategy).To(Equal(virtv1.RunStrategyAlways))
@@ -337,6 +363,7 @@ var _ = Describe("PeerMigrationHandler", func() {
 		// Once cleaned up, the operation does not ask the peer again.
 		h.peers = fakePeers{err: errors.New("the peer is asked")}
 		recorder.EventFunc = func(_ client.Object, _, _, msg string) { Fail(msg) }
+
 		handle()
 	})
 
@@ -366,6 +393,7 @@ var _ = Describe("PeerMigrationHandler", func() {
 	It("does not start the migration until the peer publishes the key of its synchronization controller", func() {
 		handle()
 		setReceiverPhase(intvirtv1alpha1.ReceiverReady, "")
+
 		var r intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver
 		Expect(peer.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web"}, &r)).To(Succeed())
 		r.Status.SyncPin = ""
@@ -378,16 +406,19 @@ var _ = Describe("PeerMigrationHandler", func() {
 	It("fails when the peer does not publish the key of its synchronization controller in time", func() {
 		handle()
 		setReceiverPhase(intvirtv1alpha1.ReceiverReady, "")
+
 		var r intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver
 		Expect(peer.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web"}, &r)).To(Succeed())
 		r.Status.SyncPin = ""
 		Expect(peer.Update(ctx, &r)).To(Succeed())
+
 		h2 := *h
 		// A peer that took the whole prepare timeout still has time to publish the key.
 		h2.peers = fakePeers{client: stalePeer{Client: peer, created: time.Now().Add(-peerPrepareTimeout - time.Minute)}}
 		_, err := h2.Handle(ctx, vmop)
 		Expect(errors.Is(err, reconciler.ErrStopHandlerChain)).To(BeTrue())
 		Expect(completed().Reason).To(Equal(string(vmopcondition.ReasonWaitingForPeer)))
+
 		h2.peers = fakePeers{client: stalePeer{Client: peer, created: time.Now().Add(-peerPrepareTimeout - peerPinTimeout - time.Minute)}}
 		_, err = h2.Handle(ctx, vmop)
 		Expect(errors.Is(err, reconciler.ErrStopHandlerChain)).To(BeTrue())
@@ -398,6 +429,7 @@ var _ = Describe("PeerMigrationHandler", func() {
 
 	It("fails when the peer does not prepare the receiver in time", func() {
 		handle()
+
 		var r intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver
 		Expect(peer.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web"}, &r)).To(Succeed())
 		r.Status.Message = "waiting for the disk"
@@ -412,6 +444,7 @@ var _ = Describe("PeerMigrationHandler", func() {
 
 	It("fails a peer that does not support virtualization", func() {
 		h.peers = fakePeers{err: peering.ErrPeerNotSupported}
+
 		handle()
 		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
 		Expect(completed().Reason).To(Equal(string(vmopcondition.ReasonPeerNotSupported)))
@@ -419,9 +452,11 @@ var _ = Describe("PeerMigrationHandler", func() {
 
 	It("fails a move of a project that is no longer paired with the peer", func() {
 		h.peers = fakePeers{client: peer, notPaired: peering.ErrPeerNotPaired}
+
 		handle()
 		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
 		Expect(isGone(peer, &intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: "web"}})).To(BeTrue())
+
 		var vm v1alpha2.VirtualMachine
 		Expect(local.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web"}, &vm)).To(Succeed())
 		Expect(vm.Annotations).NotTo(HaveKey(annotations.AnnVMMovedToPeer))
@@ -439,7 +474,9 @@ var _ = Describe("PeerMigrationHandler", func() {
 		handle()
 		setReceiverPhase(intvirtv1alpha1.ReceiverReady, "")
 		handle()
+
 		vmop.DeletionTimestamp = ptr.To(metav1.Now())
+
 		handle() // the migration here goes first
 		handle()
 		Expect(isGone(peer, &intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: "web"}})).To(BeTrue())
@@ -448,6 +485,7 @@ var _ = Describe("PeerMigrationHandler", func() {
 
 	It("finishes the move when the operation is deleted after the guest arrived", func() {
 		handle()
+
 		var r intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver
 		Expect(peer.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web"}, &r)).To(Succeed())
 		// The fake client does not assign a UID: the receiving migration is named after it.
@@ -461,6 +499,7 @@ var _ = Describe("PeerMigrationHandler", func() {
 		Expect(peer.Create(ctx, received)).To(Succeed())
 
 		vmop.DeletionTimestamp = ptr.To(metav1.Now())
+
 		handle()
 
 		// The operation itself is deleting; the move must finish, not roll back.
@@ -471,12 +510,15 @@ var _ = Describe("PeerMigrationHandler", func() {
 
 	It("releases a deleted operation when the peer stays unreachable", func() {
 		handle()
+
 		h.peers = fakePeers{client: refusingPeer{Client: peer}}
 		vmop.DeletionTimestamp = ptr.To(metav1.NewTime(time.Now().Add(-peerDeletionTimeout - time.Minute)))
+
 		handle()
 
 		Expect(vmop.Finalizers).To(BeEmpty())
 		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseTerminating))
+
 		var vm v1alpha2.VirtualMachine
 		Expect(local.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web"}, &vm)).To(Succeed())
 		Expect(vm.Annotations).NotTo(HaveKey(annotations.AnnVMMovedToPeer))
@@ -487,11 +529,14 @@ var _ = Describe("PeerMigrationHandler", func() {
 		setReceiverPhase(intvirtv1alpha1.ReceiverReady, "")
 		handle()
 		setSourcePhase(virtv1.MigrationRunning, nil)
+
 		h.peers = fakePeers{client: refusingPeer{Client: peer}}
 		vmop.DeletionTimestamp = ptr.To(metav1.NewTime(time.Now().Add(-peerDeletionTimeout - time.Minute)))
+
 		handle()
 
 		Expect(vmop.Finalizers).To(ContainElement(v1alpha2.FinalizerVMOPCleanup))
+
 		var vm v1alpha2.VirtualMachine
 		Expect(local.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web"}, &vm)).To(Succeed())
 		Expect(vm.Annotations).To(HaveKeyWithValue(annotations.AnnVMMovedToPeer, "move"))
@@ -500,14 +545,17 @@ var _ = Describe("PeerMigrationHandler", func() {
 	It("hands a cancelled operation back stopped when the receiver has not run but the VM does not run here", func() {
 		handle()
 		setReceiverPhase(intvirtv1alpha1.ReceiverReady, "")
+
 		var kvvmi virtv1.VirtualMachineInstance
 		Expect(local.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web"}, &kvvmi)).To(Succeed())
 		Expect(local.Delete(ctx, &kvvmi)).To(Succeed())
 		vmop.DeletionTimestamp = ptr.To(metav1.Now())
+
 		handle()
 
 		Expect(isGone(peer, &intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: "web"}})).To(BeTrue())
 		Expect(vmop.Finalizers).To(BeEmpty())
+
 		var vm v1alpha2.VirtualMachine
 		Expect(local.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web"}, &vm)).To(Succeed())
 		Expect(vm.Annotations).NotTo(HaveKey(annotations.AnnVMMovedToPeer))
@@ -516,14 +564,18 @@ var _ = Describe("PeerMigrationHandler", func() {
 
 	It("hands a deleted operation back stopped when the VM does not run here", func() {
 		handle()
+
 		var kvvmi virtv1.VirtualMachineInstance
 		Expect(local.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web"}, &kvvmi)).To(Succeed())
 		Expect(local.Delete(ctx, &kvvmi)).To(Succeed())
+
 		h.peers = fakePeers{client: refusingPeer{Client: peer}}
 		vmop.DeletionTimestamp = ptr.To(metav1.NewTime(time.Now().Add(-peerDeletionTimeout - time.Minute)))
+
 		handle()
 
 		Expect(vmop.Finalizers).To(BeEmpty())
+
 		var vm v1alpha2.VirtualMachine
 		Expect(local.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web"}, &vm)).To(Succeed())
 		Expect(vm.Annotations).NotTo(HaveKey(annotations.AnnVMMovedToPeer))
@@ -540,6 +592,7 @@ var _ = Describe("PeerMigrationHandler", func() {
 		handle()
 		setReceiverPhase(intvirtv1alpha1.ReceiverReady, "")
 		handle()
+
 		mig := sourceMigration()
 		mig.CreationTimestamp = metav1.NewTime(time.Now().Add(-peerSyncTimeout - time.Minute))
 		h2 := *h
@@ -554,12 +607,14 @@ var _ = Describe("PeerMigrationHandler", func() {
 		setReceiverPhase(intvirtv1alpha1.ReceiverReady, "")
 		handle()
 		setReceiverPhase(intvirtv1alpha1.ReceiverReady, "the receiving pod cannot be scheduled: Unschedulable: 0/4 nodes are available")
+
 		mig := sourceMigration()
 		withCreated := func(created time.Time) PeerMigrationHandler {
 			m := mig.DeepCopy()
 			m.CreationTimestamp = metav1.NewTime(created)
 			h2 := *h
 			h2.migration = service.NewMigrationService(fakeGetter{Client: local, mig: m}, featuregates.Default())
+
 			return h2
 		}
 
@@ -580,6 +635,7 @@ var _ = Describe("PeerMigrationHandler", func() {
 		handle()
 		setReceiverPhase(intvirtv1alpha1.ReceiverReady, "")
 		handle()
+
 		long := metav1.NewTime(time.Now().Add(-peerConfirmTimeout - time.Minute))
 		setSourcePhase(virtv1.MigrationSucceeded, &virtv1.VirtualMachineInstanceMigrationState{StartTimestamp: &long, EndTimestamp: &long})
 		handle()
@@ -590,6 +646,7 @@ var _ = Describe("PeerMigrationHandler", func() {
 		Expect(local.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web"}, &vm)).To(Succeed())
 		Expect(vm.Annotations).NotTo(HaveKey(annotations.AnnVMMovedToPeer))
 		Expect(vm.Spec.RunPolicy).To(Equal(v1alpha2.ManualPolicy))
+
 		var kvvm virtv1.VirtualMachine
 		Expect(local.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web"}, &kvvm)).To(Succeed())
 		Expect(*kvvm.Spec.RunStrategy).To(Equal(virtv1.RunStrategyManual))
@@ -599,10 +656,12 @@ var _ = Describe("PeerMigrationHandler", func() {
 		handle()
 		setReceiverPhase(intvirtv1alpha1.ReceiverReady, "")
 		handle()
+
 		var r intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver
 		Expect(peer.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web"}, &r)).To(Succeed())
 		r.Status.ReceiverStarted = true
 		Expect(peer.Update(ctx, &r)).To(Succeed())
+
 		long := metav1.NewTime(time.Now().Add(-peerConfirmTimeout - time.Minute))
 		setSourcePhase(virtv1.MigrationSucceeded, &virtv1.VirtualMachineInstanceMigrationState{StartTimestamp: &long, EndTimestamp: &long})
 		handle()
@@ -614,10 +673,12 @@ var _ = Describe("PeerMigrationHandler", func() {
 
 	It("fails the move when the peer refuses the credentials of this cluster", func() {
 		h.peers = fakePeers{client: refusingPeer{Client: peer}}
+
 		handle()
 		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
 		Expect(completed().Reason).To(Equal(string(vmopcondition.ReasonPeerRejected)))
 		Expect(completed().Message).To(ContainSubstring("refused the credentials"))
+
 		var vm v1alpha2.VirtualMachine
 		Expect(local.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web"}, &vm)).To(Succeed())
 		Expect(vm.Annotations).NotTo(HaveKey(annotations.AnnVMMovedToPeer), "the VM is not left locked")
@@ -625,43 +686,53 @@ var _ = Describe("PeerMigrationHandler", func() {
 
 	It("keeps a deleted operation locked while the peer cannot be asked", func() {
 		handle()
+
 		h.peers = fakePeers{client: refusingPeer{Client: peer}}
 		vmop.DeletionTimestamp = ptr.To(metav1.Now())
+
 		handle()
 		Expect(vmop.Finalizers).To(ContainElement(v1alpha2.FinalizerVMOPCleanup))
 		Expect(vmop.Status.Phase).NotTo(Equal(v1alpha2.VMOPPhaseFailed))
+
 		var vm v1alpha2.VirtualMachine
 		Expect(local.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web"}, &vm)).To(Succeed())
 		Expect(vm.Annotations).To(HaveKeyWithValue(annotations.AnnVMMovedToPeer, "move"))
 		Expect(isGone(peer, &intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: "web"}})).To(BeFalse())
 		h.peers = fakePeers{client: peer}
+
 		handle()
 		Expect(vmop.Finalizers).To(BeEmpty())
 	})
 
 	DescribeTable("keeps a possibly created receiver when its state is unknown", func(peerError error, deleting, withMigration bool) {
 		handle()
+
 		if withMigration {
 			setReceiverPhase(intvirtv1alpha1.ReceiverReady, "")
 			handle()
 		}
+
 		if deleting {
 			vmop.DeletionTimestamp = ptr.To(metav1.Now())
 		}
+
 		if peerError != nil {
 			h.peers = fakePeers{err: peerError}
 		} else {
 			h.peers = fakePeers{client: refusingPeer{Client: peer}}
 		}
+
 		result, err := h.Handle(ctx, vmop)
 		Expect(errors.Is(err, reconciler.ErrStopHandlerChain)).To(BeTrue(), "unexpected error: %v", err)
 		Expect(result.RequeueAfter).To(Equal(peerRequeue))
 		Expect(vmop.Status.Phase).NotTo(Equal(v1alpha2.VMOPPhaseFailed))
 		Expect(vmop.Finalizers).To(ContainElement(v1alpha2.FinalizerVMOPCleanup))
+
 		var vm v1alpha2.VirtualMachine
 		Expect(local.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web"}, &vm)).To(Succeed())
 		Expect(vm.Annotations).To(HaveKeyWithValue(annotations.AnnVMMovedToPeer, "move"))
 		Expect(isGone(peer, &intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: "web"}})).To(BeFalse())
+
 		if withMigration {
 			Expect(isGone(local, &virtv1.VirtualMachineInstanceMigration{ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: service.MigrationName(vmop)}})).To(BeFalse())
 		}
@@ -673,10 +744,13 @@ var _ = Describe("PeerMigrationHandler", func() {
 
 	DescribeTable("fails and releases the VM when the peer refuses before the migration", func(peers fakePeers, reason vmopcondition.ReasonCompleted) {
 		handle()
+
 		h.peers = peers
+
 		handle()
 		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
 		Expect(completed().Reason).To(Equal(string(reason)))
+
 		var vm v1alpha2.VirtualMachine
 		Expect(local.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web"}, &vm)).To(Succeed())
 		Expect(vm.Annotations).NotTo(HaveKey(annotations.AnnVMMovedToPeer))
@@ -688,9 +762,11 @@ var _ = Describe("PeerMigrationHandler", func() {
 
 	It("fails and releases the VM when the peer refuses to create the request", func() {
 		h.peers = fakePeers{client: refusingCreatePeer{Client: peer}}
+
 		handle()
 		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
 		Expect(completed().Reason).To(Equal(string(vmopcondition.ReasonPeerRejected)))
+
 		var vm v1alpha2.VirtualMachine
 		Expect(local.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web"}, &vm)).To(Succeed())
 		Expect(vm.Annotations).NotTo(HaveKey(annotations.AnnVMMovedToPeer))
@@ -698,7 +774,9 @@ var _ = Describe("PeerMigrationHandler", func() {
 
 	It("waits for an unreachable peer without its raw error", func() {
 		handle()
+
 		h.peers = fakePeers{client: unreachablePeer{Client: peer}}
+
 		handle()
 		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseInProgress))
 		Expect(completed().Reason).To(Equal(string(vmopcondition.ReasonWaitingForPeer)))
@@ -709,12 +787,16 @@ var _ = Describe("PeerMigrationHandler", func() {
 		handle()
 		setReceiverPhase(intvirtv1alpha1.ReceiverReady, "")
 		handle()
+
 		long := metav1.NewTime(time.Now().Add(-peerConfirmTimeout - time.Minute))
 		setSourcePhase(virtv1.MigrationSucceeded, &virtv1.VirtualMachineInstanceMigrationState{EndTimestamp: &long})
+
 		h.peers = fakePeers{client: refusingPeer{Client: peer}}
+
 		handle()
 		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
 		Expect(completed().Reason).To(Equal(string(vmopcondition.ReasonPeerNotConfirmed)))
+
 		var vm v1alpha2.VirtualMachine
 		Expect(local.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web"}, &vm)).To(Succeed())
 		Expect(vm.Spec.RunPolicy).To(Equal(v1alpha2.ManualPolicy))
@@ -726,6 +808,7 @@ var _ = Describe("PeerMigrationHandler", func() {
 		handle()
 		setReceiverPhase(intvirtv1alpha1.ReceiverReady, "")
 		handle()
+
 		now := metav1.Now()
 		setSourcePhase(virtv1.MigrationSucceeded, &virtv1.VirtualMachineInstanceMigrationState{StartTimestamp: &now, EndTimestamp: &now})
 		setReceiverPhase(intvirtv1alpha1.ReceiverFailed, "the receiving pod did not start")
@@ -733,6 +816,7 @@ var _ = Describe("PeerMigrationHandler", func() {
 		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
 		Expect(completed().Reason).To(Equal(string(vmopcondition.ReasonPeerNotConfirmed)))
 		Expect(completed().Message).To(ContainSubstring("the receiving pod did not start"))
+
 		var vm v1alpha2.VirtualMachine
 		Expect(local.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web"}, &vm)).To(Succeed())
 		Expect(vm.Spec.RunPolicy).To(Equal(v1alpha2.ManualPolicy))
@@ -743,13 +827,17 @@ var _ = Describe("PeerMigrationHandler", func() {
 		handle()
 		setReceiverPhase(intvirtv1alpha1.ReceiverReady, "")
 		handle()
+
 		long := metav1.NewTime(time.Now().Add(-peerConfirmTimeout - time.Minute))
 		setSourcePhase(virtv1.MigrationSucceeded, &virtv1.VirtualMachineInstanceMigrationState{EndTimestamp: &long})
+
 		vmop.DeletionTimestamp = ptr.To(metav1.Now())
 		h.peers = fakePeers{client: refusingPeer{Client: peer}}
+
 		handle()
 		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
 		Expect(vmop.Finalizers).To(BeEmpty())
+
 		var vm v1alpha2.VirtualMachine
 		Expect(local.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web"}, &vm)).To(Succeed())
 		Expect(vm.Spec.RunPolicy).To(Equal(v1alpha2.ManualPolicy))
@@ -760,12 +848,16 @@ var _ = Describe("PeerMigrationHandler", func() {
 		handle()
 		setReceiverPhase(intvirtv1alpha1.ReceiverReady, "")
 		handle()
+
 		now := metav1.Now()
 		setSourcePhase(virtv1.MigrationSucceeded, &virtv1.VirtualMachineInstanceMigrationState{StartTimestamp: &now, EndTimestamp: &now})
+
 		h.peers = fakePeers{err: peering.ErrPeerNotSupported}
+
 		handle()
 		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseInProgress))
 		Expect(completed().Reason).To(Equal(string(vmopcondition.ReasonWaitingForPeer)))
+
 		var kvvm virtv1.VirtualMachine
 		Expect(local.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web"}, &kvvm)).To(Succeed())
 		Expect(*kvvm.Spec.RunStrategy).To(Equal(virtv1.RunStrategyManual))
@@ -787,7 +879,9 @@ var _ = Describe("PeerMigrationHandler", func() {
 		handle()
 		setReceiverPhase(intvirtv1alpha1.ReceiverReady, "")
 		handle()
+
 		vmop.DeletionTimestamp = ptr.To(metav1.Now())
+
 		handle() // the migration here goes first
 		setReceiverPhase(intvirtv1alpha1.ReceiverRunning, "")
 		handle()
@@ -808,6 +902,7 @@ func (f fakeGetter) Get(ctx context.Context, key client.ObjectKey, obj client.Ob
 		*m = *f.mig.DeepCopy()
 		return nil
 	}
+
 	return f.Client.Get(ctx, key, obj, opts...)
 }
 
@@ -838,9 +933,11 @@ func (s stalePeer) Get(ctx context.Context, key client.ObjectKey, obj client.Obj
 	if err := s.Client.Get(ctx, key, obj, opts...); err != nil {
 		return err
 	}
+
 	if r, ok := obj.(*intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver); ok {
 		r.CreationTimestamp = metav1.NewTime(s.created)
 	}
+
 	return nil
 }
 

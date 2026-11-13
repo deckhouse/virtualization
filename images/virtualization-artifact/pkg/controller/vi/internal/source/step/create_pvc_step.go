@@ -100,6 +100,7 @@ func (s CreatePersistentVolumeClaimStep) Take(ctx context.Context, vi *v1alpha2.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.ProvisioningNotStarted).
 			Message(fmt.Sprintf("VirtualDiskSnapshot %q not found.", vi.Spec.DataSource.ObjectRef.Name))
+
 		return &reconcile.Result{}, nil
 	}
 
@@ -115,6 +116,7 @@ func (s CreatePersistentVolumeClaimStep) Take(ctx context.Context, vi *v1alpha2.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.ProvisioningNotStarted).
 			Message(fmt.Sprintf("VirtualDiskSnapshot %q is not ready to use.", vdSnapshot.Name))
+
 		return &reconcile.Result{}, nil
 	}
 
@@ -130,6 +132,7 @@ func (s CreatePersistentVolumeClaimStep) Take(ctx context.Context, vi *v1alpha2.
 			v1alpha2.ReasonDataSourceSyncFailed,
 			err.Error(),
 		)
+
 		return &reconcile.Result{}, nil
 	}
 
@@ -137,6 +140,7 @@ func (s CreatePersistentVolumeClaimStep) Take(ctx context.Context, vi *v1alpha2.
 	if storageClassName != "" {
 		vi.Status.StorageClassName = storageClassName
 	}
+
 	floors, err := commonvd.RestoreFloorsFrom(vdSnapshot, vs)
 	if err != nil {
 		return nil, err
@@ -167,6 +171,7 @@ func (s CreatePersistentVolumeClaimStep) storageClassName(vi *v1alpha2.VirtualIm
 	if vi.Spec.PersistentVolumeClaim.StorageClass != nil && *vi.Spec.PersistentVolumeClaim.StorageClass != "" {
 		return *vi.Spec.PersistentVolumeClaim.StorageClass
 	}
+
 	return storageclass.CapturedStorageClassName(vs)
 }
 
@@ -178,6 +183,7 @@ func (s CreatePersistentVolumeClaimStep) validateStorageClassCompatibility(ctx c
 	targetSCName := *vi.Spec.PersistentVolumeClaim.StorageClass
 
 	var targetSC storagev1.StorageClass
+
 	err := s.client.Get(ctx, types.NamespacedName{Name: targetSCName}, &targetSC)
 	if err != nil {
 		return fmt.Errorf("cannot fetch target storage class %q: %w", targetSCName, err)
@@ -192,12 +198,14 @@ func (s CreatePersistentVolumeClaimStep) validateStorageClassCompatibility(ctx c
 	pvcName := *vs.Spec.Source.PersistentVolumeClaimName
 
 	var originalPVC corev1.PersistentVolumeClaim
+
 	err = s.client.Get(ctx, types.NamespacedName{Name: pvcName, Namespace: vdSnapshot.Namespace}, &originalPVC)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			log.With("pvc.name", pvcName).Debug("Original PVC does not exist, skipping storage class compatibility validation")
 			return nil
 		}
+
 		return fmt.Errorf("cannot fetch original PVC %q: %w", pvcName, err)
 	}
 

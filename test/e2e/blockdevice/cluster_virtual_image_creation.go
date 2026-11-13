@@ -108,6 +108,7 @@ var _ = Describe("ClusterVirtualImageCreation", Label(
 
 			By("Downloading source image to upload", func() {
 				var err error
+
 				uploadFilePath, err = downloadImageToTempFile(object.ImageURLCustomBIOS)
 				Expect(err).NotTo(HaveOccurred(), "failed to download upload source image")
 				DeferCleanup(func() {
@@ -147,6 +148,7 @@ var _ = Describe("ClusterVirtualImageCreation", Label(
 
 		BeforeAll(func(ctx context.Context) {
 			setup(ctx)
+
 			baseVI = newVirtualImageOnDVCR("vi-source-dvcr-for-cvi",
 				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVICustomBIOS),
 			)
@@ -166,6 +168,7 @@ var _ = Describe("ClusterVirtualImageCreation", Label(
 
 		BeforeAll(func(ctx context.Context) {
 			setup(ctx)
+
 			baseVI = newVirtualImageOnPVC("vi-source-pvc-for-cvi", scPtr,
 				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVICustomBIOS),
 			)
@@ -211,6 +214,7 @@ var _ = Describe("ClusterVirtualImageCreation", Label(
 			)
 
 			snapObs := vdsnapshotobs.StartObserver(ctx, f, vdSnapshot)
+
 			By("Creating VirtualDiskSnapshot", func() {
 				err := f.CreateWithDeferredDeletion(ctx, vdSnapshot)
 				Expect(err).NotTo(HaveOccurred())
@@ -238,6 +242,7 @@ func newClusterVirtualImage(f *framework.Framework, suffix string, opts ...cvibu
 		cvibuilder.WithName(f.Namespace().Name + "-" + suffix),
 	}
 	baseOpts = append(baseOpts, opts...)
+
 	return cvibuilder.New(baseOpts...)
 }
 

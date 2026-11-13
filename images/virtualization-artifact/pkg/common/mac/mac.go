@@ -44,5 +44,6 @@ func LeaseNameToAddress(leaseName string) string {
 func IsValidAddressFormat(inputAddress string) bool {
 	inputAddress = strings.TrimSpace(inputAddress)
 	re := regexp.MustCompile(`^([0-9A-Fa-f]{2}([-:])){5}([0-9A-Fa-f]{2})$`)
+
 	return re.MatchString(inputAddress)
 }

@@ -70,5 +70,6 @@ func SetupController(
 	vmsopcollector.SetupCollector(mgr.GetCache(), metrics.Registry, log)
 
 	log.Info("Initialized VirtualMachineSnapshotOperation controller")
+
 	return nil
 }

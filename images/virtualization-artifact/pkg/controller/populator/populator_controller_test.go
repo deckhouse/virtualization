@@ -66,6 +66,7 @@ func TestPopulatorMarksBoundCSICloneDone(t *testing.T) {
 	if err := c.Get(ctx, client.ObjectKeyFromObject(pvc), refreshed); err != nil {
 		t.Fatalf("get pvc: %v", err)
 	}
+
 	if got := refreshed.Annotations[annotations.AnnPVCPopulationDone]; got != "true" {
 		t.Fatalf("unexpected done annotation: %q", got)
 	}
@@ -88,6 +89,7 @@ func TestPopulatorStartsDVCRImport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reconcile failed: %v", err)
 	}
+
 	if !result.IsZero() {
 		t.Fatalf("expected no requeue while importer is pending, got %#v", result)
 	}
@@ -96,6 +98,7 @@ func TestPopulatorStartsDVCRImport(t *testing.T) {
 	if err := c.Get(ctx, types.NamespacedName{Name: "d8v-vd-pvc-importer-" + string(vd.UID), Namespace: vd.Namespace}, pod); err != nil {
 		t.Fatalf("expected pvc-importer pod: %v", err)
 	}
+
 	if len(pod.OwnerReferences) != 1 || pod.OwnerReferences[0].Kind != "PersistentVolumeClaim" || pod.OwnerReferences[0].Name != pvc.Name {
 		t.Fatalf("unexpected pod owner references: %#v", pod.OwnerReferences)
 	}
@@ -127,6 +130,7 @@ func TestPopulatorStartsVirtualImageWFFCDVCRImportWithoutSelectedNode(t *testing
 	if err != nil {
 		t.Fatalf("reconcile failed: %v", err)
 	}
+
 	if !result.IsZero() {
 		t.Fatalf("expected no requeue while importer is pending, got %#v", result)
 	}
@@ -159,6 +163,7 @@ func TestPopulatorIgnoresNamespaceTerminatingErrors(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected namespace-terminating error to be dropped, got: %v", err)
 	}
+
 	if !result.IsZero() {
 		t.Fatalf("expected no requeue for a terminating namespace, got %#v", result)
 	}
@@ -176,6 +181,7 @@ func namespaceTerminatingError(obj client.Object) error {
 		Type:    corev1.NamespaceTerminatingCause,
 		Message: fmt.Sprintf("namespace %s is being terminated", obj.GetNamespace()),
 	})
+
 	return err
 }
 
@@ -195,6 +201,7 @@ func TestPopulatorStartsStandaloneDVCRImport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reconcile failed: %v", err)
 	}
+
 	if !result.IsZero() {
 		t.Fatalf("expected no requeue while importer is pending, got %#v", result)
 	}
@@ -203,6 +210,7 @@ func TestPopulatorStartsStandaloneDVCRImport(t *testing.T) {
 	if err := c.Get(ctx, types.NamespacedName{Name: "d8v-pvc-pvc-importer-" + string(pvc.UID), Namespace: pvc.Namespace}, pod); err != nil {
 		t.Fatalf("expected standalone pvc-importer pod: %v", err)
 	}
+
 	if len(pod.OwnerReferences) != 1 || pod.OwnerReferences[0].Kind != "PersistentVolumeClaim" || pod.OwnerReferences[0].Name != pvc.Name {
 		t.Fatalf("unexpected pod owner references: %#v", pod.OwnerReferences)
 	}
@@ -232,6 +240,7 @@ func TestPopulatorStartsHostAssignedPVCCloneWithSourceAndTargetPods(t *testing.T
 	if err != nil {
 		t.Fatalf("reconcile failed: %v", err)
 	}
+
 	if !result.IsZero() {
 		t.Fatalf("expected no requeue while source importer is pending, got %#v", result)
 	}
@@ -240,19 +249,25 @@ func TestPopulatorStartsHostAssignedPVCCloneWithSourceAndTargetPods(t *testing.T
 	if err := c.Get(ctx, sup.PVCSourceImporterPod(), sourcePod); err != nil {
 		t.Fatalf("expected pvc-source-importer pod: %v", err)
 	}
+
 	if got := sourcePod.Spec.Containers[0].Command; len(got) != 1 || got[0] != "/usr/sbin/nbdkit" {
 		t.Fatalf("unexpected source pod command: %#v", got)
 	}
+
 	targetPod := &corev1.Pod{}
 	if err := c.Get(ctx, sup.PVCTargetImporterPod(), targetPod); err != nil {
 		t.Fatalf("expected pvc-target-importer pod: %v", err)
 	}
+
 	container := targetPod.Spec.Containers[0]
 	if got := container.Command; len(got) != 1 || got[0] != "/usr/bin/pvc-target-importer" {
 		t.Fatalf("unexpected target pod command: %#v", got)
 	}
+
 	wantNBD := "nbd://" + sup.PVCSourceImporterService().Name + ":10809"
+
 	var gotOwnerUID, gotNBD string
+
 	for _, env := range container.Env {
 		switch env.Name {
 		case common.OwnerUID:
@@ -261,18 +276,23 @@ func TestPopulatorStartsHostAssignedPVCCloneWithSourceAndTargetPods(t *testing.T
 			gotNBD = env.Value
 		}
 	}
+
 	if gotOwnerUID != string(vd.UID) {
 		t.Fatalf("unexpected owner UID env: got %q, want %q", gotOwnerUID, vd.UID)
 	}
+
 	if gotNBD != wantNBD {
 		t.Fatalf("unexpected NBD endpoint env: got %q, want %q", gotNBD, wantNBD)
 	}
+
 	if len(container.Ports) != 1 || container.Ports[0].Name != "metrics" || container.Ports[0].ContainerPort != 8443 {
 		t.Fatalf("unexpected metrics port: %#v", container.Ports)
 	}
+
 	if err := c.Get(ctx, sup.PVCImporterPod(), &corev1.Pod{}); client.IgnoreNotFound(err) == nil && err == nil {
 		t.Fatalf("host-assigned clone must not create legacy pvc-importer pod")
 	}
+
 	if err := c.Get(ctx, types.NamespacedName{Name: target.Name + "-prime-scratch", Namespace: target.Namespace}, &corev1.PersistentVolumeClaim{}); client.IgnoreNotFound(err) == nil && err == nil {
 		t.Fatalf("host-assigned clone must not create scratch pvc")
 	}
@@ -300,6 +320,7 @@ func TestPopulatorCreatesMissingSnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reconcile failed: %v", err)
 	}
+
 	if !result.IsZero() {
 		t.Fatalf("expected no requeue while snapshot target is pending, got %#v", result)
 	}
@@ -308,9 +329,11 @@ func TestPopulatorCreatesMissingSnapshot(t *testing.T) {
 	if err := c.Get(ctx, types.NamespacedName{Name: "target-snapshot", Namespace: target.Namespace}, snapshot); err != nil {
 		t.Fatalf("expected volume snapshot: %v", err)
 	}
+
 	if snapshot.Spec.Source.PersistentVolumeClaimName == nil || *snapshot.Spec.Source.PersistentVolumeClaimName != source.Name {
 		t.Fatalf("unexpected snapshot source: %#v", snapshot.Spec.Source.PersistentVolumeClaimName)
 	}
+
 	if len(snapshot.OwnerReferences) != 1 || snapshot.OwnerReferences[0].Kind != "PersistentVolumeClaim" || snapshot.OwnerReferences[0].Name != source.Name {
 		t.Fatalf("unexpected snapshot owner references: %#v", snapshot.OwnerReferences)
 	}
@@ -352,19 +375,26 @@ func assertContainerUsesDVCRSupplement(t *testing.T, container corev1.Container,
 	t.Helper()
 
 	certName := sup.DVCRCABundleConfigMapForPVCImporter().Name
-	var hasCertDir bool
-	var hasAuthSecret bool
+
+	var (
+		hasCertDir    bool
+		hasAuthSecret bool
+	)
+
 	for _, env := range container.Env {
 		if env.Name == common.ImporterCertDirVar {
 			hasCertDir = true
 		}
+
 		if env.ValueFrom != nil && env.ValueFrom.SecretKeyRef != nil && env.ValueFrom.SecretKeyRef.Name == sup.DVCRAuthSecretForPVCImporter().Name {
 			hasAuthSecret = true
 		}
 	}
+
 	if !hasCertDir {
 		t.Fatalf("expected importer container to use DVCR CA configmap %q", certName)
 	}
+
 	if !hasAuthSecret {
 		t.Fatalf("expected importer container to use DVCR auth secret %q", sup.DVCRAuthSecretForPVCImporter().Name)
 	}
@@ -372,6 +402,7 @@ func assertContainerUsesDVCRSupplement(t *testing.T, container corev1.Container,
 
 func testScheme(t *testing.T) *runtime.Scheme {
 	t.Helper()
+
 	scheme := runtime.NewScheme()
 	for _, add := range []func(*runtime.Scheme) error{
 		corev1.AddToScheme,
@@ -384,6 +415,7 @@ func testScheme(t *testing.T) *runtime.Scheme {
 			t.Fatal(err)
 		}
 	}
+
 	return scheme
 }
 
@@ -509,6 +541,7 @@ func TestPopulatorSkipsPVCWhoseOwnerIsGone(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reconcile failed: %v", err)
 	}
+
 	if !result.IsZero() {
 		t.Fatalf("expected no requeue for an ownerless PVC, got %#v", result)
 	}

@@ -82,11 +82,13 @@ func generateOUI(clusterUID string) string {
 	}
 
 	cleanUID := strings.ReplaceAll(clusterUID, "-", "")
+
 	numBytes := len(cleanUID) / 2
 	for i := 0; i < numBytes; i++ {
 		switch cleanUID[2*i+1] {
 		case '6', '2', 'a', 'e':
 			start := 2 * i
+
 			var oui string
 			if start+6 <= len(cleanUID) {
 				oui = cleanUID[start : start+6]
@@ -94,6 +96,7 @@ func generateOUI(clusterUID string) string {
 				oui = cleanUID[start:]
 				oui += cleanUID[:(6 - len(oui))]
 			}
+
 			return oui
 		}
 	}
@@ -150,6 +153,7 @@ func (s MACAddressService) AllocateNewAddress(allocatedMACs mac.AllocatedMACs) (
 		if _, ok := allocatedMACs[genAddress]; !ok {
 			return genAddress, nil
 		}
+
 		retry++
 	}
 
@@ -213,6 +217,7 @@ func (s MACAddressService) getLeaseByLabel(ctx context.Context, vmmac *v1alpha2.
 	// 1. Trying to find the Lease in the local cache.
 	{
 		leases := &v1alpha2.VirtualMachineMACAddressLeaseList{}
+
 		err := s.client.List(ctx, leases, &client.ListOptions{
 			LabelSelector: labels.SelectorFromSet(map[string]string{annotations.LabelVirtualMachineMACAddressUID: string(vmmac.GetUID())}),
 		})

@@ -29,6 +29,7 @@ var versionWithTwoComponents = regexp.MustCompile(`(\d+\.\d+)(?:\.\d+)?`)
 func NormalizeSemVer(version string) string {
 	version = strings.TrimPrefix(version, "v")
 	version = strings.TrimSpace(version)
+
 	return version
 }
 
@@ -39,6 +40,7 @@ func NormalizeSemVerRange(rangeStr string) string {
 		if strings.Count(match, ".") == 1 {
 			return match + ".0"
 		}
+
 		return match
 	})
 }

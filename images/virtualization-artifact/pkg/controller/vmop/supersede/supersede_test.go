@@ -88,6 +88,7 @@ func supersedeMatrixEntries() []supersedeMatrixEntry {
 	forces := []bool{false, true}
 
 	var entries []supersedeMatrixEntry
+
 	for _, oldType := range vmopTypes {
 		for _, oldForce := range forces {
 			for _, newType := range vmopTypes {
@@ -116,6 +117,7 @@ func expectedCanSupersede(oldType v1alpha2.VMOPType, oldForce bool, newType v1al
 		if oldForce {
 			return false
 		}
+
 		return newType == v1alpha2.VMOPTypeStop && newForce ||
 			newType == v1alpha2.VMOPTypeRestart && newForce
 	case v1alpha2.VMOPTypeMigrate, v1alpha2.VMOPTypeEvict:
@@ -124,6 +126,7 @@ func expectedCanSupersede(oldType v1alpha2.VMOPType, oldForce bool, newType v1al
 		if oldForce {
 			return false
 		}
+
 		return newType == v1alpha2.VMOPTypeStop && newForce ||
 			newType == v1alpha2.VMOPTypeRestart && newForce
 	default:

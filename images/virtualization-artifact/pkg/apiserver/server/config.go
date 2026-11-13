@@ -54,36 +54,46 @@ func (c Config) Validate() error {
 	if c.Kubevirt.Endpoint == "" {
 		err = errors.Join(err, fmt.Errorf(".Kubevirt.Endpoint is required. %w", ErrConfigInvalid))
 	}
+
 	if c.Kubevirt.CaBundlePath == "" {
 		err = errors.Join(err, fmt.Errorf(".Kubevirt.CaBundlePath is required. %w", ErrConfigInvalid))
 	}
+
 	if c.Kubevirt.ServiceAccount.Name == "" {
 		err = errors.Join(err, fmt.Errorf(".Kubevirt.ServiceAccount.Name is required. %w", ErrConfigInvalid))
 	}
+
 	if c.Kubevirt.ServiceAccount.Namespace == "" {
 		err = errors.Join(err, fmt.Errorf(".Kubevirt.ServiceAccount.Namespace is required. %w", ErrConfigInvalid))
 	}
+
 	if c.ProxyClientCertFile == "" {
 		err = errors.Join(err, fmt.Errorf(".ProxyClientCertFile is required. %w", ErrConfigInvalid))
 	}
+
 	if c.ProxyClientKeyFile == "" {
 		err = errors.Join(err, fmt.Errorf(".ProxyClientKeyFile is required. %w", ErrConfigInvalid))
 	}
+
 	if c.Apiserver == nil {
 		err = errors.Join(err, fmt.Errorf(".Apiserver is required. %w", ErrConfigInvalid))
 	}
+
 	if c.Rest == nil {
 		err = errors.Join(err, fmt.Errorf(".Rest is required. %w", ErrConfigInvalid))
 	}
+
 	return err
 }
 
 func (c Config) Complete() (*Server, error) {
 	proxyCertManager := filesystem.NewFileCertificateManager(c.ProxyClientCertFile, c.ProxyClientKeyFile)
+
 	vmSharedInformerFactory, err := virtualizationInformerFactory(c.Rest)
 	if err != nil {
 		return nil, err
 	}
+
 	vmInformer := vmSharedInformerFactory.Virtualization().V1alpha2().VirtualMachines()
 
 	genericServer, err := c.Apiserver.Complete(nil).New("virtualziation-api", genericapiserver.NewEmptyDelegate())
@@ -150,6 +160,7 @@ func newSnapshotServices(cfg *rest.Config) (*snapshotServices, error) {
 	if err := v1alpha2.AddToScheme(scheme); err != nil {
 		return nil, err
 	}
+
 	if err := storagev1alpha1.AddToScheme(scheme); err != nil {
 		return nil, err
 	}
@@ -177,7 +188,9 @@ func newEventRecorder(kubeCli kubeclient.Client) (record.EventRecorder, error) {
 	if err := v1alpha2.AddToScheme(scheme); err != nil {
 		return nil, err
 	}
+
 	broadcaster := record.NewBroadcaster()
 	broadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeCli.CoreV1().Events("")})
+
 	return broadcaster.NewRecorder(scheme, corev1.EventSource{Component: "virtualization-api"}), nil
 }

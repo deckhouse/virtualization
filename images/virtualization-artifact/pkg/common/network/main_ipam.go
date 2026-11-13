@@ -55,12 +55,16 @@ func MainIPAMAvailable(ctx context.Context, c client.Reader) (bool, error) {
 		if k8serrors.IsNotFound(err) || meta.IsNoMatchError(err) {
 			return false, nil
 		}
+
 		return false, fmt.Errorf("get ClusterNetwork %s: %w", MainClusterNetworkName, err)
 	}
+
 	if clusterNetwork.Spec.Type != sdnapi.ClusterNetworkTypePrimaryCNI {
 		return false, nil
 	}
+
 	ipam := clusterNetwork.Spec.IPAM
+
 	return ipam != nil && ipam.IPAddressPoolRef != nil && ipam.IPAddressPoolRef.Name != "", nil
 }
 
@@ -75,6 +79,7 @@ func MainInterfaceSpecEnabled(ctx context.Context, c client.Reader, usesVMIP boo
 	if MainInterfaceSpecRequired(usesVMIP, kvvm) {
 		return true, nil
 	}
+
 	return MainIPAMAvailable(ctx, c)
 }
 
@@ -87,6 +92,7 @@ func HasMainInterfaceSpec(anno map[string]string) bool {
 	if err := json.Unmarshal([]byte(anno[annotations.AnnNetworksSpec]), &specs); err != nil {
 		return false
 	}
+
 	return specs.MainWithAddress() != nil
 }
 
@@ -94,16 +100,19 @@ func HasMainInterfaceSpec(anno map[string]string) bool {
 // spec is the owner's.
 func vmHasOwnVMIP(ctx context.Context, c client.Client, vm *v1alpha2.VirtualMachine) (bool, error) {
 	list := &v1alpha2.VirtualMachineIPAddressList{}
+
 	err := c.List(ctx, list, client.InNamespace(vm.GetNamespace()),
 		client.MatchingLabels{annotations.LabelVirtualMachineUID: string(vm.GetUID())})
 	if err != nil {
 		return false, fmt.Errorf("list VirtualMachineIPAddress of the virtual machine: %w", err)
 	}
+
 	for i := range list.Items {
 		if list.Items[i].DeletionTimestamp == nil {
 			return true, nil
 		}
 	}
+
 	return false, nil
 }
 
@@ -113,13 +122,16 @@ func vmHasMainIPAddress(ctx context.Context, c client.Client, vm *v1alpha2.Virtu
 	if mainSpec == nil {
 		return false, nil
 	}
+
 	ipa, err := GetSDNIPAddressOfVM(ctx, c, vm, *mainSpec)
 	if err != nil {
 		if meta.IsNoMatchError(err) {
 			return false, nil
 		}
+
 		return false, err
 	}
+
 	return ipa != nil, nil
 }
 
@@ -137,6 +149,7 @@ func UsesVMIP(ctx context.Context, c client.Client, vm *v1alpha2.VirtualMachine)
 	if vm.Spec.VirtualMachineIPAddress != "" {
 		return true, nil
 	}
+
 	mainIPAMAvailable, err := MainIPAMAvailable(ctx, c)
 	if err != nil {
 		return false, err
@@ -152,6 +165,7 @@ func UsesVMIP(ctx context.Context, c client.Client, vm *v1alpha2.VirtualMachine)
 				return false, err
 			}
 		}
+
 		if namedIPAddressInEffect {
 			return false, nil
 		}
@@ -161,10 +175,12 @@ func UsesVMIP(ctx context.Context, c client.Client, vm *v1alpha2.VirtualMachine)
 	if err != nil || hasVMIP {
 		return hasVMIP, err
 	}
+
 	hasIPAddress, err := vmHasMainIPAddress(ctx, c, vm)
 	if err != nil || hasIPAddress {
 		return false, err
 	}
+
 	if !mainIPAMAvailable {
 		return true, nil
 	}
@@ -173,6 +189,7 @@ func UsesVMIP(ctx context.Context, c client.Client, vm *v1alpha2.VirtualMachine)
 	if err != nil {
 		return false, err
 	}
+
 	return !vmipAddressesTaken, nil
 }
 
@@ -181,6 +198,7 @@ func templateHasMainInterfaceSpec(ctx context.Context, c client.Client, vm *v1al
 	if err := c.Get(ctx, types.NamespacedName{Name: vm.Name, Namespace: vm.Namespace}, kvvm); err != nil {
 		return false, client.IgnoreNotFound(err)
 	}
+
 	return KVVMHasMainInterfaceSpec(kvvm), nil
 }
 
@@ -203,9 +221,11 @@ func GetMainSDNIPAddress(ctx context.Context, c client.Client, vm *v1alpha2.Virt
 	if mainSpec == nil {
 		return nil, nil
 	}
+
 	if mainSpec.IPAddressName != "" {
 		return GetSDNIPAddress(ctx, c, vm.Namespace, mainSpec.IPAddressName)
 	}
+
 	return GetSDNIPAddressOfVM(ctx, c, vm, *mainSpec)
 }
 
@@ -223,12 +243,15 @@ func CheckMainSDNIPAddress(ctx context.Context, c client.Client, vm *v1alpha2.Vi
 			return err
 		}
 	}
+
 	if !IPAddressServesVM(vm, ipa) {
 		return ErrIPAddressBeingDeleted
 	}
+
 	if !IPAddressAllocated(ipa) || ipa.Status.Address == "" {
 		return ErrIPAddressNotAllocated
 	}
+
 	return nil
 }
 
@@ -237,6 +260,7 @@ func checkNamedMainIPAddress(ctx context.Context, c client.Client, vm *v1alpha2.
 	if !IsMainNetworkIPAddress(ipa) {
 		return ErrIPAddressOfAnotherNetwork
 	}
+
 	conflictVM, err := OtherVMUsingIPAddress(ctx, c, vm, ipa, mainSpec)
 	if err != nil {
 		return err
@@ -247,6 +271,7 @@ func checkNamedMainIPAddress(ctx context.Context, c client.Client, vm *v1alpha2.
 	if conflictVM != "" && (ipa.Status.Address == "" || ipa.Status.Address != vm.Status.IPAddress) {
 		return &IPAddressConflictError{VMName: conflictVM}
 	}
+
 	return nil
 }
 
@@ -270,12 +295,15 @@ func usableMainIPAddress(ctx context.Context, c client.Client, vm *v1alpha2.Virt
 	if err != nil || ipa == nil {
 		return nil, err
 	}
+
 	if err := CheckMainSDNIPAddress(ctx, c, vm, ipa); err != nil {
 		// The IPAMHandler reports the reason to the user.
 		if IsIPAddressUnusable(err) {
 			return nil, nil
 		}
+
 		return nil, err
 	}
+
 	return ipa, nil
 }

@@ -82,22 +82,29 @@ func Blocks(description string) []string {
 	document := goldmark.New().Parser().Parse(text.NewReader(source))
 
 	var blocks []string
+
 	_ = ast.Walk(document, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
 		if !entering {
 			return ast.WalkContinue, nil
 		}
+
 		fenced, ok := node.(*ast.FencedCodeBlock)
 		if !ok || string(fenced.Language(source)) != changesLanguage {
 			return ast.WalkContinue, nil
 		}
+
 		var body strings.Builder
+
 		for i := 0; i < fenced.Lines().Len(); i++ {
 			line := fenced.Lines().At(i)
 			body.Write(line.Value(source))
 		}
+
 		blocks = append(blocks, body.String())
+
 		return ast.WalkContinue, nil
 	})
+
 	return blocks
 }
 
@@ -119,11 +126,13 @@ type ParsedBlock struct {
 // nor itself.
 func ParseDescription(description string) []ParsedBlock {
 	blocks := Blocks(description)
+
 	parsed := make([]ParsedBlock, 0, len(blocks))
 	for index, block := range blocks {
 		entries, err := ParseBlock(block)
 		parsed = append(parsed, ParsedBlock{Index: index + 1, Entries: entries, Err: err})
 	}
+
 	return parsed
 }
 
@@ -138,20 +147,26 @@ func ParseDescription(description string) []ParsedBlock {
 // line that broke it: half of a block is not something to publish.
 func ParseBlock(block string) ([]Entry, error) {
 	var entries []Entry
+
 	decoder := yaml.NewDecoder(strings.NewReader(block))
+
 	for index := 1; ; index++ {
 		var document yaml.Node
+
 		err := decoder.Decode(&document)
 		if errors.Is(err, io.EOF) {
 			return entries, nil
 		}
+
 		if err != nil {
 			return nil, documentError(index, err)
 		}
+
 		parsed, err := parseDocument(&document)
 		if err != nil {
 			return nil, documentError(index, err)
 		}
+
 		entries = append(entries, parsed...)
 	}
 }
@@ -162,6 +177,7 @@ func parseDocument(document *yaml.Node) ([]Entry, error) {
 		if len(node.Content) == 0 {
 			return nil, nil
 		}
+
 		node = node.Content[0]
 	}
 	// A `---` line with nothing under it leaves an empty document behind. It
@@ -169,6 +185,7 @@ func parseDocument(document *yaml.Node) ([]Entry, error) {
 	if node.Kind == yaml.ScalarNode && node.Tag == "!!null" {
 		return nil, nil
 	}
+
 	if node.Kind != yaml.MappingNode {
 		return nil, errors.New("an entry must be written as `key: value` lines")
 	}
@@ -189,11 +206,13 @@ func parseDocument(document *yaml.Node) ([]Entry, error) {
 	}
 
 	var entries []Entry
+
 	for _, name := range strings.Split(section, ",") {
 		entry := base
 		entry.Section = normalizeSection(name)
 		entries = append(entries, entry)
 	}
+
 	return entries, nil
 }
 
@@ -204,6 +223,7 @@ func documentError(index int, err error) error {
 	if index == 1 {
 		return err
 	}
+
 	return fmt.Errorf("entry #%d: %w", index, err)
 }
 
@@ -232,5 +252,6 @@ func firstNonEmpty(values ...string) string {
 			return value
 		}
 	}
+
 	return ""
 }

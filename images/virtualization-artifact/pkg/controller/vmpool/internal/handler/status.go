@@ -58,6 +58,7 @@ func (h *StatusHandler) Handle(ctx context.Context, pool *v1alpha2.VirtualMachin
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("list pool members: %w", err)
 	}
+
 	var disks v1alpha2.VirtualDiskList
 	if err := h.client.List(ctx, &disks,
 		client.InNamespace(pool.GetNamespace()),
@@ -65,12 +66,14 @@ func (h *StatusHandler) Handle(ctx context.Context, pool *v1alpha2.VirtualMachin
 	); err != nil {
 		return reconcile.Result{}, fmt.Errorf("list pool disks: %w", err)
 	}
+
 	diskTemplateOf := make(map[string]string, len(disks.Items))
 	for i := range disks.Items {
 		diskTemplateOf[disks.Items[i].Name] = disks.Items[i].GetLabels()[poollabels.DiskTemplate]
 	}
 
 	updateStatus(pool, members, diskTemplateOf, ReportFrom(ctx))
+
 	return reconcile.Result{}, nil
 }
 
@@ -93,16 +96,19 @@ type poolView struct {
 
 func newPoolView(pool *v1alpha2.VirtualMachinePool, members []v1alpha2.VirtualMachine, diskTemplateOf map[string]string, desiredHash string) poolView {
 	v := poolView{desired: int(ptr.Deref(pool.Spec.Replicas, 0)), all: len(members)}
+
 	templates := make(map[string]bool, len(pool.Spec.VirtualDiskTemplates))
 	for i := range pool.Spec.VirtualDiskTemplates {
 		templates[pool.Spec.VirtualDiskTemplates[i].Name] = true
 	}
+
 	for i := range members {
 		vm := &members[i]
 		if vm.GetDeletionTimestamp() != nil {
 			v.terminating = append(v.terminating, vm)
 			continue
 		}
+
 		v.live++
 		if isReady(vm) {
 			v.ready++
@@ -122,9 +128,11 @@ func newPoolView(pool *v1alpha2.VirtualMachinePool, members []v1alpha2.VirtualMa
 			v.restartPending++
 		}
 	}
+
 	byName := func(a, b *v1alpha2.VirtualMachine) int { return strings.Compare(a.GetName(), b.GetName()) }
 	slices.SortFunc(v.notReady, byName)
 	slices.SortFunc(v.terminating, byName)
+
 	return v
 }
 
@@ -142,6 +150,7 @@ func isCreated(vm *v1alpha2.VirtualMachine, templates map[string]bool) bool {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -153,20 +162,26 @@ func isUpToDate(vm *v1alpha2.VirtualMachine, desiredHash string, templates map[s
 	if vm.GetLabels()[poollabels.TemplateHash] != desiredHash || awaitingRestart(vm) {
 		return false
 	}
+
 	covered := make(map[string]bool, len(templates))
+
 	for _, ref := range vm.Spec.BlockDeviceRefs {
 		if ref.Kind != v1alpha2.DiskDevice {
 			continue
 		}
+
 		tmpl, managed := diskTemplateOf[ref.Name]
 		if !managed {
 			continue
 		}
+
 		if !templates[tmpl] {
 			return false
 		}
+
 		covered[tmpl] = true
 	}
+
 	return len(covered) == len(templates)
 }
 
@@ -202,10 +217,12 @@ func setAvailable(pool *v1alpha2.VirtualMachinePool, v poolView) {
 		setCondition(pool, vmpoolcondition.TypeAvailable, metav1.ConditionTrue, vmpoolcondition.ReasonAllReplicasReady.String(), "")
 		return
 	}
+
 	if v.live >= v.desired && allStoppedByPolicy(v.notReady) {
 		setCondition(pool, vmpoolcondition.TypeAvailable, metav1.ConditionFalse, vmpoolcondition.ReasonReplicasStopped.String(), stoppedMessage(v))
 		return
 	}
+
 	setCondition(pool, vmpoolcondition.TypeAvailable, metav1.ConditionFalse, vmpoolcondition.ReasonInsufficientReadyReplicas.String(), notReadyMessage(v))
 }
 
@@ -219,12 +236,14 @@ func allStoppedByPolicy(notReady []*v1alpha2.VirtualMachine) bool {
 		default:
 			return false
 		}
+
 		switch vm.Spec.RunPolicy {
 		case v1alpha2.ManualPolicy, v1alpha2.AlwaysOffPolicy, v1alpha2.AlwaysOnUnlessStoppedManually:
 		default:
 			return false
 		}
 	}
+
 	return len(notReady) > 0
 }
 
@@ -236,13 +255,16 @@ func stoppedMessage(v poolView) string {
 			return fmt.Sprintf("%d of %d %s stopped or changing the power state.", n, v.desired, replicasAre(n))
 		}
 	}
+
 	msg := fmt.Sprintf("%d of %d %s stopped.", n, v.desired, replicasAre(n))
+
 	policy := v.notReady[0].Spec.RunPolicy
 	for _, vm := range v.notReady {
 		if vm.Spec.RunPolicy != policy {
 			return msg + " Start " + them(n) + " to restore the pool capacity."
 		}
 	}
+
 	switch policy {
 	case v1alpha2.ManualPolicy:
 		return msg + " The run policy is Manual: start the virtual machines manually or change the run policy."
@@ -260,23 +282,29 @@ func notReadyMessage(v poolView) string {
 	if missing := v.desired - v.all; missing > 0 {
 		parts = append(parts, fmt.Sprintf("%d not created yet", missing))
 	}
+
 	phases := map[string]int{}
 	for _, vm := range v.notReady {
 		phases[string(vm.Status.Phase)]++
 	}
+
 	if len(v.terminating) > 0 {
 		phases[string(v1alpha2.MachineTerminating)] += len(v.terminating)
 	}
+
 	names := make([]string, 0, len(phases))
 	for p := range phases {
 		names = append(names, p)
 	}
+
 	slices.Sort(names)
+
 	for _, p := range names {
 		label := p
 		if label == "" {
 			label = "without a phase"
 		}
+
 		parts = append(parts, fmt.Sprintf("%d %s", phases[p], label))
 	}
 
@@ -284,18 +312,23 @@ func notReadyMessage(v poolView) string {
 	if len(parts) > 0 {
 		msg += ": " + strings.Join(parts, ", ")
 	}
+
 	msg += "."
+
 	if vm := firstProblem(v); vm != nil {
 		if vm.Status.Phase == "" {
 			msg += fmt.Sprintf(" VirtualMachine %q has no phase yet", vm.GetName())
 		} else {
 			msg += fmt.Sprintf(" VirtualMachine %q is %s", vm.GetName(), vm.Status.Phase)
 		}
+
 		if c := meta.FindStatusCondition(vm.Status.Conditions, vmcondition.TypeRunning.String()); c != nil && c.Reason != "" {
 			msg += fmt.Sprintf(" (%s)", c.Reason)
 		}
+
 		msg += "."
 	}
+
 	return msg
 }
 
@@ -307,9 +340,11 @@ func firstProblem(v poolView) *v1alpha2.VirtualMachine {
 			return vm
 		}
 	}
+
 	if len(v.terminating) > 0 {
 		return v.terminating[0]
 	}
+
 	return nil
 }
 
@@ -319,6 +354,7 @@ func setProgressing(pool *v1alpha2.VirtualMachinePool, v poolView, report *passR
 	count := v.created + len(v.terminating)
 	converged := count == v.desired
 	t := vmpoolcondition.TypeProgressing
+
 	switch {
 	case report.creation != "":
 		setCondition(pool, t, metav1.ConditionFalse, vmpoolcondition.ReasonReplicaCreationFailed.String(), scalingMessage(v, count)+" "+report.creation)
@@ -348,17 +384,20 @@ func scalingMessage(v poolView, count int) string {
 	if count < v.desired {
 		return fmt.Sprintf("Scaling up: %d of %d replicas are created.", count, v.desired)
 	}
+
 	return fmt.Sprintf("Scaling down: %s, %s.", replicasExist(count), requested(v.desired))
 }
 
 func setSynced(pool *v1alpha2.VirtualMachinePool, v poolView, report *passReport) {
 	t := vmpoolcondition.TypeSynced
+
 	switch {
 	case report.update != "":
 		msg := fmt.Sprintf("%d of %d replicas cannot apply the template", len(report.updateFailed), v.created)
 		if v.restartPending > 0 {
 			msg += fmt.Sprintf("; %d of %d replicas await a restart", v.restartPending, v.created)
 		}
+
 		setCondition(pool, t, metav1.ConditionFalse, vmpoolcondition.ReasonReplicaUpdateFailed.String(), msg+". "+report.update)
 	case v.updated >= v.created:
 		setCondition(pool, t, metav1.ConditionTrue, vmpoolcondition.ReasonPoolSynced.String(), "")
@@ -377,6 +416,7 @@ func replicasAre(n int) string {
 	if n == 1 {
 		return "replica is"
 	}
+
 	return "replicas are"
 }
 
@@ -384,6 +424,7 @@ func replicasExist(n int) string {
 	if n == 1 {
 		return "1 replica exists"
 	}
+
 	return fmt.Sprintf("%d replicas exist", n)
 }
 
@@ -391,6 +432,7 @@ func requested(n int) string {
 	if n == 1 {
 		return "1 is requested"
 	}
+
 	return fmt.Sprintf("%d are requested", n)
 }
 
@@ -398,5 +440,6 @@ func them(n int) string {
 	if n == 1 {
 		return "it"
 	}
+
 	return "them"
 }

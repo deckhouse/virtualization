@@ -94,6 +94,7 @@ func (jp *JSONPatch) String() (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	return string(bytes), nil
 }
 
@@ -101,12 +102,14 @@ func (jp *JSONPatch) Bytes() ([]byte, error) {
 	if jp.Len() == 0 {
 		return nil, fmt.Errorf("list of patches is empty")
 	}
+
 	return json.Marshal(jp.operations)
 }
 
 func EscapeJSONPointer(path string) string {
 	path = strings.ReplaceAll(path, "~", "~0")
 	path = strings.ReplaceAll(path, "/", "~1")
+
 	return path
 }
 
@@ -119,5 +122,6 @@ func (a AsJsonString) MarshalJSON() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return []byte(strconv.Quote(string(b))), nil
 }

@@ -89,6 +89,7 @@ func TestUSBDevicesValidatorValidateCreateReturnsErrorWhenUSBFeatureDisabled(t *
 	vm := newVirtualMachine("vm-current", []v1alpha2.USBDeviceSpecRef{{Name: "usb-1"}})
 
 	validator := NewUSBDevicesValidator(newFakeClientWithUSBVMIndexer(t), newUSBFeatureGate(t, false))
+
 	_, err := validator.ValidateCreate(t.Context(), vm)
 	if err == nil {
 		t.Fatal("expected error, got nil")
@@ -97,6 +98,7 @@ func TestUSBDevicesValidatorValidateCreateReturnsErrorWhenUSBFeatureDisabled(t *
 	if !strings.Contains(err.Error(), "Kubernetes version 1.34 or newer") {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if !strings.Contains(err.Error(), "DRA feature gates") {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -106,6 +108,7 @@ func TestUSBDevicesValidatorValidateCreateSucceedsWhenUSBFeatureEnabled(t *testi
 	vm := newVirtualMachine("vm-current", []v1alpha2.USBDeviceSpecRef{{Name: "usb-1"}})
 
 	validator := NewUSBDevicesValidator(newFakeClientWithUSBVMIndexer(t), newUSBFeatureGate(t, true))
+
 	_, err := validator.ValidateCreate(t.Context(), vm)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -132,6 +135,7 @@ func TestUSBDevicesValidatorValidateUpdateExcludesLocalUSBsFromPortAccounting(t 
 	}
 
 	validator := NewUSBDevicesValidator(newFakeClientWithUSBVMIndexer(t, objects...), newUSBFeatureGate(t, true))
+
 	_, err := validator.ValidateUpdate(t.Context(), oldVM, newVM)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -143,6 +147,7 @@ func TestUSBDevicesValidatorValidateUpdateReturnsErrorWhenUSBFeatureDisabled(t *
 	newVM := newVirtualMachine("vm-current", []v1alpha2.USBDeviceSpecRef{{Name: "usb-1"}})
 
 	validator := NewUSBDevicesValidator(newFakeClientWithUSBVMIndexer(t, oldVM), newUSBFeatureGate(t, false))
+
 	_, err := validator.ValidateUpdate(t.Context(), oldVM, newVM)
 	if err == nil {
 		t.Fatal("expected error, got nil")
@@ -160,12 +165,14 @@ func newFakeClientWithUSBVMIndexer(t *testing.T, objects ...client.Object) clien
 	if err := v1alpha2.AddToScheme(scheme); err != nil {
 		t.Fatalf("failed to add virtualization API scheme: %v", err)
 	}
+
 	if err := corev1.AddToScheme(scheme); err != nil {
 		t.Fatalf("failed to add core API scheme: %v", err)
 	}
 
 	vmObj, vmField, vmExtractValue := indexer.IndexVMByUSBDevice()
 	vmNodeObj, vmNodeField, vmNodeExtractValue := indexer.IndexVMByNode()
+
 	return fake.NewClientBuilder().
 		WithScheme(scheme).
 		WithObjects(objects...).

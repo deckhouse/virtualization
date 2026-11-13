@@ -35,7 +35,9 @@ func NewCommand(load diff.Loader) *cobra.Command {
 			if err != nil {
 				return err
 			}
+
 			fmt.Printf("%s\n", info.Dump())
+
 			return nil
 		},
 	}

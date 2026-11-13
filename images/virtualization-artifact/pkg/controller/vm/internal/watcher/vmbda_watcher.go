@@ -66,5 +66,6 @@ func (w VMBDAWatcher) Watch(mgr manager.Manager, ctr controller.Controller) erro
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualMachineBlockDeviceAttachment: %w", err)
 	}
+
 	return nil
 }

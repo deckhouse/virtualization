@@ -198,25 +198,30 @@ func newPopulatorPVCWithSize(name, namespace, storageClass, size string, anns ma
 
 func startPVCObserver(ctx context.Context, f *framework.Framework, pvc *corev1.PersistentVolumeClaim) pvcobs.Observer {
 	GinkgoHelper()
+
 	obs := pvcobs.StartObserver(ctx, f, pvc)
 	obs.Never(pvcobs.BeLost())
+
 	return obs
 }
 
 func waitPVCBoundAndDone(obs pvcobs.Observer) {
 	GinkgoHelper()
+
 	err := obs.WaitFor(pvcobs.BeBoundAndPopulated(), populatorWaitTimeout)
 	Expect(err).NotTo(HaveOccurred())
 }
 
 func waitPVCBound(obs pvcobs.Observer) {
 	GinkgoHelper()
+
 	err := obs.WaitFor(pvcobs.BeBound(), populatorWaitTimeout)
 	Expect(err).NotTo(HaveOccurred())
 }
 
 func waitPopulatorCleanup(ctx context.Context, f *framework.Framework, targetName string) {
 	GinkgoHelper()
+
 	target := &corev1.PersistentVolumeClaim{}
 	Expect(f.GenericClient().Get(ctx, crclient.ObjectKey{Name: targetName, Namespace: f.Namespace().Name}, target)).To(Succeed())
 	podNames := []string{
@@ -231,24 +236,30 @@ func waitPopulatorCleanup(ctx context.Context, f *framework.Framework, targetNam
 			{Name: targetName + "-prime-scratch", Namespace: f.Namespace().Name},
 		} {
 			pvc := &corev1.PersistentVolumeClaim{}
+
 			err := f.GenericClient().Get(ctx, key, pvc)
 			if err == nil {
 				return false, nil
 			}
+
 			if !k8serrors.IsNotFound(err) {
 				return false, err
 			}
 		}
+
 		for _, podName := range podNames {
 			pod := &corev1.Pod{}
+
 			err := f.GenericClient().Get(ctx, crclient.ObjectKey{Name: podName, Namespace: f.Namespace().Name}, pod)
 			if err == nil {
 				return false, nil
 			}
+
 			if !k8serrors.IsNotFound(err) {
 				return false, err
 			}
 		}
+
 		return true, nil
 	})
 	Expect(err).NotTo(HaveOccurred())
@@ -261,10 +272,12 @@ func waitPopulatorCleanup(ctx context.Context, f *framework.Framework, targetNam
 // short-lived consumer pod first to trigger provisioning.
 func bindPVC(ctx context.Context, f *framework.Framework, obs pvcobs.Observer, podName, pvcName string) {
 	GinkgoHelper()
+
 	sc := framework.GetConfig().StorageClass.DefaultStorageClass
 	if sc.VolumeBindingMode != nil && *sc.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer {
 		runConsumerPod(ctx, f, podName, pvcName, "true")
 	}
+
 	waitPVCBound(obs)
 }
 
@@ -287,6 +300,7 @@ func writeRawDiskImage(ctx context.Context, f *framework.Framework, sourcePVC st
 // script, waiting until the pod succeeds.
 func runConsumerPod(ctx context.Context, f *framework.Framework, podName, pvcName, script string) {
 	GinkgoHelper()
+
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      podName,
@@ -323,6 +337,7 @@ func runConsumerPod(ctx context.Context, f *framework.Framework, podName, pvcNam
 	obs := podobs.StartObserver(ctx, f, pod)
 	obs.Never(podobs.BeFailed())
 	Expect(f.CreateWithDeferredDeletion(ctx, pod)).To(Succeed())
+
 	err := obs.WaitFor(podobs.BeSucceeded(), populatorWaitTimeout)
 	Expect(err).NotTo(HaveOccurred())
 }

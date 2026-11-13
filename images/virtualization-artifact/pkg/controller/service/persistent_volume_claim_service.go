@@ -104,10 +104,12 @@ func (s *PersistentVolumeClaimService) Finalizers() []string {
 	if s.protection == nil {
 		return nil
 	}
+
 	finalizer := s.protection.GetFinalizer()
 	if finalizer == "" {
 		return nil
 	}
+
 	return []string{finalizer}
 }
 
@@ -116,14 +118,17 @@ func (s *PersistentVolumeClaimService) CreateBlankTarget(ctx context.Context, ke
 	if err != nil {
 		return corev1.PersistentVolumeClaim{}, err
 	}
+
 	if nodePlacement != nil {
 		if err := provisioner.KeepNodePlacementTolerations(nodePlacement, &target); err != nil {
 			return corev1.PersistentVolumeClaim{}, fmt.Errorf("keep node placement: %w", err)
 		}
 	}
+
 	if err := s.client.Create(ctx, &target); err != nil && !k8serrors.IsAlreadyExists(err) {
 		return corev1.PersistentVolumeClaim{}, fmt.Errorf("create blank target pvc: %w", err)
 	}
+
 	return target, nil
 }
 
@@ -132,20 +137,25 @@ func (s *PersistentVolumeClaimService) CreateTargetFromDVCR(ctx context.Context,
 	if err != nil {
 		return corev1.PersistentVolumeClaim{}, err
 	}
+
 	setPVCPopulationAnnotation(target.Annotations, PopulationStrategyDVCR)
+
 	if source != nil {
 		target.Annotations[annotations.AnnPVCPopulationSourceDVCR] = source.URL
 		target.Annotations[annotations.AnnPVCPopulationSourceFormat] = source.Format
 	}
+
 	target.Spec.DataSourceRef = &corev1.TypedObjectReference{APIGroup: ptr.To(virtualizationAPIGroup), Kind: owner.GetObjectKind().GroupVersionKind().Kind, Name: owner.GetName()}
 	if nodePlacement != nil {
 		if err := provisioner.KeepNodePlacementTolerations(nodePlacement, &target); err != nil {
 			return corev1.PersistentVolumeClaim{}, fmt.Errorf("keep node placement: %w", err)
 		}
 	}
+
 	if err := s.client.Create(ctx, &target); err != nil && !k8serrors.IsAlreadyExists(err) {
 		return corev1.PersistentVolumeClaim{}, fmt.Errorf("create dvcr target pvc: %w", err)
 	}
+
 	return target, nil
 }
 
@@ -154,22 +164,28 @@ func (s *PersistentVolumeClaimService) CreateTargetFromVS(ctx context.Context, k
 	if err != nil {
 		return corev1.PersistentVolumeClaim{}, err
 	}
+
 	target.Spec.DataSource = &corev1.TypedLocalObjectReference{APIGroup: ptr.To("snapshot.storage.k8s.io"), Kind: "VolumeSnapshot", Name: source.Name}
+
 	target.Spec.DataSourceRef = &corev1.TypedObjectReference{APIGroup: ptr.To("snapshot.storage.k8s.io"), Kind: "VolumeSnapshot", Name: source.Name}
 	if selectedNode := source.Annotations[annotations.AnnVirtualDiskOriginalSelectedNode]; selectedNode != "" {
 		if target.Annotations == nil {
 			target.Annotations = make(map[string]string)
 		}
+
 		target.Annotations[selectedNodeAnnotation] = selectedNode
 	}
+
 	if nodePlacement != nil {
 		if err := provisioner.KeepNodePlacementTolerations(nodePlacement, &target); err != nil {
 			return corev1.PersistentVolumeClaim{}, fmt.Errorf("keep node placement: %w", err)
 		}
 	}
+
 	if err := s.client.Create(ctx, &target); err != nil && !k8serrors.IsAlreadyExists(err) {
 		return corev1.PersistentVolumeClaim{}, fmt.Errorf("create volume snapshot target pvc: %w", err)
 	}
+
 	return target, nil
 }
 
@@ -184,6 +200,7 @@ func (s *PersistentVolumeClaimService) EnsureVolumeRestoreRequest(ctx context.Co
 	if err != nil {
 		return fmt.Errorf("fetch volume restore request: %w", err)
 	}
+
 	if existing != nil {
 		return nil
 	}
@@ -192,6 +209,7 @@ func (s *PersistentVolumeClaimService) EnsureVolumeRestoreRequest(ctx context.Co
 	if err != nil {
 		return fmt.Errorf("fetch storage class: %w", err)
 	}
+
 	if sc == nil {
 		return fmt.Errorf("storage class %q not found", storageClassName)
 	}
@@ -204,6 +222,7 @@ func (s *PersistentVolumeClaimService) EnsureVolumeRestoreRequest(ctx context.Co
 	if size == nil || size.Sign() <= 0 {
 		return fmt.Errorf("cannot create volume restore request %q without a positive requested size", key.Name)
 	}
+
 	requested := size.DeepCopy()
 
 	vrr := &storagefoundationv1alpha1.VolumeRestoreRequest{
@@ -234,6 +253,7 @@ func (s *PersistentVolumeClaimService) EnsureVolumeRestoreRequest(ctx context.Co
 	if err := s.client.Create(ctx, vrr); err != nil && !k8serrors.IsAlreadyExists(err) {
 		return fmt.Errorf("create volume restore request: %w", err)
 	}
+
 	return nil
 }
 
@@ -242,17 +262,21 @@ func (s *PersistentVolumeClaimService) CreateTargetFromPVC(ctx context.Context, 
 	if err != nil {
 		return corev1.PersistentVolumeClaim{}, err
 	}
+
 	if err := s.preparePopulationFromPVC(ctx, &target, source, owner); err != nil {
 		return corev1.PersistentVolumeClaim{}, err
 	}
+
 	if nodePlacement != nil {
 		if err := provisioner.KeepNodePlacementTolerations(nodePlacement, &target); err != nil {
 			return corev1.PersistentVolumeClaim{}, fmt.Errorf("keep node placement: %w", err)
 		}
 	}
+
 	if err := s.client.Create(ctx, &target); err != nil && !k8serrors.IsAlreadyExists(err) {
 		return corev1.PersistentVolumeClaim{}, fmt.Errorf("create pvc target pvc: %w", err)
 	}
+
 	return target, nil
 }
 
@@ -261,6 +285,7 @@ func (s *PersistentVolumeClaimService) newTargetPVC(ctx context.Context, key typ
 	if err != nil {
 		return corev1.PersistentVolumeClaim{}, fmt.Errorf("fetch target pvc: %w", err)
 	}
+
 	if existing != nil {
 		return *existing, nil
 	}
@@ -269,6 +294,7 @@ func (s *PersistentVolumeClaimService) newTargetPVC(ctx context.Context, key typ
 	if err != nil {
 		return corev1.PersistentVolumeClaim{}, fmt.Errorf("fetch storage class: %w", err)
 	}
+
 	if sc == nil {
 		return corev1.PersistentVolumeClaim{}, fmt.Errorf("storage class %q not found", storageClassName)
 	}
@@ -282,6 +308,7 @@ func (s *PersistentVolumeClaimService) newTargetPVC(ctx context.Context, key typ
 	if size != nil {
 		requested = size.DeepCopy()
 	}
+
 	target := corev1.PersistentVolumeClaim{
 		TypeMeta: metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
 		ObjectMeta: metav1.ObjectMeta{
@@ -293,6 +320,7 @@ func (s *PersistentVolumeClaimService) newTargetPVC(ctx context.Context, key typ
 		},
 		Spec: *commonpvc.CreateSpec(&sc.Name, requested, accessMode, volumeMode),
 	}
+
 	return target, nil
 }
 
@@ -301,9 +329,11 @@ func (s *PersistentVolumeClaimService) preparePopulationFromPVC(ctx context.Cont
 	if err != nil {
 		return fmt.Errorf("fetch target storage class: %w", err)
 	}
+
 	if targetSC == nil {
 		return fmt.Errorf("target storage class %q not found", ptr.Deref(target.Spec.StorageClassName, ""))
 	}
+
 	targetVolumeMode := corev1.PersistentVolumeFilesystem
 	if target.Spec.VolumeMode != nil {
 		targetVolumeMode = *target.Spec.VolumeMode
@@ -319,6 +349,7 @@ func (s *PersistentVolumeClaimService) preparePopulationFromPVC(ctx context.Cont
 		setPVCPopulationAnnotation(target.Annotations, PopulationStrategySnapshot)
 		target.Spec.DataSource = &corev1.TypedLocalObjectReference{APIGroup: ptr.To("snapshot.storage.k8s.io"), Kind: "VolumeSnapshot", Name: snapshotName}
 		target.Spec.DataSourceRef = &corev1.TypedObjectReference{APIGroup: ptr.To("snapshot.storage.k8s.io"), Kind: "VolumeSnapshot", Name: snapshotName}
+
 		return s.ensureCloneSnapshot(ctx, source, target, source)
 	case PopulationStrategyCSIClone:
 		setPVCPopulationAnnotation(target.Annotations, PopulationStrategyCSIClone)
@@ -329,6 +360,7 @@ func (s *PersistentVolumeClaimService) preparePopulationFromPVC(ctx context.Cont
 		target.Spec.DataSource = nil
 		target.Spec.DataSourceRef = &corev1.TypedObjectReference{APIGroup: ptr.To(virtualizationAPIGroup), Kind: owner.GetObjectKind().GroupVersionKind().Kind, Name: owner.GetName()}
 	}
+
 	return nil
 }
 
@@ -341,6 +373,7 @@ func (s *PersistentVolumeClaimService) WaitForImport(ctx context.Context, target
 		if target.Status.Phase == corev1.ClaimBound {
 			return corev1.PodSucceeded, s.cleanupCloneSnapshot(ctx, target)
 		}
+
 		return corev1.PodPending, nil
 	}
 
@@ -363,9 +396,11 @@ func (s *PersistentVolumeClaimService) Cleanup(ctx context.Context, sup suppleme
 	if err != nil {
 		return false, err
 	}
+
 	if err := s.cleanupCloneSnapshot(ctx, target); err != nil {
 		return false, err
 	}
+
 	return deleted, nil
 }
 
@@ -376,6 +411,7 @@ func (s *PersistentVolumeClaimService) choosePVCCloneStrategy(ctx context.Contex
 	}
 
 	preferred := cloneStrategySnapshot
+
 	if sp, err := object.FetchObject(ctx, types.NamespacedName{Name: targetSC.Name}, s.client, &storagev1alpha1.StorageProfile{}); err == nil && sp != nil && sp.Status.CloneStrategy != nil {
 		switch *sp.Status.CloneStrategy {
 		case cdiv1.CloneStrategyCsiClone:
@@ -390,12 +426,15 @@ func (s *PersistentVolumeClaimService) choosePVCCloneStrategy(ctx context.Contex
 	if preferred == cloneStrategySnapshot && s.canSnapshotClone(ctx, sourceClaim, sourceSC, targetSC, targetVolumeMode) {
 		return cloneStrategySnapshot
 	}
+
 	if preferred != cloneStrategyHost && canCSIClone(sourceClaim, sourceSC, targetSC, targetVolumeMode) {
 		return cloneStrategyCSI
 	}
+
 	if preferred == cloneStrategyCSI && s.canSnapshotClone(ctx, sourceClaim, sourceSC, targetSC, targetVolumeMode) {
 		return cloneStrategySnapshot
 	}
+
 	return cloneStrategyHost
 }
 
@@ -415,13 +454,16 @@ func (s *PersistentVolumeClaimService) fetchSourceStorageClass(ctx context.Conte
 	if claim.Spec.StorageClassName == nil || *claim.Spec.StorageClassName == "" {
 		return nil, fmt.Errorf("source pvc %s/%s has no storageClassName", claim.Namespace, claim.Name)
 	}
+
 	sc, err := object.FetchObject(ctx, types.NamespacedName{Name: *claim.Spec.StorageClassName}, s.client, &storagev1.StorageClass{})
 	if err != nil {
 		return nil, fmt.Errorf("fetch source storage class: %w", err)
 	}
+
 	if sc == nil {
 		return nil, fmt.Errorf("source storage class %q not found", *claim.Spec.StorageClassName)
 	}
+
 	return sc, nil
 }
 
@@ -430,11 +472,13 @@ func (s *PersistentVolumeClaimService) snapshotClassForProvisioner(ctx context.C
 	if err := s.client.List(ctx, &list); err != nil {
 		return ""
 	}
+
 	for _, item := range list.Items {
 		if item.Driver == provisionerName {
 			return item.Name
 		}
 	}
+
 	return ""
 }
 
@@ -443,10 +487,12 @@ func (s *PersistentVolumeClaimService) ensureCloneSnapshot(ctx context.Context, 
 	if snapshotName == "" {
 		return fmt.Errorf("clone snapshot name is empty")
 	}
+
 	existing, err := object.FetchObject(ctx, types.NamespacedName{Name: snapshotName, Namespace: target.Namespace}, s.client, &vsv1.VolumeSnapshot{})
 	if err != nil {
 		return fmt.Errorf("fetch clone snapshot: %w", err)
 	}
+
 	if existing != nil {
 		return nil
 	}
@@ -471,6 +517,7 @@ func (s *PersistentVolumeClaimService) ensureCloneSnapshot(ctx context.Context, 
 	if err := s.client.Create(ctx, vs); err != nil && !k8serrors.IsAlreadyExists(err) {
 		return fmt.Errorf("create clone snapshot: %w", err)
 	}
+
 	return nil
 }
 
@@ -478,24 +525,30 @@ func (s *PersistentVolumeClaimService) cleanupCloneSnapshot(ctx context.Context,
 	if target.Annotations[annotations.AnnPVCPopulationStrategy] != PopulationStrategySnapshot {
 		return nil
 	}
+
 	snapshotName := snapshotNameFromPVC(target)
 	if snapshotName == "" {
 		return nil
 	}
+
 	vs, err := object.FetchObject(ctx, types.NamespacedName{Name: snapshotName, Namespace: target.Namespace}, s.client, &vsv1.VolumeSnapshot{})
 	if err != nil {
 		return fmt.Errorf("fetch clone snapshot: %w", err)
 	}
+
 	if vs == nil {
 		return nil
 	}
+
 	if err := EnsureVolumeSnapshotDeletable(ctx, s.client, vs); err != nil {
 		return err
 	}
+
 	err = s.client.Delete(ctx, vs)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return err
 	}
+
 	return nil
 }
 
@@ -509,6 +562,7 @@ func pvcCloneTargetSize(requested resource.Quantity, sourceClaim *corev1.Persist
 			size = candidate.DeepCopy()
 		}
 	}
+
 	return size
 }
 
@@ -517,6 +571,7 @@ func volumeModesEqual(sourceClaim *corev1.PersistentVolumeClaim, targetVolumeMod
 	if sourceClaim.Spec.VolumeMode != nil {
 		sourceMode = *sourceClaim.Spec.VolumeMode
 	}
+
 	return sourceMode == targetVolumeMode
 }
 
@@ -532,6 +587,7 @@ func IsSmartClonePVC(pvc *corev1.PersistentVolumeClaim) bool {
 	if pvc == nil {
 		return false
 	}
+
 	return isSmartCloneStrategy(pvc.Annotations[annotations.AnnPVCPopulationStrategy])
 }
 
@@ -539,6 +595,7 @@ func cloneSnapshotName(target *corev1.PersistentVolumeClaim) string {
 	if target == nil || target.Name == "" {
 		return ""
 	}
+
 	return target.Name + "-clone-snapshot"
 }
 
@@ -546,11 +603,14 @@ func snapshotNameFromPVC(target *corev1.PersistentVolumeClaim) string {
 	if target == nil {
 		return ""
 	}
+
 	if target.Spec.DataSourceRef != nil && target.Spec.DataSourceRef.Kind == "VolumeSnapshot" {
 		return target.Spec.DataSourceRef.Name
 	}
+
 	if target.Spec.DataSource != nil && target.Spec.DataSource.Kind == "VolumeSnapshot" {
 		return target.Spec.DataSource.Name
 	}
+
 	return cloneSnapshotName(target)
 }

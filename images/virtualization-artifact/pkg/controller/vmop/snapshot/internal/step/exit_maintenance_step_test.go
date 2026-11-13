@@ -53,6 +53,7 @@ var _ = Describe("ExitMaintenanceStep", func() {
 			vmop.Spec.Restore.Mode = v1alpha2.SnapshotOperationModeDryRun
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -68,6 +69,7 @@ var _ = Describe("ExitMaintenanceStep", func() {
 			vm := createVirtualMachine("default", "test-vm", v1alpha2.MachineStopped)
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop, vm)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -82,9 +84,11 @@ var _ = Describe("ExitMaintenanceStep", func() {
 		It("should wait when VMOP maintenance condition is false", func() {
 			vmop := createRestoreVMOP("default", "test-vmop", "test-vm", "test-snapshot")
 			setMaintenanceCondition(vmop, metav1.ConditionFalse)
+
 			vm := createVirtualMachine("default", "test-vm", v1alpha2.MachineStopped)
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop, vm)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -101,10 +105,12 @@ var _ = Describe("ExitMaintenanceStep", func() {
 		It("should set VM maintenance to false when VM has maintenance condition true", func() {
 			vmop := createRestoreVMOP("default", "test-vmop", "test-vm", "test-snapshot")
 			setMaintenanceCondition(vmop, metav1.ConditionTrue)
+
 			vm := createVirtualMachine("default", "test-vm", v1alpha2.MachineStopped)
 			setVMMaintenanceCondition(vm, metav1.ConditionTrue, vmcondition.ReasonMaintenanceRestore)
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop, vm)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -115,6 +121,7 @@ var _ = Describe("ExitMaintenanceStep", func() {
 			Expect(result).To(BeNil())
 
 			var updatedVM v1alpha2.VirtualMachine
+
 			err = fakeClient.Get(ctx, types.NamespacedName{Namespace: "default", Name: "test-vm"}, &updatedVM)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -126,9 +133,11 @@ var _ = Describe("ExitMaintenanceStep", func() {
 		It("should set VMOP maintenance to false when VM has no maintenance condition", func() {
 			vmop := createRestoreVMOP("default", "test-vmop", "test-vm", "test-snapshot")
 			setMaintenanceCondition(vmop, metav1.ConditionTrue)
+
 			vm := createVirtualMachine("default", "test-vm", v1alpha2.MachineStopped)
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop, vm)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -147,10 +156,12 @@ var _ = Describe("ExitMaintenanceStep", func() {
 		It("should set VMOP maintenance to false when VM maintenance is already false", func() {
 			vmop := createRestoreVMOP("default", "test-vmop", "test-vm", "test-snapshot")
 			setMaintenanceCondition(vmop, metav1.ConditionTrue)
+
 			vm := createVirtualMachine("default", "test-vm", v1alpha2.MachineStopped)
 			setVMMaintenanceCondition(vm, metav1.ConditionFalse, vmcondition.ReasonMaintenanceRestore)
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop, vm)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -172,6 +183,7 @@ var _ = Describe("ExitMaintenanceStep", func() {
 			vmop.Spec.Restore.Mode = v1alpha2.SnapshotOperationModeDryRun
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop)
 			Expect(err).NotTo(HaveOccurred())
 

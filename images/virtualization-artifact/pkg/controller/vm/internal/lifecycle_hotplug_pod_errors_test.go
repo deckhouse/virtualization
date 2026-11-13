@@ -111,6 +111,7 @@ var _ = Describe("LifeCycleHandler hotplug pod errors", func() {
 
 		fakeClient, err := testutil.NewFakeClientWithObjects(vm, pod, event)
 		Expect(err).NotTo(HaveOccurred())
+
 		handler := NewLifeCycleHandler(fakeClient, nil)
 
 		err = handler.checkVMPodVolumeErrors(context.Background(), vm, slog.Default())
@@ -136,6 +137,7 @@ var _ = Describe("LifeCycleHandler hotplug pod errors", func() {
 
 		fakeClient, err := testutil.NewFakeClientWithObjects(vm, kvvmi, hotplugPod, event)
 		Expect(err).NotTo(HaveOccurred())
+
 		handler := NewLifeCycleHandler(fakeClient, nil)
 
 		err = handler.checkVMPodVolumeErrors(context.Background(), vm, slog.Default())
@@ -161,6 +163,7 @@ var _ = Describe("LifeCycleHandler hotplug pod errors", func() {
 
 		fakeClient, err := testutil.NewFakeClientWithObjects(vm, kvvmi, hotplugPod, event)
 		Expect(err).NotTo(HaveOccurred())
+
 		handler := NewLifeCycleHandler(fakeClient, nil)
 
 		err = handler.checkVMPodVolumeErrors(context.Background(), vm, slog.Default())
@@ -183,6 +186,7 @@ var _ = Describe("LifeCycleHandler hotplug pod errors", func() {
 
 		fakeClient, err := testutil.NewFakeClientWithObjects(vm, pod, event)
 		Expect(err).NotTo(HaveOccurred())
+
 		handler := NewLifeCycleHandler(fakeClient, nil)
 
 		err = handler.checkVMPodVolumeErrors(context.Background(), vm, slog.Default())
@@ -204,6 +208,7 @@ var _ = Describe("LifeCycleHandler hotplug pod errors", func() {
 
 		fakeClient, err := testutil.NewFakeClientWithObjects(vm, pod, event)
 		Expect(err).NotTo(HaveOccurred())
+
 		handler := NewLifeCycleHandler(fakeClient, nil)
 
 		err = handler.checkVMPodVolumeErrors(context.Background(), vm, slog.Default())
@@ -227,7 +232,9 @@ var _ = Describe("LifeCycleHandler hotplug pod errors", func() {
 
 			fakeClient, err := testutil.NewFakeClientWithObjects(vm, kvvmi, hotplugPod, event)
 			Expect(err).NotTo(HaveOccurred())
+
 			var eventReasons []string
+
 			recorder := &eventrecord.EventRecorderLoggerMock{
 				EventFunc: func(_ client.Object, _, reason, _ string) {
 					eventReasons = append(eventReasons, reason)
@@ -242,6 +249,7 @@ var _ = Describe("LifeCycleHandler hotplug pod errors", func() {
 			Expect(found).To(BeTrue())
 			Expect(running.Status).To(Equal(expectedStatus))
 			Expect(running.Reason).To(Equal(expectedReason.String()))
+
 			if expectEvent {
 				Expect(eventReasons).To(ConsistOf(eventReasonBlockDeviceAttachError))
 			} else {

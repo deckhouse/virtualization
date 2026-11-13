@@ -47,6 +47,7 @@ func NewController(
 	virtClient kubeclient.Client,
 ) (controller.Controller, error) {
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
+
 	macService := service.NewMACAddressService(clusterUUID, mgr.GetClient(), virtClient)
 	if macService == nil {
 		return nil, fmt.Errorf("failed to create MAC address service")
@@ -88,5 +89,6 @@ func NewController(
 	}
 
 	log.Info("Initialized VirtualMachineMAC controller")
+
 	return c, nil
 }

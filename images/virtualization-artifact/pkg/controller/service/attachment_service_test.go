@@ -30,9 +30,11 @@ import (
 )
 
 var _ = Describe("AttachmentService method IsConflictedAttachment", func() {
-	var clientMock *ClientMock
-	var vmbdaAlpha *v1alpha2.VirtualMachineBlockDeviceAttachment
-	var vmbdaBeta *v1alpha2.VirtualMachineBlockDeviceAttachment
+	var (
+		clientMock *ClientMock
+		vmbdaAlpha *v1alpha2.VirtualMachineBlockDeviceAttachment
+		vmbdaBeta  *v1alpha2.VirtualMachineBlockDeviceAttachment
+	)
 
 	spec := v1alpha2.VirtualMachineBlockDeviceAttachmentSpec{
 		VirtualMachineName: "vm",
@@ -73,6 +75,7 @@ var _ = Describe("AttachmentService method IsConflictedAttachment", func() {
 				*vmbdaAlpha,
 				*vmbdaBeta,
 			}
+
 			return nil
 		}
 
@@ -92,6 +95,7 @@ var _ = Describe("AttachmentService method IsConflictedAttachment", func() {
 				*vmbdaAlpha,
 				*vmbdaBeta,
 			}
+
 			return nil
 		}
 
@@ -111,6 +115,7 @@ var _ = Describe("AttachmentService method IsConflictedAttachment", func() {
 				*vmbdaAlpha,
 				*vmbdaBeta,
 			}
+
 			return nil
 		}
 
@@ -130,6 +135,7 @@ var _ = Describe("AttachmentService method IsConflictedAttachment", func() {
 				*vmbdaAlpha,
 				*vmbdaBeta,
 			}
+
 			return nil
 		}
 
@@ -148,6 +154,7 @@ var _ = Describe("AttachmentService method IsConflictedAttachment", func() {
 				*vmbdaAlpha,
 				*vmbdaBeta,
 			}
+
 			return nil
 		}
 
@@ -169,6 +176,7 @@ var _ = Describe("AttachmentService method IsConflictedAttachment", func() {
 					*vmbdaAlpha,
 					*vmbdaBeta,
 				}
+
 				return nil
 			}
 
@@ -186,6 +194,7 @@ var _ = Describe("AttachmentService method IsConflictedAttachment", func() {
 			list.(*v1alpha2.VirtualMachineBlockDeviceAttachmentList).Items = []v1alpha2.VirtualMachineBlockDeviceAttachment{
 				*vmbdaAlpha,
 			}
+
 			return nil
 		}
 
@@ -204,10 +213,12 @@ var _ = Describe("AttachmentService method HotPlugDisk", func() {
 	reader := func(owner string) *ClientMock {
 		return &ClientMock{GetFunc: func(_ context.Context, _ client.ObjectKey, obj client.Object, _ ...client.GetOption) error {
 			vd := obj.(*v1alpha2.VirtualDisk)
+
 			vd.Name, vd.Namespace = "vd", ns
 			if owner != "" {
 				vd.Status.AttachedToVirtualMachines = []v1alpha2.AttachedVirtualMachine{{Name: owner, Mounted: true}}
 			}
+
 			return nil
 		}}
 	}

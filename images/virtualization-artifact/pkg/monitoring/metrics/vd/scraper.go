@@ -101,6 +101,7 @@ func (s *scraper) updateMetricDiskStatusInUse(m *dataMetric) {
 
 func (s *scraper) defaultUpdate(descName string, value float64, m *dataMetric, labels ...string) {
 	info := diskMetrics[descName]
+
 	metric, err := prometheus.NewConstMetric(
 		info.Desc,
 		prometheus.GaugeValue,
@@ -111,11 +112,13 @@ func (s *scraper) defaultUpdate(descName string, value float64, m *dataMetric, l
 		s.log.Warn(fmt.Sprintf("Error creating the new const dataMetric for %s: %s", info.Desc, err))
 		return
 	}
+
 	s.ch <- metric
 }
 
 func (s *scraper) updateDynamic(name string, value float64, m *dataMetric, labelValues []string, extraLabels prometheus.Labels) {
 	info := diskMetrics[name]
+
 	metric, err := promutil.NewDynamicMetric(
 		info.Desc,
 		info.Type,
@@ -127,5 +130,6 @@ func (s *scraper) updateDynamic(name string, value float64, m *dataMetric, label
 		s.log.Warn(fmt.Sprintf("Error creating the new dynamic dataMetric for %s: %s", info.Desc, err))
 		return
 	}
+
 	s.ch <- metric
 }

@@ -52,7 +52,9 @@ func (w VMWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 				if err := mgrClient.List(ctx, vmops, client.InNamespace(vm.GetNamespace())); err != nil {
 					return nil
 				}
+
 				var requests []reconcile.Request
+
 				for _, vmop := range vmops.Items {
 					if !Match(&vmop) {
 						continue
@@ -65,9 +67,11 @@ func (w VMWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 								Name:      vmop.GetName(),
 							},
 						})
+
 						break
 					}
 				}
+
 				return requests
 			}),
 			predicate.TypedFuncs[*v1alpha2.VirtualMachine]{
@@ -86,5 +90,6 @@ func (w VMWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualMachine: %w", err)
 	}
+
 	return nil
 }

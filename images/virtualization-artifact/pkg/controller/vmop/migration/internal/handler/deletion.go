@@ -50,6 +50,7 @@ func (h DeletionHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMachi
 	if vmop.DeletionTimestamp.IsZero() {
 		log.Debug("Add cleanup finalizer")
 		controllerutil.AddFinalizer(vmop, v1alpha2.FinalizerVMOPCleanup)
+
 		return reconcile.Result{}, nil
 	}
 
@@ -78,6 +79,7 @@ func (h DeletionHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMachi
 	}
 
 	controllerutil.RemoveFinalizer(vmop, v1alpha2.FinalizerVMOPCleanup)
+
 	return reconcile.Result{}, nil
 }
 

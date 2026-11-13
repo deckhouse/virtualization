@@ -91,6 +91,7 @@ func NewController(
 	}
 
 	log.Info("Initialized PVC populator controller")
+
 	return ctr, nil
 }
 
@@ -109,8 +110,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 			"pvc", req.Name,
 			"err", err.Error(),
 		)
+
 		return reconcile.Result{}, nil
 	}
+
 	return res, err
 }
 
@@ -119,6 +122,7 @@ func (r *Reconciler) reconcile(ctx context.Context, req reconcile.Request) (reco
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("fetch pvc: %w", err)
 	}
+
 	if pvc == nil || pvc.Annotations[annotations.AnnPVCPopulationStrategy] == "" {
 		return reconcile.Result{}, nil
 	}
@@ -136,13 +140,16 @@ func (r *Reconciler) reconcile(ctx context.Context, req reconcile.Request) (reco
 		if err := r.ensureSnapshot(ctx, pvc); err != nil {
 			return reconcile.Result{}, err
 		}
+
 		marked, err := r.reconcileBoundOnly(ctx, pvc)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
+
 		if !marked {
 			return reconcile.Result{}, nil
 		}
+
 		return reconcile.Result{}, r.cleanup(ctx, pvc, strategy)
 	case service.PopulationStrategyDVCR, service.PopulationStrategyHostAssigned:
 		return r.reconcileImporter(ctx, pvc, strategy)
@@ -155,6 +162,7 @@ func (r *Reconciler) reconcileBoundOnly(ctx context.Context, pvc *corev1.Persist
 	if pvc.Status.Phase != corev1.ClaimBound {
 		return false, nil
 	}
+
 	return true, r.markDone(ctx, pvc)
 }
 
@@ -168,16 +176,19 @@ func (r *Reconciler) reconcileImporter(ctx context.Context, pvc *corev1.Persiste
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	if owner == nil || sup == nil {
 		// The owner is already gone, so there is nothing left to populate.
 		return reconcile.Result{}, nil
 	}
+
 	if _, ok := owner.(*v1alpha2.VirtualDisk); ok && wffc && pvc.Annotations[service.SelectedNodeAnnotation] == "" {
 		r.log.Info("PVC population waiting for WaitForFirstConsumer node selection",
 			"namespace", pvc.Namespace,
 			"pvc", pvc.Name,
 			"strategy", strategy,
 		)
+
 		return reconcile.Result{}, nil
 	}
 
@@ -205,6 +216,7 @@ func (r *Reconciler) reconcileImporter(ctx context.Context, pvc *corev1.Persiste
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	r.logImporterPodTransitions(pvc, strategy, beforePods, afterImportPods)
 
 	rebindStarted := r.rebindPending(ctx, pvc, sup, strategy)
@@ -225,6 +237,7 @@ func (r *Reconciler) reconcileImporter(ctx context.Context, pvc *corev1.Persiste
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	r.logImporterPodTransitions(pvc, strategy, afterImportPods, afterWaitPods)
 
 	switch phase {
@@ -236,14 +249,17 @@ func (r *Reconciler) reconcileImporter(ctx context.Context, pvc *corev1.Persiste
 				"strategy", strategy,
 			)
 		}
+
 		if err := r.markDone(ctx, pvc); err != nil {
 			return reconcile.Result{}, err
 		}
+
 		r.log.Info("PVC population finished",
 			"namespace", pvc.Namespace,
 			"pvc", pvc.Name,
 			"strategy", strategy,
 		)
+
 		return reconcile.Result{}, r.cleanup(ctx, pvc, strategy)
 	case corev1.PodFailed:
 		r.log.Info("PVC population importer pod failed",
@@ -251,6 +267,7 @@ func (r *Reconciler) reconcileImporter(ctx context.Context, pvc *corev1.Persiste
 			"pvc", pvc.Name,
 			"strategy", strategy,
 		)
+
 		return reconcile.Result{}, nil
 	default:
 		return reconcile.Result{}, nil
@@ -262,16 +279,19 @@ func sourceFromAnnotations(pvc *corev1.PersistentVolumeClaim, strategy string, s
 	case service.PopulationStrategyDVCR:
 		secret := ""
 		certConfigMap := ""
+
 		if sup != nil {
 			secret = sup.DVCRAuthSecretForPVCImporter().Name
 			certConfigMap = sup.DVCRCABundleConfigMapForPVCImporter().Name
 		}
+
 		src := service.NewPVCRegistryImportSource(
 			pvc.Annotations[annotations.AnnPVCPopulationSourceDVCR],
 			secret,
 			certConfigMap,
 		)
 		src.Registry.Format = pvc.Annotations[annotations.AnnPVCPopulationSourceFormat]
+
 		return src
 	case service.PopulationStrategyHostAssigned:
 		return service.NewPVCPVCImportSource(pvc.Annotations[annotations.AnnPVCPopulationSourcePVC], pvc.Namespace)
@@ -288,10 +308,12 @@ func (r *Reconciler) ownerNodePlacement(ctx context.Context, owner client.Object
 	if !ok {
 		return nil, nil
 	}
+
 	nodePlacement, err := commonvd.GetNodePlacement(ctx, r.client, vd)
 	if err != nil {
 		return nil, fmt.Errorf("get node placement for virtual disk %s/%s: %w", vd.Namespace, vd.Name, err)
 	}
+
 	return nodePlacement, nil
 }
 
@@ -302,22 +324,28 @@ func (r *Reconciler) ownerAndSupplements(ctx context.Context, pvc *corev1.Persis
 			if err != nil {
 				return nil, nil, fmt.Errorf("fetch owner virtualdisk: %w", err)
 			}
+
 			if vd == nil {
 				return nil, nil, nil
 			}
+
 			return vd, supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID), nil
 		}
+
 		if ref.Kind == v1alpha2.VirtualImageKind {
 			vi, err := object.FetchObject(ctx, types.NamespacedName{Name: ref.Name, Namespace: pvc.Namespace}, r.client, &v1alpha2.VirtualImage{})
 			if err != nil {
 				return nil, nil, fmt.Errorf("fetch owner virtualimage: %w", err)
 			}
+
 			if vi == nil {
 				return nil, nil, nil
 			}
+
 			return vi, supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID), nil
 		}
 	}
+
 	return pvc, supplements.NewGenerator(pvcSupplementPrefix, pvc.Name, pvc.Namespace, pvc.UID), nil
 }
 
@@ -326,11 +354,14 @@ func (r *Reconciler) markDone(ctx context.Context, pvc *corev1.PersistentVolumeC
 	if err := r.client.Get(ctx, client.ObjectKeyFromObject(pvc), latest); err != nil {
 		return err
 	}
+
 	patch := latest.DeepCopy()
 	if patch.Annotations == nil {
 		patch.Annotations = map[string]string{}
 	}
+
 	patch.Annotations[annotations.AnnPVCPopulationDone] = "true"
+
 	return r.client.Patch(ctx, patch, client.MergeFrom(latest))
 }
 
@@ -339,11 +370,13 @@ func (r *Reconciler) cleanup(ctx context.Context, pvc *corev1.PersistentVolumeCl
 	if err != nil {
 		return err
 	}
+
 	if sup != nil {
 		if _, err := r.pvc.Cleanup(ctx, sup, pvc); err != nil {
 			return err
 		}
 	}
+
 	if strategy == service.PopulationStrategySnapshot {
 		snapshotName := snapshotNameFromPVC(pvc)
 		if snapshotName != "" {
@@ -351,10 +384,12 @@ func (r *Reconciler) cleanup(ctx context.Context, pvc *corev1.PersistentVolumeCl
 			if err != nil {
 				return fmt.Errorf("fetch population snapshot: %w", err)
 			}
+
 			if vs != nil {
 				if err := service.EnsureVolumeSnapshotDeletable(ctx, r.client, vs); err != nil {
 					return err
 				}
+
 				err = r.client.Delete(ctx, vs)
 				if err != nil && !k8serrors.IsNotFound(err) {
 					return err
@@ -362,6 +397,7 @@ func (r *Reconciler) cleanup(ctx context.Context, pvc *corev1.PersistentVolumeCl
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -375,6 +411,7 @@ func (r *Reconciler) ensureSnapshot(ctx context.Context, pvc *corev1.PersistentV
 	if err != nil {
 		return fmt.Errorf("fetch volume snapshot: %w", err)
 	}
+
 	if existing != nil {
 		return nil
 	}
@@ -383,14 +420,18 @@ func (r *Reconciler) ensureSnapshot(ctx context.Context, pvc *corev1.PersistentV
 	if sourceName == "" {
 		return fmt.Errorf("snapshot population pvc %s/%s has no source pvc annotation", pvc.Namespace, pvc.Name)
 	}
+
 	sourceNamespace := pvc.Namespace
+
 	sourcePVC, err := object.FetchObject(ctx, types.NamespacedName{Name: sourceName, Namespace: sourceNamespace}, r.client, &corev1.PersistentVolumeClaim{})
 	if err != nil {
 		return fmt.Errorf("fetch source pvc: %w", err)
 	}
+
 	if sourcePVC == nil {
 		return fmt.Errorf("source pvc %s/%s not found", sourceNamespace, sourceName)
 	}
+
 	sourcePVC.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim"))
 
 	vs := &vsv1.VolumeSnapshot{
@@ -410,11 +451,13 @@ func (r *Reconciler) ensureSnapshot(ctx context.Context, pvc *corev1.PersistentV
 	if err := r.client.Create(ctx, vs); err != nil && !k8serrors.IsAlreadyExists(err) {
 		return fmt.Errorf("create volume snapshot: %w", err)
 	}
+
 	r.log.Info("PVC population snapshot created",
 		"namespace", pvc.Namespace,
 		"pvc", pvc.Name,
 		"snapshot", snapshotName,
 	)
+
 	return nil
 }
 
@@ -422,12 +465,15 @@ func snapshotNameFromPVC(pvc *corev1.PersistentVolumeClaim) string {
 	if pvc == nil {
 		return ""
 	}
+
 	if pvc.Spec.DataSourceRef != nil && pvc.Spec.DataSourceRef.Kind == "VolumeSnapshot" {
 		return pvc.Spec.DataSourceRef.Name
 	}
+
 	if pvc.Spec.DataSource != nil && pvc.Spec.DataSource.Kind == "VolumeSnapshot" {
 		return pvc.Spec.DataSource.Name
 	}
+
 	return ""
 }
 
@@ -436,9 +482,11 @@ func (r *Reconciler) isWaitForFirstConsumer(ctx context.Context, pvc *corev1.Per
 	if storageClassName == "" {
 		return false, nil
 	}
+
 	sc, err := object.FetchObject(ctx, types.NamespacedName{Name: storageClassName}, r.client, &storagev1.StorageClass{})
 	if err != nil {
 		return false, fmt.Errorf("fetch storage class: %w", err)
 	}
+
 	return sc != nil && sc.VolumeBindingMode != nil && *sc.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer, nil
 }

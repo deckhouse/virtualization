@@ -82,6 +82,7 @@ releases.deckhouse.io (across all editions) and deckhouse.ru/modules/virtualizat
 		fmt.Printf("failed to mark channel flag required: %s", err.Error())
 		os.Exit(1)
 	}
+
 	err = rootCmd.MarkFlagRequired("version")
 	if err != nil {
 		fmt.Printf("failed to mark version flag required: %s", err.Error())
@@ -131,5 +132,6 @@ func Run(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Println("\nAll version checks passed successfully!")
+
 	return nil
 }

@@ -52,6 +52,7 @@ func NewBoundHandler(ipService IPAddressService, client client.Client, recorder 
 
 func (h *BoundHandler) Handle(ctx context.Context, vmip *v1alpha2.VirtualMachineIPAddress) (reconcile.Result, error) {
 	cb := conditions.NewConditionBuilder(vmipcondition.BoundType).Generation(vmip.Generation)
+
 	defer func() { conditions.SetCondition(cb, &vmip.Status.Conditions) }()
 
 	lease, err := h.ipService.GetLease(ctx, vmip)

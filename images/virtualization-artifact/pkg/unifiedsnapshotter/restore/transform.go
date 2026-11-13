@@ -49,9 +49,11 @@ func (Transformer) TransformObject(node *transform.RestoreNode, obj *unstructure
 	if !isVirtualDisk(*obj) {
 		return false, nil
 	}
+
 	if node == nil || node.SnapshotRef.Kind != v1alpha2.VirtualDiskSnapshotKind {
 		return false, nil
 	}
+
 	dataSource := map[string]interface{}{
 		"type": string(v1alpha2.DataSourceTypeObjectRef),
 		"objectRef": map[string]interface{}{
@@ -62,6 +64,7 @@ func (Transformer) TransformObject(node *transform.RestoreNode, obj *unstructure
 	if err := unstructured.SetNestedMap(obj.Object, dataSource, "spec", "dataSource"); err != nil {
 		return false, fmt.Errorf("set VirtualDisk %s spec.dataSource: %w", obj.GetName(), err)
 	}
+
 	return true, nil
 }
 
@@ -78,6 +81,7 @@ func applyKeepIPAddress(obj *unstructured.Unstructured, keep v1alpha2.KeepIPAddr
 	if err != nil {
 		return fmt.Errorf("read VirtualMachineIPAddress %s spec.type: %w", obj.GetName(), err)
 	}
+
 	if typ != string(v1alpha2.VirtualMachineIPAddressTypeAuto) {
 		return nil
 	}
@@ -86,6 +90,7 @@ func applyKeepIPAddress(obj *unstructured.Unstructured, keep v1alpha2.KeepIPAddr
 	if err != nil {
 		return fmt.Errorf("read VirtualMachineIPAddress %s status.address: %w", obj.GetName(), err)
 	}
+
 	if address == "" {
 		return fmt.Errorf(
 			"cannot honor keepIPAddress=Always: captured VirtualMachineIPAddress %q has an Auto type and no allocated address",
@@ -96,9 +101,11 @@ func applyKeepIPAddress(obj *unstructured.Unstructured, keep v1alpha2.KeepIPAddr
 	if err := unstructured.SetNestedField(obj.Object, string(v1alpha2.VirtualMachineIPAddressTypeStatic), "spec", "type"); err != nil {
 		return fmt.Errorf("set VirtualMachineIPAddress %s spec.type: %w", obj.GetName(), err)
 	}
+
 	if err := unstructured.SetNestedField(obj.Object, address, "spec", "staticIP"); err != nil {
 		return fmt.Errorf("set VirtualMachineIPAddress %s spec.staticIP: %w", obj.GetName(), err)
 	}
+
 	return nil
 }
 
@@ -109,12 +116,14 @@ func isVirtualMachineIPAddress(obj unstructured.Unstructured) bool {
 // linkCapturedIPAddress points the restored VirtualMachine at the VirtualMachineIPAddress captured alongside it.
 func linkCapturedIPAddress(objs []unstructured.Unstructured) error {
 	var name string
+
 	for i := range objs {
 		if isVirtualMachineIPAddress(objs[i]) {
 			name = objs[i].GetName()
 			break
 		}
 	}
+
 	if name == "" {
 		return nil
 	}
@@ -123,10 +132,12 @@ func linkCapturedIPAddress(objs []unstructured.Unstructured) error {
 		if !isVirtualMachine(objs[i]) {
 			continue
 		}
+
 		if err := unstructured.SetNestedField(objs[i].Object, name, "spec", "virtualMachineIPAddressName"); err != nil {
 			return fmt.Errorf("set VirtualMachine %s spec.virtualMachineIPAddressName: %w", objs[i].GetName(), err)
 		}
 	}
+
 	return nil
 }
 
@@ -136,17 +147,22 @@ func pinCapturedMainIPAddress(obj *unstructured.Unstructured) error {
 	if ipa == nil {
 		return nil
 	}
+
 	address := network.AddressOfIPAddress(ipa)
 	if address == "" {
 		return fmt.Errorf("captured IPAddress %q has an Auto type and no allocated address", obj.GetName())
 	}
+
 	network.DetachIPAddressFromVM(ipa)
 	ipa.Spec = network.MainStaticIPAddressSpec(address)
+
 	content, err := runtime.DefaultUnstructuredConverter.ToUnstructured(ipa)
 	if err != nil {
 		return fmt.Errorf("convert IPAddress %s: %w", obj.GetName(), err)
 	}
+
 	obj.Object = content
+
 	return nil
 }
 
@@ -155,13 +171,16 @@ func mainIPAddressOf(obj unstructured.Unstructured) *sdnapi.IPAddress {
 	if obj.GetKind() != sdnapi.IPAddressKind || obj.GetAPIVersion() != sdnapi.SchemeGroupVersion.String() {
 		return nil
 	}
+
 	ipa := &sdnapi.IPAddress{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, ipa); err != nil {
 		return nil
 	}
+
 	if !network.IsMainNetworkIPAddress(ipa) {
 		return nil
 	}
+
 	return ipa
 }
 
@@ -170,14 +189,17 @@ func mainIPAddressOf(obj unstructured.Unstructured) *sdnapi.IPAddress {
 // spec takes one of the two.
 func linkCapturedMainIPAddress(objs []unstructured.Unstructured) error {
 	var mainIPAddressName string
+
 	for i := range objs {
 		if isVirtualMachineIPAddress(objs[i]) {
 			return nil
 		}
+
 		if mainIPAddressOf(objs[i]) != nil {
 			mainIPAddressName = objs[i].GetName()
 		}
 	}
+
 	if mainIPAddressName == "" {
 		return nil
 	}
@@ -186,29 +208,38 @@ func linkCapturedMainIPAddress(objs []unstructured.Unstructured) error {
 		if !isVirtualMachine(objs[i]) {
 			continue
 		}
+
 		vm := &objs[i]
+
 		networksField, _, err := unstructured.NestedSlice(vm.Object, "spec", "networks")
 		if err != nil {
 			return fmt.Errorf("read VirtualMachine %s spec.networks: %w", vm.GetName(), err)
 		}
+
 		var networks []v1alpha2.NetworksSpec
 		if err := convertJSON(networksField, &networks); err != nil {
 			return fmt.Errorf("read VirtualMachine %s spec.networks: %w", vm.GetName(), err)
 		}
+
 		if !network.UsesMainNetwork(networks) {
 			// Additional networks only: there is no Main network to link.
 			continue
 		}
+
 		networks = network.SetMainIPAddressName(networks, mainIPAddressName)
+
 		var networksWithMainIPAddress []interface{}
 		if err := convertJSON(networks, &networksWithMainIPAddress); err != nil {
 			return fmt.Errorf("set VirtualMachine %s spec.networks: %w", vm.GetName(), err)
 		}
+
 		if err := unstructured.SetNestedSlice(vm.Object, networksWithMainIPAddress, "spec", "networks"); err != nil {
 			return fmt.Errorf("set VirtualMachine %s spec.networks: %w", vm.GetName(), err)
 		}
+
 		unstructured.RemoveNestedField(vm.Object, "spec", "virtualMachineIPAddressName")
 	}
+
 	return nil
 }
 
@@ -217,6 +248,7 @@ func convertJSON(in, out any) error {
 	if err != nil {
 		return err
 	}
+
 	return json.Unmarshal(data, out)
 }
 
@@ -226,13 +258,16 @@ func isVirtualMachine(obj unstructured.Unstructured) bool {
 
 func applyCapturedMACAddresses(objs []unstructured.Unstructured) error {
 	captured := make(map[string]struct{})
+
 	for i := range objs {
 		if !isVirtualMachineMACAddress(objs[i]) {
 			continue
 		}
+
 		if err := pinCapturedMACAddress(&objs[i]); err != nil {
 			return err
 		}
+
 		captured[objs[i].GetName()] = struct{}{}
 	}
 
@@ -240,10 +275,12 @@ func applyCapturedMACAddresses(objs []unstructured.Unstructured) error {
 		if !isVirtualMachine(objs[i]) {
 			continue
 		}
+
 		if err := linkCapturedMACAddresses(&objs[i], captured); err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -252,6 +289,7 @@ func pinCapturedMACAddress(obj *unstructured.Unstructured) error {
 	if err != nil {
 		return fmt.Errorf("read VirtualMachineMACAddress %s spec.address: %w", obj.GetName(), err)
 	}
+
 	if specAddress != "" {
 		return nil
 	}
@@ -260,6 +298,7 @@ func pinCapturedMACAddress(obj *unstructured.Unstructured) error {
 	if err != nil {
 		return fmt.Errorf("read VirtualMachineMACAddress %s status.address: %w", obj.GetName(), err)
 	}
+
 	if address == "" {
 		return fmt.Errorf(
 			"captured VirtualMachineMACAddress %q has no address in either spec or status: the restored virtual machine would come back with a different MAC",
@@ -270,6 +309,7 @@ func pinCapturedMACAddress(obj *unstructured.Unstructured) error {
 	if err := unstructured.SetNestedField(obj.Object, address, "spec", "address"); err != nil {
 		return fmt.Errorf("set VirtualMachineMACAddress %s spec.address: %w", obj.GetName(), err)
 	}
+
 	return nil
 }
 
@@ -278,6 +318,7 @@ func linkCapturedMACAddresses(vm *unstructured.Unstructured, captured map[string
 	if err != nil {
 		return fmt.Errorf("read VirtualMachine %s spec.networks: %w", vm.GetName(), err)
 	}
+
 	if !found || len(specNetworks) == 0 {
 		return nil
 	}
@@ -286,6 +327,7 @@ func linkCapturedMACAddresses(vm *unstructured.Unstructured, captured map[string
 	if err != nil {
 		return fmt.Errorf("read VirtualMachine %s status.networks: %w", vm.GetName(), err)
 	}
+
 	if len(captured) > 0 && len(statusNetworks) < len(specNetworks) {
 		return fmt.Errorf(
 			"captured VirtualMachine %q declares %d networks in spec but only %d in status: cannot restore the MAC address order",
@@ -300,11 +342,13 @@ func linkCapturedMACAddresses(vm *unstructured.Unstructured, captured map[string
 		}
 
 		name := ""
+
 		if i < len(statusNetworks) {
 			statusNetwork, ok := statusNetworks[i].(map[string]interface{})
 			if !ok {
 				return fmt.Errorf("captured VirtualMachine %q status.networks[%d] is not an object", vm.GetName(), i)
 			}
+
 			name, _ = statusNetwork["virtualMachineMACAddressName"].(string)
 		}
 
@@ -312,12 +356,14 @@ func linkCapturedMACAddresses(vm *unstructured.Unstructured, captured map[string
 			delete(specNetwork, "virtualMachineMACAddressName")
 			continue
 		}
+
 		specNetwork["virtualMachineMACAddressName"] = name
 	}
 
 	if err := unstructured.SetNestedSlice(vm.Object, specNetworks, "spec", "networks"); err != nil {
 		return fmt.Errorf("set VirtualMachine %s spec.networks: %w", vm.GetName(), err)
 	}
+
 	return nil
 }
 

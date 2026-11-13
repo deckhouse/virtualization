@@ -68,6 +68,7 @@ func (r *IPerfReport) GetStartTime() (time.Time, error) {
 func (r *IPerfReport) GetEndTime() time.Time {
 	endSec := int64(r.Start.Timestamp.Timesecs) + int64(r.End.SumSent.End)
 	frac := r.End.SumSent.End - float64(int64(r.End.SumSent.End))
+
 	return time.Unix(endSec, int64(frac*1e9)).UTC()
 }
 
@@ -82,11 +83,13 @@ func (r *IPerfReport) GetIntervalTime(offset float64) time.Time {
 // transferred.
 func (r *IPerfReport) FindSilentIntervals() []int {
 	var silent []int
+
 	for i, interval := range r.Intervals {
 		if interval.Sum.Bytes == 0 {
 			silent = append(silent, i)
 		}
 	}
+
 	return silent
 }
 
@@ -98,6 +101,7 @@ func (r *IPerfReport) IsInterruptedByClient() bool {
 	if r.Error == "" {
 		return true
 	}
+
 	return strings.Contains(strings.ToLower(r.Error), "interrupt")
 }
 
@@ -106,5 +110,6 @@ func ParseIPerfReport(raw string) (*IPerfReport, error) {
 	if err := json.Unmarshal([]byte(raw), &report); err != nil {
 		return nil, fmt.Errorf("parse iperf3 json: %w", err)
 	}
+
 	return &report, nil
 }

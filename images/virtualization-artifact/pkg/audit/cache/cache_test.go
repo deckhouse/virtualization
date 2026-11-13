@@ -33,6 +33,7 @@ func TestTTLCache_Add(t *testing.T) {
 	if !exists {
 		t.Error("Expected item to exist in cache immediately after adding")
 	}
+
 	if value != "test-value" {
 		t.Errorf("Expected value to be 'test-value', got %v", value)
 	}
@@ -82,6 +83,7 @@ func TestTTLCache_Overwrite(t *testing.T) {
 	if !exists {
 		t.Error("Expected item to exist in cache")
 	}
+
 	if value != "value2" {
 		t.Errorf("Expected value to be 'value2', got %v", value)
 	}

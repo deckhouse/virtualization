@@ -184,11 +184,14 @@ func assertValidationError(t *testing.T, err error, wantErrorPart string) {
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
+
 		return
 	}
+
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
+
 	if !strings.Contains(err.Error(), wantErrorPart) {
 		t.Fatalf("expected error containing %q, got %v", wantErrorPart, err)
 	}

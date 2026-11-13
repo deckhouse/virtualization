@@ -39,6 +39,7 @@ func (v *VirtualMachineClassService) IsDefault(vmClass *v1alpha2.VirtualMachineC
 	if vmClass == nil {
 		return false
 	}
+
 	return vmClass.Annotations[annotations.AnnVirtualMachineClassDefault] == "true"
 }
 
@@ -46,6 +47,7 @@ func (v *VirtualMachineClassService) ValidateDefaultAnnotation(vmClass *v1alpha2
 	if vmClass == nil {
 		return nil
 	}
+
 	annoValue, ok := vmClass.Annotations[annotations.AnnVirtualMachineClassDefault]
 	if ok && annoValue != "true" {
 		// Message from validating webhook will be like this:
@@ -53,6 +55,7 @@ func (v *VirtualMachineClassService) ValidateDefaultAnnotation(vmClass *v1alpha2
 		// only 'true' value allowed for annotation that specifies a default class (virtualmachineclass.virtualization.deckhouse.io/is-default-class)
 		return fmt.Errorf("only 'true' value allowed for annotation that specifies a default class (%s)", annotations.AnnVirtualMachineClassDefault)
 	}
+
 	return nil
 }
 
@@ -62,14 +65,18 @@ func (v *VirtualMachineClassService) GetDefault(classes *v1alpha2.VirtualMachine
 	}
 
 	var defaultClass *v1alpha2.VirtualMachineClass
+
 	for i := range classes.Items {
 		if !v.IsDefault(&classes.Items[i]) {
 			continue
 		}
+
 		if defaultClass != nil {
 			return nil, fmt.Errorf("multiple default classes are found (%s, %s)", defaultClass.GetName(), classes.Items[i].GetName())
 		}
+
 		defaultClass = &classes.Items[i]
 	}
+
 	return defaultClass, nil
 }

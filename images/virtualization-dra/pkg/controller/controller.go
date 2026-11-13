@@ -95,6 +95,7 @@ func (c *controller) Run(ctx context.Context, workers int) error {
 	}
 
 	c.log.Info("Starting workers controller")
+
 	for i := 0; i < workers; i++ {
 		go wait.UntilWithContext(ctx, c.worker, time.Second)
 	}
@@ -123,6 +124,7 @@ func (c *controller) worker(ctx context.Context) {
 			c.log.Info(fmt.Sprintf("processed %v", key))
 			c.queue.Forget(key)
 		}
+
 		return false
 	}
 	for {

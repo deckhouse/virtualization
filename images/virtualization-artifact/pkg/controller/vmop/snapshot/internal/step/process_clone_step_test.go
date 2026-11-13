@@ -53,6 +53,7 @@ var _ = Describe("ProcessCloneStep", func() {
 			delete(vmop.Annotations, annotations.AnnVMOPSnapshotName)
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -69,6 +70,7 @@ var _ = Describe("ProcessCloneStep", func() {
 			delete(vmop.Annotations, annotations.AnnVMOPSnapshotName)
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -91,6 +93,7 @@ var _ = Describe("ProcessCloneStep", func() {
 			vmop := createCloneVMOP("default", "test-vmop", "test-vm", "test-snapshot")
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -109,6 +112,7 @@ var _ = Describe("ProcessCloneStep", func() {
 			snapshot := createVMSnapshot("default", "test-snapshot", "test-secret", true)
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop, snapshot)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -130,6 +134,7 @@ var _ = Describe("ProcessCloneStep", func() {
 			restorerSecret := createRestorerSecret("default", "test-secret", vm)
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop, snapshot, restorerSecret)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -139,6 +144,7 @@ var _ = Describe("ProcessCloneStep", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeNil())
 			Expect(vmop.Status.Resources).NotTo(BeEmpty())
+
 			for _, status := range vmop.Status.Resources {
 				Expect(status.Status).To(Equal(v1alpha2.SnapshotResourceStatusCompleted))
 			}
@@ -161,11 +167,13 @@ var _ = Describe("ProcessCloneStep", func() {
 							fmt.Errorf("the object has been modified"),
 						)
 					}
+
 					return c.Create(ctx, obj, opts...)
 				},
 			}
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithInterceptorWithObjects(intercept, vmop, snapshot, restorerSecret)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -178,11 +186,13 @@ var _ = Describe("ProcessCloneStep", func() {
 			Expect(vmop.Status.Resources).NotTo(BeEmpty())
 
 			hasInProgress := false
+
 			for _, status := range vmop.Status.Resources {
 				if status.Status == v1alpha2.SnapshotResourceStatusInProgress {
 					hasInProgress = true
 				}
 			}
+
 			Expect(hasInProgress).To(BeTrue(), "expected at least one resource with InProgress status")
 		})
 	})

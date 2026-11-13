@@ -40,6 +40,7 @@ func (m *Manager) Add(c metav1.Condition) (addedCondition bool) {
 	if findCond != nil {
 		return false
 	}
+
 	return meta.SetStatusCondition(&m.conds, c)
 }
 

@@ -52,14 +52,17 @@ func (v *IPAMValidator) deprecationWarnings(ctx context.Context, vmipName string
 	if vmipName == "" {
 		return nil
 	}
+
 	mainIPAMAvailable, err := network.MainIPAMAvailable(ctx, v.client)
 	if err != nil {
 		logger.FromContext(ctx).Error("Failed to check whether the sdn module serves the Main network", logger.SlogErr(err))
 		return nil
 	}
+
 	if !mainIPAMAvailable {
 		return nil
 	}
+
 	return admission.Warnings{vmipDeprecationWarning}
 }
 
@@ -80,6 +83,7 @@ func (v *IPAMValidator) ValidateCreate(ctx context.Context, vm *v1alpha2.Virtual
 	}
 
 	vmipKey := types.NamespacedName{Name: vmipName, Namespace: vm.Namespace}
+
 	vmip, err := object.FetchObject(ctx, vmipKey, v.client, &v1alpha2.VirtualMachineIPAddress{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to get referenced VirtualMachineIPAddress %s: %w", vmipKey, err)
@@ -97,6 +101,7 @@ func (v *IPAMValidator) ValidateCreate(ctx context.Context, vm *v1alpha2.Virtual
 		if err != nil {
 			return warnings, fmt.Errorf("unable to check whether the sdn module serves the Main network: %w", err)
 		}
+
 		if !mainIPAMAvailable {
 			return warnings, fmt.Errorf("VirtualMachineIPAddress with the name of the virtual machine"+
 				" already exists: set spec.virtualMachineIPAddress field to %s to use IP %s", vmip.Name, vmip.Status.Address)
@@ -137,6 +142,7 @@ func mainIPAddressName(vm *v1alpha2.VirtualMachine) string {
 	if mainSpec := network.MainNetworkSpec(vm.Spec.Networks); mainSpec != nil {
 		return mainSpec.IPAddressName
 	}
+
 	return ""
 }
 
@@ -170,12 +176,14 @@ func (v *IPAMValidator) validateMainIPAddressName(ctx context.Context, vm *v1alp
 	if err != nil {
 		return fmt.Errorf("unable to check whether the sdn module serves the Main network: %w", err)
 	}
+
 	if !mainIPAMAvailable {
 		return errors.New("spec.networks[Main].ipAddressName cannot be used: the Main network has no address pool in this cluster, so the virtual machine would never get the address. Remove the field to get an address automatically, or ask the cluster administrator to set up the address pool of the Main network")
 	}
 
 	// A missing IPAddress is not rejected: the user may create it after the machine.
 	ipa := &sdnapi.IPAddress{}
+
 	err = v.client.Get(ctx, types.NamespacedName{Name: mainSpec.IPAddressName, Namespace: vm.Namespace}, ipa)
 	switch {
 	case k8serrors.IsNotFound(err):
@@ -185,5 +193,6 @@ func (v *IPAMValidator) validateMainIPAddressName(ctx context.Context, vm *v1alp
 	case !network.IsMainNetworkIPAddress(ipa):
 		return fmt.Errorf("the IPAddress %q referenced by spec.networks[Main].ipAddressName belongs to another network: the Main network address must reference an IPAddress of the ClusterNetwork %q", mainSpec.IPAddressName, network.MainClusterNetworkName)
 	}
+
 	return nil
 }

@@ -133,9 +133,11 @@ func NewPeerClients(reader client.Reader, tokens client.Client, namespace string
 			return nil, err
 		}
 	}
+
 	p := &PeerClients{reader: reader, namespace: namespace, scheme: scheme, clients: map[string]peerClient{}, tokens: map[string]peerToken{}}
 	p.issueToken = func(ctx context.Context, audience string) (string, time.Time, error) {
 		sa := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: serviceAccountName}}
+
 		req := &authnv1.TokenRequest{Spec: authnv1.TokenRequestSpec{
 			Audiences:         []string{audience},
 			ExpirationSeconds: ptr.To(int64(tokenTTL.Seconds())),
@@ -143,8 +145,10 @@ func NewPeerClients(reader client.Reader, tokens client.Client, namespace string
 		if err := tokens.SubResource("token").Create(ctx, sa, req); err != nil {
 			return "", time.Time{}, err
 		}
+
 		return req.Status.Token, req.Status.ExpirationTimestamp.Time, nil
 	}
+
 	return p, nil
 }
 
@@ -152,14 +156,18 @@ func NewPeerClients(reader client.Reader, tokens client.Client, namespace string
 func (p *PeerClients) token(ctx context.Context, audience string) (string, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
 	if t, ok := p.tokens[audience]; ok && time.Until(t.expires) > tokenRefresh {
 		return t.token, nil
 	}
+
 	token, expires, err := p.issueToken(ctx, audience)
 	if err != nil {
 		return "", fmt.Errorf("token for the audience %q: %w", audience, err)
 	}
+
 	p.tokens[audience] = peerToken{token: token, expires: expires}
+
 	return token, nil
 }
 
@@ -174,8 +182,10 @@ func (b *bearer) RoundTrip(req *http.Request) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	req = req.Clone(req.Context())
 	req.Header.Set("Authorization", "Bearer "+token)
+
 	return b.next.RoundTrip(req)
 }
 
@@ -184,6 +194,7 @@ func (p *PeerClients) Client(ctx context.Context, peer string) (client.Client, e
 	p.mu.Lock()
 	cached, ok := p.clients[peer]
 	p.mu.Unlock()
+
 	if ok && time.Since(cached.checked) < peerRecheck {
 		return cached.client, nil
 	}
@@ -195,67 +206,85 @@ func (p *PeerClients) Client(ctx context.Context, peer string) (client.Client, e
 
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
 	if c, ok := p.clients[peer]; ok && c.source == source {
 		c.dev, c.checked = dev, time.Now()
 		p.clients[peer] = c
+
 		return c.client, nil
 	}
 
 	var transport *http.Transport
+
 	wrap := cfg.WrapTransport
 	cfg.WrapTransport = func(rt http.RoundTripper) http.RoundTripper {
 		if t, ok := rt.(*http.Transport); ok {
 			transport = t
 		}
+
 		if wrap != nil {
 			return wrap(rt)
 		}
+
 		return rt
 	}
+
 	c, err := client.New(cfg, client.Options{Scheme: p.scheme})
 	if err != nil {
 		if transport != nil {
 			transport.CloseIdleConnections()
 		}
+
 		return nil, fmt.Errorf("client to the peer %q: %w", peer, err)
 	}
+
 	if old, ok := p.clients[peer]; ok && old.transport != nil {
 		old.transport.CloseIdleConnections()
 	}
+
 	p.clients[peer] = peerClient{source: source, client: c, transport: transport, dev: dev, checked: time.Now()}
+
 	return c, nil
 }
 
 // config returns the connection to the peer and a version of its source, to know when to rebuild it.
 func (p *PeerClients) config(ctx context.Context, peer string) (*rest.Config, string, map[string][]byte, error) {
 	var secret corev1.Secret
+
 	err := p.reader.Get(ctx, types.NamespacedName{Namespace: p.namespace, Name: DevPeerSecretPrefix + peer}, &secret)
 	if err == nil {
 		cfg, err := clientcmd.RESTConfigFromKubeConfig(secret.Data[devPeerSecretKey])
 		if err != nil {
 			return nil, "", nil, fmt.Errorf("the kubeconfig of the peer %q in Secret %s: %w", peer, secret.Name, err)
 		}
+
 		return cfg, "secret/" + secret.ResourceVersion, secret.Data, nil
 	}
+
 	if !k8serrors.IsNotFound(err) {
 		return nil, "", nil, err
 	}
 
 	cp := &unstructured.Unstructured{}
 	cp.SetGroupVersionKind(clusterPeerGVK)
+
 	if err = p.reader.Get(ctx, types.NamespacedName{Name: peer}, cp); err != nil {
 		if k8serrors.IsNotFound(err) || meta.IsNoMatchError(err) {
 			return nil, "", nil, fmt.Errorf("%w: no ClusterPeer %q", ErrPeerNotSupported, peer)
 		}
+
 		return nil, "", nil, err
 	}
+
 	cfg, audience, source, err := clusterPeerConfig(cp)
 	if err != nil {
 		return nil, "", nil, err
 	}
+
 	cfg.WrapTransport = func(rt http.RoundTripper) http.RoundTripper {
 		return &bearer{next: rt, token: func(ctx context.Context) (string, error) { return p.token(ctx, audience) }}
 	}
+
 	return cfg, source, nil, nil
 }
 
@@ -265,10 +294,12 @@ func (p *PeerClients) config(ctx context.Context, peer string) (*rest.Config, st
 // for the peer stands for a pair.
 func (p *PeerClients) Paired(ctx context.Context, peer, namespace string) error {
 	var secret corev1.Secret
+
 	err := p.reader.Get(ctx, types.NamespacedName{Namespace: p.namespace, Name: DevPeerSecretPrefix + peer}, &secret)
 	if err == nil {
 		return nil
 	}
+
 	if !k8serrors.IsNotFound(err) {
 		return err
 	}
@@ -278,27 +309,34 @@ func (p *PeerClients) Paired(ctx context.Context, peer, namespace string) error 
 	if err = p.reader.Get(ctx, types.NamespacedName{Name: namespace}, &ns); err != nil {
 		return err
 	}
+
 	project := ns.Labels[labelProject]
 	if project == "" {
 		return fmt.Errorf("%w: namespace %q belongs to no project", ErrPeerNotPaired, namespace)
 	}
+
 	pp := &unstructured.Unstructured{}
 	pp.SetGroupVersionKind(projectPeerGVK)
+
 	if err = p.reader.Get(ctx, types.NamespacedName{Namespace: project, Name: peer}, pp); err != nil {
 		if k8serrors.IsNotFound(err) || meta.IsNoMatchError(err) {
 			return fmt.Errorf("%w: no ProjectPeer %q in project %q", ErrPeerNotPaired, peer, project)
 		}
+
 		return err
 	}
+
 	if state, _, _ := unstructured.NestedString(pp.Object, "status", "state"); state != "Paired" {
 		return fmt.Errorf("%w: ProjectPeer %q is %q, not Paired", ErrPeerNotPaired, peer, state)
 	}
+
 	capabilities, _, _ := unstructured.NestedSlice(pp.Object, "status", "capabilities")
 	for _, c := range capabilities {
 		if m, ok := c.(map[string]any); ok && m["name"] == Capability {
 			return nil
 		}
 	}
+
 	return fmt.Errorf("%w: ProjectPeer %q offers no %s capability", ErrPeerNotPaired, peer, Capability)
 }
 
@@ -306,28 +344,37 @@ func (p *PeerClients) Paired(ctx context.Context, peer, namespace string) error 
 // address, unless a dev Secret of the peer says otherwise.
 func (p *PeerClients) Target(ctx context.Context, peer, namespace string) (Target, error) {
 	target := Target{Namespace: namespace}
+
 	p.mu.Lock()
 	c, ok := p.clients[peer]
 	p.mu.Unlock()
+
 	dev := c.dev
+
 	if !ok {
 		var secret corev1.Secret
+
 		err := p.reader.Get(ctx, types.NamespacedName{Namespace: p.namespace, Name: DevPeerSecretPrefix + peer}, &secret)
 		if client.IgnoreNotFound(err) != nil {
 			return target, err
 		}
+
 		dev = secret.Data
 	}
+
 	if dev == nil {
 		return target, nil
 	}
+
 	for _, pair := range strings.Split(string(dev[devPeerNamespacesKey]), ",") {
 		from, to, ok := strings.Cut(strings.TrimSpace(pair), "=")
 		if ok && from == namespace && to != "" {
 			target.Namespace = to
 		}
 	}
+
 	target.NewAddress = string(dev[devPeerNewAddressKey]) == "true"
+
 	return target, nil
 }
 
@@ -339,27 +386,33 @@ func clusterPeerConfig(cp *unstructured.Unstructured) (cfg *rest.Config, audienc
 	if phase != "Active" {
 		return nil, "", "", fmt.Errorf("%w: ClusterPeer %q is %q, not Active", ErrPeerNotSupported, cp.GetName(), phase)
 	}
+
 	capabilities, _, _ := unstructured.NestedStringSlice(cp.Object, "status", "effectiveCapabilities")
 	if !slices.Contains(capabilities, Capability) {
 		return nil, "", "", fmt.Errorf("%w: ClusterPeer %q has no %s capability", ErrPeerNotSupported, cp.GetName(), Capability)
 	}
+
 	endpoint, _, _ := unstructured.NestedString(cp.Object, "status", "access", "endpoint")
+
 	ca, _, _ := unstructured.NestedString(cp.Object, "status", "access", "caBundle")
 	if endpoint == "" {
 		return nil, "", "", fmt.Errorf("%w: ClusterPeer %q has no access endpoint", ErrPeerNotSupported, cp.GetName())
 	}
+
 	audiences, _, _ := unstructured.NestedSlice(cp.Object, "status", "access", "audiences")
 	for _, a := range audiences {
 		if m, ok := a.(map[string]any); ok && m["capability"] == Capability {
 			audience, _ = m["audience"].(string)
 		}
 	}
+
 	if audience == "" {
 		return nil, "", "", fmt.Errorf("%w: ClusterPeer %q publishes no audience for the %s capability", ErrPeerNotSupported, cp.GetName(), Capability)
 	}
 	// The source is the connection, not the resource version: a status update that leaves the endpoint,
 	// the CA and the audience alone must not rebuild the client and leak its connections.
 	sum := sha256.Sum256([]byte(endpoint + "\x00" + ca + "\x00" + audience))
+
 	return &rest.Config{
 		Host:            endpoint,
 		TLSClientConfig: rest.TLSClientConfig{CAData: []byte(ca)},

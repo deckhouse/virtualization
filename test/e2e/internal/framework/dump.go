@@ -49,8 +49,10 @@ func truncateTestName(s string, maxLen int) string {
 	if len(s) <= maxLen {
 		return s
 	}
+
 	availableLen := maxLen - len(delimiter)
 	halfAvailableLen := availableLen / 2
+
 	return s[:halfAvailableLen] + delimiter + s[len(s)-(availableLen-halfAvailableLen):]
 }
 
@@ -105,6 +107,7 @@ func GetFormattedTestCaseFullText() string {
 		"'", "",
 	)
 	result := replacer.Replace(strings.ToLower(CurrentSpecReport().FullText()))
+
 	return truncateTestName(result, maxTestNameLen)
 }
 
@@ -114,6 +117,7 @@ func GetTMPDir() string {
 	if tmpDir == "" {
 		return "/tmp"
 	}
+
 	return tmpDir
 }
 
@@ -164,6 +168,7 @@ func (f *Framework) saveIntvirtvmDescriptions(ctx context.Context, dumpDir strin
 	}
 
 	fileName := path.Join(dumpDir, "intvirtvm_describe.log")
+
 	err := os.WriteFile(fileName, describeCmd.StdOutBytes(), 0o644)
 	if err != nil {
 		GinkgoWriter.Printf("Failed to save InternalVirtualizationVirtualMachine description:\nError: %s\n", err)
@@ -177,6 +182,7 @@ func (f *Framework) saveIntvirtvmiDescriptions(ctx context.Context, dumpDir stri
 	}
 
 	fileName := path.Join(dumpDir, "intvirtvmi_describe.log")
+
 	err := os.WriteFile(fileName, describeCmd.StdOutBytes(), 0o644)
 	if err != nil {
 		GinkgoWriter.Printf("Failed to save InternalVirtualizationVirtualMachineInstance description:\nError: %s\n", err)
@@ -195,6 +201,7 @@ func (f *Framework) writePodLogs(ctx context.Context, name, namespace, dumpDir s
 			GinkgoWriter.Printf("Skipping container without d8v prefix:\nPodName: %s\nContainer: %s\n", pod.Name, container.Name)
 			continue
 		}
+
 		f.writePodContainerLogs(ctx, pod, container.Name, dumpDir)
 	}
 }
@@ -217,6 +224,7 @@ func (f *Framework) writePodContainerLogs(ctx context.Context, pod *corev1.Pod, 
 	}
 
 	fileName := path.Join(dumpDir, fmt.Sprintf("pod_%s__%s_logs.json", pod.Name, containerName))
+
 	err = os.WriteFile(fileName, logs, 0o644)
 	if err != nil {
 		GinkgoWriter.Printf("Failed to save logs:\nPodName: %s\nContainer: %s\nError: %v\n", pod.Name, containerName, err)
@@ -230,6 +238,7 @@ func (f *Framework) writePodDescription(ctx context.Context, name, namespace, du
 	}
 
 	fileName := path.Join(dumpDir, fmt.Sprintf("pod_%s_describe.log", name))
+
 	err := os.WriteFile(fileName, describeCmd.StdOutBytes(), 0o644)
 	if err != nil {
 		GinkgoWriter.Printf("Failed to save pod description:\nPodName: %s\nError: %v\n", name, err)
@@ -245,6 +254,7 @@ func (f *Framework) writeVirtualMachineGuestInfo(ctx context.Context, pod corev1
 			}
 
 			fileName := path.Join(dumpDir, fmt.Sprintf("pod_%s_vlctl_guest_info.log", pod.Name))
+
 			err := os.WriteFile(fileName, vlctlGuestInfoCmd.StdOutBytes(), 0o644)
 			if err != nil {
 				GinkgoWriter.Printf("Failed to save pod guest info:\nPodName: %s\nError: %v\n", pod.Name, err)
@@ -308,24 +318,29 @@ const maxSummaryLinesInOutput = 20
 // FailedScheduling reason) stays buried in events_<namespace>.yaml.
 func (f *Framework) saveFailureSummary(ctx context.Context, dumpDir string) {
 	var lines []string
+
 	lines = append(lines, f.warningEventLines(ctx)...)
+
 	lines = append(lines, f.stuckContainerLines(ctx)...)
 	if len(lines) == 0 {
 		return
 	}
 
 	fileName := path.Join(dumpDir, summaryFileName)
+
 	err := os.WriteFile(fileName, []byte(strings.Join(lines, "\n")+"\n"), 0o644)
 	if err != nil {
 		GinkgoWriter.Printf("Failed to write failure summary:\nFile: %s\nError: %v\n", fileName, err)
 	}
 
 	GinkgoWriter.Printf("Failure summary (%s):\n", fileName)
+
 	for i, line := range lines {
 		if i == maxSummaryLinesInOutput {
 			GinkgoWriter.Printf("  ... %d more line(s) in %s\n", len(lines)-i, summaryFileName)
 			break
 		}
+
 		GinkgoWriter.Printf("  %s\n", line)
 	}
 }
@@ -334,6 +349,7 @@ func (f *Framework) saveFailureSummary(ctx context.Context, dumpDir string) {
 // oldest first.
 func (f *Framework) warningEventLines(ctx context.Context) []string {
 	namespace := f.Namespace().Name
+
 	events, err := f.Clients.kubeClient.CoreV1().Events(namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		GinkgoWriter.Printf("Failed to get events for the failure summary:\nError: %v\n", err)
@@ -346,6 +362,7 @@ func (f *Framework) warningEventLines(ctx context.Context) []string {
 			warnings = append(warnings, event)
 		}
 	}
+
 	sort.Slice(warnings, func(i, j int) bool {
 		return eventTime(warnings[i]).Before(eventTime(warnings[j]))
 	})
@@ -357,6 +374,7 @@ func (f *Framework) warningEventLines(ctx context.Context) []string {
 			eventTime(event).Format(time.RFC3339), event.Reason, obj.Kind, obj.Name, event.Count,
 			strings.Join(strings.Fields(event.Message), " ")))
 	}
+
 	return lines
 }
 
@@ -370,6 +388,7 @@ func (f *Framework) stuckContainerLines(ctx context.Context) []string {
 	}
 
 	var lines []string
+
 	for _, pod := range pods.Items {
 		for _, status := range append(pod.Status.InitContainerStatuses, pod.Status.ContainerStatuses...) {
 			switch {
@@ -385,6 +404,7 @@ func (f *Framework) stuckContainerLines(ctx context.Context) []string {
 			}
 		}
 	}
+
 	return lines
 }
 
@@ -392,15 +412,19 @@ func eventTime(event corev1.Event) time.Time {
 	if !event.LastTimestamp.IsZero() {
 		return event.LastTimestamp.Time
 	}
+
 	if !event.EventTime.IsZero() {
 		return event.EventTime.Time
 	}
+
 	return event.CreationTimestamp.Time
 }
 
 func (f *Framework) saveEvents(ctx context.Context, dumpDir string) {
 	GinkgoHelper()
+
 	namespace := f.Namespace().Name
+
 	events, err := f.Clients.kubeClient.CoreV1().Events(namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		GinkgoWriter.Printf("Failed to get events:\nError: %v\n", err)
@@ -408,6 +432,7 @@ func (f *Framework) saveEvents(ctx context.Context, dumpDir string) {
 	}
 
 	fileName := path.Join(dumpDir, fmt.Sprintf("events_%s.yaml", namespace))
+
 	if len(events.Items) > 0 {
 		data, err := yaml.Marshal(events)
 		if err != nil {

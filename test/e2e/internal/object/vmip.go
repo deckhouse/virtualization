@@ -26,5 +26,6 @@ func NewVirtualMachineIPAddress(prefix, namespace string, opts ...vmip.Option) *
 		vmip.WithGenerateName(prefix),
 		vmip.WithNamespace(namespace),
 	}
+
 	return vmip.New(append(baseOpts, opts...)...)
 }

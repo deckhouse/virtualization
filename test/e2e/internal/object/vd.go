@@ -34,6 +34,7 @@ import (
 func NewVD(opts ...vd.Option) *v1alpha2.VirtualDisk {
 	disk := vd.New(opts...)
 	OverrideStorageClass(disk)
+
 	return disk
 }
 
@@ -43,6 +44,7 @@ func OverrideStorageClass(disk *v1alpha2.VirtualDisk) {
 	if disk == nil {
 		return
 	}
+
 	if sc := disk.Spec.PersistentVolumeClaim.StorageClass; sc != nil && *sc != "" {
 		return
 	}
@@ -50,6 +52,7 @@ func OverrideStorageClass(disk *v1alpha2.VirtualDisk) {
 	if !config.IsStorageClassNameOverridden() {
 		return
 	}
+
 	scName := config.StorageClassNameOverride()
 	disk.Spec.PersistentVolumeClaim.StorageClass = &scName
 }
@@ -61,6 +64,7 @@ func NewVDFromVI(name, namespace string, vi *v1alpha2.VirtualImage, opts ...vd.O
 		vd.WithDataSourceObjectRefFromVI(vi),
 	}
 	baseOpts = append(baseOpts, opts...)
+
 	return NewVD(baseOpts...)
 }
 
@@ -71,6 +75,7 @@ func NewBlankVD(name, namespace string, storageClass *string, size *resource.Qua
 		vd.WithPersistentVolumeClaim(storageClass, size),
 	}
 	baseOpts = append(baseOpts, opts...)
+
 	return NewVD(baseOpts...)
 }
 
@@ -83,6 +88,7 @@ func NewHTTPVDAlpineBIOS(name, namespace string, opts ...vd.Option) *v1alpha2.Vi
 		}),
 	}
 	baseOpts = append(baseOpts, opts...)
+
 	return NewVD(baseOpts...)
 }
 
@@ -98,6 +104,7 @@ func NewHTTPVDCustomBIOS(name, namespace string, opts ...vd.Option) *v1alpha2.Vi
 		}),
 	}
 	baseOpts = append(baseOpts, opts...)
+
 	return NewVD(baseOpts...)
 }
 
@@ -108,5 +115,6 @@ func NewVDFromCVI(name, namespace, cviName string, opts ...vd.Option) *v1alpha2.
 		vd.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, cviName),
 	}
 	baseOpts = append(baseOpts, opts...)
+
 	return NewVD(baseOpts...)
 }

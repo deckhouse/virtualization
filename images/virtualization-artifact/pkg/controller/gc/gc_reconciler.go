@@ -51,6 +51,7 @@ func NewReconciler(client client.Client, watchSource source.Source, mgr Reconcil
 func (r *Reconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	log := logger.FromContext(ctx)
 	obj := r.mgr.New()
+
 	err := r.client.Get(ctx, request.NamespacedName, obj)
 	if err != nil {
 		return reconcile.Result{}, client.IgnoreNotFound(err)

@@ -59,6 +59,7 @@ func (c *rwoImmediateStorageClassPrecheck) Run(ctx context.Context, f *framework
 	}
 
 	k8sClient := f.GenericClient()
+
 	var scList storagev1.StorageClassList
 	if err := k8sClient.List(ctx, &scList); err != nil {
 		return fmt.Errorf("%s=no to disable this precheck: list StorageClasses: %w", rwoImmediateStorageClassPrecheckEnvName, err)
@@ -68,6 +69,7 @@ func (c *rwoImmediateStorageClassPrecheck) Run(ctx context.Context, f *framework
 	if err != nil {
 		return fmt.Errorf("%s=no to disable this precheck: %w", rwoImmediateStorageClassPrecheckEnvName, err)
 	}
+
 	if sc == nil {
 		// No suite StorageClass at all: defaultStorageClassPrecheck reports that.
 		return nil
@@ -84,8 +86,10 @@ func (c *rwoImmediateStorageClassPrecheck) Run(ctx context.Context, f *framework
 		if err := f.RewriteClient().Get(ctx, name, obj); err != nil {
 			return nil, err
 		}
+
 		return obj.StorageProfile, nil
 	})
+
 	_, accessMode, err := modeGetter.GetVolumeAndAccessModes(ctx, sc)
 	if err != nil {
 		return fmt.Errorf("%s=no to disable this precheck: resolve access mode for StorageClass %q: %w", rwoImmediateStorageClassPrecheckEnvName, sc.Name, err)

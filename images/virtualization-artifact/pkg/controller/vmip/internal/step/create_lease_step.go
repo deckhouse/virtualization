@@ -78,6 +78,7 @@ func (s CreateLeaseStep) Take(ctx context.Context, vmip *v1alpha2.VirtualMachine
 			Status(metav1.ConditionFalse).
 			Reason(vmipcondition.VirtualMachineIPAddressLeaseNotReady).
 			Message(service.CapitalizeFirstLetter(err.Error()) + ".")
+
 		return nil, err
 	}
 
@@ -88,6 +89,7 @@ func (s CreateLeaseStep) Take(ctx context.Context, vmip *v1alpha2.VirtualMachine
 			Reason(vmipcondition.VirtualMachineIPAddressLeaseLost).
 			Message(fmt.Sprintf("The VirtualMachineIPAddressLease %q doesn't exist.", ip.IPToLeaseName(vmip.Status.Address)))
 		s.recorder.Event(vmip, corev1.EventTypeWarning, v1alpha2.ReasonFailed, fmt.Sprintf("The VirtualMachineIPAddressLease %q is lost.", ip.IPToLeaseName(vmip.Status.Address)))
+
 		return &reconcile.Result{}, nil
 	}
 
@@ -96,6 +98,7 @@ func (s CreateLeaseStep) Take(ctx context.Context, vmip *v1alpha2.VirtualMachine
 		if err != nil {
 			return nil, err
 		}
+
 		if useSDNPool {
 			return s.createLeaseForAddressFromSDN(ctx, vmip)
 		}
@@ -108,6 +111,7 @@ func (s CreateLeaseStep) Take(ctx context.Context, vmip *v1alpha2.VirtualMachine
 			Status(metav1.ConditionFalse).
 			Reason(vmipcondition.VirtualMachineIPAddressLeaseNotReady).
 			Message(service.CapitalizeFirstLetter(err.Error()) + ".")
+
 		return nil, err
 	}
 
@@ -123,6 +127,7 @@ func (s CreateLeaseStep) Take(ctx context.Context, vmip *v1alpha2.VirtualMachine
 				Status(metav1.ConditionFalse).
 				Reason(vmipcondition.VirtualMachineIPAddressLeaseNotReady).
 				Message(service.CapitalizeFirstLetter(err.Error()) + ".")
+
 			return nil, err
 		}
 	}
@@ -137,6 +142,7 @@ func (s CreateLeaseStep) Take(ctx context.Context, vmip *v1alpha2.VirtualMachine
 				Reason(vmipcondition.VirtualMachineIPAddressIsOutOfTheValidRange).
 				Message(msg)
 			s.recorder.Event(vmip, corev1.EventTypeWarning, v1alpha2.ReasonFailed, msg)
+
 			return &reconcile.Result{}, nil
 		}
 
@@ -145,6 +151,7 @@ func (s CreateLeaseStep) Take(ctx context.Context, vmip *v1alpha2.VirtualMachine
 			Status(metav1.ConditionFalse).
 			Reason(vmipcondition.VirtualMachineIPAddressLeaseNotReady).
 			Message(service.CapitalizeFirstLetter(err.Error()) + ".")
+
 		return &reconcile.Result{}, err
 	}
 
@@ -156,6 +163,7 @@ func (s CreateLeaseStep) Take(ctx context.Context, vmip *v1alpha2.VirtualMachine
 			Reason(vmipcondition.VirtualMachineIPAddressLeaseAlreadyExists).
 			Message(msg)
 		s.recorder.Event(vmip, corev1.EventTypeWarning, v1alpha2.ReasonBound, msg)
+
 		return &reconcile.Result{}, nil
 	}
 
@@ -169,9 +177,11 @@ func (s CreateLeaseStep) useSDNPool(ctx context.Context, vmip *v1alpha2.VirtualM
 	if err != nil {
 		return false, fmt.Errorf("check whether the sdn module serves the Main network: %w", err)
 	}
+
 	if !mainIPAMAvailable {
 		return false, nil
 	}
+
 	mirror, err := network.GetMirrorOfVMIP(ctx, s.client, vmip)
 	if err != nil {
 		return false, err
@@ -180,6 +190,7 @@ func (s CreateLeaseStep) useSDNPool(ctx context.Context, vmip *v1alpha2.VirtualM
 	if mirror != nil {
 		return true, nil
 	}
+
 	return network.VMIPAddressesTakenInSDNPool(ctx, s.client)
 }
 
@@ -195,9 +206,11 @@ func (s CreateLeaseStep) createLeaseForAddressFromSDN(ctx context.Context, vmip 
 	if err != nil {
 		return nil, err
 	}
+
 	if err := network.ReleaseTerminatingMirror(ctx, s.client, vmip, vm); err != nil {
 		return nil, err
 	}
+
 	mirror, err := network.EnsureAutoMirror(ctx, s.client, vmip, network.MirrorOwnerRef(vmip, vm, false))
 	switch {
 	case err != nil:
@@ -216,6 +229,7 @@ func (s CreateLeaseStep) createLeaseForAddressFromSDN(ctx context.Context, vmip 
 	// out such an address: the mirror is deleted and the vmip allocator picks another.
 	address := mirror.Status.Address
 	lease := &v1alpha2.VirtualMachineIPAddressLease{}
+
 	err = s.client.Get(ctx, types.NamespacedName{Name: ip.IPToLeaseName(address)}, lease)
 	switch {
 	case err == nil:
@@ -228,10 +242,13 @@ func (s CreateLeaseStep) createLeaseForAddressFromSDN(ctx context.Context, vmip 
 		if canTakeLease(lease, vmip) {
 			return NewTakeLeaseStep(lease, s.client, s.cb, s.recorder).Take(ctx, vmip)
 		}
+
 		if err := network.DeleteSDNIPAddressByName(ctx, s.client, vmip.Namespace, mirror.GetName()); err != nil {
 			return nil, err
 		}
+
 		setLeaseNotReadyCondition(s.cb, fmt.Sprintf("The IP address %q is already in use by another VirtualMachineIPAddress: picking another one.", address))
+
 		return &reconcile.Result{}, nil
 	case !k8serrors.IsNotFound(err):
 		return nil, fmt.Errorf("get the VirtualMachineIPAddressLease of %s: %w", address, err)
@@ -242,6 +259,7 @@ func (s CreateLeaseStep) createLeaseForAddressFromSDN(ctx context.Context, vmip 
 
 func canTakeLease(lease *v1alpha2.VirtualMachineIPAddressLease, vmip *v1alpha2.VirtualMachineIPAddress) bool {
 	ref := lease.Spec.VirtualMachineIPAddressRef
+
 	return lease.GetDeletionTimestamp() == nil &&
 		lease.Labels[annotations.LabelVirtualMachineIPAddressUID] == "" &&
 		(ref == nil || ref.Name == "" && (ref.Namespace == "" || ref.Namespace == vmip.Namespace))
@@ -259,6 +277,7 @@ func (s CreateLeaseStep) createLease(ctx context.Context, vmip *v1alpha2.Virtual
 			Reason(vmipcondition.VirtualMachineIPAddressLeaseNotReady).
 			Message(msg)
 		s.recorder.Event(vmip, corev1.EventTypeNormal, v1alpha2.ReasonBound, msg)
+
 		return &reconcile.Result{}, nil
 	case k8serrors.IsAlreadyExists(err):
 		// The cache is outdated and not keeping up with the state in the cluster.
@@ -268,6 +287,7 @@ func (s CreateLeaseStep) createLease(ctx context.Context, vmip *v1alpha2.Virtual
 			Status(metav1.ConditionFalse).
 			Reason(vmipcondition.VirtualMachineIPAddressLeaseNotFound).
 			Message("Waiting for the IP address to be allocated and a new VirtualMachineIPAddressLease to be created.")
+
 		return &reconcile.Result{RequeueAfter: 2 * time.Second}, nil
 	default:
 		err = fmt.Errorf("failed to create a new VirtualMachineIPAddressLease: %w", err)
@@ -275,6 +295,7 @@ func (s CreateLeaseStep) createLease(ctx context.Context, vmip *v1alpha2.Virtual
 			Status(metav1.ConditionFalse).
 			Reason(vmipcondition.VirtualMachineIPAddressLeaseNotFound).
 			Message(service.CapitalizeFirstLetter(err.Error()) + ".")
+
 		return nil, err
 	}
 }

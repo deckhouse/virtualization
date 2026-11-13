@@ -57,6 +57,7 @@ func (h *LifecycleHandler) Handle(ctx context.Context, lease *v1alpha2.VirtualMa
 	cb := conditions.NewConditionBuilder(vmmaclcondition.BoundType).Generation(lease.GetGeneration())
 
 	vmmacKey := types.NamespacedName{Name: lease.Spec.VirtualMachineMACAddressRef.Name, Namespace: lease.Spec.VirtualMachineMACAddressRef.Namespace}
+
 	vmmac, err := object.FetchObject(ctx, vmmacKey, h.client, &v1alpha2.VirtualMachineMACAddress{})
 	if err != nil {
 		cb.
@@ -64,6 +65,7 @@ func (h *LifecycleHandler) Handle(ctx context.Context, lease *v1alpha2.VirtualMa
 			Reason(conditions.ReasonUnknown).
 			Message(fmt.Sprintf("Failed to fetch VirtualMachineMACAddress: %s.", err))
 		conditions.SetCondition(cb, &lease.Status.Conditions)
+
 		return reconcile.Result{}, fmt.Errorf("fetch vmmac %s: %w", vmmacKey, err)
 	}
 
@@ -74,14 +76,17 @@ func (h *LifecycleHandler) Handle(ctx context.Context, lease *v1alpha2.VirtualMa
 			Reason(conditions.ReasonUnknown).
 			Message(fmt.Sprintf("VirtualMachineMACAddressLease is not bound: %s.", err.Error()))
 		conditions.SetCondition(cb, &lease.Status.Conditions)
+
 		return reconcile.Result{}, nil
 	}
 	// Valid MAC address was found: it matches both the lease name and the VirtualMachineMACAddressRef.
 	// Now create a "Bound" confirmation: set label with MAC address UID and set condition to True.
 	annotations.AddLabel(lease, annotations.LabelVirtualMachineMACAddressUID, string(vmmac.UID))
+
 	if lease.Status.Phase != v1alpha2.VirtualMachineMACAddressLeasePhaseBound {
 		h.recorder.Eventf(lease, corev1.EventTypeNormal, v1alpha2.ReasonBound, "VirtualMachineMACAddressLease is bound to \"%s/%s\".", vmmac.Namespace, vmmac.Name)
 	}
+
 	lease.Status.Phase = v1alpha2.VirtualMachineMACAddressLeasePhaseBound
 	cb.
 		Status(metav1.ConditionTrue).

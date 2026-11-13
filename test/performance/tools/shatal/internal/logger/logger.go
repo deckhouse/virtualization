@@ -54,5 +54,6 @@ func (w *Writer) Write(p []byte) (n int, err error) {
 	}
 
 	w.log.Debug(string(p))
+
 	return len(p), nil
 }

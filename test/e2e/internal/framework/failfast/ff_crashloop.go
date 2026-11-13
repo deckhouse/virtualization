@@ -37,11 +37,13 @@ func CrashLoop(pods Client[*corev1.Pod], namespace string) FailFast {
 		if pod.DeletionTimestamp != nil {
 			return nil
 		}
+
 		for _, status := range allContainerStatuses(pod) {
 			waiting := status.State.Waiting
 			if waiting == nil || waiting.Reason != "CrashLoopBackOff" || status.RestartCount < crashLoopRestartThreshold {
 				continue
 			}
+
 			if last := status.LastTerminationState.Terminated; last != nil {
 				if last.Reason == "OOMKilled" {
 					return &Finding{
@@ -49,16 +51,19 @@ func CrashLoop(pods Client[*corev1.Pod], namespace string) FailFast {
 							status.Name, status.RestartCount),
 					}
 				}
+
 				return &Finding{
 					Message: fmt.Sprintf("container %q is in CrashLoopBackOff (%d restarts), last exit: %s(%d): %s",
 						status.Name, status.RestartCount, last.Reason, last.ExitCode, last.Message),
 				}
 			}
+
 			return &Finding{
 				Message: fmt.Sprintf("container %q is in CrashLoopBackOff (%d restarts)",
 					status.Name, status.RestartCount),
 			}
 		}
+
 		return nil
 	})
 }

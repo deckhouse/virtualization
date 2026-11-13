@@ -68,6 +68,7 @@ func (h DatasourceReadyHandler) Handle(ctx context.Context, vd *v1alpha2.Virtual
 		ds = h.blank
 	} else {
 		var ok bool
+
 		ds, ok = h.sources.Get(vd.Spec.DataSource.Type)
 		if !ok {
 			return reconcile.Result{}, fmt.Errorf("data source validator not found for type: %s", vd.Spec.DataSource.Type)
@@ -81,6 +82,7 @@ func (h DatasourceReadyHandler) Handle(ctx context.Context, vd *v1alpha2.Virtual
 			Status(metav1.ConditionTrue).
 			Reason(vdcondition.DatasourceReady).
 			Message("")
+
 		return reconcile.Result{}, nil
 	case errors.Is(err, source.ErrSecretNotFound):
 		h.recorder.Event(
@@ -94,36 +96,42 @@ func (h DatasourceReadyHandler) Handle(ctx context.Context, vd *v1alpha2.Virtual
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ContainerRegistrySecretNotFound).
 			Message(service.CapitalizeFirstLetter(err.Error()) + ".")
+
 		return reconcile.Result{}, nil
 	case errors.As(err, &source.ImageNotReadyError{}):
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ImageNotReady).
 			Message(service.CapitalizeFirstLetter(err.Error()) + ".")
+
 		return reconcile.Result{}, nil
 	case errors.As(err, &source.ClusterImageNotReadyError{}):
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ClusterImageNotReady).
 			Message(service.CapitalizeFirstLetter(err.Error()) + ".")
+
 		return reconcile.Result{}, nil
 	case errors.As(err, &source.VirtualDiskSnapshotNotReadyError{}):
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.VirtualDiskSnapshotNotReady).
 			Message(service.CapitalizeFirstLetter(err.Error()) + ".")
+
 		return reconcile.Result{}, nil
 	case errors.As(err, &source.ImageNotFoundError{}):
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ImageNotFound).
 			Message(service.CapitalizeFirstLetter(err.Error()) + ".")
+
 		return reconcile.Result{}, nil
 	case errors.As(err, &source.ClusterImageNotFoundError{}):
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ClusterImageNotFound).
 			Message(service.CapitalizeFirstLetter(err.Error()) + ".")
+
 		return reconcile.Result{}, nil
 	default:
 		return reconcile.Result{}, fmt.Errorf("validation failed for data source %s: %w", ds.Name(), err)

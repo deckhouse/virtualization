@@ -81,6 +81,7 @@ func TestNormalizeSemVerRange_ParseableByBlangSemver(t *testing.T) {
 	for _, r := range ranges {
 		t.Run(r, func(t *testing.T) {
 			normalized := NormalizeSemVerRange(r)
+
 			_, err := semver.ParseRange(normalized)
 			if err != nil {
 				t.Errorf("NormalizeSemVerRange(%q) = %q, which is not parseable: %v", r, normalized, err)

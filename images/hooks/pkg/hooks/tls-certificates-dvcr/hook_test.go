@@ -43,6 +43,7 @@ func TestBeforeHookCheckSkipsWithoutModuleConfig(t *testing.T) {
 		mc := obj.(*mcapi.ModuleConfig)
 		mc.Name = "virtualization"
 		mc.Spec.Settings = nil
+
 		return nil
 	}}, nil)
 
@@ -50,6 +51,7 @@ func TestBeforeHookCheckSkipsWithoutModuleConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if ok {
 		t.Fatalf("expected module config check to return false")
 	}

@@ -39,7 +39,9 @@ func observations(stage, datasource string) uint64 {
 	for metric := range ch {
 		m := &dto.Metric{}
 		Expect(metric.Write(m)).To(Succeed())
+
 		var gotStage, gotDataSource string
+
 		for _, label := range m.GetLabel() {
 			switch label.GetName() {
 			case "stage":
@@ -48,10 +50,12 @@ func observations(stage, datasource string) uint64 {
 				gotDataSource = label.GetValue()
 			}
 		}
+
 		if gotStage == stage && gotDataSource == datasource {
 			return m.GetHistogram().GetSampleCount()
 		}
 	}
+
 	return 0
 }
 
@@ -75,6 +79,7 @@ var _ = Describe("StatsHandler", func() {
 
 	BeforeEach(func() {
 		h = StatsHandler{}
+
 		vdmetrics.ProvisioningDuration.Reset()
 	})
 
@@ -130,6 +135,7 @@ var _ = Describe("StatsHandler", func() {
 		changed := current.DeepCopy()
 		_, err = h.Handle(context.Background(), changed)
 		Expect(err).NotTo(HaveOccurred())
+
 		first := changed.Status.Stats.CreationDuration.TotalProvisioning.Duration
 		ObserveCreationDuration(current, changed)
 

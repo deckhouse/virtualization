@@ -60,6 +60,7 @@ func (w *VMWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error 
 					}
 
 					vd := &v1alpha2.VirtualDisk{}
+
 					err := c.Get(ctx, client.ObjectKey{Namespace: vm.Namespace, Name: bd.Name}, vd)
 					if err != nil {
 						w.log.Error("failed to get VirtualDisk", logger.SlogErr(err))
@@ -81,11 +82,13 @@ func (w *VMWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error 
 					if e.ObjectOld.Status.Phase == v1alpha2.MachineRunning || e.ObjectNew.Status.Phase != v1alpha2.MachineRunning {
 						return false
 					}
+
 					for _, bd := range e.ObjectNew.Spec.BlockDeviceRefs {
 						if bd.Kind == v1alpha2.DiskDevice {
 							return true
 						}
 					}
+
 					return false
 				},
 				DeleteFunc: func(e event.TypedDeleteEvent[*v1alpha2.VirtualMachine]) bool {
@@ -96,5 +99,6 @@ func (w *VMWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error 
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualDisk: %w", err)
 	}
+
 	return nil
 }

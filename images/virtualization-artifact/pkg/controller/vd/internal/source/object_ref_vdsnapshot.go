@@ -61,6 +61,7 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, vd *v1alpha2.Vi
 	sup := vdsupplements.NewGenerator(vd)
 
 	cb := conditions.NewConditionBuilder(vdcondition.ReadyType).Generation(vd.Generation)
+
 	defer func() { conditions.SetCondition(cb, &vd.Status.Conditions) }()
 
 	// pvc will be nil if the name empty or object is not found
@@ -103,6 +104,7 @@ func (ds ObjectRefVirtualDiskSnapshot) Validate(ctx context.Context, vd *v1alpha
 		if vdSnapshot.Status.Data == nil {
 			return NewVirtualDiskSnapshotNotReadyError(vd.Spec.DataSource.ObjectRef.Name)
 		}
+
 		return nil
 	}
 

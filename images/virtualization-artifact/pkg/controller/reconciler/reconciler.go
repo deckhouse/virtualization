@@ -86,8 +86,10 @@ func (r *BaseReconciler[H]) Reconcile(ctx context.Context) (reconcile.Result, er
 
 	logger.FromContext(ctx).Debug("Start reconciliation")
 
-	var result reconcile.Result
-	var errs error
+	var (
+		result reconcile.Result
+		errs   error
+	)
 
 handlersLoop:
 	for _, h := range r.handlers {
@@ -97,6 +99,7 @@ handlersLoop:
 		} else {
 			name = reflect.TypeOf(h).Elem().Name()
 		}
+
 		log := logger.FromContext(ctx).With(logger.SlogHandler(name))
 
 		res, err := r.execute(ctx, h)
@@ -105,10 +108,13 @@ handlersLoop:
 		case errors.Is(err, ErrStopHandlerChain):
 			msg := fmt.Sprintf("Handler %s stopped chain execution", name)
 			log.Debug(msg)
+
 			result = MergeResults(result, res)
+
 			break handlersLoop
 		case k8serrors.IsConflict(err):
 			log.Debug("Conflict occurred during handler execution", logger.SlogErr(err))
+
 			result.RequeueAfter = 100 * time.Microsecond
 		default:
 			log.Error("The handler failed with an error", logger.SlogErr(err))
@@ -123,9 +129,11 @@ handlersLoop:
 	case err == nil: // OK.
 	case k8serrors.IsConflict(err):
 		logger.FromContext(ctx).Debug("Conflict occurred during resource update", logger.SlogErr(err))
+
 		result.RequeueAfter = 100 * time.Microsecond
 	case strings.Contains(err.Error(), "no new finalizers can be added if the object is being deleted"):
 		logger.FromContext(ctx).Warn("Forbidden to add finalizers", logger.SlogErr(err))
+
 		result.RequeueAfter = 1 * time.Second
 	default:
 		logger.FromContext(ctx).Error("Failed to update resource", logger.SlogErr(err))

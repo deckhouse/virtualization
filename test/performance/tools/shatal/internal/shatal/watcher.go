@@ -99,6 +99,7 @@ func (c *Watcher) run(ctx context.Context) {
 		}
 
 		c.vmSubs[randomSub.Int64()].Do(ctx, vm)
+
 		if ok {
 			node.Unlock()
 		}

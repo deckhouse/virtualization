@@ -78,6 +78,7 @@ func VerifyVersion(docURL, expectedChannel, expectedVersion string) error {
 	}
 
 	fmt.Printf("Found version %s for channel %s on documentation site\n", foundVersion, expectedChannel)
+
 	return nil
 }
 
@@ -100,14 +101,17 @@ func CheckVersionWithRetries(channel, version, moduleName string, attempts int) 
 				fmt.Printf("Attempt %d/%d failed: %v", attempt, attempts, err)
 				fmt.Printf("Waiting %v before next attempt...\n", retryDelay)
 				time.Sleep(retryDelay)
+
 				continue
 			}
 			// Last attempt failed
 			fmt.Printf("Version %s validation failed on documentation site %s after %d attempts: %v", version, documentationURL, attempts, err)
+
 			return err
 		}
 
 		fmt.Printf("Version %s is valid on channel %s at documentation site\n", version, channel)
+
 		return nil
 	}
 

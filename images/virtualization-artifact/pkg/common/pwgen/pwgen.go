@@ -33,6 +33,7 @@ func generateString(length int, chars string) string {
 	for i, b := range bytes {
 		bytes[i] = chars[b%op]
 	}
+
 	return string(bytes)
 }
 

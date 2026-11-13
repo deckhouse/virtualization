@@ -45,8 +45,10 @@ var _ = Describe("InboundMigrationExtender", func() {
 
 	newExtenderWith := func(settings Settings, objs ...client.Object) *InboundMigrationExtender {
 		GinkgoHelper()
+
 		fakeClient, err := testutil.NewFakeClientWithObjects(objs...)
 		Expect(err).NotTo(HaveOccurred())
+
 		return NewInboundMigrationExtender(fakeClient, settings, testutil.NewNoOpLogger())
 	}
 
@@ -57,10 +59,12 @@ var _ = Describe("InboundMigrationExtender", func() {
 
 	scores := func(e *InboundMigrationExtender, pod *corev1.Pod) map[string]int64 {
 		GinkgoHelper()
+
 		result := make(map[string]int64)
 		for _, p := range e.Prioritize(ctx, Args{Pod: pod, NodeNames: &nodes}) {
 			result[p.Host] = p.Score
 		}
+
 		return result
 	}
 
@@ -213,6 +217,7 @@ func departingMigration(vmName, node string) []client.Object {
 			SourceNode:   node,
 		}},
 	}
+
 	return []client.Object{vmim, kvvmi}
 }
 

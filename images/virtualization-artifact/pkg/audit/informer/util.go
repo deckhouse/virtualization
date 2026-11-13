@@ -42,6 +42,7 @@ func VirtualizationInformerFactory(config *rest.Config) (virtInformers.SharedInf
 	if err != nil {
 		return nil, fmt.Errorf("unable to construct lister client: %w", err)
 	}
+
 	return virtInformers.NewSharedInformerFactory(client, defaultResync), nil
 }
 

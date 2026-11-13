@@ -69,6 +69,7 @@ var _ = Describe("RestartVM", func() {
 			Spec:     corev1.PodSpec{NodeName: testNodeName},
 			TypeMeta: metav1.TypeMeta{Kind: "Pod", APIVersion: corev1.SchemeGroupVersion.String()},
 		}
+
 		return testutil.NewFakeClientWithObjects(kvvm, kvvmi, pod)
 	}
 
@@ -79,6 +80,7 @@ var _ = Describe("RestartVM", func() {
 
 			kvvm := &virtv1.VirtualMachine{}
 			Expect(c.Get(context.Background(), testKey, kvvm)).To(Succeed())
+
 			kvvmi := &virtv1.VirtualMachineInstance{}
 			Expect(c.Get(context.Background(), testKey, kvvmi)).To(Succeed())
 
@@ -120,12 +122,14 @@ var _ = Describe("StopVM", func() {
 		got := &virtv1.VirtualMachineInstance{}
 		Expect(c.Get(context.Background(), testKey, got)).To(Succeed())
 		Expect(got.DeletionTimestamp).NotTo(BeNil())
+
 		return got.Spec.TerminationGracePeriodSeconds
 	}
 
 	It("keeps the grace period on a graceful stop", func() {
 		c, err := testutil.NewFakeClientWithObjects(newKVVMI())
 		Expect(err).NotTo(HaveOccurred())
+
 		kvvmi := &virtv1.VirtualMachineInstance{}
 		Expect(c.Get(context.Background(), testKey, kvvmi)).To(Succeed())
 
@@ -136,6 +140,7 @@ var _ = Describe("StopVM", func() {
 	It("zeroes the grace period on a force stop", func() {
 		c, err := testutil.NewFakeClientWithObjects(newKVVMI())
 		Expect(err).NotTo(HaveOccurred())
+
 		kvvmi := &virtv1.VirtualMachineInstance{}
 		Expect(c.Get(context.Background(), testKey, kvvmi)).To(Succeed())
 
@@ -149,6 +154,7 @@ var _ = Describe("StopVM", func() {
 		c, err := testutil.NewFakeClientWithObjects(newKVVMI())
 		Expect(err).NotTo(HaveOccurred())
 		Expect(c.Delete(context.Background(), newKVVMI())).To(Succeed())
+
 		terminating := &virtv1.VirtualMachineInstance{}
 		Expect(c.Get(context.Background(), testKey, terminating)).To(Succeed())
 		Expect(terminating.DeletionTimestamp).NotTo(BeNil())

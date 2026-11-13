@@ -136,6 +136,7 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+
 	instance = gate
 	addFlags = gateAddFlags
 }
@@ -171,6 +172,7 @@ func New() (featuregate.FeatureGate, AddFlagsFunc, SetFromMapFunc, error) {
 	if err := gate.Add(featureSpecs); err != nil {
 		return nil, nil, nil, err
 	}
+
 	return gate, gate.AddFlag, gate.SetFromMap, nil
 }
 
@@ -186,9 +188,11 @@ func NewUnlocked() (featuregate.FeatureGate, SetFromMapFunc, error) {
 			Version:       v.Version,
 		}
 	}
+
 	gate := featuregate.NewFeatureGate()
 	if err := gate.Add(newSpecs); err != nil {
 		return nil, nil, err
 	}
+
 	return gate, gate.SetFromMap, nil
 }

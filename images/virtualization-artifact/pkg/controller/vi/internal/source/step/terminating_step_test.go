@@ -39,6 +39,7 @@ var _ = Describe("TerminatingStep", func() {
 			if expectResult {
 				Expect(result).ToNot(BeNil())
 				Expect(result.IsZero()).To(BeFalse())
+
 				return
 			}
 

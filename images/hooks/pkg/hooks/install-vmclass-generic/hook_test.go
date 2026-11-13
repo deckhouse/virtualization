@@ -89,7 +89,9 @@ var _ = Describe("Install VMClass Generic hook", func() {
 			mock.NewSnapshotMock(GinkgoT()).UnmarshalToMock.Set(func(v any) error {
 				secret, ok := v.(*corev1.Secret)
 				Expect(ok).To(BeTrue())
+
 				*secret = *moduleStateSecret
+
 				return nil
 			}),
 		})
@@ -110,7 +112,9 @@ var _ = Describe("Install VMClass Generic hook", func() {
 			mock.NewSnapshotMock(GinkgoT()).UnmarshalToMock.Set(func(v any) error {
 				secret, ok := v.(*corev1.Secret)
 				Expect(ok).To(BeTrue())
+
 				*secret = *moduleStateSecret
+
 				return nil
 			}),
 		})
@@ -119,9 +123,12 @@ var _ = Describe("Install VMClass Generic hook", func() {
 	prepareVMClassInCluster := func(vmClass *v1alpha2.VirtualMachineClass) {
 		dc.GetK8sClientMock.Return(&fakeKubernetesClient{get: func(_ context.Context, key ctrlclient.ObjectKey, obj ctrlclient.Object) error {
 			Expect(key.Name).To(Equal(vmClassGenericName))
+
 			vmClassToGet, ok := obj.(*v1alpha2.VirtualMachineClass)
 			Expect(ok).To(BeTrue())
+
 			*vmClassToGet = *vmClass
+
 			return nil
 		}}, nil)
 	}
@@ -190,6 +197,7 @@ var _ = Describe("Install VMClass Generic hook", func() {
 
 	expectVMClassGeneric := func(obj interface{}) {
 		GinkgoHelper()
+
 		vmClass, ok := obj.(*v1alpha2.VirtualMachineClass)
 		Expect(ok).To(BeTrue())
 		Expect(vmClass.Name).To(Equal("generic"))

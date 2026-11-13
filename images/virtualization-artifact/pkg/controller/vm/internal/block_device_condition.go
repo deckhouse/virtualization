@@ -69,12 +69,14 @@ func (h *BlockDeviceHandler) handleVirtualDisksReadyForUse(ctx context.Context, 
 	if err != nil {
 		return false, err
 	}
+
 	diskState := h.getVirtualDisksState(vm, vds)
 
 	ready := len(vds) == diskState.counts.readyToUse
 	if !ready {
 		message := h.getStatusMessage(diskState, vds)
 		h.setConditionNotReady(vm, message)
+
 		return true, nil
 	}
 
@@ -250,6 +252,7 @@ func (h *BlockDeviceHandler) handleBlockDevicesReady(ctx context.Context, s stat
 		} else {
 			msg = fmt.Sprintf("Waiting for block devices to be ready: %d/%d", readyCount, len(current.Spec.BlockDeviceRefs))
 		}
+
 		if len(warnings) > 0 {
 			msg = msg + "; " + strings.Join(warnings, "; ")
 		}
@@ -266,11 +269,13 @@ func (h *BlockDeviceHandler) handleBlockDevicesReady(ctx context.Context, s stat
 		if canStartVM && isWFFC {
 			cb.Reason(vmcondition.ReasonWaitingForWaitForFirstConsumerBlockDevicesToBeReady)
 			conditions.SetCondition(cb, &changed.Status.Conditions)
+
 			return errBlockDeviceWaitForProvisioning
 		}
 
 		cb.Reason(vmcondition.ReasonBlockDevicesNotReady)
 		conditions.SetCondition(cb, &changed.Status.Conditions)
+
 		return errBlockDeviceNotReady
 	}
 
@@ -284,8 +289,10 @@ func (h *BlockDeviceHandler) countReadyBlockDevices(vm *v1alpha2.VirtualMachine,
 	}
 
 	var warnings []string
+
 	ready := 0
 	canStartKVVM := true
+
 	for _, bd := range vm.Spec.BlockDeviceRefs {
 		switch bd.Kind {
 		case v1alpha2.ImageDevice:
@@ -293,12 +300,14 @@ func (h *BlockDeviceHandler) countReadyBlockDevices(vm *v1alpha2.VirtualMachine,
 				ready++
 				continue
 			}
+
 			canStartKVVM = false
 		case v1alpha2.ClusterImageDevice:
 			if cvi, hasKey := s.CVIByName[bd.Name]; hasKey && cvi.Status.Phase == v1alpha2.ImageReady {
 				ready++
 				continue
 			}
+
 			canStartKVVM = false
 		case v1alpha2.DiskDevice:
 			vd, hasKey := s.VDByName[bd.Name]
@@ -314,7 +323,9 @@ func (h *BlockDeviceHandler) countReadyBlockDevices(vm *v1alpha2.VirtualMachine,
 
 			if vd.DeletionTimestamp != nil {
 				canStartKVVM = false
+
 				warnings = append(warnings, fmt.Sprintf("Virtual disk %s is terminating", vd.Name))
+
 				continue
 			}
 

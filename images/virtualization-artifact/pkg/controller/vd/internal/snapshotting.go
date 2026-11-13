@@ -78,6 +78,7 @@ func (h SnapshottingHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDis
 				Status(metav1.ConditionFalse).
 				Reason(vdcondition.SnapshottingNotAvailable).
 				Message("The virtual disk cannot be selected for snapshotting as it is currently resizing.")
+
 			return reconcile.Result{}, nil
 		}
 
@@ -87,6 +88,7 @@ func (h SnapshottingHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDis
 				Status(metav1.ConditionFalse).
 				Reason(vdcondition.SnapshottingNotAvailable).
 				Message("The virtual disk cannot be selected for snapshotting as it is currently being migrated.")
+
 			return reconcile.Result{}, nil
 		}
 
@@ -94,6 +96,7 @@ func (h SnapshottingHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDis
 			Status(metav1.ConditionTrue).
 			Reason(vdcondition.Snapshotting).
 			Message("The virtual disk is selected for taking a snapshot.")
+
 		return reconcile.Result{}, nil
 	}
 

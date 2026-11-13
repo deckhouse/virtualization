@@ -115,6 +115,7 @@ func (t *migratableTest) dropsConditionWhileStopped() {
 	Expect(vmObs.WaitFor(haveMigratableCondition(true), framework.MiddleTimeout)).To(Succeed())
 
 	By("Stopping the virtual machine")
+
 	vmop := vmopbuilder.New(
 		vmopbuilder.WithName(fmt.Sprintf("%s-migratable-stop", util.VmopE2ePrefix)),
 		vmopbuilder.WithNamespace(t.VM.Namespace),
@@ -148,6 +149,7 @@ func (t *migratableTest) patchNodeSelector(ctx context.Context, selector map[str
 	if selector == nil {
 		value = map[string]string{}
 	}
+
 	patch, err := json.Marshal([]map[string]any{{
 		"op":    "replace",
 		"path":  "/spec/nodeSelector",
@@ -164,6 +166,7 @@ func haveMigratableReason(reason vmcondition.MigratableReason) vmobs.Predicate {
 		if cond == nil {
 			return false, nil
 		}
+
 		return cond.Reason == reason.String(), nil
 	}
 }

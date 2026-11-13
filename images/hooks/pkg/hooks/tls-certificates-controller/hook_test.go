@@ -42,6 +42,7 @@ func TestBeforeHookCheckSkipsWithoutModuleConfig(t *testing.T) {
 	dc.GetK8sClientMock.Return(&fakeKubernetesClient{get: func(ctx context.Context, key ctrlclient.ObjectKey, obj ctrlclient.Object) error {
 		mc := obj.(*mcapi.ModuleConfig)
 		*mc = *settings.NewModuleConfigForTest(nil)
+
 		return nil
 	}}, nil)
 

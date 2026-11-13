@@ -29,6 +29,7 @@ func (o *SCP) buildSCPTarget(local templates.LocalSCPArgument, remote templates.
 	if o.recursive {
 		opts = append(opts, "-r")
 	}
+
 	if o.preserve {
 		opts = append(opts, "-p")
 	}
@@ -38,6 +39,7 @@ func (o *SCP) buildSCPTarget(local templates.LocalSCPArgument, remote templates.
 		target.WriteString(o.options.SSHUsername)
 		target.WriteRune('@')
 	}
+
 	target.WriteString(remote.Name)
 	target.WriteRune('.')
 	target.WriteString(remote.Namespace)
@@ -49,5 +51,6 @@ func (o *SCP) buildSCPTarget(local templates.LocalSCPArgument, remote templates.
 	} else {
 		opts = append(opts, target.String(), local.Path)
 	}
+
 	return opts
 }

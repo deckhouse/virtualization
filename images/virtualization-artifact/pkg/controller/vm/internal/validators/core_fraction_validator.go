@@ -95,6 +95,7 @@ func (v *CoreFractionValidator) validateSizingPolicy(ctx context.Context, vm *v1
 			// autoscaler picks the policy up once it exists.
 			return nil
 		}
+
 		return fmt.Errorf("get VirtualMachineClass %q: %w", vm.Spec.VirtualMachineClassName, err)
 	}
 
@@ -104,6 +105,7 @@ func (v *CoreFractionValidator) validateSizingPolicy(ctx context.Context, vm *v1
 	}
 
 	steps := sizingpolicy.AutoCoreFractionSteps(policy)
+
 	allowed := "no core fraction below 100%"
 	if len(steps) > 0 {
 		allowed = fmt.Sprintf("a single core fraction below 100%% (%s)", strings.Join(sizingpolicy.FormatCoreFractionValues(steps), ", "))

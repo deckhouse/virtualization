@@ -64,6 +64,7 @@ var _ = Describe("TestEvictHandler", func() {
 			Status: metav1.ConditionFalse,
 			Reason: vmcondition.ReasonNoMigrationTarget.String(),
 		})
+
 		return vm
 	}
 
@@ -76,6 +77,7 @@ var _ = Describe("TestEvictHandler", func() {
 			Status: metav1.ConditionTrue,
 			Reason: vmcondition.ReasonWaitingForMigrationTarget.String(),
 		})
+
 		return vm
 	}
 
@@ -89,6 +91,7 @@ var _ = Describe("TestEvictHandler", func() {
 				Message: "Some message",
 			})
 		}
+
 		if migratable != "" {
 			vm.Status.Conditions = append(vm.Status.Conditions, metav1.Condition{
 				Type:   vmcondition.TypeMigratable.String(),
@@ -96,6 +99,7 @@ var _ = Describe("TestEvictHandler", func() {
 				Reason: vmcondition.ReasonMigratable.String(),
 			})
 		}
+
 		return vm
 	}
 
@@ -104,6 +108,7 @@ var _ = Describe("TestEvictHandler", func() {
 		kvvmi.Status.EvacuationNodeName = evacuationNodeName
 		kvvmi.Status.Phase = phase
 		kvvmi.Status.NodeName = nodeName
+
 		return kvvmi
 	}
 
@@ -112,6 +117,7 @@ var _ = Describe("TestEvictHandler", func() {
 		for k, v := range extra {
 			out[k] = v
 		}
+
 		return out
 	}
 
@@ -136,6 +142,7 @@ var _ = Describe("TestEvictHandler", func() {
 	DescribeTable("Condition EvictionRequired should be in expected state",
 		func(vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, node *corev1.Node, condShouldExists bool, expectedReason vmcondition.EvictionRequiredReason) {
 			fakeClient, resource, vmState = setupEnvironment(vm, kvvmi, node)
+
 			reconcile()
 
 			newVM := &v1alpha2.VirtualMachine{}

@@ -117,8 +117,10 @@ var _ = Describe("VirtualDiskSnapshots", Label(label.SIGStorage, precheck.Preche
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Creating snapshot")
+
 		vdSnapshot := generateVDSnapshot("vdsnapshot", vd)
 		frozen := expectFilesystemFroze(vmObs)
+
 		Expect(f.CreateWithDeferredDeletion(ctx, vdSnapshot)).To(Succeed())
 		Expect(<-frozen).To(Succeed(), "the VM filesystem should freeze during the snapshot")
 
@@ -141,6 +143,7 @@ var _ = Describe("VirtualDiskSnapshots", Label(label.SIGStorage, precheck.Preche
 		DeferCleanup(f.After)
 
 		By("Environment preparation")
+
 		vd := object.NewVDFromCVI(
 			"vd-no-consumer",
 			f.Namespace().Name,
@@ -179,6 +182,7 @@ var _ = Describe("VirtualDiskSnapshots", Label(label.SIGStorage, precheck.Preche
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Creating snapshot")
+
 		vdSnapshot := generateVDSnapshot("vdsnapshot", vd)
 		Expect(f.CreateWithDeferredDeletion(ctx, vdSnapshot)).To(Succeed())
 
@@ -195,6 +199,7 @@ var _ = Describe("VirtualDiskSnapshots", Label(label.SIGStorage, precheck.Preche
 		DeferCleanup(f.After)
 
 		By("Environment preparation")
+
 		vdRoot := object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVICustomBIOS, vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))), vdbuilder.WithStorageClass(defaultStorageClass()))
 		vdAttach := object.NewBlankVD("vd-attach", f.Namespace().Name, defaultStorageClass(), ptr.To(resource.MustParse(vdCreationImageSize)))
 
@@ -212,17 +217,21 @@ var _ = Describe("VirtualDiskSnapshots", Label(label.SIGStorage, precheck.Preche
 
 		vmObs := vmobs.StartObserver(ctx, f, vm)
 		vmObs.Never(vmobs.BeFailed())
+
 		vmbdaObs := vmbdaobs.StartObserver(ctx, f, vmbda)
 		vmbdaObs.Never(vmbdaobs.BeFailed())
+
 		err = vmObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)
 		Expect(err).NotTo(HaveOccurred())
 		err = vmbdaObs.WaitFor(vmbdaobs.BeAttached(), framework.LongTimeout)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Creating snapshots")
+
 		vdSnapshotRoot := generateVDSnapshot("vdsnapshot-root", vdRoot)
 		vdSnapshotAttach := generateVDSnapshot("vdsnapshot-attach", vdAttach)
 		frozen := expectFilesystemFroze(vmObs)
+
 		Expect(f.CreateWithDeferredDeletion(ctx, vdSnapshotRoot, vdSnapshotAttach)).To(Succeed())
 		Expect(<-frozen).To(Succeed(), "the VM filesystem should freeze during the snapshot")
 
@@ -246,6 +255,7 @@ var _ = Describe("VirtualDiskSnapshots", Label(label.SIGStorage, precheck.Preche
 		DeferCleanup(f.After)
 
 		By("Environment preparation")
+
 		vdRoot := object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVICustomBIOS, vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))), vdbuilder.WithStorageClass(defaultStorageClass()))
 		vdAttach := object.NewBlankVD("vd-attach", f.Namespace().Name, defaultStorageClass(), ptr.To(resource.MustParse(vdCreationImageSize)))
 
@@ -263,16 +273,20 @@ var _ = Describe("VirtualDiskSnapshots", Label(label.SIGStorage, precheck.Preche
 
 		vmObs := vmobs.StartObserver(ctx, f, vm)
 		vmObs.Never(vmobs.BeFailed())
+
 		vmbdaObs := vmbdaobs.StartObserver(ctx, f, vmbda)
 		vmbdaObs.Never(vmbdaobs.BeFailed())
+
 		err = vmObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)
 		Expect(err).NotTo(HaveOccurred())
 		err = vmbdaObs.WaitFor(vmbdaobs.BeAttached(), framework.LongTimeout)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Creating snapshots")
+
 		frozen := expectFilesystemFroze(vmObs)
 		vdSnapshots := concurentlyVDSnapshotsCreation(ctx, f, []*v1alpha2.VirtualDisk{vdRoot, vdAttach}, 5)
+
 		Expect(<-frozen).To(Succeed(), "the VM filesystem should freeze during the snapshot")
 
 		By("Waiting for ready snapshots phase")
@@ -281,6 +295,7 @@ var _ = Describe("VirtualDiskSnapshots", Label(label.SIGStorage, precheck.Preche
 		waitVDSnapshotsReady(ctx, f, framework.LongTimeout, vdSnapshots...)
 
 		By("Checking VirtualDiskSnapshots consistency")
+
 		for _, vdSnapshot := range vdSnapshots {
 			checkVdSnapshotConsistentlyAndReadyToUse(ctx, f, vdSnapshot)
 		}
@@ -311,10 +326,13 @@ func checkVdSnapshotConsistentlyAndReadyToUse(ctx context.Context, f *framework.
 // the returned channel after creating the snapshot.
 func expectFilesystemFroze(vmObs vmobs.Observer) <-chan error {
 	ch := make(chan error, 1)
+
 	go func() {
 		defer GinkgoRecover()
+
 		ch <- vmObs.WaitFor(vmobs.BeFilesystemFrozen(), framework.MiddleTimeout)
 	}()
+
 	return ch
 }
 
@@ -322,6 +340,7 @@ func expectFilesystemFroze(vmObs vmobs.Observer) <-chan error {
 // Observer per snapshot.
 func waitVDSnapshotsReady(ctx context.Context, f *framework.Framework, timeout time.Duration, snapshots ...*v1alpha2.VirtualDiskSnapshot) {
 	GinkgoHelper()
+
 	for _, snapshot := range snapshots {
 		obs := vdsnapshotobs.StartObserver(ctx, f, snapshot)
 		err := obs.WaitFor(vdsnapshotobs.BeReady(), timeout)
@@ -372,6 +391,7 @@ func checkVMUnfrozen(ctx context.Context, f *framework.Framework, vm *v1alpha2.V
 	GinkgoHelper()
 
 	var currentVM v1alpha2.VirtualMachine
+
 	err := f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vm), &currentVM)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -399,7 +419,9 @@ func concurentlyVDSnapshotsCreation(ctx context.Context, f *framework.Framework,
 	for _, vdSnapshot := range vdSnapshots {
 		go func(vdSnapshot *v1alpha2.VirtualDiskSnapshot) {
 			GinkgoRecover()
+
 			defer wg.Done()
+
 			err := f.GenericClient().Create(ctx, vdSnapshot)
 			Expect(err).NotTo(HaveOccurred())
 		}(vdSnapshot)

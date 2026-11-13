@@ -42,6 +42,7 @@ func BeFailed() Predicate {
 		if pod.Status.Phase == corev1.PodFailed {
 			return true, fmt.Errorf("pod entered Failed phase: %s", containerDiagnostics(pod))
 		}
+
 		return false, nil
 	}
 }
@@ -56,8 +57,10 @@ func containerDiagnostics(pod *corev1.Pod) string {
 			parts = append(parts, fmt.Sprintf("%s terminated %s(%d): %s", status.Name, status.State.Terminated.Reason, status.State.Terminated.ExitCode, status.State.Terminated.Message))
 		}
 	}
+
 	if len(parts) == 0 {
 		return "no container diagnostics"
 	}
+
 	return strings.Join(parts, "; ")
 }

@@ -133,6 +133,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *v1alpha2.VirtualImage)
 		result reconcile.Result
 		err    error
 	)
+
 	switch vi.Spec.Storage {
 	case v1alpha2.StorageKubernetes, v1alpha2.StoragePersistentVolumeClaim:
 		result, err = ds.StoreToPVC(ctx, vi)
@@ -141,6 +142,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *v1alpha2.VirtualImage)
 	default:
 		return reconcile.Result{}, fmt.Errorf("unknown spec storage: %s", vi.Spec.Storage)
 	}
+
 	if err != nil {
 		// The namespace is being torn down (e.g. Project/namespace cleanup): the
 		// VirtualImage is going away too, so creating helper objects is legitimately
@@ -151,8 +153,10 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *v1alpha2.VirtualImage)
 				Reason(vicondition.Provisioning).
 				Message("Namespace is terminating: provisioning is paused.")
 			conditions.SetCondition(cb, &vi.Status.Conditions)
+
 			return reconcile.Result{}, nil
 		}
+
 		return result, err
 	}
 

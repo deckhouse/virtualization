@@ -41,6 +41,7 @@ type Executor interface {
 func (e CMDExecutor) Exec(command string) *CMDResult {
 	ctx, cancel := context.WithTimeout(context.Background(), DefaultTimeout)
 	defer cancel()
+
 	return e.ExecContext(ctx, command)
 }
 
@@ -48,6 +49,7 @@ func (e CMDExecutor) ExecContext(ctx context.Context, command string) *CMDResult
 	stdout := new(Buffer)
 	stderr := new(Buffer)
 	err := e.ExecuteContext(ctx, command, stdout, stderr)
+
 	cmdResult := &CMDResult{
 		stdOut:  stdout,
 		stdErr:  stderr,
@@ -58,6 +60,7 @@ func (e CMDExecutor) ExecContext(ctx context.Context, command string) *CMDResult
 		cmdResult.success = false
 		cmdResult.err = err
 	}
+
 	return cmdResult
 }
 
@@ -74,6 +77,7 @@ func (e CMDExecutor) ExecuteContext(ctx context.Context, command string, stdout,
 	cmd.Stdin = os.Stdin
 	cmd.Stderr = stderr
 	cmd.Stdout = stdout
+
 	return cmd.Run()
 }
 
@@ -89,6 +93,7 @@ func (e CMDExecutor) MakeCmd(ctx context.Context, command string) *exec.Cmd {
 		return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 	}
 	cmd.WaitDelay = 10 * time.Second
+
 	return cmd
 }
 
@@ -99,6 +104,7 @@ func mergeEnvs(curr, override []string) []string {
 		envName, envValue, _ := strings.Cut(currEnv, "=")
 		envMap[envName] = envValue
 	}
+
 	for _, newEnv := range override {
 		envName, envValue, _ := strings.Cut(newEnv, "=")
 		envMap[envName] = envValue
@@ -108,6 +114,7 @@ func mergeEnvs(curr, override []string) []string {
 	for name, val := range envMap {
 		res = append(res, fmt.Sprintf("%s=%s", name, val))
 	}
+
 	return res
 }
 

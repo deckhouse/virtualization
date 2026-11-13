@@ -59,12 +59,15 @@ func (w *NetworkWatcher) Watch(mgr manager.Manager, ctr controller.Controller) e
 	if !w.featureGate.Enabled(featuregates.SDN) {
 		return nil
 	}
+
 	if err := w.watchOne(mgr, ctr, commonnetwork.ClusterNetworkGVK, indexer.IndexFieldVMByClusterNetwork, true); err != nil {
 		return err
 	}
+
 	if err := w.watchOne(mgr, ctr, commonnetwork.NetworkGVK, indexer.IndexFieldVMByNetwork, false); err != nil {
 		return err
 	}
+
 	return w.watchIPAddress(mgr, ctr)
 }
 
@@ -90,15 +93,18 @@ func (w *NetworkWatcher) watchOne(mgr manager.Manager, ctr controller.Controller
 	); err != nil {
 		return fmt.Errorf("error setting watch on %s: %w", gvk.Kind, err)
 	}
+
 	return nil
 }
 
 func (w *NetworkWatcher) enqueueVMsReferencingNetwork(ctx context.Context, obj *unstructured.Unstructured, indexField string, clusterScoped bool) []reconcile.Request {
 	var vms v1alpha2.VirtualMachineList
+
 	listOpts := []client.ListOption{client.MatchingFields{indexField: obj.GetName()}}
 	if !clusterScoped {
 		listOpts = append(listOpts, client.InNamespace(obj.GetNamespace()))
 	}
+
 	if err := w.client.List(ctx, &vms, listOpts...); err != nil {
 		log.Default().Error(fmt.Sprintf("network watcher: failed to list VMs: %s", err))
 		return nil
@@ -110,6 +116,7 @@ func (w *NetworkWatcher) enqueueVMsReferencingNetwork(ctx context.Context, obj *
 			NamespacedName: types.NamespacedName{Name: vm.Name, Namespace: vm.Namespace},
 		})
 	}
+
 	return requests
 }
 
@@ -135,6 +142,7 @@ func (w *NetworkWatcher) watchIPAddress(mgr manager.Manager, ctr controller.Cont
 	); err != nil {
 		return fmt.Errorf("error setting watch on IPAddress: %w", err)
 	}
+
 	return nil
 }
 
@@ -145,6 +153,7 @@ func (w *NetworkWatcher) watchIPAddress(mgr manager.Manager, ctr controller.Cont
 //   - the VM its label names: a terminating IPAddress may have no ownerRef left.
 func (w *NetworkWatcher) enqueueVMsOfIPAddress(ctx context.Context, ipa *sdnapi.IPAddress) []reconcile.Request {
 	var requests []reconcile.Request
+
 	seen := make(map[types.NamespacedName]struct{})
 
 	// 1. Owner reference (auto-IPAddress created by controller).
@@ -164,9 +173,12 @@ func (w *NetworkWatcher) enqueueVMsOfIPAddress(ctx context.Context, ipa *sdnapi.
 		log.Default().Error(fmt.Sprintf("ipaddress watcher: failed to list VMs: %s", err))
 		return requests
 	}
+
 	address := commonnetwork.AddressOfIPAddress(ipa)
+
 	for _, vm := range vms.Items {
 		matched := false
+
 		for _, ns := range vm.Spec.Networks {
 			if ns.IPAddressName == ipa.GetName() {
 				matched = true
@@ -182,6 +194,7 @@ func (w *NetworkWatcher) enqueueVMsOfIPAddress(ctx context.Context, ipa *sdnapi.
 		if !matched && ipa.GetLabels()[annotations.LabelVirtualMachineUID] == string(vm.UID) {
 			matched = true
 		}
+
 		if matched {
 			nn := types.NamespacedName{Name: vm.Name, Namespace: vm.Namespace}
 			if _, ok := seen[nn]; !ok {
@@ -210,6 +223,7 @@ func ipAddressAllocatedStatus(ipa *sdnapi.IPAddress) metav1.ConditionStatus {
 	if cond == nil {
 		return ""
 	}
+
 	return cond.Status
 }
 
@@ -219,28 +233,35 @@ func readyConditionStatus(obj *unstructured.Unstructured) string {
 		log.Default().Error(fmt.Sprintf("network watcher: read status.conditions of %s/%s: %s", obj.GetKind(), obj.GetName(), err))
 		return ""
 	}
+
 	if !found {
 		return ""
 	}
+
 	for _, c := range conds {
 		m, ok := c.(map[string]any)
 		if !ok {
 			continue
 		}
+
 		t, _, err := unstructured.NestedString(m, "type")
 		if err != nil {
 			log.Default().Error(fmt.Sprintf("network watcher: read condition.type of %s/%s: %s", obj.GetKind(), obj.GetName(), err))
 			return ""
 		}
+
 		if t != "Ready" {
 			continue
 		}
+
 		s, _, err := unstructured.NestedString(m, "status")
 		if err != nil {
 			log.Default().Error(fmt.Sprintf("network watcher: read Ready condition.status of %s/%s: %s", obj.GetKind(), obj.GetName(), err))
 			return ""
 		}
+
 		return s
 	}
+
 	return ""
 }

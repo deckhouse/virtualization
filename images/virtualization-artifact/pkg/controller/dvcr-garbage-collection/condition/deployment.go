@@ -28,6 +28,7 @@ import (
 
 func NewGarbageCollectionCondition(reason dvcrdeploymentcondition.GarbageCollectionReason, msgf string, args ...any) appsv1.DeploymentCondition {
 	status := "Unknown"
+
 	switch reason {
 	case dvcrdeploymentcondition.Completed,
 		dvcrdeploymentcondition.Error:
@@ -56,19 +57,24 @@ func UpdateGarbageCollectionCondition(deploy *appsv1.Deployment, reason dvcrdepl
 	// Add or update existing condition.
 	filteredConditions := make([]appsv1.DeploymentCondition, 0, len(deploy.Status.Conditions))
 	existing := false
+
 	for _, cond := range deploy.Status.Conditions {
 		if cond.Type == dvcrdeploymentcondition.GarbageCollectionType {
 			if cond.Reason != condition.Reason || cond.Message != condition.Message {
 				condition.LastTransitionTime = metav1.Now()
 			}
+
 			cond = condition
 			existing = true
 		}
+
 		filteredConditions = append(filteredConditions, cond)
 	}
+
 	if !existing {
 		filteredConditions = append(filteredConditions, condition)
 	}
+
 	deploy.Status.Conditions = filteredConditions
 }
 
@@ -76,10 +82,12 @@ func GetGarbageCollectionCondition(deploy *appsv1.Deployment) appsv1.DeploymentC
 	if deploy == nil {
 		return appsv1.DeploymentCondition{}
 	}
+
 	for _, cond := range deploy.Status.Conditions {
 		if cond.Type == dvcrdeploymentcondition.GarbageCollectionType {
 			return cond
 		}
 	}
+
 	return appsv1.DeploymentCondition{}
 }

@@ -40,17 +40,21 @@ func TestRenderFixture(t *testing.T) {
 	}
 
 	pages := map[string]string{}
+
 	for _, lang := range []string{"en", "ru"} {
 		page, err := renderMarkdown(releases, lang, false)
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		pages[pageName(lang)] = page
 	}
+
 	changelog, err := renderChangelog(&releases[0])
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	pages["changelog.yaml"] = changelog
 
 	for name, got := range pages {
@@ -59,12 +63,15 @@ func TestRenderFixture(t *testing.T) {
 			if err := os.WriteFile(golden, []byte(got), 0o644); err != nil {
 				t.Fatal(err)
 			}
+
 			continue
 		}
+
 		want, err := os.ReadFile(golden)
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		if got != string(want) {
 			t.Errorf("%s does not match the golden file:\n--- got ---\n%s", name, got)
 		}
@@ -76,6 +83,7 @@ func TestCheckAcceptsTheFixture(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if problems := check(releases, ""); len(problems) > 0 {
 		t.Errorf("unexpected problems: %v", problems)
 	}
@@ -282,6 +290,7 @@ func TestCheckProblems(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			releases := decode(t, test.source)
+
 			problems := strings.Join(check(releases, ""), "\n")
 			if !strings.Contains(problems, test.want) {
 				t.Errorf("expected a problem about %q, got:\n%s", test.want, problems)
@@ -307,6 +316,7 @@ func TestNewestIsUsedForTheChangelog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if !strings.Contains(changelog, "New one.") {
 		t.Errorf("the changelog is not the newest release:\n%s", changelog)
 	}
@@ -330,6 +340,7 @@ func TestPrintRelease(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if !strings.HasPrefix(notes, "## v1.1.0") || strings.Contains(notes, "v1.0.0") {
 		t.Errorf("expected only the newest release, got:\n%s", notes)
 	}
@@ -338,6 +349,7 @@ func TestPrintRelease(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if !strings.Contains(notes, "](https://deckhouse.ru/modules/virtualization/cr.html#virtualdisk)") {
 		t.Errorf("expected the chosen release with absolute links, got:\n%s", notes)
 	}
@@ -363,6 +375,7 @@ func TestMarkdownWithAbsoluteLinks(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		if !strings.Contains(page, "]("+base+"/modules/virtualization/cr.html#virtualmachine)") {
 			t.Errorf("%s: expected links on the domain %s, got:\n%s", lang, base, page)
 		}
@@ -379,13 +392,16 @@ func TestRenderRefusesAForeignVersion(t *testing.T) {
   - {en: One., ru: Один.}`)
 
 	dir := t.TempDir()
+
 	err := render(releases, dir, "v1.0.9", false)
 	if err == nil || !strings.Contains(err.Error(), "v1.1.0") {
 		t.Errorf("expected the foreign version to be refused, got %v", err)
 	}
+
 	if err := render(releases, dir, "v1.1.0", false); err != nil {
 		t.Fatal(err)
 	}
+
 	if err := render(releases, dir, "", false); err != nil {
 		t.Fatal(err)
 	}
@@ -406,10 +422,12 @@ func TestKeptNewlineIsTrimmed(t *testing.T) {
 	if got := releases[0].Highlights.Items[0].En; got != "One." {
 		t.Errorf("expected the trailing newline to be trimmed, got %q", got)
 	}
+
 	page, err := renderMarkdown(releases, "en", false)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if strings.Contains(page, "- One.\n\n\n") {
 		t.Errorf("an empty line leaked into the list:\n%s", page)
 	}
@@ -420,6 +438,7 @@ func TestKeptNewlineIsTrimmed(t *testing.T) {
 // section.
 func TestDanglingKeyIsRejected(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "release-notes.yaml")
+
 	source := `
 - version: v1.0.0
   date: '2026-01-01'
@@ -429,6 +448,7 @@ func TestDanglingKeyIsRejected(t *testing.T) {
 	if err := os.WriteFile(path, []byte(source), 0o644); err != nil {
 		t.Fatal(err)
 	}
+
 	_, err := load(path)
 	if err == nil || !strings.Contains(err.Error(), "has no value") {
 		t.Errorf("expected the dangling key to be rejected, got %v", err)
@@ -468,6 +488,7 @@ func TestUnknownKeyInANoteIsRejected(t *testing.T) {
 			if err := os.WriteFile(path, []byte(test.source), 0o644); err != nil {
 				t.Fatal(err)
 			}
+
 			_, err := load(path)
 			if err == nil || !strings.Contains(err.Error(), "unknown key") {
 				t.Errorf("expected the unknown key in a note to be rejected, got %v", err)
@@ -480,6 +501,7 @@ func TestUnknownKeyInANoteIsRejected(t *testing.T) {
 // group key is expected.
 func TestItemWithoutAGroupIsRejected(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "release-notes.yaml")
+
 	source := `
 - version: v1.0.0
   date: '2026-01-01'
@@ -491,6 +513,7 @@ func TestItemWithoutAGroupIsRejected(t *testing.T) {
 	if err := os.WriteFile(path, []byte(source), 0o644); err != nil {
 		t.Fatal(err)
 	}
+
 	_, err := load(path)
 	if err == nil || !strings.Contains(err.Error(), "holds a list of items") {
 		t.Errorf("expected a readable message about the missing group, got %v", err)
@@ -501,10 +524,12 @@ func TestItemWithoutAGroupIsRejected(t *testing.T) {
 // message does not say why, so the tool adds the reason.
 func TestColonInAnUnquotedNoteIsExplained(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "release-notes.yaml")
+
 	source := "- version: v1.0.0\n  date: '2026-01-01'\n  highlights:\n  - en: Broken text: with a colon.\n    ru: Сломанный текст.\n"
 	if err := os.WriteFile(path, []byte(source), 0o644); err != nil {
 		t.Fatal(err)
 	}
+
 	_, err := load(path)
 	if err == nil || !strings.Contains(err.Error(), "has to be quoted") {
 		t.Errorf("expected the colon to be explained, got %v", err)
@@ -515,6 +540,7 @@ func TestColonInAnUnquotedNoteIsExplained(t *testing.T) {
 // whose changelog lists one and whose notes do not name it is a problem.
 func TestAdvisoryMissingFromTheNotes(t *testing.T) {
 	dir := t.TempDir()
+
 	changelog := "core:\n  fixes:\n    - summary: Fixed vulnerabilities CVE-2026-1000 and CVE-2026-2000.\n" +
 		"    - summary: Reworked GO-based tooling and GHSA- prefix handling, GO-2026-3000 remains.\n"
 	if err := os.WriteFile(filepath.Join(dir, "CHANGELOG-v1.0.0.yml"), []byte(changelog), 0o644); err != nil {
@@ -537,6 +563,7 @@ func TestAdvisoryMissingFromTheNotes(t *testing.T) {
 			t.Errorf("expected the unannounced vulnerability %s to be reported, got:\n%s", id, problems)
 		}
 	}
+
 	if strings.Contains(problems, "CVE-2026-1000") {
 		t.Errorf("the announced vulnerability must not be reported:\n%s", problems)
 	}
@@ -544,6 +571,7 @@ func TestAdvisoryMissingFromTheNotes(t *testing.T) {
 	if strings.Contains(problems, "GO-based") || strings.Contains(problems, "GHSA-") {
 		t.Errorf("a word is mistaken for an advisory:\n%s", problems)
 	}
+
 	if problems := check(releases, ""); len(problems) > 0 {
 		t.Errorf("without a changelog directory there is nothing to compare: %v", problems)
 	}
@@ -556,6 +584,7 @@ func TestCutKeepsRunesWhole(t *testing.T) {
 	if got := cut(long); !utf8.ValidString(got) || got != strings.Repeat("я", 110) {
 		t.Errorf("expected 110 whole letters, got %q", got)
 	}
+
 	if got := cut("short\nrest"); got != "short" {
 		t.Errorf("expected the first line, got %q", got)
 	}
@@ -563,6 +592,7 @@ func TestCutKeepsRunesWhole(t *testing.T) {
 
 func TestUnknownSectionIsRejected(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "release-notes.yaml")
+
 	source := `
 - version: v1.0.0
   date: '2026-01-01'
@@ -573,6 +603,7 @@ func TestUnknownSectionIsRejected(t *testing.T) {
 	if err := os.WriteFile(path, []byte(source), 0o644); err != nil {
 		t.Fatal(err)
 	}
+
 	_, err := load(path)
 	if err == nil || !strings.Contains(err.Error(), "performance") {
 		t.Errorf("expected the unknown section to be rejected, got %v", err)
@@ -591,6 +622,7 @@ func TestChangelogLinksAreAbsolute(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if !strings.Contains(changelog, "](https://deckhouse.io/modules/virtualization/cr.html#virtualmachine)") {
 		t.Errorf("the Console changelog needs absolute links:\n%s", changelog)
 	}
@@ -599,6 +631,7 @@ func TestChangelogLinksAreAbsolute(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if strings.Contains(page, "https://deckhouse.io") {
 		t.Errorf("the documentation links by path:\n%s", page)
 	}
@@ -609,22 +642,27 @@ func TestRealSource(t *testing.T) {
 	if _, err := os.Stat(realSource); os.IsNotExist(err) {
 		t.Skipf("no %s", realSource)
 	}
+
 	releases, err := load(realSource)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if problems := check(releases, filepath.Dir(realSource)); len(problems) > 0 {
 		t.Errorf("%s has problems:\n%s", realSource, strings.Join(problems, "\n"))
 	}
+
 	for _, lang := range []string{"en", "ru"} {
 		page, err := renderMarkdown(releases, lang, false)
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		if !strings.HasPrefix(page, "---\ntitle: ") || !strings.HasSuffix(page, "\n") {
 			t.Errorf("%s page does not look like a documentation page", lang)
 		}
 	}
+
 	if _, err := renderChangelog(&releases[0]); err != nil {
 		t.Fatal(err)
 	}
@@ -632,13 +670,16 @@ func TestRealSource(t *testing.T) {
 
 func decode(t *testing.T, source string) []Release {
 	t.Helper()
+
 	path := filepath.Join(t.TempDir(), "release-notes.yaml")
 	if err := os.WriteFile(path, []byte(source), 0o644); err != nil {
 		t.Fatal(err)
 	}
+
 	releases, err := load(path)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return releases
 }

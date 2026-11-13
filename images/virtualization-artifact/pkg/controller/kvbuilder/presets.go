@@ -38,6 +38,7 @@ func (l DeviceOptionsList) Find(enableParavirtualization bool) DeviceOptions {
 			return opts
 		}
 	}
+
 	panic(fmt.Sprintf("cannot find preset for enableParavirtualization=%v", enableParavirtualization))
 }
 
@@ -52,6 +53,7 @@ func (o DeviceOptions) Buses(isHotplugged bool) (diskBus, cdromBus virtv1.DiskBu
 	if isHotplugged {
 		return virtv1.DiskBusSCSI, virtv1.DiskBusSCSI
 	}
+
 	return o.DiskBus, o.CdromBus
 }
 

@@ -46,12 +46,15 @@ kubevirt_cdi_import_progress_total{ownerUID="22"} 73.42
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if p == nil {
 		t.Fatalf("expected progress, got nil")
 	}
+
 	if p.ProgressRaw() != 73.42 {
 		t.Fatalf("expected 73.42, got %v", p.ProgressRaw())
 	}
+
 	if p.AvgSpeedRaw() != 0 || p.CurSpeedRaw() != 0 {
 		t.Fatalf("expected zero speed (pvc-importer does not emit speed), got avg=%d cur=%d", p.AvgSpeedRaw(), p.CurSpeedRaw())
 	}
@@ -71,12 +74,15 @@ kubevirt_cdi_import_progress_total{ownerUID="33"} 99.0
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if p == nil {
 		t.Fatalf("expected progress, got nil")
 	}
+
 	if p.ProgressRaw() != 47.6 {
 		t.Fatalf("expected 47.6, got %v", p.ProgressRaw())
 	}
+
 	if p.AvgSpeedRaw() != 1_000_000 || p.CurSpeedRaw() != 2_000_000 {
 		t.Fatalf("expected avg=1e6 cur=2e6, got avg=%d cur=%d", p.AvgSpeedRaw(), p.CurSpeedRaw())
 	}

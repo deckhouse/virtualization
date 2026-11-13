@@ -28,18 +28,22 @@ func BeReady(storageClassName string) Predicate {
 		if sp == nil {
 			return false, nil
 		}
+
 		if sp.Status.StorageClass == nil {
 			return false, nil
 		}
+
 		if *sp.Status.StorageClass != storageClassName {
 			return false, fmt.Errorf(
 				"StorageProfile %q references StorageClass %q, expected %q",
 				sp.Name, *sp.Status.StorageClass, storageClassName,
 			)
 		}
+
 		if sp.Status.Provisioner == nil {
 			return false, nil
 		}
+
 		return true, nil
 	}
 }

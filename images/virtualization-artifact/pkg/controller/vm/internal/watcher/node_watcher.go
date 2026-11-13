@@ -67,6 +67,7 @@ func (w *NodeWatcher) Watch(mgr manager.Manager, ctr controller.Controller) erro
 						NamespacedName: types.NamespacedName{Name: vm.GetName(), Namespace: vm.GetNamespace()},
 					})
 				}
+
 				return requests
 			}),
 			predicate.TypedFuncs[*corev1.Node]{
@@ -101,6 +102,7 @@ func NodeMaintenanceChanged(oldNode, newNode *corev1.Node) bool {
 	markers := append(annotations.NodeMaintenanceMarkers(), annotations.AnnNodeVMRestartApproved)
 	for _, marker := range markers {
 		oldValue, oldFound := oldNode.GetAnnotations()[marker]
+
 		newValue, newFound := newNode.GetAnnotations()[marker]
 		if oldFound != newFound || oldValue != newValue {
 			return true
@@ -114,10 +116,12 @@ func nodeReady(node *corev1.Node) corev1.ConditionStatus {
 	if node == nil {
 		return corev1.ConditionUnknown
 	}
+
 	for _, c := range node.Status.Conditions {
 		if c.Type == corev1.NodeReady {
 			return c.Status
 		}
 	}
+
 	return corev1.ConditionUnknown
 }

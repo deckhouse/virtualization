@@ -51,10 +51,13 @@ func (h *LifecycleHandler) Handle(_ context.Context, vmmac *v1alpha2.VirtualMach
 		if vmmac.Status.Phase != v1alpha2.VirtualMachineMACAddressPhaseBound {
 			h.recorder.Eventf(vmmac, corev1.EventTypeNormal, v1alpha2.ReasonBound, "VirtualMachineMACAddress is bound.")
 		}
+
 		vmmac.Status.Phase = v1alpha2.VirtualMachineMACAddressPhaseBound
+
 		return reconcile.Result{}, nil
 	}
 
 	vmmac.Status.Phase = v1alpha2.VirtualMachineMACAddressPhaseAttached
+
 	return reconcile.Result{}, nil
 }

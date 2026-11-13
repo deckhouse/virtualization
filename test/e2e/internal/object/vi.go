@@ -27,6 +27,7 @@ import (
 func NewVI(opts ...vi.Option) *v1alpha2.VirtualImage {
 	image := vi.New(opts...)
 	OverrideImageStorageClass(image)
+
 	return image
 }
 
@@ -36,6 +37,7 @@ func OverrideImageStorageClass(image *v1alpha2.VirtualImage) {
 	if image == nil || image.Spec.Storage != v1alpha2.StoragePersistentVolumeClaim {
 		return
 	}
+
 	if sc := image.Spec.PersistentVolumeClaim.StorageClass; sc != nil && *sc != "" {
 		return
 	}
@@ -43,6 +45,7 @@ func OverrideImageStorageClass(image *v1alpha2.VirtualImage) {
 	if !config.IsStorageClassNameOverridden() {
 		return
 	}
+
 	scName := config.StorageClassNameOverride()
 	image.Spec.PersistentVolumeClaim.StorageClass = &scName
 }
@@ -57,6 +60,7 @@ func NewGeneratedHTTPVIAlpineBIOS(prefix, namespace string, opts ...vi.Option) *
 		vi.WithStorage(v1alpha2.StorageContainerRegistry),
 	}
 	baseOpts = append(baseOpts, opts...)
+
 	return NewVI(baseOpts...)
 }
 
@@ -73,6 +77,7 @@ func NewGeneratedHTTPVICustomBIOS(prefix, namespace string, opts ...vi.Option) *
 		vi.WithStorage(v1alpha2.StorageContainerRegistry),
 	}
 	baseOpts = append(baseOpts, opts...)
+
 	return NewVI(baseOpts...)
 }
 
@@ -86,6 +91,7 @@ func NewGeneratedHTTPVIAlpineBIOSPerf(prefix, namespace string, opts ...vi.Optio
 		vi.WithStorage(v1alpha2.StorageContainerRegistry),
 	}
 	baseOpts = append(baseOpts, opts...)
+
 	return NewVI(baseOpts...)
 }
 
@@ -97,6 +103,7 @@ func NewGeneratedContainerImageVI(prefix, namespace string, opts ...vi.Option) *
 		vi.WithDataSourceContainerImage(ImageURLContainerImage, v1alpha2.ImagePullSecretName{}, nil),
 	}
 	baseOpts = append(baseOpts, opts...)
+
 	return NewVI(baseOpts...)
 }
 
@@ -108,5 +115,6 @@ func NewGeneratedVIFromCVI(prefix, namespace, cviName string, opts ...vi.Option)
 		vi.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, cviName),
 	}
 	baseOpts = append(baseOpts, opts...)
+
 	return NewVI(baseOpts...)
 }

@@ -81,6 +81,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToDVCR(ctx context.Context, vi, vi
 	log, ctx := logger.GetDataSourceContext(ctx, "objectref")
 
 	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
+
 	pod, err := ds.importerService.GetPod(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -113,9 +114,11 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToDVCR(ctx context.Context, vi, vi
 		if vi.Status.Progress == "" {
 			vi.Status.Progress = "0%"
 		}
+
 		vi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 
 		pvc := &corev1.PersistentVolumeClaim{}
+
 		err = ds.client.Get(ctx, types.NamespacedName{Name: viRef.Status.Target.PersistentVolumeClaim, Namespace: viRef.Namespace}, pvc)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -125,6 +128,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToDVCR(ctx context.Context, vi, vi
 
 		ownerRef := metav1.NewControllerRef(vi, vi.GroupVersionKind())
 		podSettings := ds.importerService.GetPodSettingsWithPVC(ownerRef, supgen, viRef.Status.Target.PersistentVolumeClaim, viRef.Namespace)
+
 		err = ds.importerService.StartWithPodSetting(ctx, envSettings, supgen, datasource.NewCABundleForVMI(vi.GetNamespace(), vi.Spec.DataSource), podSettings, service.WithSystemNodeToleration())
 		switch {
 		case err == nil:
@@ -158,6 +162,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToDVCR(ctx context.Context, vi, vi
 					Status(metav1.ConditionFalse).
 					Reason(vicondition.ProvisioningFailed).
 					Message(service.CapitalizeFirstLetter(err.Error() + "."))
+
 				return reconcile.Result{}, nil
 			default:
 				return reconcile.Result{}, err
@@ -212,6 +217,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi, viR
 	log, _ := logger.GetDataSourceContext(ctx, objectRefDataSource)
 
 	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
+
 	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -243,9 +249,11 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi, viR
 		if vi.Status.Progress == "" {
 			vi.Status.Progress = "0%"
 		}
+
 		vi.Status.SourceUID = ptr.To(viRef.GetUID())
 
 		var size resource.Quantity
+
 		size, err = ds.getPVCSize(viRef.Status.Size)
 		if err != nil {
 			setPhaseConditionToFailed(cb, &vi.Status.Phase, err)
@@ -288,6 +296,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) ensureBounder(ctx context.Context, vi *
 	}
 
 	ownerRef := metav1.NewControllerRef(vi, vi.GroupVersionKind())
+
 	return ds.bounderService.Start(ctx, ownerRef, supgen, service.WithSystemNodeToleration())
 }
 
@@ -319,6 +328,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) getEnvSettings(vi *v1alpha2.VirtualImag
 	} else {
 		importer.ApplyFilesystemSourceSettings(&settings)
 	}
+
 	importer.ApplyDVCRDestinationSettings(
 		&settings,
 		ds.dvcrSettings,

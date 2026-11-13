@@ -37,6 +37,7 @@ var restoreBreakingAnnotations = []string{
 func SanitizeForRestore(obj unstructured.Unstructured, targetNamespace string) unstructured.Unstructured {
 	out := obj.DeepCopy()
 	unstructured.RemoveNestedField(out.Object, "status")
+
 	for _, f := range []string{
 		"uid", "resourceVersion", "generation", "creationTimestamp",
 		"deletionTimestamp", "deletionGracePeriodSeconds", "managedFields",
@@ -44,8 +45,10 @@ func SanitizeForRestore(obj unstructured.Unstructured, targetNamespace string) u
 	} {
 		unstructured.RemoveNestedField(out.Object, "metadata", f)
 	}
+
 	stripRestoreBreakingAnnotations(out)
 	out.SetNamespace(targetNamespace)
+
 	return *out
 }
 
@@ -54,12 +57,15 @@ func stripRestoreBreakingAnnotations(out *unstructured.Unstructured) {
 	if err != nil || !found || len(anns) == 0 {
 		return
 	}
+
 	for _, k := range restoreBreakingAnnotations {
 		delete(anns, k)
 	}
+
 	if len(anns) == 0 {
 		unstructured.RemoveNestedField(out.Object, "metadata", "annotations")
 		return
 	}
+
 	_ = unstructured.SetNestedMap(out.Object, anns, "metadata", "annotations")
 }

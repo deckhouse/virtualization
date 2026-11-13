@@ -97,12 +97,15 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.Virtu
 	log, ctx := logger.GetDataSourceContext(ctx, objectRefDataSource)
 
 	condition, _ := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
+
 	cb := conditions.NewConditionBuilder(vicondition.ReadyType).Generation(vi.Generation)
+
 	defer func() { conditions.SetCondition(cb, &vi.Status.Conditions) }()
 
 	switch vi.Spec.DataSource.ObjectRef.Kind {
 	case v1alpha2.VirtualImageKind:
 		viKey := types.NamespacedName{Name: vi.Spec.DataSource.ObjectRef.Name, Namespace: vi.Namespace}
+
 		viRef, err := object.FetchObject(ctx, viKey, ds.client, &v1alpha2.VirtualImage{})
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("unable to get VI %s: %w", viKey, err)
@@ -117,6 +120,7 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.Virtu
 		}
 	case v1alpha2.VirtualDiskKind:
 		vdKey := types.NamespacedName{Name: vi.Spec.DataSource.ObjectRef.Name, Namespace: vi.Namespace}
+
 		vd, err := object.FetchObject(ctx, vdKey, ds.client, &v1alpha2.VirtualDisk{})
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("unable to get VD %s: %w", vdKey, err)
@@ -130,12 +134,14 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.Virtu
 	}
 
 	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
+
 	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
 	var dvcrDataSource controller.DVCRDataSource
+
 	dvcrDataSource, err = controller.NewDVCRDataSourcesForVMI(ctx, vi.Spec.DataSource, vi, ds.client)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -168,15 +174,18 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.Virtu
 				Status(metav1.ConditionFalse).
 				Reason(vicondition.ProvisioningFailed).
 				Message("Waiting for the source data to become ready.")
+
 			return reconcile.Result{}, nil
 		}
 
 		if vi.Status.Progress == "" {
 			vi.Status.Progress = "0%"
 		}
+
 		vi.Status.SourceUID = ptr.To(dvcrDataSource.GetUID())
 
 		var diskSize resource.Quantity
+
 		diskSize, err = ds.getPVCSize(dvcrDataSource)
 		if err != nil {
 			setPhaseConditionToFailed(cb, &vi.Status.Phase, err)
@@ -189,6 +198,7 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.Virtu
 		}
 
 		var source *service.PVCImportSource
+
 		source, err = ds.getSource(supgen, dvcrDataSource)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -212,12 +222,15 @@ func (ds ObjectRefDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virt
 	log, ctx := logger.GetDataSourceContext(ctx, "objectref")
 
 	condition, _ := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
+
 	cb := conditions.NewConditionBuilder(vicondition.ReadyType).Generation(vi.Generation)
+
 	defer func() { conditions.SetCondition(cb, &vi.Status.Conditions) }()
 
 	switch vi.Spec.DataSource.ObjectRef.Kind {
 	case v1alpha2.VirtualImageKind:
 		viKey := types.NamespacedName{Name: vi.Spec.DataSource.ObjectRef.Name, Namespace: vi.Namespace}
+
 		viRef, err := object.FetchObject(ctx, viKey, ds.client, &v1alpha2.VirtualImage{})
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("unable to get VI %s: %w", viKey, err)
@@ -232,6 +245,7 @@ func (ds ObjectRefDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virt
 		}
 	case v1alpha2.VirtualDiskKind:
 		viKey := types.NamespacedName{Name: vi.Spec.DataSource.ObjectRef.Name, Namespace: vi.Namespace}
+
 		vd, err := object.FetchObject(ctx, viKey, ds.client, &v1alpha2.VirtualDisk{})
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("unable to get VD %s: %w", viKey, err)
@@ -245,6 +259,7 @@ func (ds ObjectRefDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virt
 	}
 
 	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
+
 	pod, err := ds.importerService.GetPod(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -276,6 +291,7 @@ func (ds ObjectRefDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virt
 		vi.Status.Progress = "0%"
 
 		var dvcrDataSource controller.DVCRDataSource
+
 		dvcrDataSource, err = controller.NewDVCRDataSourcesForVMI(ctx, vi.Spec.DataSource, vi, ds.client)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -284,6 +300,7 @@ func (ds ObjectRefDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virt
 		vi.Status.SourceUID = ptr.To(dvcrDataSource.GetUID())
 
 		var envSettings *importer.Settings
+
 		envSettings, err = ds.getEnvSettings(vi, supgen, dvcrDataSource)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -322,12 +339,15 @@ func (ds ObjectRefDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virt
 					Status(metav1.ConditionFalse).
 					Reason(vicondition.ProvisioningFailed).
 					Message(service.CapitalizeFirstLetter(err.Error() + "."))
+
 				return reconcile.Result{}, nil
 			default:
 				return reconcile.Result{}, err
 			}
 		}
+
 		var dvcrDataSource controller.DVCRDataSource
+
 		dvcrDataSource, err = controller.NewDVCRDataSourcesForVMI(ctx, vi.Spec.DataSource, vi, ds.client)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -338,6 +358,7 @@ func (ds ObjectRefDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virt
 				Status(metav1.ConditionFalse).
 				Reason(vicondition.ProvisioningFailed).
 				Message("Waiting for the source data to become ready.")
+
 			return reconcile.Result{}, nil
 		}
 
@@ -404,6 +425,7 @@ func (ds ObjectRefDataSource) Validate(ctx context.Context, vi *v1alpha2.Virtual
 	switch vi.Spec.DataSource.ObjectRef.Kind {
 	case v1alpha2.VirtualImageObjectRefKindVirtualImage:
 		viKey := types.NamespacedName{Name: vi.Spec.DataSource.ObjectRef.Name, Namespace: vi.Namespace}
+
 		viRef, err := object.FetchObject(ctx, viKey, ds.client, &v1alpha2.VirtualImage{})
 		if err != nil {
 			return fmt.Errorf("unable to get VI %s: %w", viKey, err)
@@ -417,6 +439,7 @@ func (ds ObjectRefDataSource) Validate(ctx context.Context, vi *v1alpha2.Virtual
 			if viRef.Status.Phase != v1alpha2.ImageReady {
 				return NewImageNotReadyError(vi.Spec.DataSource.ObjectRef.Name)
 			}
+
 			return nil
 		}
 

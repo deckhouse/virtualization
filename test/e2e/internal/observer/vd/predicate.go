@@ -41,12 +41,14 @@ func BeFailed() Predicate {
 		if d.Status.Phase == v1alpha2.DiskFailed {
 			return true, fmt.Errorf("VirtualDisk entered Failed phase")
 		}
+
 		if cond := findCondition(d.Status.Conditions, vdcondition.ReadyType.String()); cond != nil {
 			if isConditionFresh(cond, d) &&
 				(cond.Reason == vdcondition.ProvisioningFailed.String() || cond.Reason == vdcondition.ProvisioningFailedTerminally.String()) {
 				return true, fmt.Errorf("ready condition reports %s: %s", cond.Reason, cond.Message)
 			}
 		}
+
 		return false, nil
 	}
 }
@@ -67,18 +69,21 @@ func BeStorageClassReady() Predicate {
 		if cond == nil || !isConditionFresh(cond, d) {
 			return true, nil
 		}
+
 		if cond.Status != metav1.ConditionTrue {
 			return false, fmt.Errorf(
 				"StorageClassReady condition is %s/%s (message: %q), expected True/%s",
 				cond.Status, cond.Reason, cond.Message, vdcondition.StorageClassReady,
 			)
 		}
+
 		if cond.Reason != vdcondition.StorageClassReady.String() {
 			return false, fmt.Errorf(
 				"StorageClassReady reason is %q, expected %q",
 				cond.Reason, vdcondition.StorageClassReady,
 			)
 		}
+
 		return true, nil
 	}
 }
@@ -96,18 +101,21 @@ func BeDataSourceReady() Predicate {
 		if cond == nil || !isConditionFresh(cond, d) {
 			return true, nil
 		}
+
 		if cond.Status != metav1.ConditionTrue {
 			return false, fmt.Errorf(
 				"DatasourceReady condition is %s/%s (message: %q), expected True/%s",
 				cond.Status, cond.Reason, cond.Message, vdcondition.DatasourceReady,
 			)
 		}
+
 		if cond.Reason != vdcondition.DatasourceReady.String() {
 			return false, fmt.Errorf(
 				"DatasourceReady reason is %q, expected %q",
 				cond.Reason, vdcondition.DatasourceReady,
 			)
 		}
+
 		return true, nil
 	}
 }
@@ -161,12 +169,15 @@ func BeReady() Predicate {
 				d.Status.Progress, readyProgress,
 			)
 		}
+
 		if d.Status.Capacity == "" {
 			return false, errors.New("phase is Ready but capacity is empty")
 		}
+
 		if d.Status.Target.PersistentVolumeClaim == "" {
 			return false, errors.New("phase is Ready but target.persistentVolumeClaimName is empty")
 		}
+
 		if d.Status.StorageClassName == "" {
 			return false, errors.New("phase is Ready but storageClassName is empty")
 		}
@@ -211,10 +222,12 @@ func BeResized(expectedSize resource.Quantity) Predicate {
 		if d.Status.Phase != v1alpha2.DiskReady || d.Status.Capacity == "" {
 			return false, nil
 		}
+
 		capacity, err := resource.ParseQuantity(d.Status.Capacity)
 		if err != nil {
 			return false, fmt.Errorf("failed to parse capacity %q: %w", d.Status.Capacity, err)
 		}
+
 		return capacity.Cmp(expectedSize) >= 0, nil
 	}
 }
@@ -231,15 +244,18 @@ func BeMigrationSucceeded() Predicate {
 		if ms.StartTimestamp.IsZero() || ms.EndTimestamp.IsZero() {
 			return false, nil
 		}
+
 		switch ms.Result {
 		case v1alpha2.VirtualDiskMigrationResultSucceeded:
 			if d.Status.Phase != v1alpha2.DiskReady {
 				return false, nil
 			}
+
 			if d.Status.Target.PersistentVolumeClaim != ms.TargetPVC {
 				// The controller has not switched the disk to the target PVC yet.
 				return false, nil
 			}
+
 			return true, nil
 		case v1alpha2.VirtualDiskMigrationResultFailed:
 			return false, fmt.Errorf("VirtualDisk %s/%s migration failed: %s", d.Namespace, d.Name, ms.Message)
@@ -260,18 +276,22 @@ func BeMigrationFailed() Predicate {
 		if ms.StartTimestamp.IsZero() || ms.EndTimestamp.IsZero() {
 			return false, nil
 		}
+
 		switch ms.Result {
 		case v1alpha2.VirtualDiskMigrationResultFailed:
 			if d.Status.Phase != v1alpha2.DiskReady {
 				return false, nil
 			}
+
 			if ms.TargetPVC == "" {
 				return false, fmt.Errorf("VirtualDisk %s/%s migration failed but targetPVC is empty", d.Namespace, d.Name)
 			}
+
 			if d.Status.Target.PersistentVolumeClaim != ms.SourcePVC {
 				// The controller has not reverted the disk to the source PVC yet.
 				return false, nil
 			}
+
 			return true, nil
 		case v1alpha2.VirtualDiskMigrationResultSucceeded:
 			return false, fmt.Errorf("VirtualDisk %s/%s migration succeeded, expected it to fail", d.Namespace, d.Name)
@@ -335,15 +355,18 @@ func BeQuotaExceeded() Predicate {
 		if cond == nil || !isConditionFresh(cond, d) {
 			return false, nil
 		}
+
 		if cond.Reason != vdcondition.QuotaExceeded.String() {
 			return false, nil
 		}
+
 		if cond.Status != metav1.ConditionFalse {
 			return false, fmt.Errorf(
 				"ready condition reason is %q but status is %s, expected %s",
 				cond.Reason, cond.Status, metav1.ConditionFalse,
 			)
 		}
+
 		switch d.Status.Phase {
 		case v1alpha2.DiskFailed, v1alpha2.DiskPending:
 			return true, nil
@@ -370,12 +393,15 @@ func BeReadyForUserUpload() Predicate {
 		if d.Status.Phase != v1alpha2.DiskWaitForUserUpload {
 			return false, nil
 		}
+
 		if d.Status.ImageUploadURLs == nil {
 			return false, errors.New("phase is WaitForUserUpload but ImageUploadURLs is nil")
 		}
+
 		if d.Status.ImageUploadURLs.External == "" {
 			return false, errors.New("phase is WaitForUserUpload but external upload URL is empty")
 		}
+
 		return true, nil
 	}
 }
@@ -429,7 +455,9 @@ func HaveValidPhaseTransitions() Predicate {
 			maxRank = rank
 			maxPhase = d.Status.Phase
 		}
+
 		hasObserved = true
+
 		return true, nil
 	}
 }
@@ -458,6 +486,7 @@ func displayPhase(phase v1alpha2.DiskPhase) string {
 	if phase == "" {
 		return `""`
 	}
+
 	return fmt.Sprintf("%q", string(phase))
 }
 
@@ -481,9 +510,11 @@ func HaveValidProgress(expect ProgressExpectations) Predicate {
 		if d.Status.Phase == v1alpha2.DiskPending && d.Status.Progress != "" {
 			return false, fmt.Errorf("phase is Pending but progress is %q, expected empty progress", d.Status.Progress)
 		}
+
 		if d.Status.Phase == v1alpha2.DiskReady && d.Status.Progress == "" {
 			return false, errors.New("phase is Ready but progress is empty, expected 100%")
 		}
+
 		if d.Status.Progress == "" {
 			return true, nil
 		}
@@ -496,12 +527,15 @@ func HaveValidProgress(expect ProgressExpectations) Predicate {
 		if current == 100 && d.Status.Phase != v1alpha2.DiskReady {
 			return false, fmt.Errorf("progress is 100%% but phase is %s, expected Ready", displayPhase(d.Status.Phase))
 		}
+
 		if d.Status.Phase == v1alpha2.DiskReady && current != 100 {
 			return false, fmt.Errorf("phase is Ready but progress is %q, expected 100%%", d.Status.Progress)
 		}
+
 		if previous != nil && current < *previous {
 			return false, fmt.Errorf("progress decreased from %s to %s", formatProgressValue(*previous), formatProgressValue(current))
 		}
+
 		if previous != nil && current == *previous && current == 100 && d.Status.Phase == v1alpha2.DiskReady {
 			return observed.satisfies(expect)
 		}
@@ -533,6 +567,7 @@ func HaveValidProgress(expect ProgressExpectations) Predicate {
 		if d.Status.Phase != v1alpha2.DiskReady {
 			return true, nil
 		}
+
 		return observed.satisfies(expect)
 	}
 }
@@ -594,9 +629,11 @@ func parseProgress(progress string) (float64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("parse progress %q: %w", progress, err)
 	}
+
 	if parsed < 0 || parsed > 100 {
 		return 0, fmt.Errorf("progress %q is outside 0..100 range", progress)
 	}
+
 	return parsed, nil
 }
 
@@ -612,6 +649,7 @@ func findCondition(conds []metav1.Condition, condType string) *metav1.Condition 
 			return &conds[i]
 		}
 	}
+
 	return nil
 }
 
@@ -619,6 +657,7 @@ func condStatus(cond *metav1.Condition) metav1.ConditionStatus {
 	if cond == nil {
 		return "<absent>"
 	}
+
 	return cond.Status
 }
 
@@ -626,6 +665,7 @@ func condReason(cond *metav1.Condition) string {
 	if cond == nil {
 		return "<absent>"
 	}
+
 	return cond.Reason
 }
 
@@ -633,5 +673,6 @@ func condMessage(cond *metav1.Condition) string {
 	if cond == nil {
 		return ""
 	}
+
 	return cond.Message
 }

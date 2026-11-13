@@ -155,6 +155,7 @@ var _ = Describe("ObjectRef VirtualImage", func() {
 	Context("VirtualDisk has just been created", func() {
 		It("must start PVC import", func() {
 			var importStarted bool
+
 			vd.Status = v1alpha2.VirtualDiskStatus{
 				StorageClassName: sc.Name,
 				Target: v1alpha2.DiskTarget{
@@ -275,18 +276,23 @@ var _ = Describe("ObjectRef VirtualImage", func() {
 			pvc.Annotations = map[string]string{annotations.AnnPVCPopulationStrategy: service.PopulationStrategyDVCR}
 			vi.Spec.Storage = v1alpha2.StoragePersistentVolumeClaim
 			vi.Status.Target.PersistentVolumeClaim = "source-pvc"
+
 			var imported bool
+
 			pvcSvc.ImportFunc = func(_ context.Context, target *corev1.PersistentVolumeClaim, source *service.PVCImportSource, _ kclient.Object, _ supplements.Generator, _ *provisioner.NodePlacement) error {
 				imported = true
+
 				Expect(target.Name).To(Equal(pvc.Name))
 				Expect(source).ToNot(BeNil())
 				Expect(source.PVC).ToNot(BeNil())
+
 				return nil
 			}
 			pvcSvc.WaitForImportFunc = func(_ context.Context, _ *corev1.PersistentVolumeClaim, source *service.PVCImportSource, _ kclient.Object, _ supplements.Generator, _ *provisioner.NodePlacement) (corev1.PodPhase, error) {
 				Expect(imported).To(BeTrue())
 				Expect(source).ToNot(BeNil())
 				Expect(source.PVC).ToNot(BeNil())
+
 				return corev1.PodPending, nil
 			}
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, vi).Build()

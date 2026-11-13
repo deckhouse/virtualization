@@ -116,6 +116,7 @@ func (h PeerMigrationHandler) Handle(ctx context.Context, vmop *v1alpha2.Virtual
 	if !IsPeerMigration(vmop) {
 		return reconcile.Result{}, nil
 	}
+
 	res, err := h.handle(ctx, vmop)
 	if err != nil {
 		if released, releaseErr := h.releaseOnDeletionTimeout(ctx, vmop); releaseErr != nil {
@@ -123,10 +124,13 @@ func (h PeerMigrationHandler) Handle(ctx context.Context, vmop *v1alpha2.Virtual
 		} else if released {
 			return res, reconciler.ErrStopHandlerChain
 		}
+
 		h.progress(vmop, vmopcondition.ReasonOperationFailed, fmt.Sprintf("The migration handler failed: %s", err))
 		h.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, err.Error())
+
 		return res, err
 	}
+
 	return res, reconciler.ErrStopHandlerChain
 }
 
@@ -138,11 +142,14 @@ func (h PeerMigrationHandler) handle(ctx context.Context, vmop *v1alpha2.Virtual
 				return reconcile.Result{}, err
 			}
 		}
+
 		if deleting {
 			controllerutil.RemoveFinalizer(vmop, v1alpha2.FinalizerVMOPCleanup)
 		}
+
 		return reconcile.Result{}, nil
 	}
+
 	if vmop.Status.Phase == "" {
 		vmop.Status.Phase = v1alpha2.VMOPPhasePending
 	}
@@ -156,6 +163,7 @@ func (h PeerMigrationHandler) handle(ctx context.Context, vmop *v1alpha2.Virtual
 	switched := src != nil && src.Status.Phase == virtv1.MigrationSucceeded
 
 	peer := commonvmop.PeerName(vmop)
+
 	peerClient, err := h.peers.Client(ctx, peer)
 	switch {
 	case err == nil:
@@ -168,11 +176,14 @@ func (h PeerMigrationHandler) handle(ctx context.Context, vmop *v1alpha2.Virtual
 			if errors.Is(err, peering.ErrPeerNotSupported) {
 				return reconcile.Result{}, h.fail(ctx, vmop, nil, vmopcondition.ReasonPeerNotSupported, err.Error())
 			}
+
 			return reconcile.Result{}, h.fail(ctx, vmop, nil, vmopcondition.ReasonPeerRejected, refusedMessage(peer, err))
 		}
+
 		if released, releaseErr := h.releaseOnDeletionTimeout(ctx, vmop); released || releaseErr != nil {
 			return reconcile.Result{}, releaseErr
 		}
+
 		return h.waitForPeer(vmop)
 	default:
 		return reconcile.Result{}, err
@@ -190,9 +201,11 @@ func (h PeerMigrationHandler) handle(ctx context.Context, vmop *v1alpha2.Virtual
 			if !deleting && src == nil {
 				return reconcile.Result{}, h.fail(ctx, vmop, nil, vmopcondition.ReasonPeerRejected, refusedMessage(peer, err))
 			}
+
 			if released, releaseErr := h.releaseOnDeletionTimeout(ctx, vmop); released || releaseErr != nil {
 				return reconcile.Result{}, releaseErr
 			}
+
 			return h.waitForPeer(vmop)
 		case !isAPIError(err):
 			h.progress(vmop, vmopcondition.ReasonWaitingForPeer, unreachableMessage(peer))
@@ -206,6 +219,7 @@ func (h PeerMigrationHandler) handle(ctx context.Context, vmop *v1alpha2.Virtual
 	if foreign {
 		receiver = nil
 	}
+
 	if receiver != nil && !switched && !deleting {
 		if err = h.refreshSyncPins(ctx, peerClient, vmop, src, receiver); err != nil {
 			return reconcile.Result{}, err
@@ -222,10 +236,13 @@ func (h PeerMigrationHandler) handle(ctx context.Context, vmop *v1alpha2.Virtual
 			if released, releaseErr := h.releaseOnDeletionTimeout(ctx, vmop); released || releaseErr != nil {
 				return reconcile.Result{}, releaseErr
 			}
+
 			return reconcile.Result{RequeueAfter: peerRequeue}, err
 		}
+
 		controllerutil.RemoveFinalizer(vmop, v1alpha2.FinalizerVMOPCleanup)
 		vmop.Status.Phase = v1alpha2.VMOPPhaseTerminating
+
 		return reconcile.Result{}, nil
 	}
 
@@ -250,9 +267,12 @@ func (h PeerMigrationHandler) handle(ctx context.Context, vmop *v1alpha2.Virtual
 			if receiver.Status.Message != "" {
 				msg += ": " + receiver.Status.Message
 			}
+
 			return reconcile.Result{}, h.fail(ctx, vmop, peerClient, vmopcondition.ReasonPeerRejected, msg+".")
 		}
+
 		h.progress(vmop, vmopcondition.ReasonWaitingForPeer, fmt.Sprintf("Waiting for cluster %q to prepare the virtual machine.", peer))
+
 		return reconcile.Result{RequeueAfter: peerRequeue}, nil
 	}
 }
@@ -262,6 +282,7 @@ func (h PeerMigrationHandler) handle(ctx context.Context, vmop *v1alpha2.Virtual
 func (h PeerMigrationHandler) request(ctx context.Context, peer client.Client, vmop *v1alpha2.VirtualMachineOperation) (reconcile.Result, error) {
 	peerName := commonvmop.PeerName(vmop)
 	key := types.NamespacedName{Namespace: vmop.Namespace, Name: vmop.Spec.VirtualMachine}
+
 	vm := &v1alpha2.VirtualMachine{}
 	if err := h.client.Get(ctx, key, vm); err != nil {
 		// The migration was started and the VM is gone: the move deleted it and its status was not saved.
@@ -269,15 +290,20 @@ func (h PeerMigrationHandler) request(ctx context.Context, peer client.Client, v
 			msg := fmt.Sprintf("The virtual machine has moved to cluster %q.", peerName)
 			h.complete(vmop, v1alpha2.VMOPPhaseCompleted, vmopcondition.ReasonOperationCompleted, msg)
 			controllerutil.RemoveFinalizer(vmop, v1alpha2.FinalizerVMOPCleanup)
+
 			return reconcile.Result{}, nil
 		}
+
 		if k8serrors.IsNotFound(err) {
 			return reconcile.Result{}, h.failRequest(ctx, vmop,
 				fmt.Sprintf("The virtual machine cannot move to cluster %q: %s", peerName, err))
 		}
+
 		return reconcile.Result{}, err
 	}
+
 	kvvm := &virtv1.VirtualMachine{}
+
 	kvvmi := &virtv1.VirtualMachineInstance{}
 	for _, obj := range []client.Object{kvvm, kvvmi} {
 		if err := h.client.Get(ctx, key, obj); err != nil {
@@ -285,6 +311,7 @@ func (h PeerMigrationHandler) request(ctx context.Context, peer client.Client, v
 				return reconcile.Result{}, h.failRequest(ctx, vmop,
 					fmt.Sprintf("The virtual machine cannot move to cluster %q: it is not running.", peerName))
 			}
+
 			return reconcile.Result{}, err
 		}
 	}
@@ -296,13 +323,16 @@ func (h PeerMigrationHandler) request(ctx context.Context, peer client.Client, v
 		return reconcile.Result{}, h.failRequest(ctx, vmop,
 			fmt.Sprintf("The virtual machine cannot move to cluster %q: %s", peerName, err))
 	}
+
 	mid := peering.ReceiverVMOPUID(vmop)
+
 	vds, err := h.virtualDisks(ctx, vm, spec)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return reconcile.Result{}, h.failRequest(ctx, vmop,
 				fmt.Sprintf("The virtual machine cannot move to cluster %q: %s", peerName, err))
 		}
+
 		return reconcile.Result{}, err
 	}
 	// The pair may have been undone after the operation was admitted.
@@ -310,12 +340,15 @@ func (h PeerMigrationHandler) request(ctx context.Context, peer client.Client, v
 		if errors.Is(err, peering.ErrPeerNotPaired) {
 			return reconcile.Result{}, h.failRequest(ctx, vmop, err.Error())
 		}
+
 		return reconcile.Result{}, err
 	}
+
 	target, err := h.peers.Target(ctx, peerName, vmop.Namespace)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	receiver, err := makeReceiver(vm, spec, kvvmi, vds, mid, target)
 	if err != nil {
 		return reconcile.Result{}, h.failRequest(ctx, vmop,
@@ -336,6 +369,7 @@ func (h PeerMigrationHandler) request(ctx context.Context, peer client.Client, v
 		if err != nil {
 			return reconcile.Result{}, err
 		}
+
 		if existing != nil && existing.Labels[labelPeerVMOPUID] != mid {
 			return reconcile.Result{}, h.fail(ctx, vmop, peer, vmopcondition.ReasonPeerRejected,
 				fmt.Sprintf("Cluster %q already receives a virtual machine named %q in namespace %q.", commonvmop.PeerName(vmop), vm.Name, target.Namespace))
@@ -350,6 +384,7 @@ func (h PeerMigrationHandler) request(ctx context.Context, peer client.Client, v
 	}
 
 	h.progress(vmop, vmopcondition.ReasonWaitingForPeer, fmt.Sprintf("Waiting for cluster %q to prepare the virtual machine.", commonvmop.PeerName(vmop)))
+
 	return reconcile.Result{RequeueAfter: peerRequeue}, nil
 }
 
@@ -364,7 +399,9 @@ func (h PeerMigrationHandler) start(ctx context.Context, peer client.Client, vmo
 			return reconcile.Result{}, h.fail(ctx, vmop, peer, vmopcondition.ReasonPeerRejected,
 				fmt.Sprintf("Cluster %q did not get ready for the migration in %s. Check that the virtualization module there is of the same version as in this cluster.", commonvmop.PeerName(vmop), peerPrepareTimeout+peerPinTimeout))
 		}
+
 		h.progress(vmop, vmopcondition.ReasonWaitingForPeer, fmt.Sprintf("Waiting for cluster %q to publish the address and the key of its synchronization controller.", commonvmop.PeerName(vmop)))
+
 		return reconcile.Result{RequeueAfter: peerRequeue}, nil
 	}
 
@@ -388,9 +425,11 @@ func (h PeerMigrationHandler) start(ctx context.Context, peer client.Client, vmo
 	if err := h.client.Create(ctx, vmim); client.IgnoreAlreadyExists(err) != nil {
 		return reconcile.Result{}, fmt.Errorf("create the migration to the peer: %w", err)
 	}
+
 	conditions.SetCondition(conditions.NewConditionBuilder(vmopcondition.TypeSignalSent).
 		Generation(vmop.GetGeneration()).Reason(vmopcondition.ReasonSignalSentSuccess).Status(metav1.ConditionTrue), &vmop.Status.Conditions)
 	h.progress(vmop, vmopcondition.ReasonMigrationPending, "The migration to the peer cluster is starting.")
+
 	return reconcile.Result{RequeueAfter: peerRequeue}, nil
 }
 
@@ -399,26 +438,32 @@ func (h PeerMigrationHandler) start(ctx context.Context, peer client.Client, vmo
 // does not begin.
 func (h PeerMigrationHandler) watchMigration(ctx context.Context, peer client.Client, vmop *v1alpha2.VirtualMachineOperation, src *virtv1.VirtualMachineInstanceMigration, receiver *intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver) (reconcile.Result, error) {
 	peerName := commonvmop.PeerName(vmop)
+
 	if src.Status.Phase == virtv1.MigrationFailed {
 		msg := "The migration to the peer cluster failed."
 		if src.Status.MigrationState != nil && src.Status.MigrationState.FailureReason != "" {
 			msg = fmt.Sprintf("The migration to the peer cluster failed: %s", src.Status.MigrationState.FailureReason)
 		}
+
 		return reconcile.Result{}, h.fail(ctx, vmop, peer, vmopcondition.ReasonOperationFailed, msg)
 	}
+
 	peerMessage := ""
 	if receiver != nil {
 		peerMessage = receiver.Status.Message
 	}
+
 	started := src.Status.MigrationState != nil && src.Status.MigrationState.StartTimestamp != nil
 	if !started && time.Since(src.CreationTimestamp.Time) > peerSyncTimeout {
 		if peerMessage != "" {
 			return reconcile.Result{}, h.fail(ctx, vmop, peer, vmopcondition.ReasonPeerRejected,
 				fmt.Sprintf("The migration did not start in %s: in cluster %q %s.", peerSyncTimeout, peerName, peerMessage))
 		}
+
 		return reconcile.Result{}, h.fail(ctx, vmop, peer, vmopcondition.ReasonMigrationNetworkUnreachable,
 			fmt.Sprintf("The migration did not start in %s: the nodes of this cluster may not reach cluster %q.", peerSyncTimeout, peerName))
 	}
+
 	switch {
 	case started:
 		h.progress(vmop, vmopcondition.ReasonMigrationRunning, "The virtual machine is being migrated to the peer cluster.")
@@ -427,6 +472,7 @@ func (h PeerMigrationHandler) watchMigration(ctx context.Context, peer client.Cl
 	default:
 		h.progress(vmop, vmopcondition.ReasonMigrationPending, "The migration to the peer cluster is synchronizing with the peer.")
 	}
+
 	return reconcile.Result{RequeueAfter: peerRequeue}, nil
 }
 
@@ -438,10 +484,12 @@ func (h PeerMigrationHandler) finish(ctx context.Context, peer client.Client, vm
 	}
 	// The peer says its VM has not run: there is nothing to wait for, the guest is gone with the switchover.
 	failedInPeer := receiver != nil && receiver.Status.Phase == intvirtv1alpha1.ReceiverFailed && !receiver.Status.ReceiverStarted
+
 	switched := src.CreationTimestamp.Time
 	if src.Status.MigrationState != nil && src.Status.MigrationState.EndTimestamp != nil {
 		switched = src.Status.MigrationState.EndTimestamp.Time
 	}
+
 	if !failedInPeer && time.Since(switched) <= peerConfirmTimeout {
 		h.progress(vmop, vmopcondition.ReasonWaitingForPeer, fmt.Sprintf("Waiting for cluster %q to confirm that the virtual machine runs there.", commonvmop.PeerName(vmop)))
 		return reconcile.Result{RequeueAfter: peerRequeue}, nil
@@ -451,23 +499,30 @@ func (h PeerMigrationHandler) finish(ctx context.Context, peer client.Client, vm
 	if receiver != nil && receiver.Status.ReceiverStarted {
 		return reconcile.Result{}, h.moved(ctx, peer, vmop, receiver)
 	}
+
 	msg := fmt.Sprintf("Cluster %q did not confirm in %s that the virtual machine runs there; the virtual machine is kept stopped in this cluster. Check cluster %[1]q: if the virtual machine runs there, delete it in this cluster; if not, start it here.", commonvmop.PeerName(vmop), peerConfirmTimeout)
+
 	if failedInPeer {
 		why := receiver.Status.Message
 		if why == "" {
 			why = "the virtual machine did not start there"
 		}
+
 		msg = fmt.Sprintf("Cluster %q did not start the virtual machine after the switchover: %s. The virtual machine is kept stopped in this cluster; start it here.", commonvmop.PeerName(vmop), why)
+
 		if err := peer.Delete(ctx, receiver); client.IgnoreNotFound(err) != nil {
 			return reconcile.Result{}, err
 		}
 	}
+
 	if err := h.handBack(ctx, vmop); err != nil {
 		return reconcile.Result{}, err
 	}
+
 	h.complete(vmop, v1alpha2.VMOPPhaseFailed, vmopcondition.ReasonPeerNotConfirmed, msg)
 	h.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, msg)
 	controllerutil.RemoveFinalizer(vmop, v1alpha2.FinalizerVMOPCleanup)
+
 	return reconcile.Result{}, nil
 }
 
@@ -475,6 +530,7 @@ func (h PeerMigrationHandler) finish(ctx context.Context, peer client.Client, vm
 func (h PeerMigrationHandler) waitForPeer(vmop *v1alpha2.VirtualMachineOperation) (reconcile.Result, error) {
 	h.progress(vmop, vmopcondition.ReasonWaitingForPeer,
 		fmt.Sprintf("Waiting for cluster %q to report the state of the virtual machine.", commonvmop.PeerName(vmop)))
+
 	return reconcile.Result{RequeueAfter: peerRequeue}, nil
 }
 
@@ -490,23 +546,28 @@ func (h PeerMigrationHandler) releaseOnDeletionTimeout(ctx context.Context, vmop
 	if err != nil || (src != nil && src.Status.Phase != virtv1.MigrationFailed) {
 		return false, err
 	}
+
 	peerName := commonvmop.PeerName(vmop)
 	if peerClient, err := h.peers.Client(ctx, peerName); err == nil {
 		if receiver, err := h.ownReceiver(ctx, peerClient, vmop); err == nil && receiver != nil {
 			_ = peerClient.Delete(ctx, receiver)
 		}
 	}
+
 	stayed, err := h.release(ctx, vmop)
 	if err != nil {
 		return false, err
 	}
+
 	msg := fmt.Sprintf("The request to receive in cluster %q was not removed in %s; the peer removes it later. The virtual machine is released here.", peerName, peerDeletionTimeout)
 	if !stayed {
 		msg = fmt.Sprintf("The request to receive in cluster %q was not removed in %s; the peer removes it later. The virtual machine is not running here and may run in cluster %q: it is left stopped with the Manual run policy, check it there before starting it here.", peerName, peerDeletionTimeout, peerName)
 	}
+
 	h.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, msg)
 	controllerutil.RemoveFinalizer(vmop, v1alpha2.FinalizerVMOPCleanup)
 	vmop.Status.Phase = v1alpha2.VMOPPhaseTerminating
+
 	return true, nil
 }
 
@@ -514,22 +575,27 @@ func (h PeerMigrationHandler) releaseOnDeletionTimeout(ctx context.Context, vmop
 // stayed; any other is handed back stopped, as the guest may run in the peer. It reports whether the VM stayed.
 func (h PeerMigrationHandler) release(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (bool, error) {
 	var kvvmi virtv1.VirtualMachineInstance
+
 	err := h.client.Get(ctx, types.NamespacedName{Namespace: vmop.Namespace, Name: vmop.Spec.VirtualMachine}, &kvvmi)
 	if client.IgnoreNotFound(err) != nil {
 		return false, err
 	}
+
 	if err == nil && kvvmi.Status.Phase == virtv1.Running {
 		return true, h.unmarkMoved(ctx, vmop)
 	}
+
 	return false, h.handBack(ctx, vmop)
 }
 
 func (h PeerMigrationHandler) isMarkedMoved(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (bool, error) {
 	var vm v1alpha2.VirtualMachine
+
 	err := h.client.Get(ctx, types.NamespacedName{Namespace: vmop.Namespace, Name: vmop.Spec.VirtualMachine}, &vm)
 	if err != nil {
 		return false, err
 	}
+
 	return vm.Annotations[annotations.AnnVMMovedToPeer] == vmop.Name, nil
 }
 
@@ -537,13 +603,16 @@ func (h PeerMigrationHandler) isMarkedMoved(ctx context.Context, vmop *v1alpha2.
 // does not start by itself while the guest may run in the peer, and the lock of the move goes.
 func (h PeerMigrationHandler) handBack(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) error {
 	var vm v1alpha2.VirtualMachine
+
 	err := h.client.Get(ctx, types.NamespacedName{Namespace: vmop.Namespace, Name: vmop.Spec.VirtualMachine}, &vm)
 	if k8serrors.IsNotFound(err) {
 		return nil
 	}
+
 	if err != nil {
 		return err
 	}
+
 	if vm.GetAnnotations()[annotations.AnnVMMovedToPeer] == vmop.Name {
 		patch, _ := json.Marshal(map[string]any{
 			"metadata": map[string]any{"annotations": map[string]any{annotations.AnnVMMovedToPeer: nil}},
@@ -553,14 +622,17 @@ func (h PeerMigrationHandler) handBack(ctx context.Context, vmop *v1alpha2.Virtu
 			return fmt.Errorf("hand the virtual machine back: %w", err)
 		}
 	}
+
 	var kvvm virtv1.VirtualMachine
 	if err = h.client.Get(ctx, types.NamespacedName{Namespace: vm.Namespace, Name: vm.Name}, &kvvm); err != nil {
 		return client.IgnoreNotFound(err)
 	}
+
 	patch, _ := json.Marshal(map[string]any{
 		"metadata": map[string]any{"annotations": map[string]any{annRunStrategyBeforeMove: nil}},
 		"spec":     map[string]any{"runStrategy": virtv1.RunStrategyManual},
 	})
+
 	return h.client.Patch(ctx, &kvvm, client.RawPatch(types.MergePatchType, patch))
 }
 
@@ -576,10 +648,12 @@ func (h PeerMigrationHandler) moved(ctx context.Context, peer client.Client, vmo
 			return err
 		}
 	}
+
 	msg := fmt.Sprintf("The virtual machine has moved to cluster %q.", commonvmop.PeerName(vmop))
 	h.complete(vmop, v1alpha2.VMOPPhaseCompleted, vmopcondition.ReasonOperationCompleted, msg)
 	h.recorder.Event(vmop, corev1.EventTypeNormal, v1alpha2.ReasonVMOPSucceeded, msg)
 	controllerutil.RemoveFinalizer(vmop, v1alpha2.FinalizerVMOPCleanup)
+
 	return nil
 }
 
@@ -587,10 +661,12 @@ func (h PeerMigrationHandler) moved(ctx context.Context, peer client.Client, vmo
 // the ones the user created and the snapshots of the disks stay, and the snapshots are named in an event.
 func (h PeerMigrationHandler) deleteSource(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) error {
 	var vm v1alpha2.VirtualMachine
+
 	err := h.client.Get(ctx, types.NamespacedName{Namespace: vmop.Namespace, Name: vmop.Spec.VirtualMachine}, &vm)
 	if k8serrors.IsNotFound(err) {
 		return nil
 	}
+
 	if err != nil {
 		return err
 	}
@@ -598,7 +674,9 @@ func (h PeerMigrationHandler) deleteSource(ctx context.Context, vmop *v1alpha2.V
 	if vm.GetAnnotations()[annotations.AnnVMMovedToPeer] != vmop.Name {
 		return nil
 	}
+
 	spec := &vm.Spec
+
 	var kvvm virtv1.VirtualMachine
 	if err = h.client.Get(ctx, types.NamespacedName{Namespace: vm.Namespace, Name: vm.Name}, &kvvm); err == nil {
 		spec, err = runningSpec(&vm, &kvvm)
@@ -608,23 +686,30 @@ func (h PeerMigrationHandler) deleteSource(ctx context.Context, vmop *v1alpha2.V
 	} else if !k8serrors.IsNotFound(err) {
 		return err
 	}
+
 	disks := map[string]bool{}
+
 	for _, ref := range spec.BlockDeviceRefs {
 		if ref.Kind != v1alpha2.DiskDevice {
 			continue
 		}
+
 		disks[ref.Name] = true
+
 		vd := &v1alpha2.VirtualDisk{ObjectMeta: metav1.ObjectMeta{Namespace: vm.Namespace, Name: ref.Name}}
 		if err = h.client.Delete(ctx, vd); client.IgnoreNotFound(err) != nil {
 			return err
 		}
 	}
+
 	if vm.DeletionTimestamp == nil {
 		if err = h.client.Delete(ctx, &vm); client.IgnoreNotFound(err) != nil {
 			return err
 		}
+
 		h.reportKeptSnapshots(ctx, vmop, disks)
 	}
+
 	return nil
 }
 
@@ -634,15 +719,19 @@ func (h PeerMigrationHandler) reportKeptSnapshots(ctx context.Context, vmop *v1a
 	if err := h.client.List(ctx, &snapshots, client.InNamespace(vmop.Namespace)); err != nil {
 		return
 	}
+
 	var kept []string
+
 	for _, s := range snapshots.Items {
 		if disks[s.Spec.VirtualDiskName] {
 			kept = append(kept, fmt.Sprintf("%q", s.Name))
 		}
 	}
+
 	if len(kept) == 0 {
 		return
 	}
+
 	h.recorder.Event(vmop, corev1.EventTypeNormal, v1alpha2.ReasonVMOPSucceeded,
 		fmt.Sprintf("The virtual machine runs in cluster %q and was deleted here. Its disk snapshots %s are kept in this project.", commonvmop.PeerName(vmop), strings.Join(kept, ", ")))
 }
@@ -655,17 +744,21 @@ func (h PeerMigrationHandler) rollback(ctx context.Context, peer client.Client, 
 		if err := h.client.Delete(ctx, src); client.IgnoreNotFound(err) != nil {
 			return false, err
 		}
+
 		return false, nil
 	}
+
 	receiver, err := h.ownReceiver(ctx, peer, vmop)
 	if err != nil {
 		return false, err
 	}
+
 	if receiver != nil {
 		received, err := h.receiverMigrationSucceeded(ctx, peer, receiver)
 		if err != nil {
 			return false, err
 		}
+
 		if receiver.Status.ReceiverStarted || received {
 			return true, h.moved(ctx, peer, vmop, receiver)
 		}
@@ -674,7 +767,9 @@ func (h PeerMigrationHandler) rollback(ctx context.Context, peer client.Client, 
 			return false, err
 		}
 	}
+
 	_, err = h.release(ctx, vmop)
+
 	return true, err
 }
 
@@ -684,16 +779,21 @@ func (h PeerMigrationHandler) receiverMigrationSucceeded(ctx context.Context, pe
 	if peer == nil || receiver == nil {
 		return false, nil
 	}
+
 	received := &unstructured.Unstructured{}
 	received.SetGroupVersionKind(peerMigrationGVK)
+
 	err := peer.Get(ctx, types.NamespacedName{Namespace: receiver.Namespace, Name: string(receiver.UID)}, received)
 	if k8serrors.IsNotFound(err) {
 		return false, nil
 	}
+
 	if err != nil {
 		return false, err
 	}
+
 	phase, _, err := unstructured.NestedString(received.Object, "status", "phase")
+
 	return phase == string(virtv1.MigrationSucceeded), err
 }
 
@@ -707,10 +807,12 @@ func (h PeerMigrationHandler) ownReceiver(ctx context.Context, peer client.Clien
 	if peer == nil {
 		return nil, nil
 	}
+
 	receiver, err := h.getReceiver(ctx, peer, vmop)
 	if err != nil || receiver == nil || receiver.Labels[labelPeerVMOPUID] != peering.ReceiverVMOPUID(vmop) {
 		return nil, err
 	}
+
 	return receiver, nil
 }
 
@@ -722,6 +824,7 @@ func (h PeerMigrationHandler) cleanupFailed(ctx context.Context, vmop *v1alpha2.
 	if !marked {
 		return client.IgnoreNotFound(err)
 	}
+
 	peerClient, err := h.peers.Client(ctx, commonvmop.PeerName(vmop))
 	if err != nil {
 		h.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed,
@@ -731,11 +834,13 @@ func (h PeerMigrationHandler) cleanupFailed(ctx context.Context, vmop *v1alpha2.
 		if err != nil {
 			return err
 		}
+
 		if receiver != nil && !receiver.Status.ReceiverStarted {
 			received, err := h.receiverMigrationSucceeded(ctx, peerClient, receiver)
 			if err != nil {
 				return err
 			}
+
 			if !received {
 				if err = peerClient.Delete(ctx, receiver); client.IgnoreNotFound(err) != nil {
 					return err
@@ -743,6 +848,7 @@ func (h PeerMigrationHandler) cleanupFailed(ctx context.Context, vmop *v1alpha2.
 			}
 		}
 	}
+
 	return h.unmarkMoved(ctx, vmop)
 }
 
@@ -752,11 +858,14 @@ func (h PeerMigrationHandler) failRequest(ctx context.Context, vmop *v1alpha2.Vi
 	if err := h.unmarkMoved(ctx, vmop); err != nil {
 		return err
 	}
+
 	h.complete(vmop, v1alpha2.VMOPPhaseFailed, vmopcondition.ReasonPeerRejected, msg)
 	h.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, msg)
+
 	if !vmop.DeletionTimestamp.IsZero() {
 		controllerutil.RemoveFinalizer(vmop, v1alpha2.FinalizerVMOPCleanup)
 	}
+
 	return nil
 }
 
@@ -768,37 +877,46 @@ func (h PeerMigrationHandler) fail(ctx context.Context, vmop *v1alpha2.VirtualMa
 	if err != nil {
 		return err
 	}
+
 	if receiver != nil {
 		received, err := h.receiverMigrationSucceeded(ctx, peer, receiver)
 		if err != nil {
 			return err
 		}
+
 		if receiver.Status.ReceiverStarted || received {
 			return h.moved(ctx, peer, vmop, receiver)
 		}
 	}
+
 	src, err := h.migration.GetMigration(ctx, vmop)
 	if err != nil {
 		return err
 	}
+
 	if src != nil {
 		if err = h.client.Delete(ctx, src); client.IgnoreNotFound(err) != nil {
 			return err
 		}
 	}
+
 	if receiver != nil {
 		if err = peer.Delete(ctx, receiver); client.IgnoreNotFound(err) != nil {
 			return err
 		}
 	}
+
 	if _, err = h.release(ctx, vmop); err != nil {
 		return err
 	}
+
 	h.complete(vmop, v1alpha2.VMOPPhaseFailed, reason, msg)
 	h.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, msg)
+
 	if !vmop.DeletionTimestamp.IsZero() {
 		controllerutil.RemoveFinalizer(vmop, v1alpha2.FinalizerVMOPCleanup)
 	}
+
 	return nil
 }
 
@@ -824,10 +942,12 @@ func (h PeerMigrationHandler) progress(vmop *v1alpha2.VirtualMachineOperation, r
 
 func (h PeerMigrationHandler) complete(vmop *v1alpha2.VirtualMachineOperation, phase v1alpha2.VMOPPhase, reason vmopcondition.ReasonCompleted, msg string) {
 	vmop.Status.Phase = phase
+
 	status := metav1.ConditionFalse
 	if phase == v1alpha2.VMOPPhaseCompleted {
 		status = metav1.ConditionTrue
 	}
+
 	conditions.SetCondition(conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
 		Generation(vmop.GetGeneration()).Reason(reason).Status(status).Message(msg), &vmop.Status.Conditions)
 }
@@ -837,14 +957,18 @@ func (h PeerMigrationHandler) getReceiver(ctx context.Context, peer client.Clien
 	if err != nil {
 		return nil, err
 	}
+
 	var r intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver
+
 	err = peer.Get(ctx, types.NamespacedName{Namespace: target.Namespace, Name: vmop.Spec.VirtualMachine}, &r)
 	if k8serrors.IsNotFound(err) {
 		return nil, nil
 	}
+
 	if err != nil {
 		return nil, fmt.Errorf("get the request to receive in the peer: %w", err)
 	}
+
 	return &r, nil
 }
 
@@ -855,29 +979,36 @@ func runningSpec(vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) (*v1a
 	if kvvm == nil {
 		return &vm.Spec, nil
 	}
+
 	spec, err := kvbuilder.LoadLastAppliedSpec(kvvm)
 	if err != nil {
 		return nil, err
 	}
+
 	if spec == nil {
 		spec = &vm.Spec
 	}
+
 	return spec, nil
 }
 
 // virtualDisks returns the VirtualDisks of the running spec in the order of its block devices.
 func (h PeerMigrationHandler) virtualDisks(ctx context.Context, vm *v1alpha2.VirtualMachine, spec *v1alpha2.VirtualMachineSpec) ([]*v1alpha2.VirtualDisk, error) {
 	var vds []*v1alpha2.VirtualDisk
+
 	for _, ref := range spec.BlockDeviceRefs {
 		if ref.Kind != v1alpha2.DiskDevice {
 			continue
 		}
+
 		var vd v1alpha2.VirtualDisk
 		if err := h.client.Get(ctx, types.NamespacedName{Namespace: vm.Namespace, Name: ref.Name}, &vd); err != nil {
 			return nil, err
 		}
+
 		vds = append(vds, &vd)
 	}
+
 	return vds, nil
 }
 
@@ -890,11 +1021,13 @@ func (h PeerMigrationHandler) markMoved(ctx context.Context, vm *v1alpha2.Virtua
 			return fmt.Errorf("mark the virtual machine moved to the peer: %w", err)
 		}
 	}
+
 	if kvvm.Spec.RunStrategy == nil || *kvvm.Spec.RunStrategy != virtv1.RunStrategyManual {
 		before := ""
 		if kvvm.Spec.RunStrategy != nil {
 			before = string(*kvvm.Spec.RunStrategy)
 		}
+
 		patch, _ := json.Marshal(map[string]any{
 			"metadata": map[string]any{"annotations": map[string]string{annRunStrategyBeforeMove: before}},
 			"spec":     map[string]any{"runStrategy": virtv1.RunStrategyManual, "running": nil},
@@ -903,19 +1036,23 @@ func (h PeerMigrationHandler) markMoved(ctx context.Context, vm *v1alpha2.Virtua
 			return fmt.Errorf("stop restarts of the internal virtual machine: %w", err)
 		}
 	}
+
 	return nil
 }
 
 // unmarkMoved hands the VM back to the regular handling: the VM controller restores its KubeVirt VM.
 func (h PeerMigrationHandler) unmarkMoved(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) error {
 	var vm v1alpha2.VirtualMachine
+
 	err := h.client.Get(ctx, types.NamespacedName{Namespace: vmop.Namespace, Name: vmop.Spec.VirtualMachine}, &vm)
 	if k8serrors.IsNotFound(err) {
 		return nil
 	}
+
 	if err != nil {
 		return err
 	}
+
 	if vm.GetAnnotations()[annotations.AnnVMMovedToPeer] != vmop.Name {
 		return nil
 	}
@@ -924,11 +1061,13 @@ func (h PeerMigrationHandler) unmarkMoved(ctx context.Context, vmop *v1alpha2.Vi
 	if err = h.client.Get(ctx, types.NamespacedName{Namespace: vm.Namespace, Name: vm.Name}, &kvvm); client.IgnoreNotFound(err) != nil {
 		return err
 	}
+
 	if before, ok := kvvm.GetAnnotations()[annRunStrategyBeforeMove]; ok && err == nil {
 		spec := map[string]any{"runStrategy": nil}
 		if before != "" {
 			spec["runStrategy"] = before
 		}
+
 		patch, _ := json.Marshal(map[string]any{"metadata": map[string]any{"annotations": map[string]any{annRunStrategyBeforeMove: nil}}, "spec": spec})
 		if err = h.client.Patch(ctx, &kvvm, client.RawPatch(types.MergePatchType, patch)); err != nil {
 			return fmt.Errorf("restore the run strategy of the internal virtual machine: %w", err)
@@ -936,6 +1075,7 @@ func (h PeerMigrationHandler) unmarkMoved(ctx context.Context, vmop *v1alpha2.Vi
 	}
 
 	patch, _ := json.Marshal(map[string]any{"metadata": map[string]any{"annotations": map[string]any{annotations.AnnVMMovedToPeer: nil}}})
+
 	return h.client.Patch(ctx, &vm, client.RawPatch(types.MergePatchType, patch))
 }
 
@@ -948,15 +1088,18 @@ func (h PeerMigrationHandler) refreshSyncPins(ctx context.Context, peer client.C
 	if err != nil {
 		return err
 	}
+
 	if pin != "" && receiver.Annotations[annotations.AnnReceiverSourceSyncPin] != pin {
 		patch, _ := json.Marshal(map[string]any{"metadata": map[string]any{"annotations": map[string]string{annotations.AnnReceiverSourceSyncPin: pin}}})
 		if err = peer.Patch(ctx, receiver, client.RawPatch(types.MergePatchType, patch)); err != nil {
 			return fmt.Errorf("update the pin of this cluster in the request: %w", err)
 		}
 	}
+
 	if src == nil {
 		return nil
 	}
+
 	return peering.SetMigrationPeerSyncPin(ctx, h.client, client.ObjectKeyFromObject(src), receiver.Status.SyncPin)
 }
 
@@ -972,15 +1115,18 @@ func makeReceiver(vm *v1alpha2.VirtualMachine, spec *v1alpha2.VirtualMachineSpec
 	}
 
 	var rawVDs []runtime.RawExtension
+
 	for _, vd := range vds {
 		size, err := resource.ParseQuantity(vd.Status.Capacity)
 		if err != nil {
 			return nil, fmt.Errorf("the size of the disk %q is not known yet: %w", vd.Name, err)
 		}
+
 		pvc := map[string]any{"size": size.String()}
 		if vd.Status.StorageClassName != "" {
 			pvc["storageClassName"] = vd.Status.StorageClassName
 		}
+
 		raw, err := json.Marshal(map[string]any{
 			"metadata": map[string]any{"name": vd.Name, "labels": userMetadata(vd.Labels), "annotations": userMetadata(vd.Annotations)},
 			"spec":     map[string]any{"persistentVolumeClaim": pvc},
@@ -988,6 +1134,7 @@ func makeReceiver(vm *v1alpha2.VirtualMachine, spec *v1alpha2.VirtualMachineSpec
 		if err != nil {
 			return nil, err
 		}
+
 		rawVDs = append(rawVDs, runtime.RawExtension{Raw: raw})
 	}
 
@@ -1000,6 +1147,7 @@ func makeReceiver(vm *v1alpha2.VirtualMachine, spec *v1alpha2.VirtualMachineSpec
 	if target.NewAddress {
 		anns[annotations.AnnReceiverNewIPAddress] = "true"
 	}
+
 	return &intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{
 		TypeMeta:   metav1.TypeMeta{APIVersion: intvirtv1alpha1.SchemeGroupVersion.String(), Kind: intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiverKind},
 		ObjectMeta: metav1.ObjectMeta{Namespace: target.Namespace, Name: vm.Name, Labels: map[string]string{labelPeerVMOPUID: mid}, Annotations: anns},
@@ -1021,5 +1169,6 @@ func userMetadata(m map[string]string) map[string]string {
 			delete(out, k)
 		}
 	}
+
 	return out
 }

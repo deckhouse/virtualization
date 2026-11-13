@@ -86,6 +86,7 @@ var _ = Describe("SecretRestorer", func() {
 			if specIPAddressName != "" {
 				vm.Spec.Networks = []v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain, IPAddressName: specIPAddressName}}
 			}
+
 			return vm
 		}
 		newIPAddress := func(ipaType string) *sdnapi.IPAddress {
@@ -99,9 +100,11 @@ var _ = Describe("SecretRestorer", func() {
 			func(keep v1alpha2.KeepIPAddress, ipaType, specIPAddressName string, saved bool) {
 				cl, err := testutil.NewFakeClientWithObjects(newIPAddress(ipaType))
 				Expect(err).NotTo(HaveOccurred())
+
 				secret := &corev1.Secret{Data: map[string][]byte{}}
 
 				Expect(SecretRestorer{client: cl}.setMainIPAddress(context.Background(), secret, newVM(specIPAddressName), keep)).To(Succeed())
+
 				if saved {
 					Expect(secret.Data).To(HaveKey(mainIPAddressKey))
 				} else {
@@ -117,6 +120,7 @@ var _ = Describe("SecretRestorer", func() {
 		It("fails when the IPAddress of the status is gone", func() {
 			cl, err := testutil.NewFakeClientWithObjects()
 			Expect(err).NotTo(HaveOccurred())
+
 			secret := &corev1.Secret{Data: map[string][]byte{}}
 
 			err = SecretRestorer{client: cl}.setMainIPAddress(context.Background(), secret, newVM(""), v1alpha2.KeepIPAddressAlways)

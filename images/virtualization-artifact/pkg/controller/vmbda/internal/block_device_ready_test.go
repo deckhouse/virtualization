@@ -142,6 +142,7 @@ var _ = Describe("BlockDeviceReadyHandler ValidateVirtualDiskReady", func() {
 		err := NewBlockDeviceReadyHandler(&attachmentServiceMock).ValidateVirtualDiskReady(ctx, vmbda, cb)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(cb.Condition().Status).To(Equal(expectedStatus))
+
 		if expectedStatus == metav1.ConditionTrue {
 			Expect(cb.Condition().Reason).To(Equal(vmbdacondition.BlockDeviceReady.String()))
 		}
@@ -173,6 +174,7 @@ var _ = Describe("BlockDeviceReadyHandler ValidateVirtualDiskReady", func() {
 		err := NewBlockDeviceReadyHandler(&attachmentServiceMock).ValidateVirtualDiskReady(ctx, vmbda, cb)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(cb.Condition().Status).To(Equal(expectedStatus))
+
 		if expectedStatus == metav1.ConditionTrue {
 			Expect(cb.Condition().Reason).To(Equal(vmbdacondition.BlockDeviceReady.String()))
 		}
@@ -190,6 +192,7 @@ var _ = Describe("BlockDeviceReadyHandler ValidateVirtualDiskReady", func() {
 		attachmentServiceMock.GetVirtualDiskFunc = func(_ context.Context, _, _ string) (*v1alpha2.VirtualDisk, error) {
 			vd := generateVD(v1alpha2.DiskReady, metav1.ConditionTrue)
 			vd.Status.AttachedToVirtualMachines = attached
+
 			return vd, nil
 		}
 		attachmentServiceMock.GetVirtualMachineFunc = func(_ context.Context, name, ns string) (*v1alpha2.VirtualMachine, error) {
@@ -200,6 +203,7 @@ var _ = Describe("BlockDeviceReadyHandler ValidateVirtualDiskReady", func() {
 			if onInstance {
 				kvvmi.Status.VolumeStatus = []virtv1.VolumeStatus{{Name: "vd-vd", HotplugVolume: &virtv1.HotplugVolumeStatus{}}}
 			}
+
 			return kvvmi, nil
 		}
 		attachmentServiceMock.GetPersistentVolumeClaimFunc = func(_ context.Context, _ *service.AttachmentDisk) (*corev1.PersistentVolumeClaim, error) {
@@ -226,6 +230,7 @@ var _ = Describe("BlockDeviceReadyHandler ValidateVirtualDiskReady", func() {
 			vd.Status.Conditions = append(vd.Status.Conditions, metav1.Condition{
 				Type: vdcondition.InUseType.String(), Status: metav1.ConditionTrue, Reason: vdcondition.UsedForImageCreation.String(),
 			})
+
 			return vd, nil
 		}
 		attachmentServiceMock.GetPersistentVolumeClaimFunc = func(_ context.Context, _ *service.AttachmentDisk) (*corev1.PersistentVolumeClaim, error) {

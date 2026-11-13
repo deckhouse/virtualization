@@ -64,5 +64,6 @@ func (w *VMOPWatcher) Watch(mgr manager.Manager, ctr controller.Controller) erro
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualMachineOperation: %w", err)
 	}
+
 	return nil
 }

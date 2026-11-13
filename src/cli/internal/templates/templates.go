@@ -84,15 +84,19 @@ func ExactArgs(nameOfCommand string, n int) cobra.PositionalArgs {
 		if len(args) == n {
 			return nil
 		}
+
 		err := errors.New("argument validation failed")
+
 		_, e := fmt.Fprintf(os.Stderr, "fatal: Number of input parameters is incorrect, %s accepts %d arg(s), received %d\n\n", nameOfCommand, n, len(args))
 		if e != nil {
 			err = errors.Join(err, e)
 		}
+
 		e = cmd.Help()
 		if e != nil {
 			err = errors.Join(err, e)
 		}
+
 		return err
 	}
 }
@@ -105,15 +109,19 @@ func MinimumArgs(nameOfCommand string, n int) cobra.PositionalArgs {
 		if len(args) >= n {
 			return nil
 		}
+
 		err := errors.New("argument validation failed")
+
 		_, e := fmt.Fprintf(os.Stderr, "fatal: Number of input parameters is incorrect, %s accepts at least %d arg(s), received %d\n\n", nameOfCommand, n, len(args))
 		if e != nil {
 			err = errors.Join(err, e)
 		}
+
 		e = cmd.Help()
 		if e != nil {
 			err = errors.Join(err, e)
 		}
+
 		return err
 	}
 }
@@ -124,6 +132,7 @@ func PrintWarningForPausedVM(ctx context.Context, virtCli kubeclient.Client, vmN
 	if err != nil {
 		return
 	}
+
 	if vm.Status.Phase == v1alpha2.MachinePause {
 		_, _ = fmt.Fprintf(os.Stderr, "\rWarning: %s is paused. Console will be active after unpause.\n", vmName)
 	}

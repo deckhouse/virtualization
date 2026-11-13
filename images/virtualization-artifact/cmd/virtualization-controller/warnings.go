@@ -49,5 +49,6 @@ func (f vmipDeprecationFilter) HandleWarningHeaderWithContext(ctx context.Contex
 			return
 		}
 	}
+
 	f.next.HandleWarningHeaderWithContext(ctx, code, agent, text)
 }

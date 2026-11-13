@@ -75,6 +75,7 @@ func (s ReadyPersistentVolumeClaimStep) Take(ctx context.Context, vi *v1alpha2.V
 				Status(metav1.ConditionFalse).
 				Reason(vicondition.PVCLost).
 				Message(fmt.Sprintf("PersistentVolumeClaim %q not found.", vi.Status.Target.PersistentVolumeClaim))
+
 			return &reconcile.Result{}, nil
 		}
 
@@ -121,6 +122,7 @@ func (s ReadyPersistentVolumeClaimStep) Take(ctx context.Context, vi *v1alpha2.V
 		vi.Status.Format = imageformat.StorageFormat(s.pvc)
 
 		res := s.pvc.Status.Capacity[corev1.ResourceStorage]
+
 		intQ, ok := res.AsInt64()
 		if !ok {
 			return nil, errors.New("failed to convert quantity to int64")

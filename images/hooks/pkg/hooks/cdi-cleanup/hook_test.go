@@ -74,6 +74,7 @@ func TestStaleCDIResources(t *testing.T) {
 		if strings.Contains(resource.name, "storageprofiles.storage.virtualization.deckhouse.io") {
 			t.Fatalf("module-owned StorageProfile CRD must not be removed by CDI cleanup hook: %#v", resource)
 		}
+
 		if resource.name == "internalvirtualizationcdis.cdi.internal.virtualization.deckhouse.io" {
 			t.Fatalf("internalvirtualizationcdis CRD is kept in the release and must not be removed by CDI cleanup hook: %#v", resource)
 		}
@@ -92,10 +93,12 @@ func TestStaleCDIResourcesHaveNoVPA(t *testing.T) {
 	}
 
 	want := map[string]bool{"cdi-operator": true, "cdi-apiserver": true, "cdi-deployment": true}
+
 	got := staleVPANames()
 	if len(got) != len(want) {
 		t.Fatalf("unexpected stale VPA names: %#v", got)
 	}
+
 	for _, name := range got {
 		if !want[name] {
 			t.Fatalf("unexpected stale VPA name: %q", name)

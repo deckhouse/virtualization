@@ -62,6 +62,7 @@ func (w VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controller
 				}
 
 				var requests []reconcile.Request
+
 				for _, vmop := range vmops.Items {
 					if !Match(&vmop) {
 						continue
@@ -77,6 +78,7 @@ func (w VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controller
 						})
 					}
 				}
+
 				return requests
 			}),
 			predicate.TypedFuncs[*v1alpha2.VirtualDisk]{
@@ -95,5 +97,6 @@ func (w VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controller
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualDisk: %w", err)
 	}
+
 	return nil
 }

@@ -60,6 +60,7 @@ var _ = Describe("PCIDevicesReady condition", func() {
 		for _, ref := range refs {
 			vm.Spec.PCIDevices = append(vm.Spec.PCIDevices, v1alpha2.PCIDeviceSpecRef{Name: ref})
 		}
+
 		return vm
 	}
 
@@ -86,6 +87,7 @@ var _ = Describe("PCIDevicesReady condition", func() {
 		vmState := state.New(fakeClient, vmResource)
 		_, err := NewPCIDeviceHandler(fakeClient).Handle(ctx, vmState)
 		Expect(err).NotTo(HaveOccurred())
+
 		return vmState.VirtualMachine().Changed().Status.Conditions
 	}
 

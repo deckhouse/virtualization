@@ -59,6 +59,7 @@ func (s ProcessRestoreStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMach
 	}
 
 	vmSnapshotKey := types.NamespacedName{Namespace: vmop.Namespace, Name: vmop.Spec.Restore.VirtualMachineSnapshotName}
+
 	vmSnapshot, err := object.FetchObject(ctx, vmSnapshotKey, s.client, &v1alpha2.VirtualMachineSnapshot{})
 	if err != nil {
 		return &reconcile.Result{}, err
@@ -73,6 +74,7 @@ func (s ProcessRestoreStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMach
 		if errors.Is(err, common.ErrQueueing) {
 			return &reconcile.Result{RequeueAfter: boundContentRequeueAfter}, nil
 		}
+
 		return &reconcile.Result{}, err
 	}
 
@@ -83,11 +85,13 @@ func (s ProcessRestoreStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMach
 		if errors.Is(err, common.ErrQueueing) {
 			return &reconcile.Result{RequeueAfter: boundContentRequeueAfter}, nil
 		}
+
 		return &reconcile.Result{}, err
 	}
 
 	statuses, err := snapshotResources.Validate(ctx)
 	vmop.Status.Resources = statuses
+
 	if err != nil {
 		return &reconcile.Result{}, err
 	}
@@ -98,10 +102,12 @@ func (s ProcessRestoreStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMach
 
 	statuses, err = snapshotResources.Process(ctx)
 	vmop.Status.Resources = statuses
+
 	if err != nil {
 		if errors.Is(err, common.ErrQueueing) {
 			return &reconcile.Result{RequeueAfter: restoreBackstopRequeueAfter}, nil
 		}
+
 		return &reconcile.Result{}, err
 	}
 

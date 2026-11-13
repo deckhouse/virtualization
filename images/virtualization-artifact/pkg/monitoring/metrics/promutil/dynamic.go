@@ -39,6 +39,7 @@ func (m dynamicMetric) Write(out *dto.Metric) error {
 	out.Counter = m.metric.Counter
 	out.Gauge = m.metric.Gauge
 	out.Untyped = m.metric.Untyped
+
 	return nil
 }
 
@@ -59,12 +60,14 @@ func makeLabelPairs(desc *prometheus.Desc, labelValues []string, extraLabels pro
 	if extraLabels == nil {
 		return pairs
 	}
+
 	for k, v := range extraLabels {
 		pairs = append(pairs, &dto.LabelPair{
 			Name:  proto.String(k),
 			Value: proto.String(v),
 		})
 	}
+
 	return pairs
 }
 
@@ -77,6 +80,7 @@ func populateMetric(
 	ct *timestamppb.Timestamp,
 ) error {
 	m.Label = labelPairs
+
 	switch t {
 	case prometheus.CounterValue:
 		m.Counter = &dto.Counter{Value: proto.Float64(v), Exemplar: e, CreatedTimestamp: ct}
@@ -87,5 +91,6 @@ func populateMetric(
 	default:
 		return fmt.Errorf("encountered unknown type %v", t)
 	}
+
 	return nil
 }

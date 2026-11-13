@@ -38,8 +38,10 @@ var _ = Describe("sshCommonArgs", func() {
 		root.PersistentFlags().String("kubeconfig", "", "")
 		root.PersistentFlags().String("server", "", "")
 		root.PersistentFlags().String("token", "", "")
+
 		inventoryCmd = &cobra.Command{Use: "ansible-inventory"}
 		root.AddCommand(inventoryCmd)
+
 		return root, inventoryCmd
 	}
 

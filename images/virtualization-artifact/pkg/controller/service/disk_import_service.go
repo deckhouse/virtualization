@@ -79,6 +79,7 @@ func NewPVCPVCImportSource(name, namespace string) *PVCImportSource {
 // owned by a VirtualDisk or VirtualImage.
 func ownerReferenceForObject(obj client.Object) metav1.OwnerReference {
 	gvk := obj.GetObjectKind().GroupVersionKind()
+
 	return metav1.OwnerReference{
 		APIVersion:         gvk.GroupVersion().String(),
 		Kind:               gvk.Kind,

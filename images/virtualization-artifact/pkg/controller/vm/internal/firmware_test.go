@@ -62,6 +62,7 @@ var _ = Describe("TestFirmwareHandler", func() {
 		kvvmi := newEmptyKVVMI(name, namespace)
 		kvvmi.Status.LauncherContainerImageVersion = image
 		kvvmi.Status.Phase = phase
+
 		return kvvmi
 	}
 
@@ -76,6 +77,7 @@ var _ = Describe("TestFirmwareHandler", func() {
 	DescribeTable("Condition TypeFirmwareUpToDate should be in expected state",
 		func(vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, expectedStatus metav1.ConditionStatus, expectedReason vmcondition.FirmwareUpToDateReason, expectedExistence bool) {
 			fakeClient, resource, vmState = setupEnvironment(vm, kvvmi)
+
 			reconcile()
 
 			newVM := &v1alpha2.VirtualMachine{}
@@ -84,6 +86,7 @@ var _ = Describe("TestFirmwareHandler", func() {
 
 			upToDate, exists := conditions.GetCondition(vmcondition.TypeFirmwareUpToDate, newVM.Status.Conditions)
 			Expect(exists).To(Equal(expectedExistence))
+
 			if exists {
 				Expect(upToDate.Status).To(Equal(expectedStatus))
 				Expect(upToDate.Reason).To(Equal(expectedReason.String()))
@@ -104,12 +107,16 @@ var _ = Describe("TestFirmwareHandler", func() {
 		func(vm *v1alpha2.VirtualMachine, phase v1alpha2.MachinePhase, kvvmi *virtv1.VirtualMachineInstance, expectedStatus metav1.ConditionStatus, expectedExistence bool) {
 			vm.Status.Phase = phase
 			fakeClient, resource, vmState = setupEnvironment(vm, kvvmi)
+
 			reconcile()
+
 			newVM := &v1alpha2.VirtualMachine{}
 			err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 			Expect(err).NotTo(HaveOccurred())
+
 			upToDate, exists := conditions.GetCondition(vmcondition.TypeFirmwareUpToDate, newVM.Status.Conditions)
 			Expect(exists).To(Equal(expectedExistence))
+
 			if exists {
 				Expect(upToDate.Status).To(Equal(expectedStatus))
 			}

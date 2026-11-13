@@ -70,6 +70,7 @@ func (s TakeLeaseStep) Take(ctx context.Context, vmip *v1alpha2.VirtualMachineIP
 			Reason(vmipcondition.VirtualMachineIPAddressLeaseNotReady).
 			Message(msg)
 		s.recorder.Event(vmip, corev1.EventTypeWarning, vmipcondition.VirtualMachineIPAddressLeaseAlreadyExists.String(), msg)
+
 		return &reconcile.Result{}, nil
 	}
 
@@ -79,6 +80,7 @@ func (s TakeLeaseStep) Take(ctx context.Context, vmip *v1alpha2.VirtualMachineIP
 			Status(metav1.ConditionFalse).
 			Reason(vmipcondition.VirtualMachineIPAddressLeaseNotReady).
 			Message(fmt.Sprintf("The VirtualMachineIPAddressLease %q already has a reference to another VirtualMachineIPAddress.", s.lease.Name))
+
 		return &reconcile.Result{}, nil
 	}
 
@@ -96,6 +98,7 @@ func (s TakeLeaseStep) Take(ctx context.Context, vmip *v1alpha2.VirtualMachineIP
 			Status(metav1.ConditionFalse).
 			Reason(vmipcondition.VirtualMachineIPAddressLeaseNotReady).
 			Message(service.CapitalizeFirstLetter(err.Error()) + ".")
+
 		return &reconcile.Result{}, err
 	}
 
@@ -103,5 +106,6 @@ func (s TakeLeaseStep) Take(ctx context.Context, vmip *v1alpha2.VirtualMachineIP
 		Status(metav1.ConditionFalse).
 		Reason(vmipcondition.VirtualMachineIPAddressLeaseNotReady).
 		Message(fmt.Sprintf("Waiting for the reference of the VirtualMachineIPAddressLease %q to be updated.", s.lease.Name))
+
 	return &reconcile.Result{}, nil
 }

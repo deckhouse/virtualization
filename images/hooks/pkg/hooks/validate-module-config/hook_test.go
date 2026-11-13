@@ -43,6 +43,7 @@ var _ = Describe("ModuleConfig validation hook", func() {
 		defaultPodSubnet     = "10.111.0.0/16"
 		defaultServiceSubnet = "10.222.0.0/16"
 	)
+
 	var (
 		snapshots    *mock.SnapshotsMock
 		values       *mock.OutputPatchableValuesCollectorMock
@@ -104,6 +105,7 @@ var _ = Describe("ModuleConfig validation hook", func() {
 		return []pkg.Snapshot{
 			mock.NewSnapshotMock(GinkgoT()).UnmarshalToMock.Set(func(v any) (err error) {
 				GinkgoHelper()
+
 				mc, ok := v.(*mcapi.ModuleConfig)
 				Expect(ok).To(BeTrue())
 
@@ -117,11 +119,14 @@ var _ = Describe("ModuleConfig validation hook", func() {
 
 	newNodesSnapshot := func(nodesAddresses []string) []pkg.Snapshot {
 		snap := make([]pkg.Snapshot, 0)
+
 		for _, nodeAddr := range nodesAddresses {
 			nodeName := "node-" + nodeAddr
 			nodeIP := nodeAddr
+
 			snap = append(snap, mock.NewSnapshotMock(GinkgoT()).UnmarshalToMock.Set(func(v any) (err error) {
 				GinkgoHelper()
+
 				node, ok := v.(*corev1.Node)
 				Expect(ok).To(BeTrue())
 
@@ -137,6 +142,7 @@ var _ = Describe("ModuleConfig validation hook", func() {
 				return nil
 			}))
 		}
+
 		return snap
 	}
 
@@ -232,6 +238,7 @@ var _ = Describe("ModuleConfig validation hook", func() {
 		settingsWithoutCIDRs := map[string]any{
 			"dvcr": validSettings["dvcr"],
 		}
+
 		prepareValues(defaultPodSubnet, defaultServiceSubnet)
 		prepareConfigValues(settingsWithoutCIDRs)
 		prepareSnapshots(
@@ -259,6 +266,7 @@ var _ = Describe("ModuleConfig validation hook", func() {
 
 	DescribeTable("Should set validation error if virtualMachineCIDRs overlap with other addresses in cluster", func(cidrs []any) {
 		prepareValues(defaultPodSubnet, defaultServiceSubnet)
+
 		invalidSettings := map[string]any{
 			"virtualMachineCIDRs": cidrs,
 			"dvcr":                validSettings["dvcr"],
@@ -276,6 +284,7 @@ var _ = Describe("ModuleConfig validation hook", func() {
 				Fail("Should not copy ModuleConfig settings")
 			case settings.InternalValuesConfigValidationPath:
 				validationErrorSet = true
+
 				Expect(v).To(HaveKey("error"))
 			default:
 				Fail("unexpected path")

@@ -33,8 +33,10 @@ func FromContext(ctx context.Context) *slog.Logger {
 	if l := logr.FromContextAsSlogLogger(ctx); l != nil {
 		return l
 	}
+
 	missingLogger := slog.Default().With(slog.String("logger", "missing_from_context"))
 	missingLogger.Warn("Logger was not found in context, using default")
+
 	return missingLogger
 }
 

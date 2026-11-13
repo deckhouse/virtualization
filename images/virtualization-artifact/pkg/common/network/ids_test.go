@@ -120,10 +120,12 @@ var _ = Describe("Network IDs", func() {
 
 		It("should stop assignment when ID space is exhausted", func() {
 			var networks []v1alpha2.NetworksSpec
+
 			for id := MinID; id <= MaxID; id++ {
 				v := id
 				networks = append(networks, v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeNetwork, ID: &v})
 			}
+
 			networks = append(networks, v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "overflow"})
 
 			changed := EnsureNetworkInterfaceIDs(networks)

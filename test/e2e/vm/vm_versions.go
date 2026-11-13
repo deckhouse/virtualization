@@ -39,6 +39,7 @@ var _ = Describe("VirtualMachineVersions", Label(label.SIGCompute, precheck.NoPr
 		f   *framework.Framework
 		ctx context.Context
 	)
+
 	BeforeEach(func() {
 		ctx = context.Background()
 		f = framework.NewFramework("vm-versions")
@@ -48,11 +49,13 @@ var _ = Describe("VirtualMachineVersions", Label(label.SIGCompute, precheck.NoPr
 
 	It("should expose qemu and libvirt versions in VM status", func() {
 		By("Generating VirtualDisk from precreated ClusterVirtualImage")
+
 		vdRoot := object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVICustomBIOS,
 			vdbuilder.WithSize(ptr.To(resource.MustParse(vdCustomImageSize))),
 		)
 
 		By("Generating VirtualMachine")
+
 		vm := object.NewMinimalVM("vm-", f.Namespace().Name,
 			// The custom image has no cloud-init; the guest agent is baked
 			// in, so no provisioning is needed.
@@ -65,6 +68,7 @@ var _ = Describe("VirtualMachineVersions", Label(label.SIGCompute, precheck.NoPr
 		)
 
 		By("Creating resources")
+
 		err := f.CreateWithDeferredDeletion(ctx, vdRoot, vm)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -72,10 +76,12 @@ var _ = Describe("VirtualMachineVersions", Label(label.SIGCompute, precheck.NoPr
 		vmObs.Never(vmobs.BeFailed())
 
 		By("Waiting for VirtualMachine to be Running")
+
 		err = vmObs.WaitFor(vmobs.BeRunning(), framework.LongTimeout)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Checking VM status has qemu and libvirt versions")
+
 		err = vmObs.WaitFor(haveQemuAndLibvirtVersions(), framework.LongTimeout)
 		Expect(err).NotTo(HaveOccurred())
 	})

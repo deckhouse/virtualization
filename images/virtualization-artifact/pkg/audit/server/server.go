@@ -60,8 +60,11 @@ func (s *tcpServer) Run(ctx context.Context, opts ...Option) error {
 		opt.Apply(&o)
 	}
 
-	var listener net.Listener
-	var err error
+	var (
+		listener net.Listener
+		err      error
+	)
+
 	if o.TLS != nil {
 		// The pod is rolled on every certificate rotation (module policy), so the
 		// cert is loaded once at startup; graceful shutdown drains connections so
@@ -70,10 +73,12 @@ func (s *tcpServer) Run(ctx context.Context, opts ...Option) error {
 		if cfg, err = loadServerTLSConfig(o.TLS); err != nil {
 			return err
 		}
+
 		listener, err = tls.Listen("tcp", s.addr, cfg)
 	} else {
 		listener, err = net.Listen("tcp", s.addr)
 	}
+
 	if err != nil {
 		return err
 	}
@@ -95,6 +100,7 @@ func (s *tcpServer) Run(ctx context.Context, opts ...Option) error {
 		listener.Close()
 		mu.Lock()
 		closing = true
+
 		for c := range conns {
 			c.Close()
 		}
@@ -121,8 +127,10 @@ func (s *tcpServer) Run(ctx context.Context, opts ...Option) error {
 		if closing {
 			mu.Unlock()
 			conn.Close()
+
 			continue
 		}
+
 		conns[conn] = struct{}{}
 		mu.Unlock()
 
@@ -133,6 +141,7 @@ func (s *tcpServer) Run(ctx context.Context, opts ...Option) error {
 				delete(conns, conn)
 				mu.Unlock()
 			}()
+
 			s.handleConnection(ctx, conn)
 		})
 	}
@@ -142,10 +151,12 @@ func (s *tcpServer) Run(ctx context.Context, opts ...Option) error {
 // so in-flight connections finish cleanly without holding shutdown forever.
 func waitWithTimeout(wg *sync.WaitGroup, timeout time.Duration) {
 	done := make(chan struct{})
+
 	go func() {
 		wg.Wait()
 		close(done)
 	}()
+
 	select {
 	case <-done:
 	case <-time.After(timeout):
@@ -190,6 +201,7 @@ func (s *tcpServer) handleConnection(ctx context.Context, conn net.Conn) {
 		if err := tlsConn.HandshakeContext(ctx); err != nil {
 			log.Warn("TLS handshake with log-shipper failed; if it repeats after a CA rotation, restart the log-shipper agent pods to reload the new CA",
 				slog.String("remote", conn.RemoteAddr().String()), log.Err(err))
+
 			return
 		}
 	}
@@ -198,6 +210,7 @@ func (s *tcpServer) handleConnection(ctx context.Context, conn net.Conn) {
 
 	scanner := bufio.NewScanner(conn)
 	scanner.Buffer(make([]byte, 0, bufio.MaxScanTokenSize), maxAuditEventSize)
+
 	for scanner.Scan() {
 		if ctx.Err() != nil {
 			return

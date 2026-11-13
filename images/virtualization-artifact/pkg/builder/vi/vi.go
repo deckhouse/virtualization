@@ -25,6 +25,7 @@ import (
 func New(options ...Option) *v1alpha2.VirtualImage {
 	vi := NewEmpty("", "")
 	ApplyOptions(vi, options)
+
 	return vi
 }
 
@@ -32,6 +33,7 @@ func ApplyOptions(vi *v1alpha2.VirtualImage, opts []Option) {
 	if vi == nil {
 		return
 	}
+
 	for _, opt := range opts {
 		opt(vi)
 	}

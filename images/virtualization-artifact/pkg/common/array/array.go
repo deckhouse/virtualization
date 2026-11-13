@@ -21,6 +21,7 @@ import "slices"
 // SetArrayElem performs idempotent insert of new elem or optionally replace if it exists
 func SetArrayElem[T any](elems []T, newElem T, matchFunc func(v1, v2 T) bool, replaceExisting bool) (res []T) {
 	isFound := false
+
 	for _, elem := range elems {
 		if matchFunc(elem, newElem) {
 			if replaceExisting {
@@ -28,14 +29,17 @@ func SetArrayElem[T any](elems []T, newElem T, matchFunc func(v1, v2 T) bool, re
 			} else {
 				res = append(res, elem)
 			}
+
 			isFound = true
 		} else {
 			res = append(res, elem)
 		}
 	}
+
 	if !isFound {
 		res = append(res, newElem)
 	}
+
 	return res
 }
 
@@ -46,7 +50,9 @@ func Filter[T any](objs []T, keeps ...FilterFunc[T]) []T {
 	if len(keeps) == 0 {
 		return slices.Clone(objs)
 	}
+
 	var filtered []T
+
 loop:
 	for _, o := range objs {
 		for _, keep := range keeps {
@@ -54,7 +60,9 @@ loop:
 				continue loop
 			}
 		}
+
 		filtered = append(filtered, o)
 	}
+
 	return filtered
 }

@@ -48,6 +48,7 @@ func (p featureGatePrecheck) Run(ctx context.Context, f *framework.Framework) er
 	}
 
 	virtualizationModuleConfig := &dv1alpha1.ModuleConfig{}
+
 	err := f.GenericClient().Get(ctx, client.ObjectKey{Name: virtualizationModuleName}, virtualizationModuleConfig)
 	if err != nil {
 		return fmt.Errorf("%s=no to disable this precheck: failed to get virtualization module config spec: %w", p.env, err)
@@ -105,11 +106,14 @@ func getFeatureGates(mc *dv1alpha1.ModuleConfig) ([]string, error) {
 	if !ok {
 		return nil, nil
 	}
+
 	gates, ok := featureGates.([]interface{})
 	if !ok {
 		return nil, errors.New("failed to get feature gates from virtualization module config spec. invalid config, please report a bug")
 	}
+
 	var result []string
+
 	for _, g := range gates {
 		if s, ok := g.(string); ok {
 			result = append(result, s)
@@ -128,6 +132,7 @@ func buildPatchCommand(oldGates, newGates []string) string {
 	if len(oldGates) > 0 {
 		op = "replace"
 	}
+
 	featureGates := mergeGates(oldGates, newGates)
 
 	cmd += fmt.Sprintf(`'[{"op": "%s", "path": "/spec/settings/featureGates", "value": [%s]}]'`, op, strings.Join(featureGates, ","))
@@ -140,6 +145,7 @@ func mergeGates(oldGates, newGates []string) []string {
 	for _, gate := range oldGates {
 		gates[gate] = struct{}{}
 	}
+
 	for _, gate := range newGates {
 		gates[gate] = struct{}{}
 	}
@@ -148,6 +154,8 @@ func mergeGates(oldGates, newGates []string) []string {
 	for gate := range gates {
 		featureGates = append(featureGates, gate)
 	}
+
 	sort.Strings(featureGates)
+
 	return featureGates
 }

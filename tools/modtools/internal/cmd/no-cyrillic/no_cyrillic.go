@@ -31,6 +31,7 @@ import (
 
 func NewCommand(load diff.Loader) *cobra.Command {
 	var title, description string
+
 	cmd := &cobra.Command{
 		Use:   "no-cyrillic",
 		Short: "Check added and modified lines for Cyrillic letters",
@@ -39,11 +40,13 @@ func NewCommand(load diff.Loader) *cobra.Command {
 			if err != nil {
 				return err
 			}
+
 			return report.Result(validate(info, title, description))
 		},
 	}
 	cmd.Flags().StringVar(&title, "title", "", "Title string to check for Cyrillic letters.")
 	cmd.Flags().StringVar(&description, "description", "", "Description string to check for Cyrillic letters.")
+
 	return cmd
 }
 
@@ -77,34 +80,44 @@ func validate(info *diff.DiffInfo, title, description string) (exitCode int) {
 	fmt.Printf("Run 'no cyrillic' validation ...\n")
 
 	exitCode = 0
+
 	if title != "" {
 		fmt.Printf("Check title ... ")
+
 		msg, hasCyr := checkCyrillicLetters(title)
 		if hasCyr {
 			fmt.Printf("ERROR\n%s\n", msg)
+
 			exitCode = 1
 		} else {
 			fmt.Printf("OK\n")
 		}
 	}
+
 	if description != "" {
 		fmt.Printf("Check description ... ")
+
 		msg, hasCyr := checkCyrillicLetters(description)
 		if hasCyr {
 			fmt.Printf("ERROR\n%s\n", msg)
+
 			exitCode = 1
 		} else {
 			fmt.Printf("OK\n")
 		}
 	}
+
 	fmt.Printf("Check new and updated lines ... ")
+
 	if len(info.Files) == 0 {
 		fmt.Printf("OK, diff is empty\n")
 		return exitCode
 	}
+
 	fmt.Println("")
 
 	msgs := report.NewMessages()
+
 	for _, fileInfo := range info.Files {
 		if !fileInfo.HasContent() {
 			continue
@@ -162,9 +175,11 @@ func validate(info *diff.DiffInfo, title, description string) (exitCode int) {
 	}
 
 	msgs.PrintReport()
+
 	if msgs.CountErrors() > 0 {
 		exitCode = 1
 	}
+
 	return exitCode
 }
 
@@ -178,6 +193,7 @@ func checkCyrillicLetters(in string) (string, bool) {
 	if strings.Contains(in, "\n") {
 		return checkCyrillicLettersInArray(strings.Split(in, "\n"))
 	}
+
 	return checkCyrillicLettersInString(in)
 }
 
@@ -205,10 +221,12 @@ func checkCyrillicLettersInArray(lines []string) (string, bool) {
 	res := make([]string, 0)
 
 	hasCyr := false
+
 	for _, line := range lines {
 		msg, has := checkCyrillicLettersInString(line)
 		if has {
 			hasCyr = true
+
 			res = append(res, msg)
 		}
 	}

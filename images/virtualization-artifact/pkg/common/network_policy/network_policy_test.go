@@ -35,12 +35,14 @@ func TestPVCImporterIngressPeers(t *testing.T) {
 		if len(peers) != 2 {
 			t.Fatalf("expected 2 peers, got %d", len(peers))
 		}
+
 		cdiExpr := peers[0].PodSelector.MatchExpressions[0]
 		if cdiExpr.Key != annotations.AppLabel ||
 			cdiExpr.Operator != metav1.LabelSelectorOpIn ||
 			len(cdiExpr.Values) != 1 || cdiExpr.Values[0] != annotations.CDILabelValue {
 			t.Fatalf("unexpected CDI peer selector: %#v", cdiExpr)
 		}
+
 		wantNS := map[string]string{corev1.LabelMetadataName: "d8-virtualization"}
 		if got := peers[1].NamespaceSelector.MatchLabels; got == nil || got[corev1.LabelMetadataName] != wantNS[corev1.LabelMetadataName] {
 			t.Fatalf("unexpected controller namespace peer: %#v", got)
@@ -60,13 +62,16 @@ func TestCreateNetworkPolicy(t *testing.T) {
 	// Build the CNP directly to assert its structure (CreateNetworkPolicy only wraps
 	// newCiliumNetworkPolicy in a client.Create call).
 	npName := sup.NetworkPolicy()
+
 	cnp := newCiliumNetworkPolicy(npName, nil, []string{"test-finalizer"}, importerCNPSpec("d8-virtualization"))
 	if cnp.GetKind() != "CiliumNetworkPolicy" || cnp.GetAPIVersion() != "cilium.io/v2" {
 		t.Fatalf("unexpected GVK: kind=%q apiVersion=%q", cnp.GetKind(), cnp.GetAPIVersion())
 	}
+
 	if cnp.GetName() != npName.Name || cnp.GetNamespace() != npName.Namespace {
 		t.Fatalf("unexpected name/namespace: %s/%s", cnp.GetNamespace(), cnp.GetName())
 	}
+
 	if fin := cnp.GetFinalizers(); len(fin) != 1 || fin[0] != "test-finalizer" {
 		t.Fatalf("unexpected finalizers: %#v", fin)
 	}
@@ -80,10 +85,12 @@ func TestCreateNetworkPolicy(t *testing.T) {
 	if !ok {
 		t.Fatalf("missing endpointSelector: %#v", spec)
 	}
+
 	exprs, _ := sel["matchExpressions"].([]interface{})
 	if len(exprs) != 1 {
 		t.Fatalf("expected 1 endpointSelector expression, got %d", len(exprs))
 	}
+
 	e, _ := exprs[0].(map[string]interface{})
 	if e["key"] != annotations.AppLabel || e["operator"] != "In" {
 		t.Fatalf("unexpected endpointSelector expression: %#v", e)
@@ -92,10 +99,12 @@ func TestCreateNetworkPolicy(t *testing.T) {
 	if _, ok := spec["egress"]; !ok {
 		t.Fatal("missing egress")
 	}
+
 	dd, ok := spec["enableDefaultDeny"].(map[string]interface{})
 	if !ok {
 		t.Fatalf("missing enableDefaultDeny: %#v", spec)
 	}
+
 	if dd["ingress"] != true || dd["egress"] != false {
 		t.Fatalf("unexpected enableDefaultDeny: %#v", dd)
 	}
@@ -104,28 +113,37 @@ func TestCreateNetworkPolicy(t *testing.T) {
 	if !ok {
 		t.Fatal("missing ingress rule")
 	}
+
 	if len(in) != 1 {
 		t.Fatalf("expected 1 ingress rule, got %d", len(in))
 	}
+
 	rule, _ := in[0].(map[string]interface{})
+
 	fromEndpoints, _ := rule["fromEndpoints"].([]interface{})
 	if len(fromEndpoints) != 1 {
 		t.Fatalf("expected 1 fromEndpoint, got %d", len(fromEndpoints))
 	}
+
 	ep, _ := fromEndpoints[0].(map[string]interface{})
+
 	labels, _ := ep["matchLabels"].(map[string]interface{})
 	if labels[ciliumNamespaceLabel] != "d8-virtualization" {
 		t.Fatalf("unexpected controller namespace in ingress: %#v", labels)
 	}
+
 	toPorts, _ := rule["toPorts"].([]interface{})
 	if len(toPorts) != 1 {
 		t.Fatalf("expected 1 toPorts, got %d", len(toPorts))
 	}
+
 	tp, _ := toPorts[0].(map[string]interface{})
+
 	ports, _ := tp["ports"].([]interface{})
 	if len(ports) != 1 {
 		t.Fatalf("expected 1 port, got %d", len(ports))
 	}
+
 	p, _ := ports[0].(map[string]interface{})
 	if p["port"] != "8443" || p["protocol"] != "TCP" {
 		t.Fatalf("unexpected metrics port: %#v", p)
@@ -171,6 +189,7 @@ func TestGetNetworkPolicyFromObjectReturnsNilInterfaceWhenAbsent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if obj != nil {
 		t.Fatalf("expected nil interface when no policy exists, got %T: %#v", obj, obj)
 	}

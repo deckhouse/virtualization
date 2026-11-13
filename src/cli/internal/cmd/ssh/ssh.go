@@ -86,15 +86,19 @@ func (s *SSHOptions) ResolvePaths() error {
 		if err != nil {
 			return fmt.Errorf("resolve identity file path '%s': %w", s.IdentityFilePath, err)
 		}
+
 		s.IdentityFilePath = resolvedPath
 	}
+
 	if s.KnownHostsFilePath != "" {
 		resolvedPath, err := resolveHomeDir(s.KnownHostsFilePath)
 		if err != nil {
 			return fmt.Errorf("resolve known hosts file path '%s': %w", s.KnownHostsFilePath, err)
 		}
+
 		s.KnownHostsFilePath = resolvedPath
 	}
+
 	return nil
 }
 
@@ -103,10 +107,12 @@ func resolveHomeDir(path string) (string, error) {
 	if !strings.HasPrefix(path, "~") {
 		return path, nil
 	}
+
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("get user home directory: %w", err)
 	}
+
 	return filepath.Join(homeDir, strings.TrimPrefix(path, "~")), nil
 }
 
@@ -121,6 +127,7 @@ func defaultUsername() string {
 			return v
 		}
 	}
+
 	return ""
 }
 
@@ -144,6 +151,7 @@ func NewCommand() *cobra.Command {
 	cmd.Flags().StringVarP(&c.command, commandToExecute, commandToExecuteShort, c.command,
 		"Specify a command to execute in the VM. Equivalent to passing the command after --.")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
+
 	return cmd
 }
 
@@ -185,13 +193,16 @@ func (o *SSH) Run(cmd *cobra.Command, args []string) error {
 	WarnDeprecatedSSHFlags(cmd)
 
 	clientArgs := o.buildSSHTarget(namespace, name)
+
 	return RunLocalClient(cmd, namespace, name, &o.options, clientArgs)
 }
 
 func PrepareCommand(cmd *cobra.Command, defaultNamespace string, opts *SSHOptions, args []string) (namespace, name string, err error) {
 	opts.IdentityFilePathProvided = cmd.Flags().Changed(IdentityFilePathFlag)
 	opts.KnownHostsFilePathProvided = cmd.Flags().Changed(knownHostsFilePathFlag)
+
 	var targetUsername string
+
 	namespace, name, targetUsername, err = templates.ParseSSHTarget(args[0])
 	if err != nil {
 		return namespace, name, err
@@ -204,6 +215,7 @@ func PrepareCommand(cmd *cobra.Command, defaultNamespace string, opts *SSHOption
 	if len(targetUsername) > 0 {
 		opts.SSHUsername = targetUsername
 	}
+
 	return namespace, name, err
 }
 

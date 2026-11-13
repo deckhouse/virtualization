@@ -118,5 +118,6 @@ func (h *ImagePresenceHandler) recheckInterval(conds []metav1.Condition) time.Du
 	if !found || cond.LastTransitionTime.IsZero() {
 		return imageLostRecheckBase
 	}
+
 	return backoff.Progressive(time.Since(cond.LastTransitionTime.Time), imageLostRecheckBase, imageLostRecheckMax)
 }

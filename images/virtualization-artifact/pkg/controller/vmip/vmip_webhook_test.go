@@ -35,10 +35,12 @@ func TestValidatorValidateCreateRequiresCIDRs(t *testing.T) {
 
 	newValidator := func(virtualMachineCIDRs []string) *Validator {
 		cli := fake.NewClientBuilder().WithScheme(scheme).Build()
+
 		ipService, err := service.NewIPAddressService([]string{"10.0.0.0/24"}, cli, nil)
 		if err != nil {
 			t.Fatalf("NewIPAddressService: %v", err)
 		}
+
 		return NewValidator(log.NewNop(), cli, ipService, virtualMachineCIDRs)
 	}
 
@@ -46,6 +48,7 @@ func TestValidatorValidateCreateRequiresCIDRs(t *testing.T) {
 	if _, err := newValidator(nil).ValidateCreate(t.Context(), vmip); err == nil {
 		t.Fatalf("expected error without CIDRs")
 	}
+
 	if _, err := newValidator([]string{"10.0.0.0/24"}).ValidateCreate(t.Context(), vmip); err != nil {
 		t.Fatalf("expected success with CIDRs, got: %v", err)
 	}

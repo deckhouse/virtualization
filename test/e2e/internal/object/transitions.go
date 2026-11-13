@@ -28,10 +28,12 @@ func HasPhaseTransitionAfter(vm *v1alpha2.VirtualMachine, phase v1alpha2.Machine
 	if vm.Status.Stats == nil {
 		return false
 	}
+
 	transition := FindPhaseLastTransition(vm, phase)
 	if transition == nil {
 		return false
 	}
+
 	return transition.Timestamp.After(timestamp)
 }
 
@@ -40,6 +42,7 @@ func FindPhaseLastTransition(vm *v1alpha2.VirtualMachine, phase v1alpha2.Machine
 	if vm.Status.Stats == nil {
 		return nil
 	}
+
 	count := len(vm.Status.Stats.PhasesTransitions)
 	for i := count - 1; i >= 0; i-- {
 		transition := vm.Status.Stats.PhasesTransitions[i]
@@ -47,5 +50,6 @@ func FindPhaseLastTransition(vm *v1alpha2.VirtualMachine, phase v1alpha2.Machine
 			return &transition
 		}
 	}
+
 	return nil
 }

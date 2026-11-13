@@ -65,6 +65,7 @@ var _ = Describe("VirtualMachineClassNestedVirtualization", Label(label.SIGCompu
 	BeforeEach(func() {
 		f = framework.NewFramework("nested-virtualization")
 		ctx = context.Background()
+
 		DeferCleanup(f.After)
 		f.Before()
 	})
@@ -72,11 +73,13 @@ var _ = Describe("VirtualMachineClassNestedVirtualization", Label(label.SIGCompu
 	DescribeTable("disables nested virtualization on a class that inherits the node features",
 		func(cpuType v1alpha3.CPUType) {
 			var class *v1alpha2.VirtualMachineClass
+
 			By("Create the VirtualMachineClass with nested virtualization disabled", func() {
 				class = createVMClass(ctx, f, newNestedVirtualizationVMClass(f, cpuType, false))
 			})
 
 			var vm *v1alpha2.VirtualMachine
+
 			By("Start a VirtualMachine of the class", func() {
 				vm = startVMOfClass(ctx, f, class.Name)
 			})
@@ -103,6 +106,7 @@ var _ = Describe("VirtualMachineClassNestedVirtualization", Label(label.SIGCompu
 	Context("Discovery", func() {
 		It("disables the nested virtualization features", func() {
 			var class *v1alpha2.VirtualMachineClass
+
 			By("Create the VirtualMachineClass with nested virtualization disabled", func() {
 				class = createVMClass(ctx, f, newNestedVirtualizationVMClass(f, v1alpha3.CPUTypeDiscovery, false))
 			})
@@ -115,6 +119,7 @@ var _ = Describe("VirtualMachineClassNestedVirtualization", Label(label.SIGCompu
 			})
 
 			var vm *v1alpha2.VirtualMachine
+
 			By("Start a VirtualMachine of the class", func() {
 				vm = startVMOfClass(ctx, f, class.Name)
 			})
@@ -137,6 +142,7 @@ var _ = Describe("VirtualMachineClassNestedVirtualization", Label(label.SIGCompu
 
 		It("requires the nested virtualization features its nodes provide", func() {
 			var class *v1alpha2.VirtualMachineClass
+
 			By("Create the VirtualMachineClass with nested virtualization enabled", func() {
 				class = createVMClass(ctx, f, newNestedVirtualizationVMClass(f, v1alpha3.CPUTypeDiscovery, true))
 			})
@@ -149,6 +155,7 @@ var _ = Describe("VirtualMachineClassNestedVirtualization", Label(label.SIGCompu
 			}
 
 			var vm *v1alpha2.VirtualMachine
+
 			By("Start a VirtualMachine of the class", func() {
 				vm = startVMOfClass(ctx, f, class.Name)
 			})
@@ -234,6 +241,7 @@ func providedNestedVirtualizationFeatures(class *v1alpha2.VirtualMachineClass) [
 			provided = append(provided, feature)
 		}
 	}
+
 	return provided
 }
 
@@ -283,6 +291,7 @@ func readDomainCPU(ctx context.Context, f *framework.Framework, vm *v1alpha2.Vir
 	GinkgoHelper()
 
 	var cpu domainCPU
+
 	Eventually(func() error {
 		pod := getActiveVirtLauncherPod(ctx, f, vm.Name, vm.Namespace)
 		if pod == nil {
@@ -303,6 +312,7 @@ func readDomainCPU(ctx context.Context, f *framework.Framework, vm *v1alpha2.Vir
 		}
 
 		cpu = spec.CPU
+
 		return nil
 	}).WithTimeout(framework.MiddleTimeout).WithPolling(framework.PollingInterval).Should(Succeed(),
 		"the domain of VirtualMachine %s/%s should be readable", vm.Namespace, vm.Name)
@@ -317,6 +327,7 @@ func expectCPUFeaturePolicy(cpu domainCPU, feature, policy string) {
 		if f.Name == feature {
 			Expect(f.Policy).To(Equal(policy),
 				"the applied domain should carry the %q CPU feature with the %q policy, its CPU is %+v", feature, policy, cpu)
+
 			return
 		}
 	}

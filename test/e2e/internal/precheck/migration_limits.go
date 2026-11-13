@@ -68,14 +68,17 @@ func (m *migrationLimitsPrecheck) Run(ctx context.Context, f *framework.Framewor
 	}
 
 	var wrong []string
+
 	for _, annotation := range migrationLimitAnnotations {
 		if value := mc.Annotations[annotation]; value != migrationLimitDisabledValue {
 			wrong = append(wrong, fmt.Sprintf("%s=%q", annotation, value))
 		}
 	}
+
 	if value, ok := mc.Annotations[sharedMigrationLimitAnnotation]; ok && value != migrationLimitDisabledValue {
 		wrong = append(wrong, fmt.Sprintf("%s=%q", sharedMigrationLimitAnnotation, value))
 	}
+
 	if len(wrong) == 0 {
 		return nil
 	}
@@ -91,11 +94,14 @@ func (m *migrationLimitsPrecheck) Run(ctx context.Context, f *framework.Framewor
 func disableMigrationLimitsCommand() string {
 	b := &strings.Builder{}
 	fmt.Fprintf(b, "  kubectl annotate moduleconfig %s \\\n", virtualizationModuleName)
+
 	for _, annotation := range migrationLimitAnnotations {
 		fmt.Fprintf(b, "    %s=%s \\\n", annotation, migrationLimitDisabledValue)
 	}
+
 	fmt.Fprintf(b, "    %s- \\\n", sharedMigrationLimitAnnotation)
 	b.WriteString("    --overwrite")
+
 	return b.String()
 }
 

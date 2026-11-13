@@ -89,14 +89,17 @@ var _ = Describe("VMBlockDeviceAttachmentRestorer", func() {
 				if obj.GetName() == vmbda.Name {
 					_, ok := obj.(*v1alpha2.VirtualMachineBlockDeviceAttachment)
 					Expect(ok).To(BeTrue())
+
 					vmbdaDeleted = true
 				}
+
 				return nil
 			},
 			Create: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.CreateOption) error {
 				if obj.GetName() == vmbda.Name {
 					_, ok := obj.(*v1alpha2.VirtualMachineBlockDeviceAttachment)
 					Expect(ok).To(BeTrue())
+
 					vmbdaCreated = true
 				}
 
@@ -146,6 +149,7 @@ var _ = Describe("VMBlockDeviceAttachmentRestorer", func() {
 
 				_, restoreAnnoOk := vmbda.Annotations[annotations.AnnVMOPRestore]
 				Expect(restoreAnnoOk).To(Equal(args.shouldBeCreated))
+
 				_, deleteAnnoOk := vmbda.Annotations[annotations.AnnVMOPRestoreDeleted]
 				Expect(deleteAnnoOk).To(Equal(args.shouldBeDeleted))
 			}
@@ -217,8 +221,10 @@ var _ = Describe("VMBlockDeviceAttachmentRestorer", func() {
 
 			err = fakeClient.Get(ctx, client.ObjectKeyFromObject(&vmbda), &vmbda)
 			Expect(err).NotTo(HaveOccurred())
+
 			_, restoreAnnoOk := vmbda.Annotations[annotations.AnnVMOPRestore]
 			Expect(restoreAnnoOk).To(BeFalse())
+
 			_, deleteAnnoOk := vmbda.Annotations[annotations.AnnVMOPRestoreDeleted]
 			Expect(deleteAnnoOk).To(BeTrue())
 		})

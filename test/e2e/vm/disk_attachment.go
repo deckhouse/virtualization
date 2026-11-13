@@ -57,6 +57,7 @@ var _ = Describe("DiskAttachment", Label(label.SIGCompute, precheck.NoPrecheck),
 	BeforeEach(func() {
 		f = framework.NewFramework("disk-attachment")
 		ctx = context.Background()
+
 		DeferCleanup(f.After)
 		f.Before()
 	})
@@ -64,6 +65,7 @@ var _ = Describe("DiskAttachment", Label(label.SIGCompute, precheck.NoPrecheck),
 	It("attaches and detaches a virtual disk to a running VM", func() {
 		// TODO(e2e-flaky-parallel): flaky under parallel load on the 3-node cluster (guest disk hot-unplug not reflected in time); passes in isolation / on a replicated storage class. Re-enable once stabilized.
 		Skip("flaky under parallel load: guest disk detach not reflected in time")
+
 		var (
 			vdBlankObs vdobs.Observer
 			vmObs      vmobs.Observer
@@ -112,10 +114,13 @@ var _ = Describe("DiskAttachment", Label(label.SIGCompute, precheck.NoPrecheck),
 
 			vdRootObs := vdobs.StartObserver(ctx, f, vdRoot)
 			vdRootObs.Never(vdobs.BeFailed())
+
 			vdBlankObs = vdobs.StartObserver(ctx, f, vdBlank)
 			vdBlankObs.Never(vdobs.BeFailed())
+
 			vmObs = vmobs.StartObserver(ctx, f, vm)
 			vmObs.Never(vmobs.BeFailed())
+
 			vmbdaObs = vmbdaobs.StartObserver(ctx, f, vmbda)
 			vmbdaObs.Never(vmbdaobs.BeFailed())
 
@@ -133,6 +138,7 @@ var _ = Describe("DiskAttachment", Label(label.SIGCompute, precheck.NoPrecheck),
 					err := vdBlankObs.WaitFor(vdobs.BeReady(), framework.LongTimeout)
 					Expect(err).NotTo(HaveOccurred())
 				}
+
 				err := vmObs.WaitFor(vmobs.BeRunning(), framework.LongTimeout)
 				Expect(err).NotTo(HaveOccurred())
 				eventually.SSHReadyAsRoot(f, vm, framework.LongTimeout)
@@ -143,6 +149,7 @@ var _ = Describe("DiskAttachment", Label(label.SIGCompute, precheck.NoPrecheck),
 
 		By("Get disk count before attachment", func() {
 			var err error
+
 			diskCountBeforeAttachment, err = util.GetDiskCountAsRoot(f, vm.Name, vm.Namespace)
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -163,6 +170,7 @@ var _ = Describe("DiskAttachment", Label(label.SIGCompute, precheck.NoPrecheck),
 
 		By("Get disk count before detachment", func() {
 			var err error
+
 			diskCountBeforeDetachment, err = util.GetDiskCountAsRoot(f, vm.Name, vm.Namespace)
 			Expect(err).NotTo(HaveOccurred())
 		})

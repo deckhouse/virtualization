@@ -43,7 +43,9 @@ func NewProvisionerHandler(client client.Client, secretTmpl corev1.Secret, vmRes
 	if secretTmpl.Annotations == nil {
 		secretTmpl.Annotations = make(map[string]string)
 	}
+
 	secretTmpl.Annotations[annotations.AnnVMOPRestore] = vmRestoreUID
+
 	return &ProvisionerHandler{
 		secret: &corev1.Secret{
 			TypeMeta: metav1.TypeMeta{
@@ -76,6 +78,7 @@ func (v *ProvisionerHandler) Customize(prefix, suffix string) {
 
 func (v *ProvisionerHandler) ValidateRestore(ctx context.Context) error {
 	secretKey := types.NamespacedName{Namespace: v.secret.Namespace, Name: v.secret.Name}
+
 	existed, err := object.FetchObject(ctx, secretKey, v.client, &corev1.Secret{})
 	if err != nil {
 		return err
@@ -102,6 +105,7 @@ func (v *ProvisionerHandler) ValidateClone(ctx context.Context) error {
 	}
 
 	secretKey := types.NamespacedName{Namespace: v.secret.Namespace, Name: v.secret.Name}
+
 	existed, err := object.FetchObject(ctx, secretKey, v.client, &corev1.Secret{})
 	if err != nil {
 		return err
@@ -127,6 +131,7 @@ func (v *ProvisionerHandler) ProcessRestore(ctx context.Context) error {
 	}
 
 	secretKey := types.NamespacedName{Namespace: v.secret.Namespace, Name: v.secret.Name}
+
 	existed, err := object.FetchObject(ctx, secretKey, v.client, &corev1.Secret{})
 	if err != nil {
 		return err
@@ -153,6 +158,7 @@ func (v *ProvisionerHandler) ProcessClone(ctx context.Context) error {
 	}
 
 	secretKey := types.NamespacedName{Namespace: v.secret.Namespace, Name: v.secret.Name}
+
 	existed, err := object.FetchObject(ctx, secretKey, v.client, &corev1.Secret{})
 	if err != nil {
 		return err

@@ -60,6 +60,7 @@ func (h *NetworkInterfaceHandler) Handle(ctx context.Context, s state.VirtualMac
 	if s.VirtualMachine().IsEmpty() {
 		return reconcile.Result{}, nil
 	}
+
 	vm := s.VirtualMachine().Changed()
 
 	if isDeletion(vm) {
@@ -98,15 +99,18 @@ func (h *NetworkInterfaceHandler) evaluateAdditionalNetworks(ctx context.Context
 	}
 
 	var pending, desired []string
+
 	for _, netSpec := range vm.Spec.Networks {
 		ready, err := network.IsNetworkSpecReady(ctx, s.Client(), vm.Namespace, netSpec)
 		if err != nil {
 			return err
 		}
+
 		if !ready {
 			pending = append(pending, network.SpecKey(netSpec))
 			continue
 		}
+
 		if netSpec.Type == v1alpha2.NetworksTypeMain {
 			continue
 		}
@@ -118,13 +122,16 @@ func (h *NetworkInterfaceHandler) evaluateAdditionalNetworks(ctx context.Context
 		if err != nil {
 			return err
 		}
+
 		if willProvision {
 			desired = append(desired, netSpec.Name)
 		}
 	}
+
 	if len(pending) > 0 {
 		cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonNetworkNotReady).
 			Message(fmt.Sprintf("Waiting for the following networks to become Ready: %s", strings.Join(pending, ", ")))
+
 		return nil
 	}
 
@@ -132,6 +139,7 @@ func (h *NetworkInterfaceHandler) evaluateAdditionalNetworks(ctx context.Context
 	if err != nil {
 		return err
 	}
+
 	errMsg, err := extractNetworkStatusFromPods(pods, desired, additionalNetworkKeys(vm))
 	if err != nil {
 		return err
@@ -148,11 +156,14 @@ func (h *NetworkInterfaceHandler) evaluateAdditionalNetworks(ctx context.Context
 			errMsg = strings.Join(ipamErrors, "; ")
 		}
 	}
+
 	if errMsg != "" {
 		cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonNetworkNotReady).Message(errMsg)
 		return nil
 	}
+
 	cb.Status(metav1.ConditionTrue).Reason(vmcondition.ReasonNetworkReady).Message("")
+
 	return nil
 }
 
@@ -168,8 +179,10 @@ func additionalNetworkKeys(vm *v1alpha2.VirtualMachine) map[string]struct{} {
 		if netSpec.Type == v1alpha2.NetworksTypeMain {
 			continue
 		}
+
 		keys[network.SpecKey(netSpec)] = struct{}{}
 	}
+
 	return keys
 }
 
@@ -184,15 +197,18 @@ func additionalNetworkKeys(vm *v1alpha2.VirtualMachine) map[string]struct{} {
 //     (Pending / NoFreeIPAddress — pool exhausted).
 func collectIPAMErrors(ctx context.Context, c client.Client, vm *v1alpha2.VirtualMachine) []string {
 	var errs []string
+
 	for _, netSpec := range vm.Spec.Networks {
 		if netSpec.Type == v1alpha2.NetworksTypeMain {
 			continue
 		}
+
 		hasPool, err := network.HasIPAM(ctx, c, vm.Namespace, netSpec)
 		if err != nil {
 			errs = append(errs, fmt.Sprintf("%s: failed to check IPAM configuration: %v", network.SpecKey(netSpec), err))
 			continue
 		}
+
 		if !hasPool {
 			// No pool: if user set ipAddressName, it's a config error; otherwise L2-only is fine.
 			if netSpec.IPAddressName != "" {
@@ -200,6 +216,7 @@ func collectIPAMErrors(ctx context.Context, c client.Client, vm *v1alpha2.Virtua
 					"%s: ipAddressName %q is set but the network has no IPAM pool configured; the IPAddress cannot be applied",
 					network.SpecKey(netSpec), netSpec.IPAddressName))
 			}
+
 			continue
 		}
 
@@ -211,30 +228,37 @@ func collectIPAMErrors(ctx context.Context, c client.Client, vm *v1alpha2.Virtua
 				errs = append(errs, fmt.Sprintf("%s: failed to get IPAddress %q: %v", network.SpecKey(netSpec), netSpec.IPAddressName, err))
 				continue
 			}
+
 			if ipa == nil || !network.IPAddressBelongsToNetwork(ipa, netSpec) {
 				errs = append(errs, fmt.Sprintf(
 					"%s: ipAddressName %q does not exist or is not bound to this network; the interface is skipped",
 					network.SpecKey(netSpec), netSpec.IPAddressName))
+
 				continue
 			}
+
 			if !network.IPAddressAllocated(ipa) {
 				reason := ipStatusReason(ipa)
 				phase := ipStatusPhase(ipa)
 				errs = append(errs, fmt.Sprintf(
 					"%s: ipAddressName %q is in phase %s (%s); the interface is skipped",
 					network.SpecKey(netSpec), netSpec.IPAddressName, phase, reason))
+
 				continue
 			}
+
 			conflictVM, err := network.OtherVMUsingIPAddress(ctx, c, vm, ipa, netSpec)
 			if err != nil {
 				errs = append(errs, fmt.Sprintf("%s: failed to check IPAddress %q conflict: %v", network.SpecKey(netSpec), netSpec.IPAddressName, err))
 				continue
 			}
+
 			if conflictVM != "" {
 				errs = append(errs, fmt.Sprintf(
 					"%s: ipAddressName %q is already used by VM %q; the interface is skipped",
 					network.SpecKey(netSpec), netSpec.IPAddressName, conflictVM))
 			}
+
 			continue
 		}
 
@@ -244,14 +268,17 @@ func collectIPAMErrors(ctx context.Context, c client.Client, vm *v1alpha2.Virtua
 			errs = append(errs, fmt.Sprintf("%s: failed to find auto IPAddress: %v", network.SpecKey(netSpec), err))
 			continue
 		}
+
 		if ipa == nil {
 			errs = append(errs, fmt.Sprintf("%s: auto IPAddress is not yet created; waiting for the controller", network.SpecKey(netSpec)))
 			continue
 		}
+
 		if ipa.GetDeletionTimestamp() != nil {
 			errs = append(errs, fmt.Sprintf("%s: auto IPAddress %q is being replaced; waiting for the controller", network.SpecKey(netSpec), ipa.GetName()))
 			continue
 		}
+
 		if !network.IPAddressAllocated(ipa) {
 			reason := ipStatusReason(ipa)
 			phase := ipStatusPhase(ipa)
@@ -260,6 +287,7 @@ func collectIPAMErrors(ctx context.Context, c client.Client, vm *v1alpha2.Virtua
 				network.SpecKey(netSpec), ipa.GetName(), phase, reason))
 		}
 	}
+
 	return errs
 }
 
@@ -268,9 +296,11 @@ func ipStatusReason(ipa *sdnapi.IPAddress) string {
 	if ipa == nil {
 		return "IPAddress not found"
 	}
+
 	if network.IPAddressPoolExhausted(ipa) {
 		return "pool exhausted (NoFreeIPAddress)"
 	}
+
 	return "address not yet allocated"
 }
 
@@ -279,6 +309,7 @@ func ipStatusPhase(ipa *sdnapi.IPAddress) string {
 	if ipa == nil || ipa.Status.Phase == "" {
 		return "unknown"
 	}
+
 	return ipa.Status.Phase
 }
 
@@ -298,6 +329,7 @@ func (h *NetworkInterfaceHandler) mainNetworkStatus(ctx context.Context, s state
 				status.IPAddressName, status.IPAddress = ns.IPAddressName, ns.IPAddress
 			}
 		}
+
 		return status
 	}
 
@@ -305,16 +337,20 @@ func (h *NetworkInterfaceHandler) mainNetworkStatus(ctx context.Context, s state
 	if err != nil {
 		return keepCurrent()
 	}
+
 	if !mainInterfaceSpecEnabled {
 		return status
 	}
+
 	ipa, err := network.GetMainSDNIPAddress(ctx, s.Client(), vm)
 	if err != nil {
 		return keepCurrent()
 	}
+
 	if ipa != nil {
 		err = network.CheckMainSDNIPAddress(ctx, s.Client(), vm, ipa)
 	}
+
 	switch {
 	case ipa == nil, errors.Is(err, network.ErrIPAddressBeingDeleted):
 		// The IPAddress named in the spec is shown without an address until it is there.
@@ -326,12 +362,14 @@ func (h *NetworkInterfaceHandler) mainNetworkStatus(ctx context.Context, s state
 	default:
 		return keepCurrent()
 	}
+
 	return status
 }
 
 func (h *NetworkInterfaceHandler) UpdateNetworkStatus(ctx context.Context, s state.VirtualMachineState, vm *v1alpha2.VirtualMachine) (reconcile.Result, error) {
 	if !network.HasAdditionalNetworks(vm.Spec.Networks) {
 		networksStatus := make([]v1alpha2.NetworksStatus, 0)
+
 		if len(h.virtualMachineCIDRs) != 0 {
 			mainSpec := network.MainNetworkSpec(vm.Spec.Networks)
 			networksStatus = append(networksStatus, h.mainNetworkStatus(ctx, s, vm, ptr.Deref(mainSpec.ID, network.MinID)))
@@ -343,7 +381,9 @@ func (h *NetworkInterfaceHandler) UpdateNetworkStatus(ctx context.Context, s sta
 		if err != nil {
 			return reconcile.Result{}, err
 		}
+
 		vm.Status.Networks = retainDetachingNetworks(networksStatus, vm.Status.Networks, kvvmi)
+
 		return reconcile.Result{}, nil
 	}
 
@@ -358,6 +398,7 @@ func (h *NetworkInterfaceHandler) UpdateNetworkStatus(ctx context.Context, s sta
 	}
 
 	macAddressesByInterfaceName := make(map[string]string)
+
 	if kvvm != nil && kvvm.Status.PrintableStatus != virtv1.VirtualMachineStatusUnschedulable {
 		for _, i := range kvvm.Spec.Template.Spec.Domain.Devices.Interfaces {
 			macAddressesByInterfaceName[i.Name] = i.MacAddress
@@ -370,6 +411,7 @@ func (h *NetworkInterfaceHandler) UpdateNetworkStatus(ctx context.Context, s sta
 	}
 
 	vmmacNamesByAddress := make(map[string]string)
+
 	for _, vmmac := range vmmacs {
 		if mac := vmmac.Status.Address; mac != "" {
 			vmmacNamesByAddress[vmmac.Status.Address] = vmmac.Name
@@ -384,6 +426,7 @@ func (h *NetworkInterfaceHandler) UpdateNetworkStatus(ctx context.Context, s sta
 	}
 
 	var networksStatus []v1alpha2.NetworksStatus
+
 	for _, interfaceSpec := range network.CreateNetworkSpec(vm, vm.Spec.Networks, vmmacs, kvvm != nil) {
 		if interfaceSpec.Type == v1alpha2.NetworksTypeMain {
 			networksStatus = append(networksStatus, h.mainNetworkStatus(ctx, s, vm, interfaceSpec.ID))
@@ -396,11 +439,13 @@ func (h *NetworkInterfaceHandler) UpdateNetworkStatus(ctx context.Context, s sta
 		if mac == "" && kvvm != nil && vmmacNamesByAddress[interfaceSpec.MAC] != "" && statusHasMAC(vm.Status.Networks, interfaceSpec) {
 			mac = interfaceSpec.MAC
 		}
+
 		if interfaceSpec.Type == v1alpha2.NetworksTypeUnderlayNetwork {
 			// The VF is a host device, not a KVVM interface; the MAC comes from the
 			// assigned pool address that SDN programs on the VF.
 			mac = interfaceSpec.MAC
 		}
+
 		networksStatus = append(networksStatus, v1alpha2.NetworksStatus{
 			ID:                           interfaceSpec.ID,
 			Type:                         interfaceSpec.Type,
@@ -412,6 +457,7 @@ func (h *NetworkInterfaceHandler) UpdateNetworkStatus(ctx context.Context, s sta
 	}
 
 	vm.Status.Networks = retainDetachingNetworks(networksStatus, vm.Status.Networks, kvvmi)
+
 	return reconcile.Result{}, nil
 }
 
@@ -435,10 +481,12 @@ func retainDetachingNetworks(
 		}) {
 			continue
 		}
+
 		if isAttachedToVMI(kvvmi, prevStatus) {
 			next = append(next, prevStatus)
 		}
 	}
+
 	return next
 }
 
@@ -452,6 +500,7 @@ func isAttachedToVMI(kvvmi *virtv1.VirtualMachineInstance, networkStatus v1alpha
 	if kvvmi == nil || networkStatus.Type == v1alpha2.NetworksTypeMain || networkStatus.MAC == "" {
 		return false
 	}
+
 	return slices.ContainsFunc(kvvmi.Spec.Domain.Devices.Interfaces, func(i virtv1.Interface) bool {
 		return strings.EqualFold(i.MacAddress, networkStatus.MAC)
 	})
@@ -480,6 +529,7 @@ func extractNetworkStatusFromPods(pods *corev1.PodList, desired []string, inSpec
 			} else {
 				errorMessages = append(errorMessages, "Waiting for virt-launcher pod to start")
 			}
+
 			continue
 		}
 
@@ -495,6 +545,7 @@ func extractNetworkStatusFromPods(pods *corev1.PodList, desired []string, inSpec
 			for _, ifs := range interfacesStatus {
 				present[ifs.Name] = struct{}{}
 			}
+
 			for _, name := range desired {
 				if _, ok := present[name]; !ok {
 					podErrorMessages = append(podErrorMessages, fmt.Sprintf("(%s): waiting for SDN to report status", name))
@@ -512,26 +563,31 @@ func extractNetworkStatusFromPods(pods *corev1.PodList, desired []string, inSpec
 
 func collectInterfaceErrors(interfacesStatus []network.InterfaceStatus, inSpec map[string]struct{}) []string {
 	var podErrorMessages []string
+
 	for _, ifaceStatus := range interfacesStatus {
 		key := network.SpecKey(v1alpha2.NetworksSpec{Type: ifaceStatus.Type, Name: ifaceStatus.Name})
 		if _, wanted := inSpec[key]; !wanted {
 			continue
 		}
+
 		ifaceErrMsgs := collectConditionErrors(ifaceStatus.Conditions)
 		if len(ifaceErrMsgs) > 0 {
 			podErrorMessages = append(podErrorMessages, fmt.Sprintf("(%s): %s", ifaceStatus.Name, strings.Join(ifaceErrMsgs, "; ")))
 		}
 	}
+
 	return podErrorMessages
 }
 
 func collectConditionErrors(conditions []metav1.Condition) []string {
 	var interfaceErrorMessages []string
+
 	for _, condition := range conditions {
 		if condition.Status != metav1.ConditionTrue {
 			interfaceErrorMessages = append(interfaceErrorMessages, condition.Message)
 		}
 	}
+
 	return interfaceErrorMessages
 }
 
@@ -546,28 +602,34 @@ func extractIPAddressesFromPods(pods *corev1.PodList) map[string]string {
 	if pods == nil {
 		return result
 	}
+
 	for _, pod := range pods.Items {
 		annotation, found := pod.Annotations[annotations.AnnNetworksStatus]
 		if !found {
 			continue
 		}
+
 		var interfacesStatus []network.InterfaceStatus
 		if err := json.Unmarshal([]byte(annotation), &interfacesStatus); err != nil {
 			continue
 		}
+
 		for _, ifs := range interfacesStatus {
 			if ifs.Name == "" {
 				continue
 			}
+
 			for _, cfg := range ifs.IPAddressConfigs {
 				if cfg.Address != "" {
 					if _, exists := result[ifs.Name]; !exists {
 						result[ifs.Name] = cfg.Address
 					}
+
 					break
 				}
 			}
 		}
 	}
+
 	return result
 }

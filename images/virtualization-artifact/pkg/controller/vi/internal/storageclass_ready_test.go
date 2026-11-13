@@ -67,6 +67,7 @@ var _ = Describe("StorageClassHandler Run", func() {
 			_, err := handler.Handle(context.TODO(), args.VI)
 
 			Expect(err).To(BeNil())
+
 			condition, ok := conditions.GetCondition(vicondition.StorageClassReadyType, args.VI.Status.Conditions)
 			Expect(ok).To(BeTrue())
 			Expect(condition.Status).To(Equal(args.ExpectedCondition.Status))
@@ -180,6 +181,7 @@ func newStorageClassServiceMock(existedStorageClass *string, unsupportedStorageC
 				*existedStorageClass,
 			)
 		}
+
 		return nil
 	}
 

@@ -42,6 +42,7 @@ func BeLost() Predicate {
 		if pvc.Status.Phase == corev1.ClaimLost {
 			return true, fmt.Errorf("PersistentVolumeClaim entered Lost phase")
 		}
+
 		return false, nil
 	}
 }

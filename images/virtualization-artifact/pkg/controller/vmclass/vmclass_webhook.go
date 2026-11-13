@@ -77,6 +77,7 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 		if err != nil {
 			return nil, err
 		}
+
 		warnings = append(warnings, warn...)
 	}
 
@@ -117,6 +118,7 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 		if err != nil {
 			return nil, err
 		}
+
 		warnings = append(warnings, warn...)
 	}
 
@@ -126,5 +128,6 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 func (v *Validator) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
 	err := fmt.Errorf("misconfigured webhook rules: delete operation not implemented")
 	v.log.Error("Ensure the correctness of ValidatingWebhookConfiguration", "err", err.Error())
+
 	return nil, nil
 }

@@ -45,6 +45,7 @@ var _ = Describe("Provisioning secret protection", func() {
 		} {
 			Expect(f(scheme)).To(Succeed())
 		}
+
 		return scheme
 	}
 
@@ -80,6 +81,7 @@ var _ = Describe("Provisioning secret protection", func() {
 		vm := newVM(name, phase, provisioning)
 		vm.DeletionTimestamp = &metav1.Time{Time: metav1.Now().Time}
 		vm.Finalizers = []string{v1alpha2.FinalizerVMCleanup}
+
 		return vm
 	}
 
@@ -92,6 +94,7 @@ var _ = Describe("Provisioning secret protection", func() {
 	getSecret := func(cl client.Client, name string) *corev1.Secret {
 		secret := &corev1.Secret{}
 		Expect(cl.Get(context.Background(), types.NamespacedName{Name: name, Namespace: ns}, secret)).To(Succeed())
+
 		return secret
 	}
 
@@ -99,6 +102,7 @@ var _ = Describe("Provisioning secret protection", func() {
 		fakeClient := fake.NewClientBuilder().WithScheme(newScheme()).WithObjects(objs...).Build()
 		protection := service.NewProtectionService(fakeClient, v1alpha2.FinalizerProvisioningSecretProtection)
 		Expect(reconcileProvisioningSecretProtection(context.Background(), fakeClient, protection, ns)).To(Succeed())
+
 		return fakeClient
 	}
 

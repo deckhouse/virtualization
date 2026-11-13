@@ -105,6 +105,7 @@ var _ = Describe("CreateLeaseStep", func() {
 	listLeases := func(cl client.Client) []v1alpha2.VirtualMachineIPAddressLease {
 		list := &v1alpha2.VirtualMachineIPAddressLeaseList{}
 		Expect(cl.List(ctx, list)).To(Succeed())
+
 		return list.Items
 	}
 
@@ -166,6 +167,7 @@ var _ = Describe("CreateLeaseStep", func() {
 		take(cl)
 
 		Expect(cl.Get(ctx, types.NamespacedName{Name: vmip.Name, Namespace: namespace}, &sdnapi.IPAddress{})).To(Succeed())
+
 		got := &v1alpha2.VirtualMachineIPAddressLease{}
 		Expect(cl.Get(ctx, types.NamespacedName{Name: released.Name}, got)).To(Succeed())
 		Expect(got.Spec.VirtualMachineIPAddressRef.Name).To(Equal(vmip.Name))
@@ -185,6 +187,7 @@ var _ = Describe("CreateLeaseStep", func() {
 
 		err := cl.Get(ctx, types.NamespacedName{Name: vmip.Name, Namespace: namespace}, &sdnapi.IPAddress{})
 		Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+
 		got := &v1alpha2.VirtualMachineIPAddressLease{}
 		Expect(cl.Get(ctx, types.NamespacedName{Name: released.Name}, got)).To(Succeed())
 		Expect(got.Spec.VirtualMachineIPAddressRef.Name).To(BeEmpty())
@@ -216,6 +219,7 @@ var _ = Describe("CreateLeaseStep", func() {
 
 		Expect(allocator.asked).To(BeTrue())
 		Expect(listLeases(cl)).To(HaveLen(1))
+
 		ipas := &sdnapi.IPAddressList{}
 		Expect(cl.List(ctx, ipas)).To(Succeed())
 		Expect(ipas.Items).To(BeEmpty())
@@ -231,8 +235,10 @@ var _ = Describe("CreateLeaseStep", func() {
 			if bound {
 				refused.Status.Conditions = []metav1.Condition{{Type: vmipcondition.BoundType.String(), Status: metav1.ConditionTrue}}
 			}
+
 			mirror := newStaticIPAddress(refused.Name, address, metav1.Condition{Status: metav1.ConditionFalse, Reason: sdnapi.ReasonIPAddressIsUsed})
 			mirror.SetAnnotations(map[string]string{annotations.AnnMirrorOfVMIP: string(refused.UID)})
+
 			return refused, mirror
 		}
 
@@ -281,6 +287,7 @@ var _ = Describe("CreateLeaseStep", func() {
 
 	It("takes the address of its Auto IPAddress while a vmip address is not taken in the sdn pool", func() {
 		const mirrorAddress = "10.66.10.15"
+
 		vmipWithoutMirror := &v1alpha2.VirtualMachineIPAddress{
 			ObjectMeta: metav1.ObjectMeta{Name: "old", Namespace: namespace},
 			Status:     v1alpha2.VirtualMachineIPAddressStatus{Address: address},
@@ -290,6 +297,7 @@ var _ = Describe("CreateLeaseStep", func() {
 		take(cl)
 
 		Expect(allocator.asked).To(BeFalse())
+
 		leases := listLeases(cl)
 		Expect(leases).To(HaveLen(1))
 		Expect(leases[0].Name).To(Equal(ip.IPToLeaseName(mirrorAddress)))
@@ -313,6 +321,7 @@ var _ = Describe("CreateLeaseStep", func() {
 
 		Expect(allocator.asked).To(BeTrue())
 		Expect(listLeases(cl)).To(HaveLen(1))
+
 		ipas := &sdnapi.IPAddressList{}
 		Expect(cl.List(ctx, ipas)).To(Succeed())
 		Expect(ipas.Items).To(BeEmpty())

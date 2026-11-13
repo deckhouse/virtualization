@@ -39,14 +39,17 @@ var _ = Describe("volume migration", func() {
 
 	disk := func(start, end time.Duration, result v1alpha2.VirtualDiskMigrationResult, reason string) *v1alpha2.VirtualDisk {
 		vd := &v1alpha2.VirtualDisk{}
+
 		vd.Status.MigrationState.StartTimestamp = metav1.NewTime(now.Add(start))
 		if end != 0 {
 			vd.Status.MigrationState.EndTimestamp = metav1.NewTime(now.Add(end))
 			vd.Status.MigrationState.Result = result
 		}
+
 		if reason != "" {
 			vd.Status.Conditions = []metav1.Condition{{Type: vdcondition.MigratingType.String(), Status: metav1.ConditionTrue, Reason: reason}}
 		}
+
 		return vd
 	}
 
@@ -93,9 +96,11 @@ var _ = Describe("volume migration", func() {
 			if deletedA {
 				vds["a"].DeletionTimestamp = ptr.To(metav1.Now())
 			}
+
 			if deletedB {
 				vds["b"].DeletionTimestamp = ptr.To(metav1.Now())
 			}
+
 			Expect(IsMigrationReverting(vds)).To(Equal(expected))
 		},
 		Entry("every disk reverts",
@@ -113,10 +118,12 @@ var _ = Describe("volume migration", func() {
 			vd := disk(-time.Minute, 0, "", vdcondition.MigratingInProgressReason.String())
 			vd.Name = "deleted"
 			vd.DeletionTimestamp = ptr.To(metav1.Now())
+
 			other.Name = "other"
 			if otherDeleted {
 				other.DeletionTimestamp = ptr.To(metav1.Now())
 			}
+
 			vds := map[string]*v1alpha2.VirtualDisk{vd.Name: vd, other.Name: other}
 			Expect(IsRevertedByOtherDisks(vd, vds, now)).To(Equal(expected))
 		},

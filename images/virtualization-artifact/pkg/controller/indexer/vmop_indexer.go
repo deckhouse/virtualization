@@ -28,6 +28,7 @@ func IndexVMOPByVM() (obj client.Object, field string, extractValue client.Index
 		if !ok || vmop == nil {
 			return nil
 		}
+
 		return []string{vmop.Spec.VirtualMachine}
 	}
 }

@@ -104,12 +104,15 @@ var _ = Describe("BoundHandler", func() {
 	Context("Lease is not created yet", func() {
 		It("creates a new lease", func() {
 			var leaseCreated bool
+
 			k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects().
 				WithInterceptorFuncs(interceptor.Funcs{
 					Create: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.CreateOption) error {
 						_, ok := obj.(*v1alpha2.VirtualMachineIPAddressLease)
 						Expect(ok).To(BeTrue())
+
 						leaseCreated = true
+
 						return nil
 					},
 				}).Build()
@@ -132,6 +135,7 @@ var _ = Describe("BoundHandler", func() {
 
 		It("takes existing released lease", func() {
 			var leaseUpdated bool
+
 			svc.GetLeaseFunc = func(_ context.Context, _ *v1alpha2.VirtualMachineIPAddress) (*v1alpha2.VirtualMachineIPAddressLease, error) {
 				lease.Spec.VirtualMachineIPAddressRef = nil
 				return lease, nil
@@ -145,7 +149,9 @@ var _ = Describe("BoundHandler", func() {
 						Expect(updatedLease.Spec.VirtualMachineIPAddressRef.Name).To(Equal(vmip.Name))
 						Expect(updatedLease.Spec.VirtualMachineIPAddressRef.Namespace).To(Equal(vmip.Namespace))
 						Expect(updatedLease.Labels[annotations.LabelVirtualMachineIPAddressUID]).To(Equal(string(vmip.UID)))
+
 						leaseUpdated = true
+
 						return nil
 					},
 				}).Build()
@@ -166,6 +172,7 @@ var _ = Describe("BoundHandler", func() {
 					Namespace: vmip.Namespace,
 					Name:      "another-vmip",
 				}
+
 				return lease, nil
 			}
 			h := NewBoundHandler(svc, fake.NewClientBuilder().WithScheme(scheme).Build(), recorderMock)
@@ -182,6 +189,7 @@ var _ = Describe("BoundHandler", func() {
 				lease.Spec.VirtualMachineIPAddressRef = &v1alpha2.VirtualMachineIPAddressLeaseIpAddressRef{
 					Namespace: vmip.Namespace + "-different",
 				}
+
 				return lease, nil
 			}
 			h := NewBoundHandler(svc, fake.NewClientBuilder().WithScheme(scheme).Build(), recorderMock)
@@ -214,6 +222,7 @@ var _ = Describe("BoundHandler", func() {
 					Namespace: vmip.Namespace,
 					Name:      vmip.Name,
 				}
+
 				return lease, nil
 			}
 
@@ -238,6 +247,7 @@ var _ = Describe("BoundHandler", func() {
 					Reason:             vmiplcondition.Bound.String(),
 					ObservedGeneration: lease.Generation,
 				})
+
 				return lease, nil
 			}
 

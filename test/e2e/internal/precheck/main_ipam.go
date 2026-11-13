@@ -49,20 +49,24 @@ func (p *mainIPAMPrecheck) Run(ctx context.Context, f *framework.Framework) erro
 	}
 
 	sdnModule := &dv1alpha1.Module{}
+
 	err := f.GenericClient().Get(ctx, client.ObjectKey{Name: sdnModuleName}, sdnModule)
 	if err != nil {
 		return fmt.Errorf("%s=no to disable this precheck: failed to check the sdn module status: %w", mainIPAMCheckEnvName, err)
 	}
+
 	if sdnModule.Status.Phase != modulePhaseReady {
 		return fmt.Errorf("%s=no to disable this precheck: the sdn module should be ready; current status: %s", mainIPAMCheckEnvName, sdnModule.Status.Phase)
 	}
 
 	clusterNetwork := &sdnapi.ClusterNetwork{}
+
 	err = f.GenericClient().Get(ctx, client.ObjectKey{Name: network.MainClusterNetworkName}, clusterNetwork)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return fmt.Errorf("%s=no to disable this precheck: ClusterNetwork %q does not exist", mainIPAMCheckEnvName, network.MainClusterNetworkName)
 		}
+
 		return fmt.Errorf("%s=no to disable this precheck: failed to get ClusterNetwork %q: %w", mainIPAMCheckEnvName, network.MainClusterNetworkName, err)
 	}
 
@@ -75,10 +79,12 @@ func (p *mainIPAMPrecheck) Run(ctx context.Context, f *framework.Framework) erro
 	if clusterNetwork.Spec.IPAM != nil && clusterNetwork.Spec.IPAM.IPAddressPoolRef != nil {
 		poolName = clusterNetwork.Spec.IPAM.IPAddressPoolRef.Name
 	}
+
 	if poolName == "" {
 		return fmt.Errorf("%s=no to disable this precheck: ClusterNetwork %q has no IPAM pool configured (spec.ipam.ipAddressPoolRef)",
 			mainIPAMCheckEnvName, network.MainClusterNetworkName)
 	}
+
 	if !isClusterIPAddressPoolExists(ctx, f, poolName) {
 		return fmt.Errorf("%s=no to disable this precheck: ClusterIPAddressPool %q referenced by ClusterNetwork %q does not exist",
 			mainIPAMCheckEnvName, poolName, network.MainClusterNetworkName)

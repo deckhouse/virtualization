@@ -52,16 +52,20 @@ func GetIPAddressTakingVMIPAddress(ctx context.Context, c client.Client, vmip *v
 	}
 
 	var ipasWithVMIPAddress []sdnapi.IPAddress
+
 	for _, ipa := range ipas.Items {
 		if !IsMainNetworkIPAddress(&ipa) {
 			continue
 		}
+
 		static := ipa.Spec.Static != nil && ipa.Spec.Static.IP == address
+
 		autoMirror := ipa.Spec.Static == nil && IsMirror(&ipa) && ipa.Status.Address == address
 		if static || autoMirror {
 			ipasWithVMIPAddress = append(ipasWithVMIPAddress, ipa)
 		}
 	}
+
 	if len(ipasWithVMIPAddress) == 0 {
 		return nil, nil
 	}
@@ -75,6 +79,7 @@ func GetIPAddressTakingVMIPAddress(ctx context.Context, c client.Client, vmip *v
 			strings.Compare(a.GetName(), b.GetName()),
 		)
 	})
+
 	return &ipa, nil
 }
 
@@ -86,11 +91,14 @@ func GetMirrorOfVMIP(ctx context.Context, c client.Reader, vmip *v1alpha2.Virtua
 		if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
 			return nil, nil
 		}
+
 		return nil, fmt.Errorf("get the mirror IPAddress %q: %w", vmip.Name, err)
 	}
+
 	if !IsMirrorOf(ipa, vmip) {
 		return nil, nil
 	}
+
 	return ipa, nil
 }
 
@@ -102,6 +110,7 @@ func GetVMOfVMIP(ctx context.Context, c client.Client, vmip *v1alpha2.VirtualMac
 			break
 		}
 	}
+
 	if vmName == "" {
 		return nil, nil
 	}
@@ -111,8 +120,10 @@ func GetVMOfVMIP(ctx context.Context, c client.Client, vmip *v1alpha2.VirtualMac
 		if apierrors.IsNotFound(err) {
 			return nil, nil
 		}
+
 		return nil, fmt.Errorf("get VirtualMachine %q of vmip %q: %w", vmName, vmip.Name, err)
 	}
+
 	return vm, nil
 }
 
@@ -123,14 +134,17 @@ func ReleaseTerminatingMirror(ctx context.Context, c client.Client, vmip *v1alph
 	if err != nil || mirror == nil || mirror.GetDeletionTimestamp() == nil {
 		return err
 	}
+
 	if len(mirror.Status.UsedByPods) > 0 || (vm != nil && IPAddressInUse(vm, mirror)) {
 		return nil
 	}
+
 	return unlinkMirror(ctx, c, mirror, true)
 }
 
 func unlinkMirror(ctx context.Context, c client.Client, ipa *sdnapi.IPAddress, dropOwnerRefs bool) error {
 	_, hasVMLabel := ipa.GetLabels()[annotations.LabelVirtualMachineUID]
+
 	hasOwnerRefsToDrop := dropOwnerRefs && len(ipa.GetOwnerReferences()) > 0
 	if !hasVMLabel && !hasOwnerRefsToDrop {
 		return nil
@@ -140,12 +154,15 @@ func unlinkMirror(ctx context.Context, c client.Client, ipa *sdnapi.IPAddress, d
 	labels := ipaWithoutVM.GetLabels()
 	delete(labels, annotations.LabelVirtualMachineUID)
 	ipaWithoutVM.SetLabels(labels)
+
 	if hasOwnerRefsToDrop {
 		ipaWithoutVM.SetOwnerReferences(nil)
 	}
+
 	if err := c.Patch(ctx, ipaWithoutVM, client.MergeFrom(ipa)); client.IgnoreNotFound(err) != nil {
 		return fmt.Errorf("unlink the mirror IPAddress %q: %w", ipa.GetName(), err)
 	}
+
 	return nil
 }
 
@@ -168,13 +185,16 @@ func MirrorOwnerRef(vmip *v1alpha2.VirtualMachineIPAddress, vm *v1alpha2.Virtual
 // IPAddress, and two labelled ones would make the lookup ambiguous.
 func setMirrorOwner(ipa *sdnapi.IPAddress, owner metav1.OwnerReference) {
 	ipa.SetOwnerReferences([]metav1.OwnerReference{owner})
+
 	if owner.Kind != v1alpha2.VirtualMachineKind {
 		return
 	}
+
 	labels := ipa.GetLabels()
 	if labels == nil {
 		labels = map[string]string{}
 	}
+
 	labels[annotations.LabelVirtualMachineUID] = string(owner.UID)
 	ipa.SetLabels(labels)
 }
@@ -186,23 +206,29 @@ func adoptMirror(ctx context.Context, c client.Client, ipa *sdnapi.IPAddress, ow
 
 	ipaWithOwner := ipa.DeepCopy()
 	setMirrorOwner(ipaWithOwner, *owner)
+
 	if err := c.Patch(ctx, ipaWithOwner, client.MergeFrom(ipa)); err != nil {
 		if apierrors.IsNotFound(err) || apierrors.IsConflict(err) {
 			return nil
 		}
+
 		return fmt.Errorf("adopt the mirror IPAddress %q: %w", ipa.GetName(), err)
 	}
+
 	return nil
 }
 
 func LabelMirrorWithVM(ctx context.Context, c client.Client, vm *v1alpha2.VirtualMachine, ipa *sdnapi.IPAddress) error {
 	ipaWithVMLabel := ipa.DeepCopy()
+
 	labels := ipaWithVMLabel.GetLabels()
 	if labels == nil {
 		labels = map[string]string{}
 	}
+
 	labels[annotations.LabelVirtualMachineUID] = string(vm.GetUID())
 	ipaWithVMLabel.SetLabels(labels)
+
 	return c.Patch(ctx, ipaWithVMLabel, client.MergeFrom(ipa))
 }
 
@@ -214,16 +240,19 @@ func ReleaseMirrorsOfPreviousVMIPs(ctx context.Context, c client.Client, vm *v1a
 	if err := c.List(ctx, ipas, client.InNamespace(vm.Namespace)); err != nil {
 		return fmt.Errorf("list SDN IPAddress of the namespace %s: %w", vm.Namespace, err)
 	}
+
 	for i := range ipas.Items {
 		ipa := &ipas.Items[i]
 		if !isMirrorOfPreviousVMIP(ipa, vm, vmip) {
 			continue
 		}
+
 		dropOwnerRefs := !IPAddressInUse(vm, ipa)
 		if err := unlinkMirror(ctx, c, ipa, dropOwnerRefs); err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -233,9 +262,11 @@ func isMirrorOfPreviousVMIP(ipa *sdnapi.IPAddress, vm *v1alpha2.VirtualMachine, 
 	if !IsMainNetworkIPAddress(ipa) || !IsMirror(ipa) || IsMirrorOf(ipa, vmip) {
 		return false
 	}
+
 	if ipa.GetLabels()[annotations.LabelVirtualMachineUID] == string(vm.GetUID()) {
 		return true
 	}
+
 	return slices.ContainsFunc(ipa.GetOwnerReferences(), func(ref metav1.OwnerReference) bool {
 		return ref.UID == vm.GetUID()
 	})
@@ -279,6 +310,7 @@ func EnsureAutoMirror(ctx context.Context, c client.Client, vmip *v1alpha2.Virtu
 		if err := c.Delete(ctx, existing, client.Preconditions{ResourceVersion: &existing.ResourceVersion}); err != nil && !apierrors.IsNotFound(err) {
 			return nil, fmt.Errorf("delete the refused mirror IPAddress %s/%s: %w", existing.Namespace, existing.Name, err)
 		}
+
 		return nil, ErrIPAddressTerminating
 	default:
 		return existing, nil
@@ -298,6 +330,7 @@ func createMirror(ctx context.Context, c client.Client, vmip *v1alpha2.VirtualMa
 	if owner != nil {
 		setMirrorOwner(ipa, *owner)
 	}
+
 	err := c.Create(ctx, ipa)
 	switch {
 	case err == nil:
@@ -307,6 +340,7 @@ func createMirror(ctx context.Context, c client.Client, vmip *v1alpha2.VirtualMa
 		if err == nil && existing != nil && existing.GetDeletionTimestamp() != nil {
 			return nil, ErrIPAddressTerminating
 		}
+
 		return existing, err
 	default:
 		return nil, fmt.Errorf("create the mirror IPAddress of vmip %s: %w", vmip.Name, err)
@@ -327,10 +361,12 @@ func isVMRunningOnAddress(vm *v1alpha2.VirtualMachine, address string) bool {
 	if vm == nil || vm.Status.IPAddress != address {
 		return false
 	}
+
 	switch vm.Status.Phase {
 	case "", v1alpha2.MachinePending, v1alpha2.MachineStopped:
 		return false
 	}
+
 	return true
 }
 
@@ -343,45 +379,56 @@ func VMIPAddressesTakenInSDNPool(ctx context.Context, c client.Client) (bool, er
 	if err := c.List(ctx, vmips, client.UnsafeDisableDeepCopy); err != nil {
 		return false, fmt.Errorf("list VirtualMachineIPAddress: %w", err)
 	}
+
 	ipas := &sdnapi.IPAddressList{}
 	if err := c.List(ctx, ipas, client.UnsafeDisableDeepCopy); err != nil {
 		return false, fmt.Errorf("list SDN IPAddress: %w", err)
 	}
+
 	taken := make(map[string]struct{}, len(ipas.Items))
 	refusedAddressOfVMIP := make(map[types.UID]string)
+
 	for i := range ipas.Items {
 		ipa := &ipas.Items[i]
 		if !IsMainNetworkIPAddress(ipa) {
 			continue
 		}
+
 		if IPAddressAllocated(ipa) && ipa.Status.Address != "" {
 			taken[ipa.Status.Address] = struct{}{}
 		}
+
 		if IsMirror(ipa) && ipa.GetDeletionTimestamp() == nil && ipa.Spec.Static != nil && IPAddressTakenByAnother(ipa) {
 			refusedAddressOfVMIP[types.UID(ipa.GetAnnotations()[annotations.AnnMirrorOfVMIP])] = ipa.Spec.Static.IP
 		}
 	}
+
 	for i := range vmips.Items {
 		vmip := &vmips.Items[i]
+
 		address := vmip.Status.Address
 		if address == "" {
 			continue
 		}
+
 		bound, _ := conditions.GetCondition(vmipcondition.BoundType, vmip.Status.Conditions)
 		if refusedAddressOfVMIP[vmip.UID] == address && bound.Status != metav1.ConditionTrue {
 			vm, err := GetVMOfVMIP(ctx, c, vmip)
 			if err != nil {
 				return false, err
 			}
+
 			if !isVMRunningOnAddress(vm, address) {
 				logger.FromContext(ctx).Debug("The sdn module refused the address of a vmip no machine runs on: not waiting for it", "vmip", vmip.Namespace+"/"+vmip.Name, "address", address)
 				continue
 			}
 		}
+
 		if _, ok := taken[address]; !ok {
 			logger.FromContext(ctx).Debug("A vmip address is not taken in the sdn pool yet", "vmip", vmip.Namespace+"/"+vmip.Name, "address", address)
 			return false, nil
 		}
 	}
+
 	return true, nil
 }

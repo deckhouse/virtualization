@@ -56,6 +56,7 @@ func NewCommand() *cobra.Command {
 	cmd.Flags().DurationVar(&console.timeout, "timeout", 5*time.Minute, "Duration to wait until console is successfully connected (e.g., 1s, 5m, 300s).")
 	cmd.Flags().BoolVar(&console.force, "force", false, "Connect without asking, even when somebody else is using the console.")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
+
 	return cmd
 }
 
@@ -111,6 +112,7 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("make raw terminal failed: %w", err)
 		}
+
 		defer func() {
 			_ = term.Restore(int(os.Stdin.Fd()), state)
 		}()
@@ -123,7 +125,9 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 
 	go func() {
 		defer close(stdinCh)
+
 		in := os.Stdin
+
 		buf := make([]byte, 1024)
 		for {
 			n, err := in.Read(buf)
@@ -141,6 +145,7 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 				// Copy data to avoid losing it on the next read
 				data := make([]byte, n)
 				copy(data, buf[0:n])
+
 				stdinCh <- data
 			}
 		}
@@ -148,7 +153,9 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 
 	showedWaitMessage := false
 	spinnerIdx := 0
+
 	var startTime time.Time
+
 	timeout := c.timeout
 	waitingForConnection := false
 
@@ -179,6 +186,7 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 				if showedWaitMessage {
 					fmt.Fprint(os.Stderr, clearLineNL)
 				}
+
 				return err
 			}
 
@@ -189,7 +197,9 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 					if showedWaitMessage {
 						fmt.Fprint(os.Stderr, clearLine)
 					}
+
 					fmt.Fprint(os.Stderr, util.CloseGoingAwayMessage)
+
 					return nil
 				}
 				// Connection was established, reset waiting flag
@@ -208,6 +218,7 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 					if showedWaitMessage {
 						fmt.Fprint(os.Stderr, clearLineNL)
 					}
+
 					return fmt.Errorf("timeout after %s waiting for VirtualMachine %q serial console", c.timeout, name)
 				}
 
@@ -216,16 +227,21 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 				if vm, vmErr := client.VirtualMachines(namespace).Get(cmd.Context(), name, metav1.GetOptions{}); vmErr == nil {
 					phase = string(vm.Status.Phase)
 				}
+
 				msg := fmt.Sprintf("%c Waiting for VirtualMachine %q serial console. Current VM phase: %s. Press Ctrl+] to exit.",
 					spinnerChars[spinnerIdx], name, phase)
 				// Truncate message to terminal width to avoid line wrapping issues
 				if width, _, err := term.GetSize(int(os.Stderr.Fd())); err == nil && len(msg) > width {
 					msg = msg[:width-3] + "..."
 				}
+
 				fmt.Fprint(os.Stderr, clearLine+msg)
+
 				spinnerIdx = (spinnerIdx + 1) % len(spinnerChars)
 				showedWaitMessage = true
+
 				time.Sleep(reconnectInterval)
+
 				continue
 			}
 
@@ -233,9 +249,12 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 			if showedWaitMessage {
 				fmt.Fprint(os.Stderr, clearLineNL)
 			}
+
 			fmt.Fprintf(os.Stderr, "%s\r\n", err)
+
 			showedWaitMessage = false
 			waitingForConnection = false
+
 			time.Sleep(reconnectInterval)
 		}
 	}
@@ -249,6 +268,7 @@ func (c *Console) askAboutHolder(cmd *cobra.Command, targetNamespace, name strin
 	if err != nil {
 		return session.Connect, err
 	}
+
 	namespace := targetNamespace
 	if namespace == "" {
 		namespace = defaultNamespace
@@ -288,6 +308,7 @@ func connect(ctx context.Context, name, namespace string, virtCli kubeclient.Cli
 	fmt.Fprintf(os.Stderr, "%sSuccessfully connected to %s serial console. Press Ctrl+] to exit.\r\n", clearLineNL, name)
 
 	out := os.Stdout
+
 	go func() {
 		_, err := io.Copy(out, stdoutReader)
 		if err != nil {
@@ -301,12 +322,15 @@ func connect(ctx context.Context, name, namespace string, virtCli kubeclient.Cli
 
 	go func() {
 		defer close(writeDone)
+
 		_, err := stdinWriter.Write([]byte("\r"))
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				return
 			}
+
 			writeStopErr <- err
+
 			return
 		}
 
@@ -318,12 +342,15 @@ func connect(ctx context.Context, name, namespace string, virtCli kubeclient.Cli
 				if !ok {
 					return
 				}
+
 				_, err = stdinWriter.Write(b)
 				if err != nil {
 					if errors.Is(err, io.EOF) {
 						return
 					}
+
 					writeStopErr <- err
+
 					return
 				}
 			}
@@ -331,6 +358,7 @@ func connect(ctx context.Context, name, namespace string, virtCli kubeclient.Cli
 	}()
 
 	var result error
+
 	select {
 	case <-ctx.Done():
 		result = ctx.Err()
@@ -351,6 +379,7 @@ func connect(ctx context.Context, name, namespace string, virtCli kubeclient.Cli
 	_ = stdoutWriter.Close()
 	_ = stdinReader.Close()
 	_ = stdoutReader.Close()
+
 	<-writeDone
 
 	return result
@@ -362,15 +391,18 @@ func ShouldWaitErr(err error) bool {
 	if err == nil {
 		return false
 	}
+
 	errMsg := err.Error()
 	if strings.Contains(errMsg, "not Running") ||
 		strings.Contains(errMsg, "bad handshake") ||
 		strings.Contains(errMsg, "Internal error") {
 		return true
 	}
+
 	var wsErr *websocket.CloseError
 	if errors.As(err, &wsErr) && wsErr.Code == websocket.CloseAbnormalClosure {
 		return true
 	}
+
 	return false
 }

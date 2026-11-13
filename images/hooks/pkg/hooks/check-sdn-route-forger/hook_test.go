@@ -95,7 +95,9 @@ var _ = Describe("Check SDN route forger hook", func() {
 			mock.NewSnapshotMock(GinkgoT()).UnmarshalToMock.Set(func(v any) error {
 				target, ok := v.(*corev1.Secret)
 				Expect(ok).To(BeTrue())
+
 				*target = *secret
+
 				return nil
 			}),
 		})
@@ -116,12 +118,17 @@ var _ = Describe("Check SDN route forger hook", func() {
 							return nil
 						}
 					}
+
 					return apierrors.NewNotFound(schema.GroupResource{Resource: "virtualmachines"}, key.Name)
 				}
+
 				Expect(key.Name).To(Equal(network.MainClusterNetworkName))
+
 				target, ok := obj.(*sdnapi.ClusterNetwork)
 				Expect(ok).To(BeTrue())
+
 				*target = *clusterNetwork
+
 				return nil
 			},
 			list: func(_ context.Context, list ctrlclient.ObjectList) error {
@@ -135,6 +142,7 @@ var _ = Describe("Check SDN route forger hook", func() {
 				default:
 					Fail("unexpected list")
 				}
+
 				return nil
 			},
 		}, nil)
@@ -214,6 +222,7 @@ var _ = Describe("Check SDN route forger hook", func() {
 		metrics = mock.NewMetricsCollectorMock(GinkgoT())
 		metrics.SetMock.Set(func(name string, value float64, _ map[string]string, _ ...pkg.MetricCollectorOption) {
 			Expect(name).To(Equal(routeForgerSupportedMetric))
+
 			metricValue = value
 		})
 	})
@@ -273,8 +282,10 @@ var _ = Describe("Check SDN route forger hook", func() {
 			prepareNetwork(routeForgerSupportedConditions)
 
 			var stateSetInValues bool
+
 			values.SetMock.Set(func(path string, _ any) {
 				Expect(path).To(Equal(routeForgerStateValuesPath))
+
 				stateSetInValues = true
 			})
 
@@ -297,6 +308,7 @@ var _ = Describe("Check SDN route forger hook", func() {
 		It("keeps shipping vm-route-forge while the IPAddress of a vmip address is not allocated", func() {
 			prepareSnapshotEmpty()
 			prepareStateValuesEmpty()
+
 			ipa := allocatedMainIPAddress("10.66.10.1")
 			ipa.Status.Conditions = []metav1.Condition{{Type: sdnapi.ConditionAllocated, Status: metav1.ConditionFalse}}
 			prepareNetworkWithAddresses(routeForgerSupportedConditions,
@@ -345,6 +357,7 @@ var _ = Describe("Check SDN route forger hook", func() {
 			BeforeEach(func() {
 				prepareSnapshotEmpty()
 				prepareStateValuesEmpty()
+
 				vmip = vmipWithAddress("10.66.10.1")
 				vmip.UID = "vmip-uid"
 				mirror = allocatedMainIPAddress("10.66.10.1")
@@ -368,6 +381,7 @@ var _ = Describe("Check SDN route forger hook", func() {
 					[]v1alpha2.VirtualMachineIPAddress{vmip}, []sdnapi.IPAddress{mirror}, vm)
 				values.SetMock.Optional().Set(func(_ string, _ any) { stateSetInValues = true })
 				Expect(Reconcile(context.Background(), newInput())).To(Succeed())
+
 				return stateSetInValues
 			}
 
@@ -380,12 +394,14 @@ var _ = Describe("Check SDN route forger hook", func() {
 			It("keeps shipping vm-route-forge while the mirror lists only the previous pod", func() {
 				mirror.Status.Phase = sdnapi.PhaseBound
 				mirror.Status.UsedByPods = []string{"default/virt-launcher-old"}
+
 				Expect(reconcile()).To(BeFalse())
 			})
 
 			It("records the state once the mirror is Bound and used by the active pod", func() {
 				mirror.Status.Phase = sdnapi.PhaseBound
 				mirror.Status.UsedByPods = []string{"default/virt-launcher-new"}
+
 				Expect(reconcile()).To(BeTrue())
 				Expect(metricValue).To(Equal(1.0))
 			})
@@ -405,6 +421,7 @@ var _ = Describe("Check SDN route forger hook", func() {
 			It("does not wait for the pod of a stopped VM", func() {
 				vm.Status.Phase = v1alpha2.MachineStopped
 				vm.Status.VirtualMachinePods = nil
+
 				Expect(reconcile()).To(BeTrue())
 			})
 		})
@@ -417,8 +434,10 @@ var _ = Describe("Check SDN route forger hook", func() {
 				[]sdnapi.IPAddress{allocatedMainIPAddress("10.66.10.1")})
 
 			var stateSetInValues bool
+
 			values.SetMock.Set(func(path string, _ any) {
 				Expect(path).To(Equal(routeForgerStateValuesPath))
+
 				stateSetInValues = true
 			})
 
@@ -435,8 +454,10 @@ var _ = Describe("Check SDN route forger hook", func() {
 			})
 
 			var stateSetInValues bool
+
 			values.SetMock.Set(func(path string, _ any) {
 				Expect(path).To(Equal(routeForgerStateValuesPath))
+
 				stateSetInValues = true
 			})
 

@@ -51,10 +51,13 @@ func (h *LifecycleHandler) Handle(_ context.Context, vmip *v1alpha2.VirtualMachi
 		if vmip.Status.Phase != v1alpha2.VirtualMachineIPAddressPhaseBound {
 			h.recorder.Eventf(vmip, corev1.EventTypeNormal, v1alpha2.ReasonBound, "VirtualMachineIPAddress is bound.")
 		}
+
 		vmip.Status.Phase = v1alpha2.VirtualMachineIPAddressPhaseBound
+
 		return reconcile.Result{}, nil
 	}
 
 	vmip.Status.Phase = v1alpha2.VirtualMachineIPAddressPhaseAttached
+
 	return reconcile.Result{}, nil
 }

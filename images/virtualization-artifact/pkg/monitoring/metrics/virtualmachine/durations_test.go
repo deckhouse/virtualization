@@ -86,6 +86,7 @@ d8_virtualization_virtualmachine_launch_duration_seconds_bucket{stage="waiting_f
 d8_virtualization_virtualmachine_launch_duration_seconds_sum{stage="waiting_for_dependencies"} 17
 d8_virtualization_virtualmachine_launch_duration_seconds_count{stage="waiting_for_dependencies"} 1
 `
+
 	err := testutil.CollectAndCompare(LaunchDuration, strings.NewReader(expected),
 		"d8_virtualization_virtualmachine_launch_duration_seconds")
 	if err != nil {
@@ -118,6 +119,7 @@ d8_virtualization_virtualmachine_launch_duration_seconds_bucket{stage="waiting_f
 d8_virtualization_virtualmachine_launch_duration_seconds_sum{stage="waiting_for_dependencies"} 0
 d8_virtualization_virtualmachine_launch_duration_seconds_count{stage="waiting_for_dependencies"} 1
 `
+
 	err := testutil.CollectAndCompare(LaunchDuration, strings.NewReader(expected),
 		"d8_virtualization_virtualmachine_launch_duration_seconds")
 	if err != nil {
@@ -138,22 +140,27 @@ func TestObserveMigration(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		m := &dto.Metric{}
 		if err := h.(prometheus.Metric).Write(m); err != nil {
 			t.Fatal(err)
 		}
+
 		return m.GetHistogram().GetSampleCount()
 	}
 
 	if got := count(MigrationTypeEvict, MigrationStageWaiting, MigrationResultSucceeded); got != 1 {
 		t.Errorf("waiting: expected one observation, got %d", got)
 	}
+
 	if got := count(MigrationTypeEvict, MigrationStagePreparing, MigrationResultSucceeded); got != 1 {
 		t.Errorf("preparing: a stage that took less than a second is still an observation, got %d", got)
 	}
+
 	if got := count(MigrationTypeEvict, MigrationStageTransfer, MigrationResultSucceeded); got != 1 {
 		t.Errorf("transfer: expected one observation, got %d", got)
 	}
+
 	if got := count(MigrationTypeMigrate, MigrationStageTransfer, MigrationResultFailed); got != 0 {
 		t.Errorf("a negative duration must be dropped, got %d observations", got)
 	}
@@ -173,9 +180,11 @@ func TestObserveShutdown(t *testing.T) {
 
 func shutdownCount(t *testing.T) uint64 {
 	t.Helper()
+
 	m := &dto.Metric{}
 	if err := ShutdownDuration.Write(m); err != nil {
 		t.Fatal(err)
 	}
+
 	return m.GetHistogram().GetSampleCount()
 }

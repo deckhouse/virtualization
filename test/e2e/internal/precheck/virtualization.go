@@ -51,10 +51,12 @@ func (v *virtualizationPrecheck) Run(ctx context.Context, f *framework.Framework
 
 	// Check virtualization module status
 	virtualizationModule := &dv1alpha1.Module{}
+
 	err := f.GenericClient().Get(ctx, client.ObjectKey{Name: virtualizationModuleName}, virtualizationModule)
 	if err != nil {
 		return fmt.Errorf("%s=no to disable this precheck: failed to check virtualization module status: %w", virtualizationModuleCheckEnvName, err)
 	}
+
 	if virtualizationModule.Status.Phase != modulePhaseReady {
 		return fmt.Errorf("%s=no to disable this precheck: virtualization module should be ready; current status: %s", virtualizationModuleCheckEnvName, virtualizationModule.Status.Phase)
 	}

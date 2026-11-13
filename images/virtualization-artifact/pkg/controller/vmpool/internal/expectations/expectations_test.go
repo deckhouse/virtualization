@@ -132,10 +132,12 @@ var _ = Describe("Expectations", func() {
 
 			// Just under the TTL — still honoured.
 			now = now.Add(59 * time.Second)
+
 			Expect(e.Satisfied(key)).To(BeFalse())
 
 			// Past the TTL — treated as satisfied even without observation.
 			now = now.Add(2 * time.Second)
+
 			Expect(e.Satisfied(key)).To(BeTrue())
 		})
 	})
@@ -154,21 +156,27 @@ var _ = Describe("Expectations", func() {
 	Context("concurrent access", func() {
 		It("is race-free under parallel expect/observe", func() {
 			e := New()
-			const workers = 16
-			const perWorker = 200
+
+			const (
+				workers   = 16
+				perWorker = 200
+			)
 
 			var wg sync.WaitGroup
 			for w := 0; w < workers; w++ {
 				wg.Add(1)
+
 				go func() {
 					defer GinkgoRecover()
 					defer wg.Done()
+
 					for i := 0; i < perWorker; i++ {
 						e.ExpectCreations(key, 1)
 						e.CreationObserved(key)
 					}
 				}()
 			}
+
 			wg.Wait()
 
 			// Every creation was observed, so the tracker must settle satisfied.

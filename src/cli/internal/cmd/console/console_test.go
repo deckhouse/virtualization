@@ -80,22 +80,28 @@ var _ = Describe("Console", func() {
 			DeferCleanup(func() {
 				_ = stdinWriter.Close()
 			})
+
 			os.Stdin = stdinReader
 
 			var clientCalls int
+
 			clientAndNamespaceFromContext = func(context.Context) (kubeclient.Client, string, bool, error) {
 				clientCalls++
 				return newFakeClient(), "default", false, nil
 			}
 
 			var connectCalls int
+
 			connectFunc = func(_ context.Context, name, namespace string, _ kubeclient.Client, _ time.Duration, _ <-chan []byte, _ <-chan struct{}) error {
 				connectCalls++
+
 				Expect(namespace).To(Equal("default"))
 				Expect(name).To(Equal("test-vm"))
+
 				if connectCalls == 1 {
 					return errors.New("temporary error")
 				}
+
 				return nil
 			}
 

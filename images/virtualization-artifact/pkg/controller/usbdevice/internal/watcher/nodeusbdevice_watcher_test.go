@@ -42,12 +42,14 @@ func TestShouldProcessNodeUSBDeviceUpdate(t *testing.T) {
 	}
 
 	changedNamespace := oldObj.DeepCopy()
+
 	changedNamespace.Spec.AssignedNamespace = "ns-b"
 	if !shouldProcessNodeUSBDeviceUpdate(oldObj, changedNamespace) {
 		t.Fatal("expected assigned namespace update to be processed")
 	}
 
 	changedConditions := oldObj.DeepCopy()
+
 	changedConditions.Status.Conditions[0].Reason = "Changed"
 	if !shouldProcessNodeUSBDeviceUpdate(oldObj, changedConditions) {
 		t.Fatal("expected conditions update to be processed")
@@ -56,6 +58,7 @@ func TestShouldProcessNodeUSBDeviceUpdate(t *testing.T) {
 	if shouldProcessNodeUSBDeviceUpdate(nil, changedConditions) {
 		t.Fatal("expected nil old object to be ignored")
 	}
+
 	if shouldProcessNodeUSBDeviceUpdate(oldObj, nil) {
 		t.Fatal("expected nil new object to be ignored")
 	}

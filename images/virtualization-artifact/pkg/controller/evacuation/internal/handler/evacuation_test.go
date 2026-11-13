@@ -57,6 +57,7 @@ var _ = Describe("TestEvacuationHandler", func() {
 
 	newVM := func(needEvict bool) *v1alpha2.VirtualMachine {
 		vm := vmbuilder.NewEmpty(vmName, vmNamespace)
+
 		vm.Status.Node = nodeName
 		if needEvict {
 			vm.Status.Conditions = append(vm.Status.Conditions, metav1.Condition{
@@ -64,6 +65,7 @@ var _ = Describe("TestEvacuationHandler", func() {
 				Status: metav1.ConditionTrue,
 			})
 		}
+
 		return vm
 	}
 
@@ -75,6 +77,7 @@ var _ = Describe("TestEvacuationHandler", func() {
 			Status: metav1.ConditionTrue,
 			Reason: reason.String(),
 		})
+
 		return vm
 	}
 
@@ -87,6 +90,7 @@ var _ = Describe("TestEvacuationHandler", func() {
 			Status: metav1.ConditionTrue,
 			Reason: vmcondition.ReasonWaitingForMigrationTarget.String(),
 		})
+
 		return vm
 	}
 
@@ -110,6 +114,7 @@ var _ = Describe("TestEvacuationHandler", func() {
 	newVMOP := func(phase v1alpha2.VMOPPhase) *v1alpha2.VirtualMachineOperation {
 		vmop := newEvacuationVMOP(vmName, vmNamespace)
 		vmop.Status.Phase = phase
+
 		return vmop
 	}
 
@@ -166,6 +171,7 @@ var _ = Describe("TestEvacuationHandler", func() {
 			if node != nil {
 				extra = append(extra, node)
 			}
+
 			fakeClient = setupEnvironment(vm, extra...)
 
 			h := NewEvacuationHandler(fakeClient, &EvacuateCancelerMock{CancelFunc: func(_ context.Context, _, _ string) error {

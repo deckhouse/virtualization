@@ -39,6 +39,7 @@ func TestChangedVolumeNames(t *testing.T) {
 	if len(changed) != 2 {
 		t.Fatalf("changed = %v, want vd-left and vd-came", changed)
 	}
+
 	for _, name := range []string{"vd-left", "vd-came"} {
 		if _, ok := changed[name]; !ok {
 			t.Errorf("changed = %v, want %s", changed, name)
@@ -51,6 +52,7 @@ func TestDisksByVolume(t *testing.T) {
 	vd := func(name string) *v1alpha2.VirtualDisk {
 		return &v1alpha2.VirtualDisk{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "ns"}}
 	}
+
 	c, err := testutil.NewFakeClientWithObjects(vd("short"), vd(long), vd("other"))
 	if err != nil {
 		t.Fatal(err)
@@ -64,6 +66,7 @@ func TestDisksByVolume(t *testing.T) {
 	if len(got) != len(want) {
 		t.Fatalf("requests = %v, want %v", got, want)
 	}
+
 	for _, req := range got {
 		if !want[req.NamespacedName] {
 			t.Errorf("unexpected request %v", req)
@@ -80,6 +83,7 @@ func TestEnqueueAttachedDisk(t *testing.T) {
 	}
 
 	got := enqueueAttachedDisk(context.Background(), vmbda(v1alpha2.VMBDAObjectRefKindVirtualDisk))
+
 	want := []reconcile.Request{{NamespacedName: types.NamespacedName{Namespace: "ns", Name: "disk"}}}
 	if len(got) != 1 || got[0] != want[0] {
 		t.Errorf("requests = %v, want %v", got, want)
@@ -105,7 +109,9 @@ func TestAttachmentChangeMattersToDisk(t *testing.T) {
 	if !attachmentChangeMattersToDisk(pending(metav1.ConditionFalse), pending(metav1.ConditionTrue)) {
 		t.Error("a started VM of a Pending attachment must wake the disk")
 	}
+
 	attached := pending(metav1.ConditionTrue)
+
 	attached.Status.Phase = v1alpha2.BlockDeviceAttachmentPhaseAttached
 	if !attachmentChangeMattersToDisk(pending(metav1.ConditionTrue), attached) {
 		t.Error("a phase change must wake the disk")

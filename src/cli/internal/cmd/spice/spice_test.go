@@ -43,26 +43,33 @@ func TestAcceptLoopServesEveryConnection(t *testing.T) {
 	defer ln.Close()
 
 	var mu sync.Mutex
+
 	served := 0
 	done := make(chan struct{})
 
 	orig := pipeChannelFunc
+
 	defer func() { pipeChannelFunc = orig }()
+
 	pipeChannelFunc = func(_ context.Context, _ kubeclient.Client, _, _ string, conn net.Conn) error {
 		mu.Lock()
 		served++
 		reached := served
 		mu.Unlock()
+
 		if reached == channels {
 			close(done)
 		}
 		// hold the connection open, mimicking a live channel
 		<-done
+
 		return nil
 	}
 
 	cmd := &cobra.Command{}
+
 	cmd.SetOut(io.Discard)
+
 	go acceptLoop(context.Background(), ln, nil, "default", "myvm", cmd, make(chan error, 1))
 
 	conns := make([]net.Conn, 0, channels)
@@ -71,8 +78,10 @@ func TestAcceptLoopServesEveryConnection(t *testing.T) {
 		if err != nil {
 			t.Fatalf("dial %d: %v", i, err)
 		}
+
 		conns = append(conns, c)
 	}
+
 	defer func() {
 		for _, c := range conns {
 			c.Close()

@@ -55,6 +55,7 @@ func EnsureCiliumAgents(ctx context.Context, kubectl kc.Kubectl, vmName, vmNames
 		if errors.Is(err, ErrIPCacheUnreachable) {
 			return StopTrying("the Cilium agents cannot be queried at all, so waiting for the ipcache entry is pointless").Wrap(err)
 		}
+
 		return err
 	}, framework.MiddleTimeout, eventually.WithPolling(framework.PollingInterval))
 }
@@ -80,6 +81,7 @@ func CheckCiliumAgents(ctx context.Context, kubectl kc.Kubectl, vmName, vmNamesp
 
 	// Check each Cilium agent pod
 	var errs []error
+
 	for _, pod := range pods {
 		nodeIP := nodeInternalIP
 		if pod.Spec.NodeName == nodeName {
@@ -95,6 +97,7 @@ func CheckCiliumAgents(ctx context.Context, kubectl kc.Kubectl, vmName, vmNamesp
 		err = validateIPInCiliumIPCache(vmIP, nodeIP, ipCache)
 		if err != nil {
 			errs = append(errs, err)
+
 			err = dumpIPCache(ipCache, nodeName, pod.Name)
 			if err != nil {
 				errs = append(errs, err)
@@ -171,6 +174,7 @@ func getCiliumAgentPods(kubectl kc.Kubectl) ([]corev1.Pod, error) {
 
 func getCiliumIPCache(kubectl kc.Kubectl, pod corev1.Pod) (string, error) {
 	cmd := fmt.Sprintf("-n %s exec %s -c cilium-agent -- cilium map get cilium_ipcache", pod.Namespace, pod.Name)
+
 	result := kubectl.RawCommand(cmd, kc.MediumTimeout)
 	if result.Error() != nil {
 		return "", fmt.Errorf("failed to execute command `%s`: %w", cmd, result.Error())
@@ -195,6 +199,7 @@ func dumpIPCache(ipCache, nodeName, podName string) error {
 	tmpDir := framework.GetTMPDir()
 
 	resFileName := fmt.Sprintf("%s/e2e_failed__%s__%s__%s__cilium_ipcache.yaml", tmpDir, ft, nodeName, podName)
+
 	err := os.WriteFile(resFileName, []byte(ipCache), 0o644)
 	if err != nil {
 		return fmt.Errorf("saving Cilium Agent's IPCache to file '%s' failed: %w", resFileName, err)

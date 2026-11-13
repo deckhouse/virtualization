@@ -85,6 +85,7 @@ func createRestorerSecret(namespace, name string, vm *v1alpha2.VirtualMachine) *
 	if err != nil {
 		panic(err)
 	}
+
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -146,6 +147,7 @@ func createCloneVMOP(namespace, name, vmName, snapshotName string) *v1alpha2.Vir
 			},
 		},
 	}
+
 	return vmop
 }
 
@@ -224,12 +226,15 @@ func createVMBDA(namespace, name, vmName string) *v1alpha2.VirtualMachineBlockDe
 
 func createRestorerSecretWithVMBDAs(namespace, name string, vm *v1alpha2.VirtualMachine, vmbdas []*v1alpha2.VirtualMachineBlockDeviceAttachment) *corev1.Secret {
 	secret := createRestorerSecret(namespace, name, vm)
+
 	if len(vmbdas) > 0 {
 		vmbdasJSON, err := json.Marshal(vmbdas)
 		if err != nil {
 			panic(err)
 		}
+
 		secret.Data["vmbdas"] = vmbdasJSON
 	}
+
 	return secret
 }

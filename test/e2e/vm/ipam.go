@@ -55,6 +55,7 @@ var _ = Describe("IPAM", Label(label.SIGCompute, precheck.NoPrecheck), func() {
 	BeforeEach(func() {
 		f = framework.NewFramework("ipam")
 		f.Before()
+
 		ctx = context.Background()
 	})
 
@@ -65,15 +66,18 @@ var _ = Describe("IPAM", Label(label.SIGCompute, precheck.NoPrecheck), func() {
 	Context("vmip with type Auto", func() {
 		It("Creates vmip with type Auto", func() {
 			By("Create the auto vmip and check its binding with a lease")
+
 			vmipAuto := object.NewVirtualMachineIPAddress("vmip-auto", f.Namespace().Name, vmipoption.WithTypeAuto())
 
 			err := f.CreateWithDeferredDeletion(ctx, vmipAuto)
 			Expect(err).NotTo(HaveOccurred())
 
 			var lease *v1alpha2.VirtualMachineIPAddressLease
+
 			vmipAuto, lease = WaitToBeBound(ctx, f, vmipAuto.Name)
 
 			By("Remove labels from the lease")
+
 			patch, err := json.Marshal([]map[string]interface{}{{
 				"op":   "remove",
 				"path": "/metadata/labels",
@@ -83,6 +87,7 @@ var _ = Describe("IPAM", Label(label.SIGCompute, precheck.NoPrecheck), func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Wait for the label to be restored by the controller")
+
 			_, _ = WaitToBeBound(ctx, f, vmipAuto.Name)
 		})
 	})
@@ -90,14 +95,17 @@ var _ = Describe("IPAM", Label(label.SIGCompute, precheck.NoPrecheck), func() {
 	Context("vmip with type Static", func() {
 		It("Creates vmip with type Static", func() {
 			By("Create an intermediate vmip to learn the pool subnet")
+
 			intermediate := object.NewVirtualMachineIPAddress("vmip-intermediate", f.Namespace().Name, vmipoption.WithTypeAuto())
 			err := f.CreateWithDeferredDeletion(ctx, intermediate)
 			Expect(err).NotTo(HaveOccurred())
 
 			var lease *v1alpha2.VirtualMachineIPAddressLease
+
 			intermediate, lease = WaitToBeBound(ctx, f, intermediate.Name)
 
 			By("Delete the intermediate vmip and check that the lease is released")
+
 			err = f.Delete(ctx, intermediate)
 			Expect(err).NotTo(HaveOccurred())
 			WaitForLeaseToBeReleased(ctx, f, lease.Name)
@@ -112,6 +120,7 @@ var _ = Describe("IPAM", Label(label.SIGCompute, precheck.NoPrecheck), func() {
 			staticLeaseName := ipAddressToLeaseName(staticAddress)
 
 			By("Allocate the address with a static vmip")
+
 			vmipStatic := object.NewVirtualMachineIPAddress(
 				"vmip-static",
 				f.Namespace().Name,
@@ -123,11 +132,14 @@ var _ = Describe("IPAM", Label(label.SIGCompute, precheck.NoPrecheck), func() {
 			WaitToBeBound(ctx, f, vmipStatic.Name)
 
 			By("Delete the static vmip and check that the lease is released")
+
 			err = f.Delete(ctx, vmipStatic)
 			Expect(err).NotTo(HaveOccurred())
+
 			lease = WaitForLeaseToBeReleased(ctx, f, staticLeaseName)
 
 			By("Reuse the released lease with another static vmip")
+
 			vmipStatic = object.NewVirtualMachineIPAddress(
 				"vmip-one-more-static",
 				f.Namespace().Name,
@@ -138,6 +150,7 @@ var _ = Describe("IPAM", Label(label.SIGCompute, precheck.NoPrecheck), func() {
 			WaitToBeBound(ctx, f, vmipStatic.Name)
 
 			By("Delete the static vmip and lease, then create another static vmip with this ip address")
+
 			err = f.Delete(ctx, vmipStatic, lease)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -164,6 +177,7 @@ var _ = Describe("IPAM", Label(label.SIGCompute, precheck.NoPrecheck), func() {
 			})
 
 			var vmObs vmobs.Observer
+
 			By("Create vm with static ip", func() {
 				vd := object.NewVDFromCVI("vd-with-static-ip", f.Namespace().Name, object.PrecreatedCVICustomBIOS, vdbuilder.WithSize(ptr.To(resource.MustParse(vdCustomImageSize))))
 				err := f.CreateWithDeferredDeletion(ctx, vd)
@@ -193,8 +207,10 @@ var _ = Describe("IPAM", Label(label.SIGCompute, precheck.NoPrecheck), func() {
 
 			By("Verify vmip attached to vm", func() {
 				var err error
+
 				vmipStatic, err = f.VirtClient().VirtualMachineIPAddresses(f.Namespace().Name).Get(ctx, vmipStatic.Name, metav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
+
 				cond, _ := conditions.GetCondition(vmipcondition.AttachedType, vmipStatic.Status.Conditions)
 				Expect(cond.Status).To(Equal(metav1.ConditionTrue))
 			})
@@ -263,6 +279,7 @@ func WaitToBeBound(ctx context.Context, f *framework.Framework, vmipName string)
 		vmipName, namespace,
 	)
 	Expect(err).NotTo(HaveOccurred(), "failed to start observer for vmip %s/%s", namespace, vmipName)
+
 	defer vmipObs.Stop()
 
 	err = vmipObs.WaitFor(vmipBound(), framework.ShortTimeout)
@@ -278,6 +295,7 @@ func WaitToBeBound(ctx context.Context, f *framework.Framework, vmipName string)
 		leaseName, "",
 	)
 	Expect(err).NotTo(HaveOccurred(), "failed to start observer for lease %s", leaseName)
+
 	defer leaseObs.Stop()
 
 	err = leaseObs.WaitFor(leaseBound(), framework.ShortTimeout)
@@ -298,6 +316,7 @@ func WaitToBeBound(ctx context.Context, f *framework.Framework, vmipName string)
 func vmipBound() observer.Predicate[*v1alpha2.VirtualMachineIPAddress] {
 	return func(vmip *v1alpha2.VirtualMachineIPAddress) (bool, error) {
 		boundCondition, _ := conditions.GetCondition(vmipcondition.BoundType, vmip.Status.Conditions)
+
 		return boundCondition.Status == metav1.ConditionTrue &&
 			boundCondition.Reason == vmipcondition.Bound.String() &&
 			boundCondition.ObservedGeneration == vmip.Generation &&
@@ -311,6 +330,7 @@ func vmipBound() observer.Predicate[*v1alpha2.VirtualMachineIPAddress] {
 func leaseBound() observer.Predicate[*v1alpha2.VirtualMachineIPAddressLease] {
 	return func(lease *v1alpha2.VirtualMachineIPAddressLease) (bool, error) {
 		boundCondition, _ := conditions.GetCondition(vmiplcondition.BoundType, lease.Status.Conditions)
+
 		return boundCondition.Status == metav1.ConditionTrue &&
 			boundCondition.Reason == vmiplcondition.Bound.String() &&
 			boundCondition.ObservedGeneration == lease.Generation &&
@@ -323,6 +343,7 @@ func leaseBound() observer.Predicate[*v1alpha2.VirtualMachineIPAddressLease] {
 func leaseReleased() observer.Predicate[*v1alpha2.VirtualMachineIPAddressLease] {
 	return func(lease *v1alpha2.VirtualMachineIPAddressLease) (bool, error) {
 		boundCondition, _ := conditions.GetCondition(vmiplcondition.BoundType, lease.Status.Conditions)
+
 		return boundCondition.Status == metav1.ConditionFalse &&
 			boundCondition.Reason == vmiplcondition.Released.String() &&
 			boundCondition.ObservedGeneration == lease.Generation &&
@@ -341,6 +362,7 @@ func WaitForLeaseToBeReleased(ctx context.Context, f *framework.Framework, lease
 		leaseName, "",
 	)
 	Expect(err).NotTo(HaveOccurred(), "failed to start observer for lease %s", leaseName)
+
 	defer leaseObs.Stop()
 
 	err = leaseObs.WaitFor(leaseReleased(), framework.ShortTimeout)
@@ -391,6 +413,7 @@ func highPoolAddress(ctx context.Context, f *framework.Framework, poolAddress st
 	}
 
 	Fail(fmt.Sprintf("no free address left in %s.%d-%d to claim statically", prefix, highPoolAddressFirst, highPoolAddressLast))
+
 	return ""
 }
 

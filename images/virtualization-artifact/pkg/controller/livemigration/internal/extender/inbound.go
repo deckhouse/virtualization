@@ -78,6 +78,7 @@ func (e *InboundMigrationExtender) Filter(_ context.Context, args Args) FilterRe
 		// An empty result would filter every node out; an error is skipped by the scheduler.
 		return FilterResult{Error: "node names are expected: the extender must be registered with nodeCacheCapable"}
 	}
+
 	return FilterResult{NodeNames: args.NodeNames}
 }
 
@@ -87,8 +88,10 @@ func (e *InboundMigrationExtender) Prioritize(ctx context.Context, args Args) []
 	}
 
 	var load map[string]int
+
 	if isMigrationTarget(args.Pod) {
 		var err error
+
 		load, err = e.countArriving(ctx, *args.NodeNames)
 		if err != nil {
 			e.log.Error("Failed to count migrations, the target pod is not prioritized", logger.SlogErr(err), "pod", podKey(args.Pod))
@@ -101,8 +104,10 @@ func (e *InboundMigrationExtender) Prioritize(ctx context.Context, args Args) []
 		if load != nil && load[node] == 0 {
 			score = freeNodeScore
 		}
+
 		priorities = append(priorities, HostPriority{Host: node, Score: score})
 	}
+
 	return priorities
 }
 
@@ -112,6 +117,7 @@ func (e *InboundMigrationExtender) countArriving(ctx context.Context, nodes []st
 	arriving := make(map[string]int, len(nodes))
 	for _, node := range nodes {
 		arriving[node] = 0
+
 		var pods corev1.PodList
 		if err := e.client.List(ctx, &pods, client.MatchingFields{indexer.IndexFieldPodByMigrationTargetNode: node}); err != nil {
 			return nil, fmt.Errorf("list migration target pods on node %s: %w", node, err)
@@ -122,6 +128,7 @@ func (e *InboundMigrationExtender) countArriving(ctx context.Context, nodes []st
 			if err != nil {
 				return nil, err
 			}
+
 			if inFlight {
 				arriving[node]++
 			}
@@ -133,6 +140,7 @@ func (e *InboundMigrationExtender) countArriving(ctx context.Context, nodes []st
 			return nil, err
 		}
 	}
+
 	return arriving, nil
 }
 
@@ -149,7 +157,9 @@ func (e *InboundMigrationExtender) addTransferringOutgoing(ctx context.Context, 
 		if migration.Status.Phase != virtv1.MigrationRunning {
 			continue
 		}
+
 		var kvvmi virtv1.VirtualMachineInstance
+
 		err := e.client.Get(ctx, types.NamespacedName{Namespace: migration.Namespace, Name: migration.Spec.VMIName}, &kvvmi)
 		switch {
 		case apierrors.IsNotFound(err):
@@ -157,12 +167,14 @@ func (e *InboundMigrationExtender) addTransferringOutgoing(ctx context.Context, 
 		case err != nil:
 			return fmt.Errorf("get the VMI of migration %s/%s: %w", migration.Namespace, migration.Name, err)
 		}
+
 		if state := kvvmi.Status.MigrationState; state != nil && state.MigrationUID == migration.UID {
 			if _, candidate := load[state.SourceNode]; candidate {
 				load[state.SourceNode]++
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -173,6 +185,7 @@ func (e *InboundMigrationExtender) isMigrationInFlight(ctx context.Context, pod 
 	}
 
 	var vmim virtv1.VirtualMachineInstanceMigration
+
 	err := e.client.Get(ctx, key, &vmim)
 	switch {
 	case apierrors.IsNotFound(err):
@@ -193,5 +206,6 @@ func podKey(pod *corev1.Pod) string {
 	if pod == nil {
 		return ""
 	}
+
 	return pod.Namespace + "/" + pod.Name
 }

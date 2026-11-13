@@ -59,7 +59,9 @@ var _ = DescribeTable("VirtualMachineCancelMigration", Label(label.SIGCompute), 
 	const stressngCmd = "nohup stress-ng -q --vm 2 --vm-bytes 90% --vm-keep --vm-populate --vm-method all --timeout 3m </dev/null >/dev/null 2>errlog &"
 
 	ctx := context.Background()
+
 	var suffix string
+
 	switch bootloaderType {
 	case v1alpha2.BIOS:
 		suffix = "bios"
@@ -70,6 +72,7 @@ var _ = DescribeTable("VirtualMachineCancelMigration", Label(label.SIGCompute), 
 	default:
 		Fail("Unknown bootloader type")
 	}
+
 	f := framework.NewFramework(fmt.Sprintf("vm-cancel-migration-%s", suffix))
 	DeferCleanup(f.After)
 	f.Before()
@@ -87,6 +90,7 @@ var _ = DescribeTable("VirtualMachineCancelMigration", Label(label.SIGCompute), 
 	// GRUB does not provide, so that entry stays on the Ubuntu image with its
 	// cloud user.
 	var vdRoot *v1alpha2.VirtualDisk
+
 	vmOpts := []vmbuilder.Option{
 		vmbuilder.WithName("vm"),
 		vmbuilder.WithBootloader(bootloaderType),
@@ -96,7 +100,9 @@ var _ = DescribeTable("VirtualMachineCancelMigration", Label(label.SIGCompute), 
 		vmbuilder.WithMemory(resource.MustParse("2Gi")),
 		vmbuilder.WithLiveMigrationPolicy(v1alpha2.PreferSafeMigrationPolicy),
 	}
+
 	var sshOpts []framework.SSHCommandOption
+
 	switch bootloaderType {
 	case v1alpha2.EFIWithSecureBoot:
 		vdRoot = object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVIUbuntu,
@@ -110,6 +116,7 @@ var _ = DescribeTable("VirtualMachineCancelMigration", Label(label.SIGCompute), 
 		if bootloaderType == v1alpha2.EFI {
 			cviName = object.PrecreatedCVICustomEFI
 		}
+
 		vdRoot = object.NewVDFromCVI("vd-root", f.Namespace().Name, cviName,
 			vdbuilder.WithStorageClass(&storageClass.Name),
 			vdbuilder.WithSize(ptr.To(resource.MustParse(vdCustomImageSize))),
@@ -117,6 +124,7 @@ var _ = DescribeTable("VirtualMachineCancelMigration", Label(label.SIGCompute), 
 		// The custom image has no cloud-init; the guest agent is baked in.
 		sshOpts = append(sshOpts, framework.WithSSHUser("root"))
 	}
+
 	vdBlank := object.NewBlankVD("vd-blank", f.Namespace().Name, &storageClass.Name, ptr.To(resource.MustParse(vdCustomImageSize)))
 
 	vmOpts = append(vmOpts, vmbuilder.WithBlockDeviceRefs(
@@ -150,6 +158,7 @@ var _ = DescribeTable("VirtualMachineCancelMigration", Label(label.SIGCompute), 
 	}
 
 	By("Create memory pressure inside the virtual machine")
+
 	_, err = f.SSHCommand(vm.Name, vm.Namespace, stressngCmd, sshOpts...)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -162,6 +171,7 @@ var _ = DescribeTable("VirtualMachineCancelMigration", Label(label.SIGCompute), 
 	}).WithTimeout(20 * time.Second).WithPolling(time.Second).ShouldNot(HaveOccurred())
 
 	By("Create migration VMOPs")
+
 	evictVMOP := vmopbuilder.New(
 		vmopbuilder.WithName("vmop-evict"),
 		vmopbuilder.WithNamespace(vm.Namespace),
@@ -191,6 +201,7 @@ var _ = DescribeTable("VirtualMachineCancelMigration", Label(label.SIGCompute), 
 	untilKVVMIMigrationStarted(ctx, framework.MaxTimeout, vm)
 
 	By("Remove the VMOP")
+
 	err = f.GenericClient().Delete(ctx, evictVMOP)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -208,12 +219,14 @@ var _ = DescribeTable("VirtualMachineCancelMigration", Label(label.SIGCompute), 
 			if k8serrors.IsNotFound(getErr) {
 				return true, nil
 			}
+
 			return false, getErr
 		},
 	)
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Ensure stress-ng error log is empty")
+
 	err = checkStressNGErrorLogIsEmpty(f, vm, sshOpts...)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -288,6 +301,7 @@ func untilAbortStatusExists(ctx context.Context, timeout time.Duration, vm *v1al
 	// transport method" error and the KVVMI reports Failed without ever
 	// populating abortStatus.
 	const knownNBDAbortRaceReason = "NBD URI must be supplied"
+
 	var knownAbortRaceFailure string
 
 	eventually.Until(func() error {
@@ -312,6 +326,7 @@ func untilAbortStatusExists(ctx context.Context, timeout time.Duration, vm *v1al
 				knownAbortRaceFailure = migrationState.FailureReason
 				return nil
 			}
+
 			return StopTrying(fmt.Sprintf("migration failed instead of aborting for KVVMI %s/%s: %s", vm.Namespace, vm.Name, migrationState.FailureReason))
 		}
 
@@ -326,6 +341,7 @@ func untilAbortStatusExists(ctx context.Context, timeout time.Duration, vm *v1al
 		if migrationState.EndTimestamp.IsZero() {
 			return fmt.Errorf("retry because migration is not finished yet for KVVMI %s/%s", vm.Namespace, vm.Name)
 		}
+
 		return nil
 	}, timeout)
 

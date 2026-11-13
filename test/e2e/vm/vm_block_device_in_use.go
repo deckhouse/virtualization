@@ -85,6 +85,7 @@ var _ = Describe("VirtualMachineBlockDeviceInUse", Label(label.SIGCompute, prech
 		for _, d := range disks {
 			refs = append(refs, v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: d.Name})
 		}
+
 		return object.NewMinimalVM("", f.Namespace().Name,
 			vmbuilder.WithName(name),
 			vmbuilder.WithBlockDeviceRefs(refs...),
@@ -94,15 +95,19 @@ var _ = Describe("VirtualMachineBlockDeviceInUse", Label(label.SIGCompute, prech
 	// setDisks replaces the disk refs of the VM, retrying while the controllers update it.
 	setDisks := func(vm *v1alpha2.VirtualMachine, names ...string) {
 		GinkgoHelper()
+
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vm), vm); err != nil {
 				return err
 			}
+
 			refs := make([]v1alpha2.BlockDeviceSpecRef, 0, len(names))
 			for _, name := range names {
 				refs = append(refs, v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: name})
 			}
+
 			vm.Spec.BlockDeviceRefs = refs
+
 			return f.Clients.GenericClient().Update(ctx, vm)
 		})
 		Expect(err).NotTo(HaveOccurred())
@@ -111,6 +116,7 @@ var _ = Describe("VirtualMachineBlockDeviceInUse", Label(label.SIGCompute, prech
 	mountedBy := func(g Gomega, vd *v1alpha2.VirtualDisk) string {
 		cur := &v1alpha2.VirtualDisk{}
 		g.Expect(f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vd), cur)).To(Succeed())
+
 		return commonvd.GetCurrentlyMountedVMName(cur)
 	}
 
@@ -119,12 +125,14 @@ var _ = Describe("VirtualMachineBlockDeviceInUse", Label(label.SIGCompute, prech
 		kvvmi, err := util.GetInternalVirtualMachineInstance(ctx, vm)
 		g.Expect(err).NotTo(HaveOccurred())
 		g.Expect(kvvmi).NotTo(BeNil())
+
 		return slices.Contains(volumeNames(kvvmi.Spec.Volumes), "vd-"+vd.Name)
 	}
 
 	// holders returns how many of the two VMs have the volume of the disk on their instances.
 	holders := func(vd *v1alpha2.VirtualDisk) int {
 		n := 0
+
 		for _, vm := range []*v1alpha2.VirtualMachine{owner, waiter} {
 			kvvmi, err := util.GetInternalVirtualMachineInstance(ctx, vm)
 			if err != nil || kvvmi == nil {
@@ -136,6 +144,7 @@ var _ = Describe("VirtualMachineBlockDeviceInUse", Label(label.SIGCompute, prech
 				n++
 			}
 		}
+
 		return n
 	}
 
@@ -143,11 +152,15 @@ var _ = Describe("VirtualMachineBlockDeviceInUse", Label(label.SIGCompute, prech
 	// the final state of a spec does not show a second writer that came and went.
 	watchOneWriter := func(vd *v1alpha2.VirtualDisk) {
 		stop := make(chan struct{})
+
 		var twoWriters atomic.Bool
+
 		go func() {
 			defer GinkgoRecover()
+
 			ticker := time.NewTicker(time.Second)
 			defer ticker.Stop()
+
 			for {
 				select {
 				case <-stop:
@@ -159,6 +172,7 @@ var _ = Describe("VirtualMachineBlockDeviceInUse", Label(label.SIGCompute, prech
 				}
 			}
 		}()
+
 		DeferCleanup(func() {
 			close(stop)
 			Expect(twoWriters.Load()).To(BeFalse(), "the volume of the disk %q was on two instances at once", vd.Name)
@@ -203,26 +217,33 @@ var _ = Describe("VirtualMachineBlockDeviceInUse", Label(label.SIGCompute, prech
 	// otherwise a WaitForFirstConsumer class of the same provisioner.
 	wffcStorageClass := func() string {
 		GinkgoHelper()
+
 		isWFFC := func(sc *storagev1.StorageClass) bool {
 			return sc.VolumeBindingMode != nil && *sc.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer
 		}
+
 		suite := framework.GetConfig().StorageClass.DefaultStorageClass
 		if suite != nil && isWFFC(suite) {
 			return suite.Name
 		}
+
 		scs, err := f.Clients.KubeClient().StorageV1().StorageClasses().List(ctx, metav1.ListOptions{})
 		Expect(err).NotTo(HaveOccurred())
+
 		for i := range scs.Items {
 			if isWFFC(&scs.Items[i]) && (suite == nil || scs.Items[i].Provisioner == suite.Provisioner) {
 				return scs.Items[i].Name
 			}
 		}
+
 		Skip("skip: no WaitForFirstConsumer StorageClass with the provisioner of the suite storage class")
+
 		return ""
 	}
 
 	BeforeEach(func() {
 		ctx = context.Background()
+
 		DeferCleanup(f.After)
 		f.Before()
 
@@ -238,6 +259,7 @@ var _ = Describe("VirtualMachineBlockDeviceInUse", Label(label.SIGCompute, prech
 
 		ownerObs = vmobs.StartObserver(ctx, f, owner)
 		ownerObs.Never(vmobs.BeFailed())
+
 		waiterObs = vmobs.StartObserver(ctx, f, waiter)
 		waiterObs.Never(vmobs.BeFailed())
 
@@ -339,6 +361,7 @@ var _ = Describe("VirtualMachineBlockDeviceInUse", Label(label.SIGCompute, prech
 		waiterObs.Never(vmobs.HaveBlockDevicesAttached(shared.Name))
 
 		By("Migrating the owner")
+
 		vmop := util.MigrateVirtualMachine(f, owner)
 		util.UntilVMOPMigrationSucceeded(ctx, vmop, framework.MaxTimeout)
 
@@ -373,6 +396,7 @@ var _ = Describe("VirtualMachineBlockDeviceInUse", Label(label.SIGCompute, prech
 		}, framework.LongTimeout, eventually.WithPolling(hotplugPolling))
 
 		By("Creating the missing disk and waiting for it to be hotplugged")
+
 		vdLater := object.NewVD(
 			vdbuilder.WithName(later),
 			vdbuilder.WithNamespace(f.Namespace().Name),
@@ -442,6 +466,7 @@ var _ = Describe("VirtualMachineBlockDeviceInUse", Label(label.SIGCompute, prech
 		Expect(waiterObs.WaitFor(vmobs.HaveBlockDeviceDetached(src.Name), framework.LongTimeout)).To(Succeed())
 
 		By("Creating an image from the disk")
+
 		image := object.NewVI(
 			vibuilder.WithName("vi-from-disk"),
 			vibuilder.WithNamespace(f.Namespace().Name),
@@ -459,6 +484,7 @@ var _ = Describe("VirtualMachineBlockDeviceInUse", Label(label.SIGCompute, prech
 		}, framework.MiddleTimeout, eventually.WithPolling(time.Second))
 
 		By("Attaching the disk while the image is being created")
+
 		vmbda := newAttachment("vmbda-image-source", waiter, src)
 		vmbdaObs := vmbdaobs.StartObserver(ctx, f, vmbda)
 		vmbdaObs.Never(vmbdaobs.BeFailed())
@@ -466,11 +492,14 @@ var _ = Describe("VirtualMachineBlockDeviceInUse", Label(label.SIGCompute, prech
 		eventually.UntilAssertion(func(g Gomega) {
 			cur := &v1alpha2.VirtualImage{}
 			g.Expect(f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(image), cur)).To(Succeed())
+
 			att := &v1alpha2.VirtualMachineBlockDeviceAttachment{}
 			g.Expect(f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vmbda), att)).To(Succeed())
+
 			if cur.Status.Phase != v1alpha2.ImageReady {
 				Expect(att.Status.Phase).NotTo(Equal(v1alpha2.BlockDeviceAttachmentPhaseAttached), "the disk must not be attached while an image is being created from it")
 			}
+
 			g.Expect(cur.Status.Phase).To(Equal(v1alpha2.ImageReady))
 		}, framework.LongTimeout, eventually.WithPolling(time.Second))
 
@@ -489,6 +518,7 @@ var _ = Describe("VirtualMachineBlockDeviceInUse", Label(label.SIGCompute, prech
 
 		attach := func(vm *v1alpha2.VirtualMachine) *v1alpha2.VirtualMachineBlockDeviceAttachment {
 			GinkgoHelper()
+
 			vmbda := newAttachment("vmbda-"+disk.Name+"-"+vm.Name, vm, disk)
 			obs := vmbdaobs.StartObserver(ctx, f, vmbda)
 			obs.Never(vmbdaobs.BeFailed())
@@ -500,21 +530,26 @@ var _ = Describe("VirtualMachineBlockDeviceInUse", Label(label.SIGCompute, prech
 				g.Expect(err == nil || k8serrors.IsAlreadyExists(err)).To(BeTrue(), "create %s: %v", vmbda.Name, err)
 			}, framework.LongTimeout, eventually.WithPolling(time.Second))
 			Expect(obs.WaitFor(vmbdaobs.BeAttached(), framework.LongTimeout)).To(Succeed())
+
 			return vmbda
 		}
 
 		By("Plugging the disk into the first VM")
+
 		current := attach(owner)
 
 		for i, next := range []*v1alpha2.VirtualMachine{waiter, owner, waiter} {
 			By(fmt.Sprintf("Move %d: deleting the attachment and attaching the disk to %s at once", i+1, next.Name))
+
 			previous := current
 			Expect(f.Clients.GenericClient().Delete(ctx, previous)).To(Succeed())
+
 			current = attach(next)
 
 			eventually.UntilAssertion(func(g Gomega) {
 				g.Expect(hasVolume(g, next, disk)).To(BeTrue())
 				g.Expect(holders(disk)).To(Equal(1))
+
 				err := f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(previous), &v1alpha2.VirtualMachineBlockDeviceAttachment{})
 				g.Expect(k8serrors.IsNotFound(err)).To(BeTrue(), "the previous attachment must be gone")
 			}, framework.LongTimeout, eventually.WithPolling(hotplugPolling))
@@ -528,12 +563,15 @@ var _ = Describe("VirtualMachineBlockDeviceInUse", Label(label.SIGCompute, prech
 		watchOneWriter(disk)
 
 		By("Migrating the waiting VM and attaching a disk to it meanwhile")
+
 		vmop := util.MigrateVirtualMachine(f, waiter)
+
 		eventually.UntilAssertion(func(g Gomega) {
 			cur := &v1alpha2.VirtualMachineOperation{}
 			g.Expect(f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vmop), cur)).To(Succeed())
 			g.Expect(cur.Status.Phase).To(BeElementOf(v1alpha2.VMOPPhaseInProgress, v1alpha2.VMOPPhaseCompleted))
 		}, framework.MiddleTimeout, eventually.WithPolling(time.Second))
+
 		vmbda := newAttachment("vmbda-migrating", waiter, disk)
 		vmbdaObs := vmbdaobs.StartObserver(ctx, f, vmbda)
 		vmbdaObs.Never(vmbdaobs.BeFailed())
@@ -545,11 +583,14 @@ var _ = Describe("VirtualMachineBlockDeviceInUse", Label(label.SIGCompute, prech
 		eventually.UntilAssertion(func(g Gomega) {
 			op := &v1alpha2.VirtualMachineOperation{}
 			g.Expect(f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vmop), op)).To(Succeed())
+
 			att := &v1alpha2.VirtualMachineBlockDeviceAttachment{}
 			g.Expect(f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vmbda), att)).To(Succeed())
+
 			if op.Status.Phase == v1alpha2.VMOPPhaseInProgress {
 				Expect(att.Status.Phase).NotTo(Equal(v1alpha2.BlockDeviceAttachmentPhaseAttached), "the disk must not be attached to a migrating VM")
 			}
+
 			g.Expect(op.Status.Phase).To(Equal(v1alpha2.VMOPPhaseCompleted))
 		}, framework.MaxTimeout, eventually.WithPolling(time.Second))
 
@@ -598,12 +639,15 @@ var _ = Describe("VirtualMachineBlockDeviceInUse", Label(label.SIGCompute, prech
 	// A small VM migrates in seconds, hence the fast polling.
 	startMigration := func(vm *v1alpha2.VirtualMachine) *v1alpha2.VirtualMachineOperation {
 		GinkgoHelper()
+
 		vmop := util.MigrateVirtualMachine(f, vm)
+
 		eventually.UntilAssertion(func(g Gomega) {
 			cur := &v1alpha2.VirtualMachineOperation{}
 			g.Expect(f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vmop), cur)).To(Succeed())
 			g.Expect(cur.Status.Phase).To(Equal(v1alpha2.VMOPPhaseInProgress))
 		}, framework.MiddleTimeout, eventually.WithPolling(200*time.Millisecond))
+
 		return vmop
 	}
 
@@ -621,10 +665,12 @@ var _ = Describe("VirtualMachineBlockDeviceInUse", Label(label.SIGCompute, prech
 			if err != nil {
 				GinkgoWriter.Printf("create %s refused: %v\n", next.Name, err)
 			}
+
 			if err != nil && time.Now().After(deadline) {
 				prevErr := f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(previous), &v1alpha2.VirtualMachineBlockDeviceAttachment{})
 				Expect(k8serrors.IsNotFound(prevErr)).To(BeTrue(), "the attachment %s is rejected while %s is being deleted: %v", next.Name, previous.Name, err)
 			}
+
 			g.Expect(err == nil || k8serrors.IsAlreadyExists(err)).To(BeTrue(), "create %s: %v", next.Name, err)
 		}, framework.LongTimeout, eventually.WithPolling(time.Second))
 		f.DeferDelete(next)
@@ -644,6 +690,7 @@ var _ = Describe("VirtualMachineBlockDeviceInUse", Label(label.SIGCompute, prech
 		Expect(previousObs.WaitFor(vmbdaobs.BeAttached(), framework.LongTimeout)).To(Succeed())
 
 		By("Migrating the VM and moving the disk to the other VM meanwhile")
+
 		vmop := startMigration(owner)
 		next := newAttachment("vmbda-move-to", waiter, disk)
 		nextObs := vmbdaobs.StartObserver(ctx, f, next)
@@ -671,6 +718,7 @@ var _ = Describe("VirtualMachineBlockDeviceInUse", Label(label.SIGCompute, prech
 		Expect(previousObs.WaitFor(vmbdaobs.BeAttached(), framework.LongTimeout)).To(Succeed())
 
 		By("Migrating the VM and re-attaching the disk under another name meanwhile")
+
 		vmop := startMigration(waiter)
 		next := newAttachment("vmbda-reattach-new", waiter, disk)
 		nextObs := vmbdaobs.StartObserver(ctx, f, next)
@@ -688,6 +736,7 @@ var _ = Describe("VirtualMachineBlockDeviceInUse", Label(label.SIGCompute, prech
 		}, framework.LongTimeout, eventually.WithPolling(hotplugPolling))
 		Consistently(func(g Gomega) {
 			g.Expect(hasVolume(g, waiter, disk)).To(BeTrue(), "the unplug of the previous attachment must not remove the disk")
+
 			cur := &v1alpha2.VirtualMachine{}
 			g.Expect(f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(waiter), cur)).To(Succeed())
 			idx := slices.IndexFunc(cur.Status.BlockDeviceRefs, func(bd v1alpha2.BlockDeviceStatusRef) bool {
@@ -706,6 +755,7 @@ var _ = Describe("VirtualMachineBlockDeviceInUse", Label(label.SIGCompute, prech
 
 		// The source does not exist, so the image stays waiting for it for the whole spec.
 		By("Creating a cluster image from a disk with the same name in another namespace")
+
 		image := cvibuilder.New(
 			cvibuilder.WithName(f.Namespace().Name+"-namesake"),
 			cvibuilder.WithDataSourceObjectRef(v1alpha2.ClusterVirtualImageObjectRefKindVirtualDisk, disk.Name, f.Namespace().Name+"-other"),
@@ -718,6 +768,7 @@ var _ = Describe("VirtualMachineBlockDeviceInUse", Label(label.SIGCompute, prech
 		}, framework.MiddleTimeout, eventually.WithPolling(time.Second))
 
 		By("Attaching the disk to a VM")
+
 		vmbda := newAttachment("vmbda-namesake", waiter, disk)
 		vmbdaObs := vmbdaobs.StartObserver(ctx, f, vmbda)
 		vmbdaObs.Never(vmbdaobs.BeFailed())

@@ -44,8 +44,10 @@ var _ = Describe("Set default class in virtualMachineClasName", func() {
 
 	setup := func(objs ...client.Object) {
 		GinkgoHelper()
+
 		fakeClient, err := testutil.NewFakeClientWithObjects(objs...)
 		Expect(err).Should(BeNil())
+
 		vmClassService := service.NewVirtualMachineClassService(fakeClient)
 		classDefaulter = defaulter.NewVirtualMachineClassNameDefaulter(fakeClient, vmClassService)
 	}
@@ -69,6 +71,7 @@ var _ = Describe("Set default class in virtualMachineClasName", func() {
 		vmClass.Annotations = map[string]string{
 			annotations.AnnVirtualMachineClassDefault: "true",
 		}
+
 		return vmClass
 	}
 
@@ -89,6 +92,7 @@ var _ = Describe("Set default class in virtualMachineClasName", func() {
 	newVM := func(name, className string) *v1alpha2.VirtualMachine {
 		vm := newVMWithEmptyClass(name)
 		vm.Spec.VirtualMachineClassName = className
+
 		return vm
 	}
 

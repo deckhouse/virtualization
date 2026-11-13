@@ -50,9 +50,11 @@ func ApplyMapChanges(target, prev, cur map[string]string) (map[string]string, bo
 
 	for key := range prev {
 		_, currHasKey := cur[key]
+
 		_, targetHasKey := target[key]
 		if !currHasKey && targetHasKey {
 			delete(target, key)
+
 			isChanged = true
 		}
 	}

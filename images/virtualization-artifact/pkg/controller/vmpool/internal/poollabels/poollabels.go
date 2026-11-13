@@ -78,12 +78,14 @@ func ListMembers(ctx context.Context, c client.Client, pool *v1alpha2.VirtualMac
 	if err := c.List(ctx, &list, client.InNamespace(pool.GetNamespace()), MemberSelector(pool)); err != nil {
 		return nil, err
 	}
+
 	members := make([]v1alpha2.VirtualMachine, 0, len(list.Items))
 	for i := range list.Items {
 		if ref := metav1.GetControllerOf(&list.Items[i]); ref != nil && ref.UID == pool.GetUID() {
 			members = append(members, list.Items[i])
 		}
 	}
+
 	return members, nil
 }
 
@@ -94,6 +96,7 @@ func ComputeTemplateHash(pool *v1alpha2.VirtualMachinePool) string {
 	data, _ := json.Marshal(pool.Spec.VirtualMachineTemplate)
 	h := fnv.New32a()
 	_, _ = h.Write(data)
+
 	return fmt.Sprintf("%x", h.Sum32())
 }
 

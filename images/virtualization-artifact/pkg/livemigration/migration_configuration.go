@@ -63,10 +63,12 @@ func NewMigrationConfiguration(allowAutoConverge bool, kvconfig virtv1.KubeVirt)
 	progressTimeout := MigrationProgressTimeout
 	completionTimeoutPerGiB := MigrationCompletionTimeoutPerGiB
 	defaultUnsafeMigrationOverride := DefaultUnsafeMigrationOverride
+
 	disableTLS := false
 	if kvconfig.Spec.Configuration.MigrationConfiguration != nil && kvconfig.Spec.Configuration.MigrationConfiguration.DisableTLS != nil {
 		disableTLS = *kvconfig.Spec.Configuration.MigrationConfiguration.DisableTLS
 	}
+
 	allowPostCopy := MigrationAllowPostCopy
 	allowWorkloadDisruption := MigrationAllowWorkloadDisruption
 
@@ -91,6 +93,7 @@ func DumpKVVMIMigrationConfiguration(kvvmi *virtv1.VirtualMachineInstance) strin
 	if kvvmi.Status.MigrationState == nil {
 		return "status.migrationState is null"
 	}
+
 	if kvvmi.Status.MigrationState.MigrationConfiguration == nil {
 		return "status.migrationState.migrationConfiguration is null"
 	}
@@ -99,6 +102,7 @@ func DumpKVVMIMigrationConfiguration(kvvmi *virtv1.VirtualMachineInstance) strin
 	if err != nil {
 		return fmt.Sprintf("(json err %v, fmt dump)%#v", err, kvvmi.Status.MigrationState.MigrationConfiguration)
 	}
+
 	return string(out)
 }
 
@@ -107,12 +111,14 @@ func GenerateMigrationConfigurationPatch(current, changed *virtv1.VirtualMachine
 
 	if current.Status.MigrationState != nil && changed.Status.MigrationState != nil {
 		currentConf := current.Status.MigrationState.MigrationConfiguration
+
 		changedConf := changed.Status.MigrationState.MigrationConfiguration
 		if !equality.Semantic.DeepEqual(currentConf, changedConf) {
 			op := patch.PatchReplaceOp
 			if currentConf == nil {
 				op = patch.PatchAddOp
 			}
+
 			jsonPatch.Append(patch.NewJSONPatchOperation(op, "/status/migrationState/migrationConfiguration", changedConf))
 		}
 	}

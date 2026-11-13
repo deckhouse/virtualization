@@ -69,22 +69,27 @@ var _ = Describe("VirtualMachineConfiguration", Label(label.SIGCompute, precheck
 		vmObs.Never(vmobs.BeFailed())
 
 		By("Waiting for VM will be running")
+
 		err = vmObs.WaitFor(vmobs.BeRunning(), framework.LongTimeout)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Checking initial configuration")
+
 		err = f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VM), t.VM)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(t.VM.Spec.RunPolicy).To(Equal(initialRunPolicy))
 		Expect(t.VM.Spec.EnableParavirtualization).To(HaveValue(Equal(initialEnableParavirtualization)))
 
 		By("Applying changes")
+
 		err = f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VM), t.VM)
 		Expect(err).NotTo(HaveOccurred())
+
 		runningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, t.VM.Status.Conditions)
 		previousRunningTime := runningCondition.LastTransitionTime.Time
 
 		By("Applying")
+
 		patchset := patch.NewJSONPatch(
 			patch.WithReplace("/spec/runPolicy", changedRunPolicy),
 			patch.WithReplace("/spec/enableParavirtualization", changedEnableParavirtualization),
@@ -103,17 +108,21 @@ var _ = Describe("VirtualMachineConfiguration", Label(label.SIGCompute, precheck
 		}
 
 		By("Waiting for VM to be rebooted")
+
 		key := crclient.ObjectKeyFromObject(t.VM)
 		util.SkipIfGuestPowerActionStuck(ctx, key)
+
 		err = vmObs.WaitFor(vmobs.BeRebootedAfter(previousRunningTime), framework.LongTimeout)
 		if err != nil {
 			util.SkipIfGuestPowerActionStuck(ctx, key)
 		}
+
 		Expect(err).NotTo(HaveOccurred())
 		err = vmObs.WaitFor(vmobs.BeRunning(), framework.MiddleTimeout)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Checking changed configuration")
+
 		err = f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VM), t.VM)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(t.VM.Spec.RunPolicy).To(Equal(changedRunPolicy))

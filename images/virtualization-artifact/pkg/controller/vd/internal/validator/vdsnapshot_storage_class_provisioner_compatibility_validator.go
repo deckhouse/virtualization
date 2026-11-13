@@ -70,6 +70,7 @@ func (v *VirtualDiskSnapshotStorageClassValidator) validate(ctx context.Context,
 	if vd.Spec.DataSource == nil || vd.Spec.DataSource.Type != v1alpha2.DataSourceTypeObjectRef {
 		return nil
 	}
+
 	if vd.Spec.DataSource.ObjectRef == nil || vd.Spec.DataSource.ObjectRef.Kind != v1alpha2.VirtualDiskObjectRefKindVirtualDiskSnapshot {
 		return nil
 	}
@@ -83,6 +84,7 @@ func (v *VirtualDiskSnapshotStorageClassValidator) validate(ctx context.Context,
 	if err != nil {
 		return err
 	}
+
 	if !ok {
 		return nil
 	}
@@ -96,6 +98,7 @@ func (v *VirtualDiskSnapshotStorageClassValidator) validate(ctx context.Context,
 	if err != nil {
 		return err
 	}
+
 	if targetProvisioner == "" {
 		return nil
 	}

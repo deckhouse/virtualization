@@ -119,6 +119,7 @@ var _ = Describe("Test power actions with VMs", func() {
 		}
 
 		setupTestEnvironment()
+
 		err := handler.restart(ctx, vmState, kvvm, kvvmi, false)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(kvvm.Annotations[annotations.AnnVMStartRequested]).To(Equal("true"))
@@ -214,6 +215,7 @@ var _ = Describe("Test action getters for different run policy", func() {
 
 		It("should return start action on failed phase when start requested", func() {
 			setupKVVMAnnotations(kvvm, annotations.AnnVMStartRequested)
+
 			kvvmi.Status.Phase = virtv1.Failed
 
 			action := handler.handleManualPolicy(
@@ -235,6 +237,7 @@ var _ = Describe("Test action getters for different run policy", func() {
 
 		It("should return restart action", func() {
 			setupKVVMAnnotations(kvvm, annotations.AnnVMRestartRequested)
+
 			kvvmi.Status.Phase = virtv1.Running
 
 			action := handler.handleManualPolicy(
@@ -286,6 +289,7 @@ var _ = Describe("Test action getters for different run policy", func() {
 
 		It("should return restart action when restart requested", func() {
 			setupKVVMAnnotations(kvvm, annotations.AnnVMRestartRequested)
+
 			kvvmi.Status.Phase = virtv1.Running
 			action, err := handler.handleAlwaysOnPolicy(
 				ctx, vmState, kvvm, kvvmi, true, powerstate.ShutdownInfo{},
@@ -336,6 +340,7 @@ var _ = Describe("Test action getters for different run policy", func() {
 
 		It("should return restart action when restart requested", func() {
 			setupKVVMAnnotations(kvvm, annotations.AnnVMRestartRequested)
+
 			kvvmi.Status.Phase = virtv1.Running
 			action, err := handler.handleAlwaysOnUnlessStoppedManuallyPolicy(
 				ctx, vmState, kvvm, kvvmi, false, powerstate.ShutdownInfo{},
@@ -411,6 +416,7 @@ func createObjectsForPowerstateTest(namespacedVirtualMachine types.NamespacedNam
 		nodeName           = "test-node"
 		podUID   types.UID = "test-pod-uid"
 	)
+
 	vm := &v1alpha2.VirtualMachine{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      namespacedVirtualMachine.Name,
@@ -449,6 +455,7 @@ func createObjectsForPowerstateTest(namespacedVirtualMachine types.NamespacedNam
 			NodeName: nodeName,
 		},
 	}
+
 	return vm, kvvm, kvvmi, vmPod
 }
 
@@ -494,6 +501,7 @@ var _ = Describe("Start-on-create handoff for AlwaysOnUnlessStoppedManually", fu
 
 	sync := func() {
 		GinkgoHelper()
+
 		fakeClient, _, vmState = setupEnvironment(vm, kvvm, kvvmi, vmPod)
 		handler = NewSyncPowerStateHandler(fakeClient, recorderMock)
 		Expect(handler.syncPowerState(ctx, vmState, kvvm, v1alpha2.AlwaysOnUnlessStoppedManually)).To(Succeed())
@@ -501,9 +509,11 @@ var _ = Describe("Start-on-create handoff for AlwaysOnUnlessStoppedManually", fu
 
 	liveRunStrategy := func() virtv1.VirtualMachineRunStrategy {
 		GinkgoHelper()
+
 		live := &virtv1.VirtualMachine{}
 		Expect(fakeClient.Get(ctx, key, live)).To(Succeed())
 		Expect(live.Spec.RunStrategy).NotTo(BeNil())
+
 		return *live.Spec.RunStrategy
 	}
 

@@ -107,9 +107,11 @@ func (o *Options) validate(args []string) error {
 	if len(args) > 0 && o.All {
 		return fmt.Errorf("cannot use --all flag with specific keys")
 	}
+
 	if len(args) > 0 && len(o.Selector) > 0 {
 		return fmt.Errorf("cannot use --label-selector flag with specific keys")
 	}
+
 	if o.All && len(o.Selector) > 0 {
 		return fmt.Errorf("cannot use --all and --label-selector flags together")
 	}
@@ -208,6 +210,7 @@ func (l *Lifecycle) Run(cmd *cobra.Command, args []string) error {
 				l.handleMsgError(cmd, "", err)
 				continue
 			}
+
 			if peer == "" {
 				if err := l.validateNodeName(cmd, key.Name, targetNodeName); err != nil {
 					l.handleMsgError(cmd, "", err)
@@ -221,6 +224,7 @@ func (l *Lifecycle) Run(cmd *cobra.Command, args []string) error {
 				} else {
 					cmd.Printf("Migrating virtual machine %q\n", key.String())
 				}
+
 				msg, err := mgr.Migrate(ctx, key.Name, key.Namespace, targetNodeName, peer)
 				l.handleMsgError(cmd, msg, err)
 			})
@@ -240,6 +244,7 @@ func (l *Lifecycle) withConfirm(cmd *cobra.Command, command Command, key types.N
 
 	cmd.Printf("Are you sure you want to execute command %q for virtual machine %q? [y/N] ", command, key.String())
 	reader := bufio.NewReader(cmd.InOrStdin())
+
 	answer, err := reader.ReadString('\n')
 	if err != nil && !errors.Is(err, io.EOF) {
 		cmd.PrintErrf("Error: failed to read confirmation: %s\n", err)
@@ -259,6 +264,7 @@ func (l *Lifecycle) handleMsgError(cmd *cobra.Command, msg string, err error) {
 	if msg != "" {
 		cmd.Printf("%s\n", msg)
 	}
+
 	if err != nil {
 		cmd.Printf("Error: %s\n", err.Error())
 
@@ -271,6 +277,7 @@ func (l *Lifecycle) handleMsgError(cmd *cobra.Command, msg string, err error) {
 func (l *Lifecycle) Usage() string {
 	opts := DefaultOptions()
 	usage := fmt.Sprintf(` # %s VirtualMachine 'myvm':`, cases.Title(language.English).String(string(l.cmd)))
+
 	usage += strings.ReplaceAll(fmt.Sprintf(`
   {{ProgramName}} {{operation}} myvm
   {{ProgramName}} {{operation}} myvm.mynamespace
@@ -284,6 +291,7 @@ func (l *Lifecycle) Usage() string {
   # Configure shutdown policy (default: force=%v)
   {{ProgramName}} %s --%s myvm`, opts.Force, l.cmd, forceFlag)
 	}
+
 	return usage
 }
 
@@ -292,21 +300,26 @@ func (l *Lifecycle) getNamespacedName(defaultNamespace, arg string) (types.Names
 	if err != nil {
 		return types.NamespacedName{}, err
 	}
+
 	if namespace == "" {
 		namespace = defaultNamespace
 	}
+
 	return types.NamespacedName{Namespace: namespace, Name: name}, nil
 }
 
 func (l *Lifecycle) getNamespacedNames(defaultNamespace string, args []string) ([]types.NamespacedName, error) {
 	var keys []types.NamespacedName
+
 	for _, arg := range args {
 		key, err := l.getNamespacedName(defaultNamespace, arg)
 		if err != nil {
 			return nil, err
 		}
+
 		keys = append(keys, key)
 	}
+
 	return keys, nil
 }
 
@@ -356,6 +369,7 @@ func (l *Lifecycle) validateNodeName(cmd *cobra.Command, vmName, targetNodeName 
 	if err != nil {
 		return err
 	}
+
 	if targetNodeName == vm.Status.Node {
 		return fmt.Errorf("the virtual machine cannot be migrated to the same node: %s", vm.Status.Node)
 	}
@@ -365,6 +379,7 @@ func (l *Lifecycle) validateNodeName(cmd *cobra.Command, vmName, targetNodeName 
 		if k8serrors.IsNotFound(err) {
 			return fmt.Errorf("there is no node with the name %s in the cluster", targetNodeName)
 		}
+
 		return fmt.Errorf("failed to validate target node name: %w", err)
 	}
 
@@ -415,5 +430,6 @@ func validatePeerMigration(targetNodeName, peer string) error {
 	if peer != "" && targetNodeName != "" {
 		return fmt.Errorf("--target-node-name cannot be used with --project-peer: the peer cluster chooses the node")
 	}
+
 	return nil
 }

@@ -67,8 +67,10 @@ var _ = Describe("VirtualMachineConnectivity", Label(label.SIGCompute, precheck.
 
 			vmaObs := vmobs.StartObserver(ctx, f, t.VMa)
 			vmaObs.Never(vmobs.BeFailed())
+
 			vmbObs := vmobs.StartObserver(ctx, f, t.VMb)
 			vmbObs.Never(vmobs.BeFailed())
+
 			curlPodObs := podobs.StartObserver(ctx, f, t.CurlPod)
 
 			err = vmaObs.WaitFor(vmobs.BeRunning(), framework.LongTimeout)
@@ -306,6 +308,7 @@ func (t *VMConnectivityTest) PublishGuestPages(timeout time.Duration) {
 func (t *VMConnectivityTest) GetResponseViaPodWithCurl(podName, namespace string, service *corev1.Service) *executor.CMDResult {
 	url := t.generateServiceURL(service)
 	cmd := fmt.Sprintf("exec --namespace %s %s -- curl -o - %s", namespace, podName, url)
+
 	return t.Framework.Kubectl().RawCommand(cmd, framework.ShortTimeout)
 }
 

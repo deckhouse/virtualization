@@ -113,8 +113,10 @@ func (h *LifecycleHandler) syncReady(ctx context.Context, s state.USBDeviceState
 		return nil
 	}
 
-	var reason usbdevicecondition.ReadyReason
-	var status metav1.ConditionStatus
+	var (
+		reason usbdevicecondition.ReadyReason
+		status metav1.ConditionStatus
+	)
 
 	switch readyCondition.Reason {
 	case string(nodeusbdevicecondition.Ready):
@@ -168,11 +170,13 @@ func (h *LifecycleHandler) ensureResourceClaimTemplate(ctx context.Context, s st
 					log.Debug("ResourceClaimTemplate already exists during recreate", "template", templateName)
 					return nil
 				}
+
 				return fmt.Errorf("failed to recreate ResourceClaimTemplate: %w", err)
 			}
 
 			log.Info("recreated ResourceClaimTemplate for USBDevice", "template", templateName)
 		}
+
 		return nil
 	}
 
@@ -183,10 +187,12 @@ func (h *LifecycleHandler) ensureResourceClaimTemplate(ctx context.Context, s st
 			log.Debug("ResourceClaimTemplate already exists during create", "template", templateName)
 			return nil
 		}
+
 		return fmt.Errorf("failed to create ResourceClaimTemplate: %w", err)
 	}
 
 	log.Info("created ResourceClaimTemplate for USBDevice", "template", templateName)
+
 	return nil
 }
 
@@ -216,7 +222,9 @@ func (h *LifecycleHandler) syncAttached(ctx context.Context, s state.USBDeviceSt
 		if len(attachedVMs) == 1 {
 			message = fmt.Sprintf("Device is attached to VirtualMachine %s/%s.", attachedVMs[0].Namespace, attachedVMs[0].Name)
 		}
+
 		setAttachedCondition(current, &changed.Status.Conditions, metav1.ConditionTrue, usbdevicecondition.AttachedToVirtualMachine, message)
+
 		return nil
 	}
 
@@ -239,11 +247,13 @@ func (h *LifecycleHandler) syncAttached(ctx context.Context, s state.USBDeviceSt
 			message := fmt.Sprintf("The USB device is requested by VirtualMachine %s/%s, but node %s has no free USB passthrough capacity for this device.",
 				vm.Namespace, vm.Name, vm.Status.Node)
 			setAttachedCondition(current, &changed.Status.Conditions, metav1.ConditionFalse, usbdevicecondition.NoFreeUSBIPPort, message)
+
 			return nil
 		}
 	}
 
 	setAttachedCondition(current, &changed.Status.Conditions, metav1.ConditionFalse, usbdevicecondition.Available, "Device is requested by a virtual machine but not attached yet.")
+
 	return nil
 }
 
@@ -253,6 +263,7 @@ func isAlreadyExistsResourceClaimTemplateError(err error, templateName string) b
 	}
 
 	errText := err.Error()
+
 	return strings.Contains(errText, "resourceclaimtemplates.resource.k8s.io") && strings.Contains(errText, templateName) && strings.Contains(errText, "already exists")
 }
 
@@ -278,6 +289,7 @@ func claimTemplateUpToDate(template *resourcev1.ResourceClaimTemplate, desiredSp
 	if !ok {
 		return reflect.DeepEqual(template.Spec, desiredSpec)
 	}
+
 	return storedHash == claimSpecHash(desiredSpec)
 }
 
@@ -286,11 +298,13 @@ func claimSpecHash(spec resourcev1.ResourceClaimTemplateSpec) string {
 	// sides hash the same empty payload, so the comparison still converges.
 	raw, _ := json.Marshal(&spec)
 	hash := md5.Sum(raw)
+
 	return hex.EncodeToString(hash[:])
 }
 
 func buildResourceClaimTemplateSpec(usbDevice *v1alpha2.USBDevice) resourcev1.ResourceClaimTemplateSpec {
 	attributes := usbDevice.Status.Attributes
+
 	selectorDeviceName := attributes.Name
 	if selectorDeviceName == "" {
 		selectorDeviceName = usbDevice.Name

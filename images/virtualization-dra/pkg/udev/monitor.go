@@ -82,6 +82,7 @@ func (m *Monitor) Run(ctx context.Context, eventCh chan<- *UEvent) error {
 	if err := m.conn.Connect(m.mode); err != nil {
 		return err
 	}
+
 	defer func() {
 		if err := m.conn.Close(); err != nil {
 			m.log.Error("failed to close udev connection", slog.String("error", err.Error()))
@@ -108,6 +109,7 @@ func (m *Monitor) Run(ctx context.Context, eventCh chan<- *UEvent) error {
 				return ctx.Err()
 			default:
 			}
+
 			return fmt.Errorf("failed to read uevent: %w", err)
 		}
 

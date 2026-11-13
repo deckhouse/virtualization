@@ -61,8 +61,10 @@ var _ = Describe("DiscoveryWorkloadNodes", func() {
 			} else {
 				*mc = *settings.NewModuleConfigForTest(nil)
 			}
+
 			return nil
 		}}, nil)
+
 		return &pkg.HookInput{
 			DC:        dc,
 			Snapshots: snapshots,
@@ -96,8 +98,10 @@ var _ = Describe("DiscoveryWorkloadNodes", func() {
 		snapshots.GetMock.When(kubevirtConfigSnapshot).Then([]pkg.Snapshot{})
 
 		setCalls := 0
+
 		values.SetMock.Set(func(path string, v any) {
 			setCalls++
+
 			Expect(path).To(Equal(virtHandlerNodeCountPath))
 			Expect(v).To(Equal(2))
 		})
@@ -117,10 +121,13 @@ var _ = Describe("DiscoveryWorkloadNodes", func() {
 			})
 
 			setValues := map[string]any{}
+
 			values.SetMock.Set(func(path string, v any) {
 				setValues[path] = v
 			})
+
 			var removed []string
+
 			if !expectLimit {
 				values.RemoveMock.Set(func(path string) {
 					removed = append(removed, path)
@@ -129,6 +136,7 @@ var _ = Describe("DiscoveryWorkloadNodes", func() {
 
 			Expect(handleDiscoveryNodes(context.Background(), newInput(true))).To(Succeed())
 			Expect(setValues).To(HaveKeyWithValue(virtConfigPhasePath, "Deploying"))
+
 			if expectLimit {
 				Expect(setValues).To(HaveKeyWithValue(virtConfigActiveMigrationsPerClusterPath, limit))
 			} else {

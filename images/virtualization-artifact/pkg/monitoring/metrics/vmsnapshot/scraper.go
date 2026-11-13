@@ -45,6 +45,7 @@ func (s *scraper) updateMetricVMSnapshotStatusPhase(m *dataMetric) {
 	if phase == "" {
 		phase = v1alpha2.VirtualMachineSnapshotPhasePending
 	}
+
 	phases := []struct {
 		value bool
 		name  string
@@ -68,6 +69,7 @@ func (s *scraper) updateMetricVMSnapshotInfo(m *dataMetric) {
 
 func (s *scraper) defaultUpdate(descName string, value float64, m *dataMetric, labels ...string) {
 	info := vmsnapshotMetrics[descName]
+
 	metric, err := prometheus.NewConstMetric(
 		info.Desc,
 		prometheus.GaugeValue,
@@ -78,5 +80,6 @@ func (s *scraper) defaultUpdate(descName string, value float64, m *dataMetric, l
 		s.log.Warn(fmt.Sprintf("Error creating the new const dataMetric for %s: %s", info.Desc, err))
 		return
 	}
+
 	s.ch <- metric
 }

@@ -52,6 +52,7 @@ var _ = Describe("filterReadyNetworks", func() {
 				"status": "False",
 			},
 		}, "status", "conditions")).To(Succeed())
+
 		return u
 	}
 
@@ -64,6 +65,7 @@ var _ = Describe("filterReadyNetworks", func() {
 
 	BeforeEach(func() {
 		var err error
+
 		fakeClient, err = testutil.NewFakeClientWithObjects(newNotReadyNetwork())
 		Expect(err).NotTo(HaveOccurred())
 	})

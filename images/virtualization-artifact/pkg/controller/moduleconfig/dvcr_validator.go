@@ -60,6 +60,7 @@ func (v dvcrValidator) ValidateUpdate(ctx context.Context, oldMC, newMC *mcapi.M
 	if err != nil {
 		return nil, err
 	}
+
 	newDvcr, err := parseDvcrSettings(newMC.Spec.Settings)
 	if err != nil {
 		return nil, err
@@ -137,6 +138,7 @@ func parseDvcrSettings(settings mcapi.SettingsValues) (*dvcrSettings, error) {
 	if !ok {
 		return nil, fmt.Errorf("failed to parse %s.%s.%s", dvcrField, storageField, typeField)
 	}
+
 	result.StorageType = storageType
 
 	// Only parse PVC fields if type is PersistentVolumeClaim
@@ -161,6 +163,7 @@ func parseDvcrSettings(settings mcapi.SettingsValues) (*dvcrSettings, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse DVCR size %q: %w", sizeStr, err)
 		}
+
 		result.Size = size
 	}
 

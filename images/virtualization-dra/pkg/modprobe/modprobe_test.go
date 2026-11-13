@@ -35,6 +35,7 @@ var _ = Describe("uncompressModuleToTmp", func() {
 	DescribeTable("restores the module from a compressed file",
 		func(ext string, newWriter func(io.Writer) (io.WriteCloser, error)) {
 			var buf bytes.Buffer
+
 			w, err := newWriter(&buf)
 			Expect(err).NotTo(HaveOccurred())
 			_, err = w.Write(payload)

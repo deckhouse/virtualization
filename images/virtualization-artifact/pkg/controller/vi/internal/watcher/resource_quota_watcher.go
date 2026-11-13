@@ -65,11 +65,13 @@ func (w ResourceQuotaWatcher) Watch(mgr manager.Manager, ctr controller.Controll
 	); err != nil {
 		return fmt.Errorf("error setting watch on ResourceQuota: %w", err)
 	}
+
 	return nil
 }
 
 func (w ResourceQuotaWatcher) enqueueRequests(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
 	var vis v1alpha2.VirtualImageList
+
 	err := w.client.List(ctx, &vis, client.InNamespace(obj.GetNamespace()))
 	if err != nil {
 		w.logger.Error(fmt.Sprintf("failed to get virtual images: %s", err))

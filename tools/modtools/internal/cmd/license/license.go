@@ -45,6 +45,7 @@ func NewCommand() *cobra.Command {
 	}
 
 	var addDir, addLicense string
+
 	add := &cobra.Command{
 		Use:   "add",
 		Short: "Add the Flant license header to files that need one",
@@ -53,6 +54,7 @@ func NewCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
+
 			return report.ExitErr(walk(addDir, true, forceEE))
 		},
 	}
@@ -62,6 +64,7 @@ func NewCommand() *cobra.Command {
 			`Go files carrying an EE build constraint get the EE header regardless of this flag.`)
 
 	var checkDir string
+
 	check := &cobra.Command{
 		Use:   "check",
 		Short: "Verify that files requiring a license header have one",
@@ -72,6 +75,7 @@ func NewCommand() *cobra.Command {
 	check.Flags().StringVar(&checkDir, "directory", "./", "Directory to check.")
 
 	cmd.AddCommand(add, check)
+
 	return cmd
 }
 
@@ -118,15 +122,18 @@ func blockComment(text string) string { return "/*\n" + text + "*/\n" }
 // "# " would be trailing whitespace, which .editorconfig trims.
 func hashComment(text string) string {
 	var b strings.Builder
+
 	for _, line := range strings.Split(strings.TrimRight(text, "\n"), "\n") {
 		if line == "" {
 			b.WriteString("#\n")
 			continue
 		}
+
 		b.WriteString("# ")
 		b.WriteString(line)
 		b.WriteString("\n")
 	}
+
 	return b.String()
 }
 
@@ -193,6 +200,7 @@ func fileHeader(content []byte) []byte {
 	if len(content) > headerLimit {
 		return content[:headerLimit]
 	}
+
 	return content
 }
 
@@ -204,6 +212,7 @@ func licenseForFile(filePath string, header []byte, forceEE bool) string {
 	if forceEE || goBuildEERe.Match(header) {
 		text = eeText
 	}
+
 	switch filepath.Ext(filePath) {
 	case ".go", ".js":
 		return blockComment(text)
@@ -276,6 +285,7 @@ func walk(dir string, add, forceEE bool) int {
 		fmt.Fprintf(os.Stderr, "Cannot get absolute path of directory: %v\n", err)
 		return 1
 	}
+
 	fmt.Println("Directory:", directory)
 
 	files, err := candidateFiles(directory)
@@ -285,17 +295,22 @@ func walk(dir string, add, forceEE bool) int {
 	}
 
 	res := &result{}
+
 	for _, filePath := range files {
 		if fileToSkipRe.MatchString(filePath) || !fileToCheckRe.MatchString(filePath) {
 			continue
 		}
+
 		info, err := os.Lstat(filePath)
 		if err != nil || info.IsDir() || !info.Mode().IsRegular() {
 			continue
 		}
+
 		res.process(filePath, info.Mode().Perm(), add, forceEE)
 	}
+
 	res.print(add)
+
 	return res.exitCode()
 }
 
@@ -308,26 +323,33 @@ func candidateFiles(dir string) ([]string, error) {
 	if err != nil {
 		return walkAll(dir)
 	}
+
 	var files []string
+
 	for _, rel := range strings.Split(strings.TrimRight(string(out), "\x00"), "\x00") {
 		if rel != "" {
 			files = append(files, filepath.Join(dir, rel))
 		}
 	}
+
 	return files, nil
 }
 
 func walkAll(dir string) ([]string, error) {
 	var files []string
+
 	err := filepath.Walk(dir, func(p string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
+
 		if !info.IsDir() {
 			files = append(files, p)
 		}
+
 		return nil
 	})
+
 	return files, err
 }
 
@@ -367,14 +389,17 @@ func (r *result) process(filePath string, mode os.FileMode, add, forceEE bool) {
 		r.unsupported++
 		return
 	}
+
 	if !add {
 		r.missing = append(r.missing, filePath)
 		return
 	}
+
 	if err := writeWithLicense(filePath, content, licenseFileText, mode); err != nil {
 		r.failed = append(r.failed, fmt.Sprintf("%s: write: %v", filePath, err))
 		return
 	}
+
 	r.added++
 }
 
@@ -387,13 +412,16 @@ var preambleRe = regexp.MustCompile(`^(#!|//\s*(go:build|\+build)\s)`)
 // rest of the file.
 func splitPreamble(content string) (preamble, rest string) {
 	lines := strings.SplitAfter(content, "\n")
+
 	n := 0
 	for n < len(lines) && preambleRe.MatchString(lines[n]) {
 		n++
 	}
+
 	if n == 0 {
 		return "", content
 	}
+
 	return strings.Join(lines[:n], ""), strings.TrimLeft(strings.Join(lines[n:], ""), "\n")
 }
 
@@ -402,6 +430,7 @@ func splitPreamble(content string) (preamble, rest string) {
 // executable scripts stay +x).
 func writeWithLicense(filePath string, content []byte, licenseText string, mode os.FileMode) error {
 	var buf bytes.Buffer
+
 	preamble, rest := splitPreamble(string(content))
 	if preamble != "" {
 		buf.WriteString(preamble)
@@ -414,6 +443,7 @@ func writeWithLicense(filePath string, content []byte, licenseText string, mode 
 		buf.WriteString("\n")
 		buf.WriteString(rest)
 	}
+
 	return os.WriteFile(filePath, buf.Bytes(), mode)
 }
 
@@ -424,6 +454,7 @@ func (r *result) exitCode() int {
 	if len(r.missing)+len(r.invalid)+len(r.failed) > 0 {
 		return 1
 	}
+
 	return 0
 }
 
@@ -432,7 +463,9 @@ func (r *result) print(add bool) {
 		if len(items) == 0 {
 			return
 		}
+
 		fmt.Printf("\n%s (%d):\n", title, len(items))
+
 		for _, it := range items {
 			fmt.Printf("  * %s\n", it)
 		}
@@ -449,28 +482,36 @@ func (r *result) print(add bool) {
 	printList("Errors", r.failed)
 
 	fmt.Printf("\nSummary: %d files scanned, %d with CE license", r.scanned, r.ce)
+
 	if r.ee > 0 {
 		fmt.Printf(", %d with EE license", r.ee)
 	}
+
 	if r.generated > 0 {
 		fmt.Printf(", %d generated", r.generated)
 	}
+
 	if r.foreign > 0 {
 		fmt.Printf(", %d third-party", r.foreign)
 	}
+
 	if add {
 		fmt.Printf(", %d added", r.added)
 	} else {
 		fmt.Printf(", %d missing", len(r.missing))
 	}
+
 	if len(r.invalid) > 0 {
 		fmt.Printf(", %d not matching a known template", len(r.invalid))
 	}
+
 	if r.unsupported > 0 {
 		fmt.Printf(", %d unclassified", r.unsupported)
 	}
+
 	if len(r.failed) > 0 {
 		fmt.Printf(", %d errors", len(r.failed))
 	}
+
 	fmt.Println(".")
 }

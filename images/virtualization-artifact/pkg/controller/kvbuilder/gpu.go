@@ -95,9 +95,11 @@ func SortGPUDevices(devices []v1alpha2.GPUDeviceSpec) []v1alpha2.GPUDeviceSpec {
 	if len(devices) == 0 {
 		return nil
 	}
+
 	sorted := slices.Clone(devices)
 	slices.SortStableFunc(sorted, func(a, b v1alpha2.GPUDeviceSpec) int {
 		return strings.Compare(a.GPUClassName, b.GPUClassName)
 	})
+
 	return sorted
 }

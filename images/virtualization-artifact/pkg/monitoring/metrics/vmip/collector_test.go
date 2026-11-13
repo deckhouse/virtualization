@@ -50,6 +50,7 @@ func (s stubIterator) Iter(_ context.Context, h handler) error {
 			return nil
 		}
 	}
+
 	return nil
 }
 
@@ -69,6 +70,7 @@ func sdnServesMainReader(available bool) client.Reader {
 	Expect(sdnapi.AddToScheme(scheme)).To(Succeed())
 
 	builder := fake.NewClientBuilder().WithScheme(scheme)
+
 	if available {
 		cn := &unstructured.Unstructured{}
 		cn.SetGroupVersionKind(network.ClusterNetworkGVK)
@@ -78,6 +80,7 @@ func sdnServesMainReader(available bool) client.Reader {
 
 		builder = builder.WithObjects(cn)
 	}
+
 	return builder.Build()
 }
 

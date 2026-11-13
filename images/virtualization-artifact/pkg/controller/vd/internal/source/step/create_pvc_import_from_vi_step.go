@@ -69,6 +69,7 @@ func (s StartImportFromVirtualImageStep) Take(ctx context.Context, vd *v1alpha2.
 	}
 
 	viRefKey := types.NamespacedName{Name: vd.Spec.DataSource.ObjectRef.Name, Namespace: vd.Namespace}
+
 	viRef, err := object.FetchObject(ctx, viRefKey, s.client, &v1alpha2.VirtualImage{})
 	if err != nil {
 		return nil, fmt.Errorf("fetch vi %q: %w", viRefKey, err)
@@ -86,6 +87,7 @@ func (s StartImportFromVirtualImageStep) Take(ctx context.Context, vd *v1alpha2.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ProvisioningFailed).
 			Message(service.CapitalizeFirstLetter(ErrISOSourceNotSupported.Error()) + ".")
+
 		return &reconcile.Result{}, nil
 	}
 
@@ -102,6 +104,7 @@ func (s StartImportFromVirtualImageStep) Take(ctx context.Context, vd *v1alpha2.
 				Status(metav1.ConditionFalse).
 				Reason(vdcondition.ProvisioningFailed).
 				Message(service.CapitalizeFirstLetter(err.Error()) + ".")
+
 			return &reconcile.Result{}, nil
 		}
 
@@ -141,6 +144,7 @@ func BuildVirtualImagePVCImportSource(vd *v1alpha2.VirtualDisk, viRef *v1alpha2.
 
 		src := service.NewPVCRegistryImportSource(url, secretName, certConfigMapName)
 		src.Registry.Format = viRef.Status.Format
+
 		return src, nil
 	default:
 		return nil, fmt.Errorf("unexpected virtual image storage %s, please report a bug", viRef.Spec.Storage)

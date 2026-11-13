@@ -58,6 +58,7 @@ d8_virtualization_virtualdisk_provisioning_duration_seconds_bucket{datasource="h
 d8_virtualization_virtualdisk_provisioning_duration_seconds_sum{datasource="http",stage="provisioning"} 60
 d8_virtualization_virtualdisk_provisioning_duration_seconds_count{datasource="http",stage="provisioning"} 2
 `
+
 	err := testutil.CollectAndCompare(ProvisioningDuration, stringReader(expected),
 		"d8_virtualization_virtualdisk_provisioning_duration_seconds")
 	if err != nil {
@@ -91,6 +92,7 @@ d8_virtualization_virtualdisk_provisioning_duration_seconds_bucket{datasource="b
 d8_virtualization_virtualdisk_provisioning_duration_seconds_sum{datasource="blank",stage="waiting_for_dependencies"} 0
 d8_virtualization_virtualdisk_provisioning_duration_seconds_count{datasource="blank",stage="waiting_for_dependencies"} 1
 `
+
 	err := testutil.CollectAndCompare(ProvisioningDuration, stringReader(expected),
 		"d8_virtualization_virtualdisk_provisioning_duration_seconds")
 	if err != nil {

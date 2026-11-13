@@ -45,8 +45,10 @@ import (
 )
 
 var _ = Describe("LifecycleHandler", func() {
-	var ctx context.Context
-	var scheme *apiruntime.Scheme
+	var (
+		ctx    context.Context
+		scheme *apiruntime.Scheme
+	)
 
 	newResource := func(cl client.Client, pciDevice *v1alpha2.PCIDevice) *reconciler.Resource[*v1alpha2.PCIDevice, v1alpha2.PCIDeviceStatus] {
 		res := reconciler.NewResource(
@@ -56,6 +58,7 @@ var _ = Describe("LifecycleHandler", func() {
 			func(obj *v1alpha2.PCIDevice) v1alpha2.PCIDeviceStatus { return obj.Status },
 		)
 		Expect(res.Fetch(ctx)).To(Succeed())
+
 		return res
 	}
 
@@ -296,6 +299,7 @@ var _ = Describe("LifecycleHandler", func() {
 				if _, ok := obj.(*resourcev1.ResourceClaimTemplate); ok {
 					return errors.New(`resourceclaimtemplates.resource.k8s.io "pci-device-cr-template" already exists`)
 				}
+
 				return nil
 			},
 		}).Build()
@@ -344,6 +348,7 @@ var _ = Describe("LifecycleHandler", func() {
 		updated := &resourcev1.ResourceClaimTemplate{}
 		err = cl.Get(ctx, types.NamespacedName{Name: ResourceClaimTemplateName("pci-device-cr"), Namespace: "default"}, updated)
 		Expect(err).NotTo(HaveOccurred())
+
 		expr := updated.Spec.Spec.Devices.Requests[0].Exactly.Selectors[0].CEL.Expression
 		Expect(expr).To(ContainSubstring(`device.attributes["virtualization-pci"].name == "pci-new-name"`))
 		Expect(updated.Annotations).To(HaveKeyWithValue(annotations.AnnPCIClaimSpecHash, claimSpecHash(updated.Spec)))

@@ -41,9 +41,11 @@ func EnsureVolumeSnapshotDeletable(ctx context.Context, cl client.Client, vs *vs
 
 	base := vs.DeepCopy()
 	annotations.AddAnnotation(vs, annotations.AnnAllowDelete, "true")
+
 	err := cl.Patch(ctx, vs, client.MergeFrom(base))
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return fmt.Errorf("annotate volume snapshot %s/%s as deletable: %w", vs.Namespace, vs.Name, err)
 	}
+
 	return nil
 }

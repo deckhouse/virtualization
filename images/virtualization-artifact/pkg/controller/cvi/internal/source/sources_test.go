@@ -80,9 +80,11 @@ var _ = Describe("Sources", func() {
 		"recordProvisioningFailedEvent",
 		func(inputErr error, expectEvent bool) {
 			var recorded bool
+
 			recorder := &eventrecord.EventRecorderLoggerMock{
 				EventFunc: func(_ client.Object, eventType, reason, _ string) {
 					recorded = true
+
 					Expect(eventType).To(Equal(corev1.EventTypeWarning))
 					Expect(reason).To(Equal(v1alpha2.ReasonDataSourceDiskProvisioningFailed))
 				},

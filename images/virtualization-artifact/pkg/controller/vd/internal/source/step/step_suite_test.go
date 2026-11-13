@@ -47,12 +47,14 @@ func noopEvent(client.Object, string, string, string) {}
 
 func newTestRecorder() *eventrecord.EventRecorderLoggerMock {
 	var recorder *eventrecord.EventRecorderLoggerMock
+
 	recorder = &eventrecord.EventRecorderLoggerMock{
 		EventFunc: noopEvent,
 		WithLoggingFunc: func(eventrecord.InfoLogger) eventrecord.EventRecorderLogger {
 			return recorder
 		},
 	}
+
 	return recorder
 }
 
@@ -63,6 +65,7 @@ func newTestSigner() *registrytoken.Signer {
 	Expect(err).ToNot(HaveOccurred())
 	signer, err := registrytoken.NewSignerFromPEM(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der}))
 	Expect(err).ToNot(HaveOccurred())
+
 	return signer
 }
 
@@ -71,6 +74,7 @@ func newStepScheme() *runtime.Scheme {
 	Expect(corev1.AddToScheme(scheme)).To(Succeed())
 	Expect(netv1.AddToScheme(scheme)).To(Succeed())
 	Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
+
 	return scheme
 }
 
@@ -128,5 +132,6 @@ func newTestVD(ds *v1alpha2.VirtualDiskDataSource, attachedVMs ...string) *v1alp
 	for _, name := range attachedVMs {
 		vd.Status.AttachedToVirtualMachines = append(vd.Status.AttachedToVirtualMachines, v1alpha2.AttachedVirtualMachine{Name: name})
 	}
+
 	return vd
 }

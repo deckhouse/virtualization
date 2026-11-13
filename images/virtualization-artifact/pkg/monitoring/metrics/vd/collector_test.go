@@ -48,6 +48,7 @@ func (s stubIterator) Iter(_ context.Context, h handler) error {
 			return nil
 		}
 	}
+
 	return nil
 }
 
@@ -64,6 +65,7 @@ func collectorOf(disks ...*v1alpha2.VirtualDisk) Collector {
 func registryOf(c Collector) *prometheus.Registry {
 	reg := prometheus.NewRegistry()
 	reg.MustRegister(c)
+
 	return reg
 }
 
@@ -92,10 +94,12 @@ func phaseSeries(name string, current v1alpha2.DiskPhase) string {
 	var b strings.Builder
 	b.WriteString("# HELP d8_virtualization_virtualdisk_status_phase The virtualdisk current phase.\n")
 	b.WriteString("# TYPE d8_virtualization_virtualdisk_status_phase gauge\n")
+
 	for _, p := range diskPhases {
 		fmt.Fprintf(&b, "d8_virtualization_virtualdisk_status_phase{name=%q,namespace=\"team-a\",phase=%q,uid=%q} %v\n",
 			name, string(p), "uid-"+name, common.BoolFloat64(p == current))
 	}
+
 	return b.String()
 }
 
@@ -171,6 +175,7 @@ d8_virtualization_virtualdisk_status_phase{name="vd-01",namespace="team-a",phase
 			if condition != nil {
 				vd.Status.Conditions = []metav1.Condition{*condition}
 			}
+
 			vd.Status.AttachedToVirtualMachines = attached
 
 			Expect(testutil.CollectAndCompare(collectorOf(vd), strings.NewReader(expected),

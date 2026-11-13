@@ -66,6 +66,7 @@ func TestIPAMValidatorValidateUpdate(t *testing.T) {
 	validator := NewIPAMValidator(fake.NewClientBuilder().WithScheme(scheme).Build(), nil)
 
 	oldVM := &v1alpha2.VirtualMachine{}
+
 	newVM := &v1alpha2.VirtualMachine{Spec: v1alpha2.VirtualMachineSpec{VirtualMachineIPAddress: "vmip", Networks: []v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain}}}}
 	if _, err := validator.ValidateUpdate(t.Context(), oldVM, newVM); err == nil {
 		t.Fatalf("expected error without CIDRs")
@@ -88,6 +89,7 @@ func TestIPAMValidatorValidateUpdateAllowsUnrelatedChangesWithoutCIDRs(t *testin
 
 	t.Run("unrelated metadata change is allowed on a VM already having a static IP without CIDRs", func(t *testing.T) {
 		newVM := oldVM.DeepCopy()
+
 		newVM.Finalizers = []string{"test-finalizer"}
 		if _, err := validator.ValidateUpdate(t.Context(), oldVM, newVM); err != nil {
 			t.Fatalf("expected success for an unrelated update on a grandfathered VM without CIDRs, got: %v", err)
@@ -96,6 +98,7 @@ func TestIPAMValidatorValidateUpdateAllowsUnrelatedChangesWithoutCIDRs(t *testin
 
 	t.Run("changing spec.networks while keeping the same IP is still rejected without CIDRs", func(t *testing.T) {
 		newVM := oldVM.DeepCopy()
+
 		newVM.Spec.Networks = append(newVM.Spec.Networks, v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeNetwork, Name: "extra"})
 		if _, err := validator.ValidateUpdate(t.Context(), oldVM, newVM); err == nil {
 			t.Fatalf("expected error when spec.networks changes without CIDRs")
@@ -108,9 +111,11 @@ func TestIPAMValidatorMainIPAddressName(t *testing.T) {
 	if err := v1alpha2.AddToScheme(scheme); err != nil {
 		t.Fatalf("AddToScheme v1alpha2: %v", err)
 	}
+
 	if err := virtv1.AddToScheme(scheme); err != nil {
 		t.Fatalf("AddToScheme virtv1: %v", err)
 	}
+
 	_ = sdnapi.AddToScheme(scheme)
 
 	newIPAddress := func(name, networkKind, networkName string) *sdnapi.IPAddress {
@@ -128,6 +133,7 @@ func TestIPAMValidatorMainIPAddressName(t *testing.T) {
 		_ = unstructured.SetNestedField(u.Object, map[string]any{
 			"ipAddressPoolRef": map[string]any{"kind": "ClusterIPAddressPool", "name": "d8-virtualization"},
 		}, "spec", "ipam")
+
 		return u
 	}
 
@@ -168,6 +174,7 @@ func TestIPAMValidatorMainIPAddressName(t *testing.T) {
 
 	// The same field added to a machine that already runs: allowed too.
 	kvvm := &virtv1.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: "vm", Namespace: "ns"}}
+
 	oldVM := &v1alpha2.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: "vm", Namespace: "ns"}}
 	if _, err := newValidator(newMainNetwork(), kvvm).ValidateUpdate(t.Context(), oldVM, newVM()); err != nil {
 		t.Fatalf("expected success for a running VM, got: %v", err)
@@ -175,6 +182,7 @@ func TestIPAMValidatorMainIPAddressName(t *testing.T) {
 
 	// The pool is gone: a machine keeps its named IPAddress through other network changes...
 	withExtraNetwork := newVM()
+
 	withExtraNetwork.Spec.Networks = append(withExtraNetwork.Spec.Networks, v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeNetwork, Name: "extra"})
 	if _, err := newValidator().ValidateUpdate(t.Context(), newVM(), withExtraNetwork); err != nil {
 		t.Fatalf("expected success for a change of other networks without the pool, got: %v", err)
@@ -182,6 +190,7 @@ func TestIPAMValidatorMainIPAddressName(t *testing.T) {
 
 	// ...but cannot name another one.
 	renamed := newVM()
+
 	renamed.Spec.Networks[0].IPAddressName = "other-ip"
 	if _, err := newValidator().ValidateUpdate(t.Context(), newVM(), renamed); err == nil {
 		t.Fatalf("expected error for a new ipAddressName of the Main network without the pool")
@@ -195,6 +204,7 @@ func TestIPAMValidatorDeprecationWarningFollowsTheTrigger(t *testing.T) {
 	if err := v1alpha2.AddToScheme(scheme); err != nil {
 		t.Fatalf("AddToScheme v1alpha2: %v", err)
 	}
+
 	_ = sdnapi.AddToScheme(scheme)
 
 	vm := &v1alpha2.VirtualMachine{
@@ -206,10 +216,12 @@ func TestIPAMValidatorDeprecationWarningFollowsTheTrigger(t *testing.T) {
 	}
 
 	silent := NewIPAMValidator(fake.NewClientBuilder().WithScheme(scheme).Build(), []string{"10.0.0.0/24"})
+
 	warnings, err := silent.ValidateCreate(t.Context(), vm)
 	if err != nil {
 		t.Fatalf("expected success, got: %v", err)
 	}
+
 	if len(warnings) != 0 {
 		t.Fatalf("expected no warning without the sdn module, got %v", warnings)
 	}
@@ -224,10 +236,12 @@ func TestIPAMValidatorDeprecationWarningFollowsTheTrigger(t *testing.T) {
 
 	loud := NewIPAMValidator(fake.NewClientBuilder().WithScheme(scheme).
 		WithObjects(mainNetwork).Build(), []string{"10.0.0.0/24"})
+
 	warnings, err = loud.ValidateCreate(t.Context(), vm)
 	if err != nil {
 		t.Fatalf("expected success, got: %v", err)
 	}
+
 	if len(warnings) != 1 {
 		t.Fatalf("expected the deprecation warning, got %v", warnings)
 	}
@@ -240,6 +254,7 @@ func TestIPAMValidatorVMIPNamedAfterTheMachine(t *testing.T) {
 	if err := v1alpha2.AddToScheme(scheme); err != nil {
 		t.Fatalf("AddToScheme v1alpha2: %v", err)
 	}
+
 	_ = sdnapi.AddToScheme(scheme)
 
 	vm := &v1alpha2.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: "vm", Namespace: "ns"}}

@@ -105,6 +105,7 @@ func (st *hotplugState) eventType() string {
 	if st.warning {
 		return corev1.EventTypeWarning
 	}
+
 	return corev1.EventTypeNormal
 }
 
@@ -112,6 +113,7 @@ func (st *hotplugState) eventMessage() string {
 	if st.details == "" {
 		return st.message
 	}
+
 	return st.message + " " + st.details
 }
 
@@ -135,19 +137,23 @@ func (h *SyncKvvmHandler) observeHotplug(ctx context.Context, s state.VirtualMac
 	if err != nil {
 		return nil, err
 	}
+
 	pod, err := s.Pod(ctx)
 	if err != nil {
 		return nil, err
 	}
+
 	plan := hotplugmigration.Evaluate(hotplugmigration.Input{Now: time.Now(), VM: vm, KVVMI: kvvmi, Pod: pod, VMOPs: vmops})
 	if plan.Autoscaled {
 		st.autoscaled = true
 		st.selected = sizingpolicy.RecommendedCoreFraction(vm)
+
 		if pod != nil {
 			if fraction, ok := pod.GetAnnotations()[kvbuilder.CPUResourcesRequestsFractionAnnotation]; ok {
 				st.running = fraction + "%"
 			}
 		}
+
 		defer st.introduceAutoscalerStep()
 	}
 
@@ -157,18 +163,22 @@ func (h *SyncKvvmHandler) observeHotplug(ctx context.Context, s state.VirtualMac
 	}
 
 	var refusal string
+
 	if h.inplaceResize.InProgress(kvvmi) {
 		inProgress, refused, err := h.describeInplaceResize(ctx, st, kvvmi, vm.Spec.CPU.CoreFraction)
 		if err != nil {
 			return nil, err
 		}
+
 		if inProgress {
 			return st, nil
 		}
+
 		refusal = refused
 	}
 
 	h.describeHotplugMigrationPlan(st, vm, refusal)
+
 	return st, nil
 }
 
@@ -190,6 +200,7 @@ func (h *SyncKvvmHandler) describeInplaceResize(ctx context.Context, st *hotplug
 	default:
 		st.message = fmt.Sprintf("The %s changes are being applied in place.", resources)
 		st.details = fmt.Sprintf("The node reports %s: %s", cond.Reason, cond.Message)
+
 		return true, "", nil
 	}
 
@@ -197,6 +208,7 @@ func (h *SyncKvvmHandler) describeInplaceResize(ctx context.Context, st *hotplug
 	if err != nil {
 		return false, "", fmt.Errorf("check whether the node turned the in-place change down: %w", err)
 	}
+
 	if rejection != "" && cond.Message != "" {
 		st.details = "The node reports: " + cond.Message
 	}
@@ -211,6 +223,7 @@ func (h *SyncKvvmHandler) describeInplaceResize(ctx context.Context, st *hotplug
 		if isCoreFractionGuaranteed(coreFraction) {
 			return false, fmt.Sprintf("The node cannot apply the %s changes in place to a virtual machine with coreFraction 100%%.", resources), nil
 		}
+
 		return false, fmt.Sprintf("The node cannot apply the %s changes in place.", resources), nil
 	case corev1.PodReasonDeferred:
 		return false, fmt.Sprintf("The node has no free resources to apply the %s changes in place.", resources), nil
@@ -222,6 +235,7 @@ func (h *SyncKvvmHandler) describeInplaceResize(ctx context.Context, st *hotplug
 // describeHotplugMigrationPlan fills st for changes no migration has been created for yet.
 func (h *SyncKvvmHandler) describeHotplugMigrationPlan(st *hotplugState, vm *v1alpha2.VirtualMachine, refusal string) {
 	resources := st.resources()
+
 	prefix := ""
 	if refusal != "" {
 		prefix = refusal + " "
@@ -232,6 +246,7 @@ func (h *SyncKvvmHandler) describeHotplugMigrationPlan(st *hotplugState, vm *v1a
 		st.warning = true
 		st.message = prefix + fmt.Sprintf("Live migration to apply the %s changes is disabled in the module settings.", resources)
 		st.giveUp()
+
 		return
 	}
 
@@ -241,9 +256,11 @@ func (h *SyncKvvmHandler) describeHotplugMigrationPlan(st *hotplugState, vm *v1a
 			st.message = prefix + fmt.Sprintf("The virtual machine cannot be migrated to another node, so the %s changes wait until its node can apply them in place.", resources)
 			return
 		}
+
 		st.warning = true
 		st.message = prefix + fmt.Sprintf("The virtual machine cannot be migrated to apply the %s changes.", resources)
 		st.giveUp()
+
 		return
 	}
 
@@ -258,6 +275,7 @@ func describeHotplugMigrations(st *hotplugState, plan hotplugmigration.Plan) boo
 	switch plan.Phase {
 	case hotplugmigration.PhaseMigrating:
 		st.message = fmt.Sprintf("The %s changes are being applied by live migration.", resources)
+
 		completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, plan.Active.Status.Conditions)
 		if plan.Active.Status.Phase == v1alpha2.VMOPPhasePending && completed.Message != "" {
 			st.message += " The live migration has not started yet: " + withoutTrailingPeriod(completed.Message) + "."
@@ -279,6 +297,7 @@ func describeHotplugMigrations(st *hotplugState, plan hotplugmigration.Plan) boo
 	default:
 		return false
 	}
+
 	return true
 }
 
@@ -288,10 +307,12 @@ func describeFailures(failed []*v1alpha2.VirtualMachineOperation) string {
 	if len(failed) > 1 {
 		times = fmt.Sprintf("failed %d times", len(failed))
 	}
+
 	completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, failed[len(failed)-1].Status.Conditions)
 	if completed.Message == "" {
 		return times
 	}
+
 	return times + ": " + withoutTrailingPeriod(completed.Message)
 }
 
@@ -310,6 +331,7 @@ func hotplugRestartAwaitingChanges(st *hotplugState, vm *v1alpha2.VirtualMachine
 			RestartMessage: st.message,
 		})
 	}
+
 	if st.memory && !vm.Status.Resources.Memory.Size.IsZero() && vm.Status.Resources.Memory.Size.Cmp(vm.Spec.Memory.Size) != 0 {
 		changes.Add(vmchange.FieldChange{
 			Operation:      vmchange.ChangeReplace,
@@ -323,6 +345,7 @@ func hotplugRestartAwaitingChanges(st *hotplugState, vm *v1alpha2.VirtualMachine
 	if changes.IsEmpty() {
 		return nil, nil
 	}
+
 	return changes.ConvertPendingRestartChanges()
 }
 
@@ -332,10 +355,12 @@ func isCoreFractionGuaranteed(coreFraction string) bool {
 	if coreFraction == "" {
 		coreFraction = vmchange.DefaultCPUCoreFraction
 	}
+
 	fraction, err := sizingpolicy.ParsePercent(coreFraction)
 	if err != nil {
 		return false
 	}
+
 	return fraction >= sizingpolicy.MaxCoreFraction
 }
 
@@ -343,5 +368,6 @@ func withoutTrailingPeriod(s string) string {
 	if len(s) > 0 && s[len(s)-1] == '.' {
 		return s[:len(s)-1]
 	}
+
 	return s
 }

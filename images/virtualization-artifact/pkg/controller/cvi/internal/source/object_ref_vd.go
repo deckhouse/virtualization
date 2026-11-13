@@ -69,6 +69,7 @@ func (ds ObjectRefVirtualDisk) Sync(ctx context.Context, cvi *v1alpha2.ClusterVi
 	log, ctx := logger.GetDataSourceContext(ctx, "objectref")
 
 	supgen := supplements.NewGenerator(annotations.CVIShortName, cvi.Name, vdRef.Namespace, cvi.UID)
+
 	pod, err := ds.importerService.GetPod(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -112,6 +113,7 @@ func (ds ObjectRefVirtualDisk) Sync(ctx context.Context, cvi *v1alpha2.ClusterVi
 		cvi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 
 		pvc := &corev1.PersistentVolumeClaim{}
+
 		err := ds.client.Get(ctx, types.NamespacedName{Name: vdRef.Status.Target.PersistentVolumeClaim, Namespace: vdRef.Namespace}, pvc)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -120,6 +122,7 @@ func (ds ObjectRefVirtualDisk) Sync(ctx context.Context, cvi *v1alpha2.ClusterVi
 		envSettings := ds.getEnvSettings(cvi, supgen, pvc.Spec.VolumeMode)
 		ownerRef := metav1.NewControllerRef(cvi, cvi.GroupVersionKind())
 		podSettings := ds.importerService.GetPodSettingsWithPVC(ownerRef, supgen, vdRef.Status.Target.PersistentVolumeClaim, vdRef.Namespace)
+
 		err = ds.importerService.StartWithPodSetting(ctx, envSettings, supgen, datasource.NewCABundleForCVMI(cvi.Spec.DataSource), podSettings, service.WithSystemNodeToleration())
 		switch {
 		case err == nil:
@@ -190,10 +193,12 @@ func (ds ObjectRefVirtualDisk) Sync(ctx context.Context, cvi *v1alpha2.ClusterVi
 
 func (ds ObjectRefVirtualDisk) CleanUp(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (requeue bool, reason string, err error) {
 	supgen := supplements.NewGenerator(annotations.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
+
 	deleted, err := ds.importerService.DeletePod(ctx, cvi, controllerName, supgen)
 	if err != nil {
 		return false, "", err
 	}
+
 	if !deleted {
 		return false, "", nil
 	}
@@ -233,6 +238,7 @@ func (ds ObjectRefVirtualDisk) Validate(ctx context.Context, cvi *v1alpha2.Clust
 	if vd == nil || vd.Status.Phase != v1alpha2.DiskReady {
 		return NewVirtualDiskNotReadyError(cvi.Spec.DataSource.ObjectRef.Name)
 	}
+
 	if cvi.Status.Phase != v1alpha2.ImageReady {
 		inUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
 		if inUseCondition.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(inUseCondition, vd) {

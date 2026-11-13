@@ -112,6 +112,7 @@ func (s ReadyContainerRegistryStep) Take(ctx context.Context, vi *v1alpha2.Virtu
 				Status(metav1.ConditionFalse).
 				Reason(vicondition.ProvisioningFailed).
 				Message(service.CapitalizeFirstLetter(err.Error() + "."))
+
 			return &reconcile.Result{}, nil
 		default:
 			return nil, err

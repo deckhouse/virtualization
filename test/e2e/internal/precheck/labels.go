@@ -132,5 +132,6 @@ func IsPrecheckLabel(label string) bool {
 			return true
 		}
 	}
+
 	return false
 }

@@ -100,6 +100,7 @@ func (h *FirmwareHandler) needUpdate(vm *v1alpha2.VirtualMachine) bool {
 	if upToDate, exists := conditions.GetCondition(vmcondition.TypeFirmwareUpToDate, vm.Status.Conditions); exists {
 		return upToDate.Status == metav1.ConditionFalse
 	}
+
 	return false
 }
 
@@ -124,6 +125,7 @@ func getVirtLauncherImage(deploy *appsv1.Deployment) string {
 		if container.Name != "virt-controller" {
 			continue
 		}
+
 		allArgs := slices.Concat(container.Command, container.Args)
 
 		for i, arg := range allArgs {

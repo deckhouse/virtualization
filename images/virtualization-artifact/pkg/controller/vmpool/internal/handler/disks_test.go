@@ -54,10 +54,12 @@ func diskTemplate(name string, policy v1alpha2.VirtualDiskReclaimPolicy) v1alpha
 
 func diskExists(ctx context.Context, c client.Client, name string) (*v1alpha2.VirtualDisk, bool) {
 	vd := &v1alpha2.VirtualDisk{}
+
 	err := c.Get(ctx, types.NamespacedName{Namespace: poolNamespace, Name: name}, vd)
 	if err != nil {
 		return nil, false
 	}
+
 	return vd, true
 }
 
@@ -97,11 +99,13 @@ func labeledDisk(pool *v1alpha2.VirtualMachinePool, name, tmpl string) *v1alpha2
 func listReuseDisks(ctx context.Context, c client.Client) []v1alpha2.VirtualDisk {
 	var list v1alpha2.VirtualDiskList
 	Expect(c.List(ctx, &list, client.InNamespace(poolNamespace), client.MatchingLabels{poollabels.DiskTemplate: "cache"})).To(Succeed())
+
 	return list.Items
 }
 
 var _ = Describe("DisksHandler", func() {
 	var ctx context.Context
+
 	BeforeEach(func() { ctx = context.Background() })
 
 	It("creates a Delete disk owned by the member and attaches it", func() {
@@ -141,11 +145,13 @@ var _ = Describe("DisksHandler", func() {
 
 		got := getVM(ctx, c, "web-a")
 		count := 0
+
 		for _, ref := range got.Spec.BlockDeviceRefs {
 			if ref.Name == "web-a-system" {
 				count++
 			}
 		}
+
 		Expect(count).To(Equal(1))
 	})
 
@@ -380,6 +386,7 @@ var _ = Describe("DisksHandler", func() {
 
 		_, err = h.Handle(ctx, pool)
 		Expect(err).NotTo(HaveOccurred())
+
 		got := getVM(ctx, c, "web-stuck").Spec.BlockDeviceRefs
 		Expect(got).To(HaveLen(2))
 		Expect(got[0].Kind).To(Equal(v1alpha2.DiskDevice))
@@ -395,6 +402,7 @@ var _ = Describe("DisksHandler", func() {
 			h          *DisksHandler
 			clk        *testingclock.FakeClock
 		)
+
 		placeholder := []v1alpha2.BlockDeviceSpecRef{{Kind: v1alpha2.DiskDevice, Name: "cache"}}
 		xRef := v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "web-cache-x"}
 
@@ -405,11 +413,14 @@ var _ = Describe("DisksHandler", func() {
 			x := reuseDisk(pool, "web-cache-x", v1alpha2.DiskReady)
 			b := newMemberVM(pool, "web-b", v1alpha2.MachineRunning, referenceTime, false)
 			b.Spec.BlockDeviceRefs = placeholder
+
 			var err error
+
 			api, err = testutil.NewFakeClientWithObjects(pool, x, b.DeepCopy())
 			Expect(err).NotTo(HaveOccurred())
 			cache, err = testutil.NewFakeClientWithObjects(pool, x, b.DeepCopy())
 			Expect(err).NotTo(HaveOccurred())
+
 			clk = testingclock.NewFakeClock(referenceTime)
 			h = NewDisksHandler(staleReads{WithWatch: api, cache: cache})
 			h.clock = clk
@@ -478,6 +489,7 @@ var _ = Describe("DisksHandler", func() {
 			Expect(err).NotTo(HaveOccurred())
 			_, err = NewDisksHandler(c).Handle(ctx, pool)
 			Expect(err).NotTo(HaveOccurred())
+
 			return c
 		}
 
@@ -527,12 +539,14 @@ var _ = Describe("DisksHandler", func() {
 		gcPool := func(keep int32, ttl *metav1.Duration) *v1alpha2.VirtualMachinePool {
 			p := newPool(0)
 			p.Spec.VirtualDiskTemplates = []v1alpha2.VirtualDiskTemplateSpec{retainTemplate("cache", keep, ttl)}
+
 			return p
 		}
 
 		handlerAt := func(c client.Client, now time.Time) *DisksHandler {
 			h := NewDisksHandler(c)
 			h.clock = testingclock.NewFakePassiveClock(now)
+
 			return h
 		}
 
@@ -605,6 +619,7 @@ var _ = Describe("DisksHandler", func() {
 			// 20m free, 30m ttl → ~10m left; the handler must requeue so GC fires
 			// even without another reconcile trigger (idle pool).
 			Expect(res.RequeueAfter).To(BeNumerically("~", 10*time.Minute, time.Minute))
+
 			_, ok := diskExists(ctx, c, "web-cache-1")
 			Expect(ok).To(BeTrue()) // not collected yet
 		})
@@ -619,12 +634,14 @@ var _ = Describe("DisksHandler", func() {
 				Reclaim: v1alpha2.VirtualDiskReclaim{OnScaleDown: v1alpha2.VirtualDiskReclaimDelete},
 				Spec:    v1alpha2.VirtualDiskSpec{PersistentVolumeClaim: v1alpha2.VirtualDiskPersistentVolumeClaim{Size: &q}},
 			}}
+
 			return p
 		}
 		sizedDisk := func(pool *v1alpha2.VirtualMachinePool, name, size string) *v1alpha2.VirtualDisk {
 			d := labeledDisk(pool, name, "system")
 			q := resource.MustParse(size)
 			d.Spec.PersistentVolumeClaim.Size = &q
+
 			return d
 		}
 
@@ -705,6 +722,7 @@ var _ = Describe("DisksHandler", func() {
 
 			_, ok := diskExists(ctx, c, "web-a-data")
 			Expect(ok).To(BeFalse()) // deleted
+
 			refs := getVM(ctx, c, "web-a").Spec.BlockDeviceRefs
 			Expect(refs).NotTo(ContainElement(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "web-a-data"})) // detached
 			Expect(refs).To(ContainElement(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "web-a-system"}))  // kept
@@ -723,6 +741,7 @@ var _ = Describe("DisksHandler", func() {
 					if _, ok := obj.(*v1alpha2.VirtualMachine); ok {
 						return apierrors.NewInternalError(fmt.Errorf("detach denied"))
 					}
+
 					return cl.Update(ctx, obj, opts...)
 				},
 			}, pool, m, data)

@@ -75,7 +75,9 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 	log, ctx := logger.GetDataSourceContext(ctx, "upload")
 
 	condition, _ := conditions.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
+
 	cb := conditions.NewConditionBuilder(cvicondition.ReadyType).Generation(cvi.Generation)
+
 	defer func() {
 		// It is necessary to avoid setting unknown for the ready condition if it was already set to true.
 		if cb.Condition().Status != metav1.ConditionUnknown || condition.Status != metav1.ConditionTrue {
@@ -84,10 +86,12 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 	}()
 
 	supgen := supplements.NewGenerator(annotations.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
+
 	pod, err := ds.uploaderService.GetPod(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	svc, err := ds.uploaderService.GetService(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -111,6 +115,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 		// (e.g. TLS not settled after a secret restore). Treat as not-ready and
 		// keep retrying instead of failing the reconcile with an empty status.
 		log.Error("Uploader readiness probe failed; treating uploader as not ready", "err", err)
+
 		isUploaderReady = false
 	}
 
@@ -170,6 +175,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 		log.Info("Cleaning up...")
 	case pod == nil || svc == nil || !exposure.Ensured():
 		envSettings := ds.getEnvSettings(cvi, supgen)
+
 		err = ds.uploaderService.Apply(ctx, cvi, supgen, envSettings, datasource.NewCABundleForCVMI(cvi.Spec.DataSource), serviceuploader.WithSystemNodeToleration())
 		switch {
 		case err == nil:
@@ -226,7 +232,9 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 				setUploadProvisioningPhaseCondition(cb, cvi)
 				return reconcile.Result{RequeueAfter: time.Second}, nil
 			}
+
 			recordProvisioningFailedEvent(ds.recorder, cvi, err)
+
 			return reconcile.Result{}, setUploadPhaseConditionFromPodError(cb, cvi, err)
 		}
 
@@ -325,8 +333,10 @@ func setUploadPhaseConditionFromPodError(cb *conditions.ConditionBuilder, cvi *v
 			Status(metav1.ConditionFalse).
 			Reason(cvicondition.ProvisioningFailedTerminally).
 			Message(service.CapitalizeFirstLetter(err.Error() + "."))
+
 		return nil
 	}
+
 	return setPhaseConditionFromPodError(cb, cvi, err)
 }
 

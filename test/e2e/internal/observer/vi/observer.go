@@ -85,10 +85,12 @@ func StartObserver(ctx context.Context, f *framework.Framework, vi *v1alpha2.Vir
 // Ginkgo even though we are off the spec's main goroutine.
 func failFastOnInvariant(obs Observer, label string) {
 	defer GinkgoRecover()
+
 	select {
 	case <-obs.InvariantViolated():
 	case <-obs.Stopped():
 	}
+
 	if err := obs.Err(); err != nil {
 		Fail(fmt.Sprintf("%s observer reported an invariant violation: %s", label, err))
 	}

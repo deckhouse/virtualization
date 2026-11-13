@@ -61,6 +61,7 @@ func (v *VMBDAConflictValidator) checkConflicts(ctx context.Context, vm *v1alpha
 		if vmbda.Status.Phase == v1alpha2.BlockDeviceAttachmentPhaseTerminating {
 			continue
 		}
+
 		ref := vmbda.Spec.BlockDeviceRef
 		for _, bd := range refs {
 			if string(bd.Kind) == string(ref.Kind) && bd.Name == ref.Name {
@@ -71,6 +72,7 @@ func (v *VMBDAConflictValidator) checkConflicts(ctx context.Context, vm *v1alpha
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -79,11 +81,14 @@ func findAdded(old, new []v1alpha2.BlockDeviceSpecRef) []v1alpha2.BlockDeviceSpe
 	for _, bd := range old {
 		existing[blockDeviceKey{Kind: bd.Kind, Name: bd.Name}] = struct{}{}
 	}
+
 	var added []v1alpha2.BlockDeviceSpecRef
+
 	for _, bd := range new {
 		if _, ok := existing[blockDeviceKey{Kind: bd.Kind, Name: bd.Name}]; !ok {
 			added = append(added, bd)
 		}
 	}
+
 	return added
 }

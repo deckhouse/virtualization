@@ -89,16 +89,19 @@ func newMemberVM(pool *v1alpha2.VirtualMachinePool, name string, phase v1alpha2.
 		vm.DeletionTimestamp = &ts
 		vm.Finalizers = []string{"test.local/keep"}
 	}
+
 	return vm
 }
 
 func listMemberNames(ctx context.Context, c client.Client, pool *v1alpha2.VirtualMachinePool) []string {
 	var list v1alpha2.VirtualMachineList
 	Expect(c.List(ctx, &list, client.InNamespace(pool.Namespace), poollabels.MemberSelector(pool))).To(Succeed())
+
 	names := make([]string, 0, len(list.Items))
 	for i := range list.Items {
 		names = append(names, list.Items[i].Name)
 	}
+
 	return names
 }
 
@@ -184,6 +187,7 @@ var _ = Describe("SyncHandler", func() {
 			pool := newPool(3)
 			c, err := testutil.NewFakeClientWithObjects(pool)
 			Expect(err).NotTo(HaveOccurred())
+
 			h := NewSyncHandler(c, exp, testRecorder())
 
 			// First pass creates 3 and records expectations.
@@ -318,6 +322,7 @@ var _ = Describe("SyncHandler", func() {
 			pool := newPool(2)
 			c, err := testutil.NewFakeClientWithObjects(pool)
 			Expect(err).NotTo(HaveOccurred())
+
 			var events [][2]string
 
 			_, err = NewSyncHandler(c, exp, recordingRecorder(&events)).Handle(ctx, pool)
@@ -337,6 +342,7 @@ var _ = Describe("SyncHandler", func() {
 				},
 			}, pool)
 			Expect(err).NotTo(HaveOccurred())
+
 			var events [][2]string
 
 			_, err = NewSyncHandler(c, exp, recordingRecorder(&events)).Handle(ctx, pool)

@@ -42,6 +42,7 @@ func GetCurrentlyMountedVMName(vd *v1alpha2.VirtualDisk) string {
 			return attachedVM.Name
 		}
 	}
+
 	return ""
 }
 
@@ -55,10 +56,12 @@ func VolumeMigrationEnabled(gate featuregate.FeatureGate, vd *v1alpha2.VirtualDi
 	if gate.Enabled(featuregates.VolumeMigration) {
 		return true
 	}
+
 	if IsMigrating(vd) {
 		slog.Info("VolumeMigration is disabled, but the volume is already migrating. Complete the migration.", slog.String("vd.name", vd.Name), slog.String("vd.namespace", vd.Namespace))
 		return true
 	}
+
 	return false
 }
 
@@ -112,6 +115,7 @@ func ResolveStorageClassName(ctx context.Context, vd *v1alpha2.VirtualDisk, reso
 	if err != nil {
 		return "", err
 	}
+
 	if moduleStorageClass != nil {
 		return moduleStorageClass.Name, nil
 	}
@@ -120,6 +124,7 @@ func ResolveStorageClassName(ctx context.Context, vd *v1alpha2.VirtualDisk, reso
 	if err != nil && !errors.Is(err, service.ErrDefaultStorageClassNotFound) {
 		return "", err
 	}
+
 	if defaultStorageClass != nil {
 		return defaultStorageClass.Name, nil
 	}
@@ -135,6 +140,7 @@ func GetNodePlacement(ctx context.Context, c client.Client, vd *v1alpha2.Virtual
 	}
 
 	vmKey := types.NamespacedName{Name: vd.Status.AttachedToVirtualMachines[0].Name, Namespace: vd.Namespace}
+
 	vm, err := object.FetchObject(ctx, vmKey, c, &v1alpha2.VirtualMachine{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to get the virtual machine %s: %w", vmKey, err)
@@ -153,6 +159,7 @@ func GetNodePlacement(ctx context.Context, c client.Client, vd *v1alpha2.Virtual
 	nodePlacement.Tolerations = append(nodePlacement.Tolerations, vm.Spec.Tolerations...)
 
 	vmClassKey := types.NamespacedName{Name: vm.Spec.VirtualMachineClassName}
+
 	vmClass, err := object.FetchObject(ctx, vmClassKey, c, &v1alpha2.VirtualMachineClass{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to get the virtual machine class %s: %w", vmClassKey, err)
@@ -210,6 +217,7 @@ func ValidateVirtualImageStorageClassProvisionerCompatibility(ctx context.Contex
 	if err != nil {
 		return fmt.Errorf("get virtual disk storage class %q: %w", vd.Status.StorageClassName, err)
 	}
+
 	if vdSc == nil {
 		return fmt.Errorf("virtual disk storage class %q was not found", vd.Status.StorageClassName)
 	}
@@ -218,6 +226,7 @@ func ValidateVirtualImageStorageClassProvisionerCompatibility(ctx context.Contex
 	if err != nil {
 		return fmt.Errorf("get virtual image storage class %q: %w", vi.Status.StorageClassName, err)
 	}
+
 	if viSc == nil {
 		return fmt.Errorf("virtual image storage class %q was not found", vi.Status.StorageClassName)
 	}

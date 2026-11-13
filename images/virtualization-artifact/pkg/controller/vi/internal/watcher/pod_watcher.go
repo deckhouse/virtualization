@@ -61,5 +61,6 @@ func (w PodWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error 
 	); err != nil {
 		return fmt.Errorf("error setting watch on Pod: %w", err)
 	}
+
 	return nil
 }

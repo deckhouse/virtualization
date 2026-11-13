@@ -34,11 +34,13 @@ const (
 
 func GetSystemMigrationPolicyAnnotation(ctx context.Context, kubeClient client.Client) string {
 	moduleConfig := &mcapi.ModuleConfig{}
+
 	err := kubeClient.Get(ctx, client.ObjectKey{Name: moduleConfigName}, moduleConfig)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
 			slog.Default().Error("failed to get ModuleConfig virtualization", logger.SlogErr(err))
 		}
+
 		return ""
 	}
 

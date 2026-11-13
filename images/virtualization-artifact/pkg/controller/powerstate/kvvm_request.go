@@ -46,11 +46,13 @@ func BuildPatch(vm *virtv1.VirtualMachine, changes ...virtv1.VirtualMachineState
 		jp.Append(patch.NewJSONPatchOperation(patch.PatchAddOp, "/status", newStatus))
 	} else {
 		verb := patch.PatchAddOp
+
 		failOnConflict := true
 		if len(changes) == 1 && changes[0].Action == virtv1.StopRequest {
 			// If this is a stopRequest, replace all existing StateChangeRequests.
 			failOnConflict = false
 		}
+
 		if len(vm.Status.StateChangeRequests) != 0 {
 			if equality.Semantic.DeepEqual(vm.Status.StateChangeRequests, changes) {
 				return nil, ErrChangesAlreadyExist
@@ -62,11 +64,14 @@ func BuildPatch(vm *virtv1.VirtualMachine, changes ...virtv1.VirtualMachineState
 				verb = patch.PatchReplaceOp
 			}
 		}
+
 		jp.Append(patch.NewJSONPatchOperation(verb, "/status/stateChangeRequests", changes))
 	}
+
 	if vm.Status.StartFailure != nil {
 		jp.Append(patch.NewJSONPatchOperation(patch.PatchRemoveOp, "/status/startFailure", nil))
 	}
+
 	return jp.Bytes()
 }
 
@@ -77,6 +82,7 @@ func BuildPatchSafeRestart(kvvm *virtv1.VirtualMachine, kvvmi *virtv1.VirtualMac
 	if len(kvvm.Status.StateChangeRequests) > 0 {
 		return nil, nil
 	}
+
 	restartRequest := []virtv1.VirtualMachineStateChangeRequest{
 		{Action: virtv1.StopRequest, UID: &kvvmi.UID},
 		{Action: virtv1.StartRequest},
@@ -92,5 +98,6 @@ func BuildPatchSafeRestart(kvvm *virtv1.VirtualMachine, kvvmi *virtv1.VirtualMac
 		// Set stateChangeRequests.
 		jp.Append(patch.NewJSONPatchOperation(patch.PatchAddOp, "/status/stateChangeRequests", restartRequest))
 	}
+
 	return jp.Bytes()
 }

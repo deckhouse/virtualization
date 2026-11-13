@@ -46,6 +46,7 @@ func (s stubIterator) Iter(_ context.Context, h handler) error {
 			return nil
 		}
 	}
+
 	return nil
 }
 
@@ -80,10 +81,12 @@ func phaseSeries(name string, current v1alpha2.ImagePhase) string {
 	var b strings.Builder
 	b.WriteString("# HELP d8_virtualization_clustervirtualimage_status_phase The clustervirtualimage current phase.\n")
 	b.WriteString("# TYPE d8_virtualization_clustervirtualimage_status_phase gauge\n")
+
 	for _, p := range imagePhases {
 		fmt.Fprintf(&b, "d8_virtualization_clustervirtualimage_status_phase{name=%q,phase=%q,uid=%q} %v\n",
 			name, string(p), "uid-"+name, common.BoolFloat64(p == current))
 	}
+
 	return b.String()
 }
 

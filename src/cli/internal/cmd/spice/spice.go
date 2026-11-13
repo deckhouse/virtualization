@@ -74,6 +74,7 @@ func NewCommand() *cobra.Command {
 		"--preferred-compression=glz: Ask the server for this image codec: auto-glz, auto-lz, quic, glz, lz, off. Overrides what the VM is configured with, so codecs can be compared without restarting it.")
 	cmd.Flags().BoolVar(&s.force, "force", false, "Connect without asking, even when somebody else is using the SPICE display.")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
+
 	return cmd
 }
 
@@ -101,6 +102,7 @@ func (o *SPICE) Run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+
 	vmName := args[0]
 
 	// Connecting takes the display over the same way VNC does, so ask before the
@@ -115,6 +117,7 @@ func (o *SPICE) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("can't listen on %s: %w", listenAddress, err)
 	}
 	defer ln.Close()
+
 	port := ln.Addr().(*net.TCPAddr).Port
 
 	ctx, cancel := context.WithCancel(cmd.Context())
@@ -136,21 +139,26 @@ func (o *SPICE) Run(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
+
 		if _, err = fmt.Fprintln(cmd.OutOrStdout(), string(optionString)); err != nil {
 			return err
 		}
+
 		select {
 		case <-ctx.Done():
 		case err := <-fatal:
 			return err
 		}
+
 		return nil
 	}
 
 	cmd.Printf("Connecting to %s SPICE...\n", vmName)
 
 	done := make(chan error, 1)
+
 	go func() { done <- runViewer(ctx, port) }()
+
 	select {
 	case err := <-done:
 		return err
@@ -174,8 +182,10 @@ func acceptLoop(ctx context.Context, ln net.Listener, client kubeclient.Client, 
 		if err != nil {
 			return // listener closed on shutdown
 		}
+
 		go func() {
 			defer conn.Close()
+
 			err := pipeChannelFunc(ctx, client, namespace, vmName, conn)
 			if err == nil {
 				return
@@ -186,8 +196,10 @@ func acceptLoop(ctx context.Context, ln net.Listener, client kubeclient.Client, 
 				case fatal <- err:
 				case <-ctx.Done():
 				}
+
 				return
 			}
+
 			var closeErr *websocket.CloseError
 			if errors.As(err, &closeErr) {
 				switch closeErr.Code {
@@ -196,8 +208,10 @@ func acceptLoop(ctx context.Context, ln net.Listener, client kubeclient.Client, 
 				case websocket.CloseAbnormalClosure:
 					cmd.Print(util.CloseAbnormalClosureMessage)
 				}
+
 				return
 			}
+
 			klog.V(2).Infof("SPICE channel closed: %v", err)
 		}()
 	}
@@ -212,10 +226,13 @@ func waitForVM(ctx context.Context, client kubeclient.Client, namespace, vmName 
 			stream.AsConn().Close()
 			return nil
 		}
+
 		if strings.Contains(err.Error(), "not found") {
 			return fmt.Errorf("can't access VM %s: %w", vmName, err)
 		}
+
 		cmd.Printf("%s\n", err)
+
 		select {
 		case <-ctx.Done():
 			return nil
@@ -231,6 +248,7 @@ func pipeChannel(ctx context.Context, client kubeclient.Client, namespace, vmNam
 	if err != nil {
 		return fmt.Errorf("can't access VM %s: %w", vmName, err)
 	}
+
 	return stream.Stream(virtualizationv1alpha2.StreamOptions{In: conn, Out: conn})
 }
 
@@ -239,11 +257,13 @@ func runViewer(ctx context.Context, port int) error {
 	if preferredCompression != "" {
 		args = append(args, "--spice-preferred-compression="+preferredCompression)
 	}
+
 	args = append(args, fmt.Sprintf("spice://%s:%d", listenAddress, port))
 
 	viewer := exec.CommandContext(ctx, RemoteViewer, args...)
 	if err := viewer.Start(); err != nil {
 		return fmt.Errorf("%s not found or failed to start: %w; run with --proxy-only and connect manually", RemoteViewer, err)
 	}
+
 	return viewer.Wait()
 }

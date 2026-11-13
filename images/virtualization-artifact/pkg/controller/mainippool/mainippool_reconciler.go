@@ -67,6 +67,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 			return fmt.Errorf("error setting watcher %T: %w", w, err)
 		}
 	}
+
 	return nil
 }
 
@@ -77,11 +78,13 @@ func (r *Reconciler) Reconcile(ctx context.Context, _ reconcile.Request) (reconc
 				logger.FromContext(ctx).Info("The address pool of the Main network is being deleted, waiting to recreate it")
 				return reconcile.Result{RequeueAfter: poolTerminatingRetryInterval}, nil
 			}
+
 			if meta.IsNoMatchError(err) {
 				// The kind is not registered: the sdn module is still starting or too old
 				// to have it. Ask again instead of waiting for an event nothing can deliver.
 				return reconcile.Result{RequeueAfter: crdRetryInterval}, nil
 			}
+
 			return reconcile.Result{}, fmt.Errorf("handler %s: %w", h.Name(), err)
 		}
 	}

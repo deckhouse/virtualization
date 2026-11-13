@@ -45,10 +45,12 @@ func (o StopOperation) Execute(ctx context.Context) error {
 	key := virtualMachineKeyByVmop(o.vmop)
 
 	kvvmi := &virtv1.VirtualMachineInstance{}
+
 	err := o.client.Get(ctx, key, kvvmi)
 	if apierrors.IsNotFound(err) {
 		return nil
 	}
+
 	if err != nil {
 		return err
 	}
@@ -67,6 +69,7 @@ func (o StopOperation) Execute(ctx context.Context) error {
 	if err = o.client.Get(ctx, key, kvvm); err != nil {
 		return err
 	}
+
 	if err = kvvmutil.EnsureRunStrategy(ctx, o.client, kvvm, virtv1.RunStrategyManual); err != nil {
 		return err
 	}
@@ -93,6 +96,7 @@ func (o StopOperation) GetInProgressReason() vmopcondition.ReasonCompleted {
 
 func (o StopOperation) IsComplete(ctx context.Context) (bool, string, error) {
 	vm := &v1alpha2.VirtualMachine{}
+
 	err := o.client.Get(ctx, client.ObjectKey{Namespace: o.vmop.Namespace, Name: o.vmop.Spec.VirtualMachine}, vm)
 	if err != nil {
 		return false, "", client.IgnoreNotFound(err)

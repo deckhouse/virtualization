@@ -64,6 +64,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 			return err
 		}
 	}
+
 	return nil
 }
 

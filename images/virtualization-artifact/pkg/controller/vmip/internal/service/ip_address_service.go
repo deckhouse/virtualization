@@ -58,6 +58,7 @@ func NewIPAddressService(
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse CIDR %q: %w", cidr, err)
 		}
+
 		parsedCIDRs[i] = parsedCIDR
 	}
 
@@ -76,10 +77,12 @@ func (s IPAddressService) IsInsideOfRange(address string) error {
 
 	for _, cidr := range s.parsedCIDRs {
 		var isFirstLast bool
+
 		isFirstLast, err = isFirstLastIP(addr, cidr)
 		if err != nil {
 			return err
 		}
+
 		if !isFirstLast {
 			if cidr.Contains(addr) {
 				// available
@@ -100,6 +103,7 @@ func (s IPAddressService) AllocateNewIP(allocatedIPs ip.AllocatedIPs) (string, e
 				if err != nil {
 					return "", err
 				}
+
 				if isFirstLast {
 					continue
 				}
@@ -110,6 +114,7 @@ func (s IPAddressService) AllocateNewIP(allocatedIPs ip.AllocatedIPs) (string, e
 			}
 		}
 	}
+
 	return "", errors.New("no remaining ips")
 }
 
@@ -131,6 +136,7 @@ func (s IPAddressService) GetAllocatedIPs(ctx context.Context) (ip.AllocatedIPs,
 	if err != nil && !meta.IsNoMatchError(err) {
 		return nil, fmt.Errorf("list the SDN IPAddress of the main network: %w", err)
 	}
+
 	for addr := range ipas {
 		allocatedIPs[addr] = struct{}{}
 	}
@@ -179,6 +185,7 @@ func (s IPAddressService) getLeaseByLabel(ctx context.Context, vmip *v1alpha2.Vi
 	// 1. Trying to find the Lease in the local cache.
 	{
 		leases := &v1alpha2.VirtualMachineIPAddressLeaseList{}
+
 		err := s.client.List(ctx, leases, &client.ListOptions{
 			LabelSelector: labels.SelectorFromSet(map[string]string{annotations.LabelVirtualMachineIPAddressUID: string(vmip.GetUID())}),
 		})

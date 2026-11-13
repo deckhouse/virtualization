@@ -122,10 +122,12 @@ var _ = Describe("VirtualMachineMigrationDedicatedNetwork", Label(label.SIGCompu
 				nodes := &corev1.NodeList{}
 				g.Expect(f.GenericClient().List(ctx, nodes)).To(Succeed())
 				g.Expect(nodes.Items).NotTo(BeEmpty())
+
 				for _, n := range nodes.Items {
 					if !nodeIsReady(&n) {
 						continue
 					}
+
 					g.Expect(n.Annotations).To(HaveKey(migrationIfaceAnnotation),
 						"node %q must carry the migration-iface annotation", n.Name)
 					g.Expect(n.Annotations[migrationIfaceAnnotation]).NotTo(BeEmpty(),
@@ -153,6 +155,7 @@ var _ = Describe("VirtualMachineMigrationDedicatedNetwork", Label(label.SIGCompu
 			vmObs = vmobs.StartObserver(ctx, f, vmObj)
 			vmObs.Never(vmobs.BeFailed())
 			Expect(f.CreateWithDeferredDeletion(ctx, vdRoot, vmObj)).To(Succeed())
+
 			err := vmObs.WaitFor(vmobs.BeRunning(), framework.LongTimeout)
 			Expect(err).NotTo(HaveOccurred())
 			eventually.SSHReadyAsRoot(f, vmObj, framework.LongTimeout)
@@ -203,14 +206,17 @@ var _ = Describe("VirtualMachineMigrationDedicatedNetwork", Label(label.SIGCompu
 
 func getConfiguredSystemNetworkName(ctx context.Context, f *framework.Framework) string {
 	GinkgoHelper()
+
 	mc, err := f.GetModuleConfig(ctx, "virtualization")
 	if k8serrors.IsNotFound(err) {
 		return ""
 	}
+
 	Expect(err).NotTo(HaveOccurred())
 
 	raw, err := json.Marshal(mc.Spec.Settings)
 	Expect(err).NotTo(HaveOccurred())
+
 	settings := map[string]any{}
 	Expect(json.Unmarshal(raw, &settings)).To(Succeed())
 
@@ -218,18 +224,23 @@ func getConfiguredSystemNetworkName(ctx context.Context, f *framework.Framework)
 	if !ok {
 		return ""
 	}
+
 	network, ok := lm["network"].(map[string]any)
 	if !ok {
 		return ""
 	}
+
 	if t, _ := network["type"].(string); t != "SystemNetwork" {
 		return ""
 	}
+
 	sn, ok := network["systemNetwork"].(map[string]any)
 	if !ok {
 		return ""
 	}
+
 	name, _ := sn["name"].(string)
+
 	return name
 }
 
@@ -238,17 +249,21 @@ func isSystemNetworkReady(obj *unstructured.Unstructured) bool {
 	if err != nil || !found {
 		return false
 	}
+
 	for _, c := range conds {
 		m, ok := c.(map[string]any)
 		if !ok {
 			continue
 		}
+
 		t, _ := m["type"].(string)
+
 		s, _ := m["status"].(string)
 		if t == "Ready" && s == "True" {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -258,11 +273,13 @@ func nodeIsReady(n *corev1.Node) bool {
 			return c.Status == corev1.ConditionTrue
 		}
 	}
+
 	return false
 }
 
 func getClusterIPAddressPoolCIDRs(ctx context.Context, f *framework.Framework, poolName string) []*net.IPNet {
 	GinkgoHelper()
+
 	pool := &unstructured.Unstructured{}
 	pool.SetGroupVersionKind(clusterIPAddressPoolGVK)
 	Expect(f.GenericClient().Get(ctx, crclient.ObjectKey{Name: poolName}, pool)).To(Succeed(),
@@ -278,16 +295,20 @@ func getClusterIPAddressPoolCIDRs(ctx context.Context, f *framework.Framework, p
 		if !ok {
 			continue
 		}
+
 		network, _ := m["network"].(string)
 		if network == "" {
 			continue
 		}
+
 		_, ipnet, err := net.ParseCIDR(network)
 		if err != nil {
 			continue
 		}
+
 		cidrs = append(cidrs, ipnet)
 	}
+
 	return cidrs
 }
 
@@ -297,6 +318,7 @@ func cidrsContain(cidrs []*net.IPNet, ip net.IP) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -305,5 +327,6 @@ func formatCIDRs(cidrs []*net.IPNet) []string {
 	for _, c := range cidrs {
 		out = append(out, c.String())
 	}
+
 	return out
 }

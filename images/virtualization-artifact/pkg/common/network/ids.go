@@ -46,6 +46,7 @@ func EnsureNetworkInterfaceIDs(networks []v1alpha2.NetworksSpec) bool {
 	}
 
 	nextID := MinID
+
 	for i := range networks {
 		if networks[i].ID != nil {
 			continue
@@ -71,6 +72,7 @@ func allocateNextID(used map[int]struct{}, nextID int) (int, bool) {
 		}
 
 		used[id] = struct{}{}
+
 		return id, true
 	}
 

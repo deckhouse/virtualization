@@ -76,5 +76,6 @@ func SetOwnerRef(obj metav1.Object, ref metav1.OwnerReference) bool {
 	}
 
 	obj.SetOwnerReferences(newOwnerRefs)
+
 	return true
 }

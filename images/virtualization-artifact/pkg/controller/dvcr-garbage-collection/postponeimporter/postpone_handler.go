@@ -86,6 +86,7 @@ func (p *PostponeHandler[T]) Handle(ctx context.Context, obj T) (reconcile.Resul
 			)
 			conditions.RemoveCondition(getReadyType(obj), conditionsPtr)
 		}
+
 		return reconcile.Result{}, nil
 	}
 

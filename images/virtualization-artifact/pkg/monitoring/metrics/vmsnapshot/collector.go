@@ -38,6 +38,7 @@ func SetupCollector(reader client.Reader,
 		log:      log.With(logger.SlogCollector(collectorName)),
 	}
 	registerer.MustRegister(c)
+
 	return c
 }
 
@@ -60,8 +61,10 @@ func (c Collector) Describe(ch chan<- *prometheus.Desc) {
 
 func (c Collector) Collect(ch chan<- prometheus.Metric) {
 	s := newScraper(ch, c.log)
+
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
+
 	if err := c.iterator.Iter(ctx, func(m *dataMetric) (stop bool) {
 		s.Report(m)
 		return stop

@@ -96,14 +96,17 @@ var _ = Describe("VirtualMachineMACAddressRestorer", func() {
 				if obj.GetName() == vmmac.Name {
 					_, ok := obj.(*v1alpha2.VirtualMachineMACAddress)
 					Expect(ok).To(BeTrue())
+
 					vmmacDeleted = true
 				}
+
 				return nil
 			},
 			Create: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.CreateOption) error {
 				if obj.GetName() == vmmac.Name {
 					_, ok := obj.(*v1alpha2.VirtualMachineMACAddress)
 					Expect(ok).To(BeTrue())
+
 					vmmacCreated = true
 				}
 

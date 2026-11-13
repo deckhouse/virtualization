@@ -62,6 +62,7 @@ func (s EnterMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMa
 	}
 
 	vmKey := types.NamespacedName{Namespace: vmop.Namespace, Name: vmop.Spec.VirtualMachine}
+
 	vm, err := object.FetchObject(ctx, vmKey, s.client, &v1alpha2.VirtualMachine{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch the virtual machine %q: %w", vmKey.Name, err)
@@ -91,22 +92,27 @@ func (s EnterMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMa
 	// restore completes: a running VM is started again (see checkNeedStartVM), a stopped VM is kept stopped
 	// (see createKVVM for the AlwaysOnUnlessStoppedManually policy).
 	var powerState string
+
 	switch vm.Status.Phase {
 	case v1alpha2.MachineRunning, v1alpha2.MachinePending:
 		powerState = string(v1alpha2.MachineRunning)
 	case v1alpha2.MachineStopped:
 		powerState = string(v1alpha2.MachineStopped)
 	}
+
 	if powerState != "" && vm.Annotations[annotations.AnnVMRestorePowerState] != powerState {
 		if vm.Annotations == nil {
 			vm.Annotations = make(map[string]string)
 		}
+
 		vm.Annotations[annotations.AnnVMRestorePowerState] = powerState
 		if err = s.client.Update(ctx, vm); err != nil {
 			if apierrors.IsConflict(err) {
 				return &reconcile.Result{}, nil
 			}
+
 			s.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, "Failed to record VM power state for restore: "+err.Error())
+
 			return &reconcile.Result{}, err
 		}
 	}
@@ -127,6 +133,7 @@ func (s EnterMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMa
 		}
 
 		s.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, "Failed to enter maintenance mode: "+err.Error())
+
 		return &reconcile.Result{}, err
 	}
 

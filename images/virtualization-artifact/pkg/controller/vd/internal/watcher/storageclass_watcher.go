@@ -58,6 +58,7 @@ func (w StorageClassWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 			predicate.TypedFuncs[*storagev1.StorageClass]{
 				UpdateFunc: func(e event.TypedUpdateEvent[*storagev1.StorageClass]) bool {
 					oldIsDefault, oldIsDefaultOk := e.ObjectOld.Annotations[annotations.AnnDefaultStorageClass]
+
 					newIsDefault, newIsDefaultOk := e.ObjectNew.Annotations[annotations.AnnDefaultStorageClass]
 					switch {
 					case oldIsDefaultOk && newIsDefaultOk:
@@ -88,6 +89,7 @@ func (w StorageClassWatcher) enqueueRequests(ctx context.Context, sc *storagev1.
 	fieldSelector := fields.OneTermEqualSelector(indexer.IndexFieldVDByStorageClass, selectorValue)
 
 	var vds v1alpha2.VirtualDiskList
+
 	err := w.client.List(ctx, &vds, &client.ListOptions{FieldSelector: fieldSelector})
 	if err != nil {
 		w.logger.Error(fmt.Sprintf("failed to list virtual disks: %v", err))

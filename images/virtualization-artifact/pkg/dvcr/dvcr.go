@@ -116,12 +116,15 @@ func (s *Settings) RegistryImageForVD(obj client.Object) string {
 func (s *Settings) RepoPath(imageRef string) string {
 	ref := strings.TrimPrefix(imageRef, "docker://")
 	ref = strings.TrimPrefix(ref, s.RegistryURL)
+
 	ref = strings.TrimPrefix(ref, "/")
 	if i := strings.Index(ref, "@"); i >= 0 {
 		ref = ref[:i]
 	}
+
 	if slash := strings.LastIndex(ref, "/"); strings.LastIndex(ref, ":") > slash {
 		ref = ref[:strings.LastIndex(ref, ":")]
 	}
+
 	return path.Clean(ref)
 }

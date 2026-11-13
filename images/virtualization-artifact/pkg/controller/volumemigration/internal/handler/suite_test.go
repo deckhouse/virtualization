@@ -90,12 +90,14 @@ func newTestVD(name, namespace, vmName string, storageClassChanged, ready, migra
 			Status: metav1.ConditionTrue,
 		})
 	}
+
 	if migrating {
 		vd.Status.Conditions = append(vd.Status.Conditions, metav1.Condition{
 			Type:   vdcondition.MigratingType.String(),
 			Status: metav1.ConditionTrue,
 		})
 	}
+
 	return vd
 }
 
@@ -108,5 +110,6 @@ func newTestVMOP(name, namespace, vmName string, phase v1alpha2.VMOPPhase) *v1al
 		vmopbuilder.WithVirtualMachine(vmName),
 	)
 	vmop.Status.Phase = phase
+
 	return vmop
 }

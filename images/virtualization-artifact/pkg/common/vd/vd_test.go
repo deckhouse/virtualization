@@ -61,6 +61,7 @@ var _ = Describe("GetDVCRNodePlacement", func() {
 	newClient := func(objs ...client.Object) client.Client {
 		scheme := runtime.NewScheme()
 		Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
+
 		return fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).Build()
 	}
 
@@ -71,6 +72,7 @@ var _ = Describe("GetDVCRNodePlacement", func() {
 		for _, name := range attachedVMs {
 			vd.Status.AttachedToVirtualMachines = append(vd.Status.AttachedToVirtualMachines, v1alpha2.AttachedVirtualMachine{Name: name})
 		}
+
 		return vd
 	}
 

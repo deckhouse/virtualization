@@ -33,6 +33,7 @@ func VirtualDisks(vds Client[*v1alpha2.VirtualDisk], namespace string) FailFast 
 		if vd.Status.Phase != v1alpha2.DiskFailed && vd.Status.Phase != v1alpha2.DiskLost {
 			return nil
 		}
+
 		return &Finding{
 			Message: fmt.Sprintf("entered the terminal %s phase: %s",
 				vd.Status.Phase, failureDiagnostics(vd.Status.Conditions)),
@@ -50,6 +51,7 @@ func VirtualImages(vis Client[*v1alpha2.VirtualImage], namespace string) FailFas
 		default:
 			return nil
 		}
+
 		return &Finding{
 			Message: fmt.Sprintf("entered the terminal %s phase: %s",
 				vi.Status.Phase, failureDiagnostics(vi.Status.Conditions)),
@@ -67,8 +69,10 @@ func failureDiagnostics(conds []metav1.Condition) string {
 			parts = append(parts, fmt.Sprintf("%s=%s %s: %s", cond.Type, cond.Status, cond.Reason, cond.Message))
 		}
 	}
+
 	if len(parts) == 0 {
 		return "no diagnostics in conditions"
 	}
+
 	return strings.Join(parts, "; ")
 }

@@ -32,5 +32,6 @@ func NewStartCommand() *cobra.Command {
 	}
 	AddCommandLineArgs(cmd.Flags(), &lifecycle.opts)
 	cmd.SetUsageTemplate(templates.UsageTemplate())
+
 	return cmd
 }

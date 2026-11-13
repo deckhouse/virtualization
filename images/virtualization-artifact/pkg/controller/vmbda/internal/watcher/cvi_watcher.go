@@ -67,11 +67,13 @@ func (w ClusterVirtualImageWatcher) Watch(mgr manager.Manager, ctr controller.Co
 	); err != nil {
 		return fmt.Errorf("error setting watch on CVIs: %w", err)
 	}
+
 	return nil
 }
 
 func (w ClusterVirtualImageWatcher) enqueueRequests(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (requests []reconcile.Request) {
 	var vmbdas v1alpha2.VirtualMachineBlockDeviceAttachmentList
+
 	err := w.client.List(ctx, &vmbdas)
 	if err != nil {
 		slog.Default().Error(fmt.Sprintf("failed to list vmbdas: %s", err))

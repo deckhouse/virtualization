@@ -70,6 +70,7 @@ var _ = Describe("liveMigrationValidator", func() {
 
 	mcWith := func(name string) *mcapi.ModuleConfig {
 		mc := &mcapi.ModuleConfig{}
+
 		mc.Name = moduleConfigName
 		if name != "" {
 			mc.Spec.Settings = mcapi.SettingsValues{
@@ -81,6 +82,7 @@ var _ = Describe("liveMigrationValidator", func() {
 				},
 			}
 		}
+
 		return mc
 	}
 
@@ -88,16 +90,19 @@ var _ = Describe("liveMigrationValidator", func() {
 		sn := &unstructured.Unstructured{}
 		sn.SetGroupVersionKind(systemNetworkGVK)
 		sn.SetName(name)
+
 		status := "False"
 		if ready {
 			status = "True"
 		}
+
 		_ = unstructured.SetNestedSlice(sn.Object, []any{
 			map[string]any{
 				"type":   conditionTypeReady,
 				"status": status,
 			},
 		}, "status", "conditions")
+
 		return sn
 	}
 
@@ -149,6 +154,7 @@ var _ = Describe("isSystemNetworkReady", func() {
 		sn := &unstructured.Unstructured{}
 		sn.SetGroupVersionKind(systemNetworkGVK)
 		_ = unstructured.SetNestedSlice(sn.Object, conditions, "status", "conditions")
+
 		return sn
 	}
 

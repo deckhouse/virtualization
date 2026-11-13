@@ -67,6 +67,7 @@ func (h *AttachedHandler) Handle(ctx context.Context, s state.NodePCIDeviceState
 	}
 
 	pciDevice := &v1alpha2.PCIDevice{}
+
 	err := h.client.Get(ctx, types.NamespacedName{Namespace: assignedNamespace, Name: current.Name}, pciDevice)
 	if err != nil {
 		if errors.IsNotFound(err) {

@@ -57,10 +57,12 @@ var _ = Describe("TestNodePlacementHandler", func() {
 	newVMAndKVVMI := func(needMigrate bool) (*v1alpha2.VirtualMachine, *virtv1.VirtualMachineInstance) {
 		vm := vmbuilder.NewEmpty(name, namespace)
 		kvvmi := newEmptyKVVMI(name, namespace)
+
 		status := corev1.ConditionFalse
 		if needMigrate {
 			status = corev1.ConditionTrue
 		}
+
 		if needMigrate {
 			kvvmi.Status.Conditions = append(kvvmi.Status.Conditions, virtv1.VirtualMachineInstanceCondition{
 				Type:   conditions.VirtualMachineInstanceNodePlacementNotMatched,
@@ -71,6 +73,7 @@ var _ = Describe("TestNodePlacementHandler", func() {
 				Status: corev1.ConditionTrue,
 			})
 		}
+
 		return vm, kvvmi
 	}
 
@@ -133,6 +136,7 @@ var _ = Describe("TestNodePlacementHandler", func() {
 				if _, ok := obj.(*virtv1.VirtualMachineInstance); ok {
 					return getErr
 				}
+
 				return client.Get(ctx, key, obj, opts...)
 			},
 		}, vm)
@@ -156,6 +160,7 @@ var _ = Describe("TestNodePlacementHandler", func() {
 				if _, ok := obj.(*virtv1.VirtualMachineInstance); ok {
 					return notFoundErr
 				}
+
 				return client.Get(ctx, key, obj, opts...)
 			},
 		}, vm)

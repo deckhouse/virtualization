@@ -57,6 +57,7 @@ var _ = Describe("DeletionHandler", func() {
 		vmop := vmopbuilder.NewEmpty(name, namespace)
 		vmop.Status.Phase = phase
 		vmopbuilder.ApplyOptions(vmop, opts...)
+
 		return vmop
 	}
 
@@ -64,6 +65,7 @@ var _ = Describe("DeletionHandler", func() {
 		vmop := newVmop(phase, vmopbuilder.WithType(v1alpha2.VMOPTypeEvict))
 
 		fakeClient, srv = setupEnvironment(vmop)
+
 		reconcile()
 
 		newVMOP := &v1alpha2.VirtualMachineOperation{}

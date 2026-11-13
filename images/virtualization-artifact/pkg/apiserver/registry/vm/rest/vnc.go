@@ -59,17 +59,21 @@ func (r VNCREST) Connect(ctx context.Context, name string, opts runtime.Object, 
 	if !ok {
 		return nil, fmt.Errorf("invalid options object: %#v", opts)
 	}
+
 	vm, err := r.vmLister.VirtualMachines(request.NamespaceValue(ctx)).Get(name)
 	if err != nil {
 		return nil, err
 	}
+
 	if vncOpts.Probe {
 		return r.probeSession(vm, subv1alpha2.VNCSession), nil
 	}
+
 	location, transport, err := VNCLocation(ctx, r.vmLister, name, r.kubevirt, r.proxyCertManager)
 	if err != nil {
 		return nil, err
 	}
+
 	handler := newThrottledUpgradeAwareProxyHandler(location, transport, true, responder, r.kubevirt.ServiceAccount)
 	// Tracked like the console, so the state is already there when VNC gets its own handle.
 	return r.trackSession(vm, subv1alpha2.VNCSession, handler), nil

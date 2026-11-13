@@ -63,11 +63,13 @@ func (w VirtualDiskSnapshotWatcher) Watch(mgr manager.Manager, ctr controller.Co
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualDiskSnapshot: %w", err)
 	}
+
 	return nil
 }
 
 func (w VirtualDiskSnapshotWatcher) enqueueRequests(ctx context.Context, vdSnapshot *v1alpha2.VirtualDiskSnapshot) (requests []reconcile.Request) {
 	var cvis v1alpha2.ClusterVirtualImageList
+
 	err := w.client.List(ctx, &cvis, &client.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldCVIByVDSnapshot, types.NamespacedName{
 			Namespace: vdSnapshot.Namespace,

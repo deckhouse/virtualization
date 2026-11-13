@@ -37,6 +37,7 @@ var _ = Describe("VirtualMachine MetaValidator name length", func() {
 	if err != nil {
 		panic(err)
 	}
+
 	v := validators.NewMetaValidator(nil, featureGate)
 
 	newVM := func(name string) *v1alpha2.VirtualMachine {
@@ -65,6 +66,7 @@ var _ = Describe("VirtualMachine MetaValidator vIOMMU annotation", func() {
 		featureGate, setFromMap, err := featuregates.NewUnlocked()
 		Expect(err).NotTo(HaveOccurred())
 		Expect(setFromMap(map[string]bool{string(featuregates.VIOMMU): gateEnabled})).To(Succeed())
+
 		return validators.NewMetaValidator(nil, featureGate)
 	}
 

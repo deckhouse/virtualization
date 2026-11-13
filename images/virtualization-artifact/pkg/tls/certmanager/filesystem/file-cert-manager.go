@@ -50,6 +50,7 @@ func NewFileCertificateManager(certBytesPath, keyBytesPath string) *FileCertific
 
 func (f *FileCertificateManager) Start() {
 	objectUpdated := make(chan struct{}, 1)
+
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		klog.Errorf("failed to create an inotify watcher: %v", err)
@@ -57,10 +58,12 @@ func (f *FileCertificateManager) Start() {
 	defer watcher.Close()
 
 	certDir := filepath.Dir(f.certBytesPath)
+
 	err = watcher.Add(certDir)
 	if err != nil {
 		klog.Errorf("failed to establish a watch on %s: %v", f.certBytesPath, err)
 	}
+
 	keyDir := filepath.Dir(f.keyBytesPath)
 	if keyDir != certDir {
 		err = watcher.Add(keyDir)
@@ -76,6 +79,7 @@ func (f *FileCertificateManager) Start() {
 				if !ok {
 					return
 				}
+
 				select {
 				case objectUpdated <- struct{}{}:
 				default:
@@ -85,6 +89,7 @@ func (f *FileCertificateManager) Start() {
 				if !ok {
 					return
 				}
+
 				klog.ErrorS(err, fmt.Sprintf("An error occurred when watching certificates files %s and %s", f.certBytesPath, f.keyBytesPath))
 			}
 		}
@@ -100,6 +105,7 @@ sync:
 			if err := f.rotateCerts(); err != nil {
 				go func() {
 					time.Sleep(f.errorRetryInterval)
+
 					select {
 					case objectUpdated <- struct{}{}:
 					default:
@@ -116,6 +122,7 @@ sync:
 func (f *FileCertificateManager) Stop() {
 	f.certAccessLock.Lock()
 	defer f.certAccessLock.Unlock()
+
 	select {
 	case <-f.stopCh:
 	default:
@@ -134,6 +141,7 @@ func (f *FileCertificateManager) rotateCerts() error {
 	// update after the callback, to ensure that the reconfiguration succeeded
 	f.cert = crt
 	klog.Infof("certificate with common name '%s' retrieved.", crt.Leaf.Subject.CommonName)
+
 	return nil
 }
 
@@ -158,12 +166,15 @@ func (f *FileCertificateManager) loadCertificates() (serverCrt *tls.Certificate,
 	if err != nil {
 		return nil, fmt.Errorf("failed to load leaf certificate: %w", err)
 	}
+
 	crt.Leaf = leaf[0]
+
 	return &crt, nil
 }
 
 func (f *FileCertificateManager) Current() *tls.Certificate {
 	f.certAccessLock.Lock()
 	defer f.certAccessLock.Unlock()
+
 	return f.cert
 }

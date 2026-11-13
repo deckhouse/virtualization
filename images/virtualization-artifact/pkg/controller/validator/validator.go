@@ -92,8 +92,10 @@ func (v *Validator[T]) ValidateCreate(ctx context.Context, obj runtime.Object) (
 	if len(v.create) == 0 {
 		err = fmt.Errorf("misconfigured webhook rules: create operation not implemented")
 		v.log.Error("Ensure the correctness of ValidatingWebhookConfiguration", logger.SlogErr(err))
+
 		return nil, nil
 	}
+
 	defer func() {
 		if err != nil {
 			v.logErr(err)
@@ -104,6 +106,7 @@ func (v *Validator[T]) ValidateCreate(ctx context.Context, obj runtime.Object) (
 	if err != nil {
 		return nil, err
 	}
+
 	if !v.needCreateValidate(o) {
 		return nil, nil
 	}
@@ -115,6 +118,7 @@ func (v *Validator[T]) ValidateCreate(ctx context.Context, obj runtime.Object) (
 		if err != nil {
 			return nil, err
 		}
+
 		warnings = append(warnings, warn...)
 	}
 
@@ -125,8 +129,10 @@ func (v *Validator[T]) ValidateUpdate(ctx context.Context, oldObj, newObj runtim
 	if len(v.update) == 0 {
 		err = fmt.Errorf("misconfigured webhook rules: update operation not implemented")
 		v.log.Error("Ensure the correctness of ValidatingWebhookConfiguration", logger.SlogErr(err))
+
 		return nil, nil
 	}
+
 	defer func() {
 		if err != nil {
 			v.logErr(err)
@@ -137,13 +143,16 @@ func (v *Validator[T]) ValidateUpdate(ctx context.Context, oldObj, newObj runtim
 	if err != nil {
 		return nil, err
 	}
+
 	newO, err := v.newObject(newObj)
 	if err != nil {
 		return nil, err
 	}
+
 	if !v.needUpdateValidate(oldO, newO) {
 		return nil, nil
 	}
+
 	var warnings admission.Warnings
 
 	for _, validator := range v.update {
@@ -151,6 +160,7 @@ func (v *Validator[T]) ValidateUpdate(ctx context.Context, oldObj, newObj runtim
 		if err != nil {
 			return nil, err
 		}
+
 		warnings = append(warnings, warn...)
 	}
 
@@ -161,8 +171,10 @@ func (v *Validator[T]) ValidateDelete(ctx context.Context, obj runtime.Object) (
 	if len(v.delete) == 0 {
 		err = fmt.Errorf("misconfigured webhook rules: delete operation not implemented")
 		v.log.Error("Ensure the correctness of ValidatingWebhookConfiguration", logger.SlogErr(err))
+
 		return nil, nil
 	}
+
 	defer func() {
 		if err != nil {
 			v.logErr(err)
@@ -173,6 +185,7 @@ func (v *Validator[T]) ValidateDelete(ctx context.Context, obj runtime.Object) (
 	if err != nil {
 		return nil, err
 	}
+
 	if !v.needDeleteValidate(o) {
 		return nil, nil
 	}
@@ -184,6 +197,7 @@ func (v *Validator[T]) ValidateDelete(ctx context.Context, obj runtime.Object) (
 		if err != nil {
 			return nil, err
 		}
+
 		warnings = append(warnings, warn...)
 	}
 
@@ -196,6 +210,7 @@ func (v *Validator[T]) newObject(obj runtime.Object) (T, error) {
 		var empty T
 		return empty, fmt.Errorf("expected a new %T but got a %T", empty, newObj)
 	}
+
 	return newObj, nil
 }
 
@@ -203,6 +218,7 @@ func (v *Validator[T]) needCreateValidate(obj T) bool {
 	if v.predicate != nil && v.predicate.Create != nil {
 		return v.predicate.Create(obj)
 	}
+
 	return true
 }
 
@@ -210,6 +226,7 @@ func (v *Validator[T]) needUpdateValidate(oldObj, newObj T) bool {
 	if v.predicate != nil && v.predicate.Update != nil {
 		return v.predicate.Update(oldObj, newObj)
 	}
+
 	return true
 }
 
@@ -217,6 +234,7 @@ func (v *Validator[T]) needDeleteValidate(obj T) bool {
 	if v.predicate != nil && v.predicate.Delete != nil {
 		return v.predicate.Delete(obj)
 	}
+
 	return true
 }
 

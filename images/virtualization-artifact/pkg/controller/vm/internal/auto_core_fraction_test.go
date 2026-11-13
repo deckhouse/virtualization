@@ -60,6 +60,7 @@ var _ = Describe("AutoCoreFractionHandler", func() {
 			string(featuregates.VerticalVirtualMachineAutoscaler):     autoscaler,
 			string(featuregates.HotplugCPUAndMemoryWithInPlaceResize): inPlaceResize,
 		})).To(Succeed())
+
 		return g
 	}
 
@@ -80,20 +81,24 @@ var _ = Describe("AutoCoreFractionHandler", func() {
 
 	expectCondition := func(vm *v1alpha2.VirtualMachine, status metav1.ConditionStatus, reason vmcondition.CoreFractionAutoscalingReason) metav1.Condition {
 		GinkgoHelper()
+
 		cond, found := conditions.GetCondition(vmcondition.TypeCoreFractionAutoscaling, vm.Status.Conditions)
 		Expect(found).To(BeTrue())
 		Expect(cond.Status).To(Equal(status))
 		Expect(cond.Reason).To(Equal(reason.String()))
+
 		return cond
 	}
 
 	newRecorder := func() *eventrecord.EventRecorderLoggerMock {
 		var rec *eventrecord.EventRecorderLoggerMock
+
 		rec = &eventrecord.EventRecorderLoggerMock{
 			EventFunc:       func(_ client.Object, _, _, _ string) {},
 			EventfFunc:      func(_ client.Object, _, _, _ string, _ ...interface{}) {},
 			WithLoggingFunc: func(_ eventrecord.InfoLogger) eventrecord.EventRecorderLogger { return rec },
 		}
+
 		return rec
 	}
 
@@ -106,6 +111,7 @@ var _ = Describe("AutoCoreFractionHandler", func() {
 			},
 		}
 		sizingpolicy.SetRecommendedCoreFraction(vm, autoCoreFraction)
+
 		return vm
 	}
 
@@ -145,16 +151,20 @@ var _ = Describe("AutoCoreFractionHandler", func() {
 		h := NewAutoCoreFractionHandler(fakeClient, rec, fakeClient.Scheme(), service.NewCoreFractionService(), g)
 		_, err := h.Handle(ctx, vmState)
 		Expect(err).NotTo(HaveOccurred())
+
 		return fakeClient, vmState.VirtualMachine().Changed()
 	}
 
 	getVPA := func(c client.Client) (*vpav1.VerticalPodAutoscaler, bool) {
 		obj := &vpav1.VerticalPodAutoscaler{}
+
 		err := c.Get(ctx, types.NamespacedName{Name: vpaName, Namespace: namespace}, obj)
 		if apierrors.IsNotFound(err) {
 			return nil, false
 		}
+
 		Expect(err).NotTo(HaveOccurred())
+
 		return obj, true
 	}
 
@@ -162,6 +172,7 @@ var _ = Describe("AutoCoreFractionHandler", func() {
 		// Policy steps [25,50,75,99]; 25 is the closest to the 10% seed target.
 		fakeClient, changed := handle(gate(true), newRecorder(), newVM(v1alpha2.CoreFractionAuto, ""), newClass())
 		Expect(sizingpolicy.RecommendedCoreFraction(changed)).To(Equal("25%"))
+
 		_, ok := getVPA(fakeClient)
 		Expect(ok).To(BeTrue())
 	})
@@ -221,6 +232,7 @@ var _ = Describe("AutoCoreFractionHandler", func() {
 	It("retracts the driven value and deletes the VPA when autoscaling is off", func() {
 		fakeClient, changed := handle(gate(true), newRecorder(), newVM("50%", "75%"), newClass(), newVPA(2000, 1600, 2400))
 		Expect(sizingpolicy.RecommendedCoreFraction(changed)).To(BeEmpty())
+
 		_, ok := getVPA(fakeClient)
 		Expect(ok).To(BeFalse())
 	})
@@ -236,6 +248,7 @@ var _ = Describe("AutoCoreFractionHandler", func() {
 
 		fakeClient, changed := handle(gate(true), newRecorder(), newVM("50%", "75%"), newClass(), foreign)
 		Expect(sizingpolicy.RecommendedCoreFraction(changed)).To(BeEmpty())
+
 		obj := &vpav1.VerticalPodAutoscaler{}
 		Expect(fakeClient.Get(ctx, types.NamespacedName{Name: vmName, Namespace: namespace}, obj)).To(Succeed())
 	})
@@ -243,6 +256,7 @@ var _ = Describe("AutoCoreFractionHandler", func() {
 	It("neither seeds nor creates the VPA when the autoscaler feature is disabled", func() {
 		fakeClient, changed := handle(gate(false), newRecorder(), newVM(v1alpha2.CoreFractionAuto, ""), newClass())
 		Expect(sizingpolicy.RecommendedCoreFraction(changed)).To(BeEmpty())
+
 		_, ok := getVPA(fakeClient)
 		Expect(ok).To(BeFalse())
 	})
@@ -257,6 +271,7 @@ var _ = Describe("AutoCoreFractionHandler", func() {
 	Context("waiting for a recommendation", func() {
 		expectWaiting := func(changed *v1alpha2.VirtualMachine) {
 			GinkgoHelper()
+
 			cond := expectCondition(changed, metav1.ConditionTrue, vmcondition.ReasonWaitingForRecommendation)
 			Expect(cond.Message).To(Equal("The CPU core fraction is selected automatically. " +
 				"The initial value is used until enough CPU usage data is collected."))
@@ -287,6 +302,7 @@ var _ = Describe("AutoCoreFractionHandler", func() {
 			fakeClient, changed := handle(gates(false, true), newRecorder(), newVM(v1alpha2.CoreFractionAuto, "50%"), newClass(), newVPA(2000, 1600, 2400))
 
 			Expect(sizingpolicy.RecommendedCoreFraction(changed)).To(Equal("50%"))
+
 			_, ok := getVPA(fakeClient)
 			Expect(ok).To(BeFalse())
 
@@ -300,6 +316,7 @@ var _ = Describe("AutoCoreFractionHandler", func() {
 			fakeClient, changed := handle(gates(true, false), newRecorder(), newVM(v1alpha2.CoreFractionAuto, "50%"), newClass(), newVPA(2000, 1600, 2400))
 
 			Expect(sizingpolicy.RecommendedCoreFraction(changed)).To(Equal("50%"))
+
 			_, ok := getVPA(fakeClient)
 			Expect(ok).To(BeFalse())
 
@@ -315,6 +332,7 @@ var _ = Describe("AutoCoreFractionHandler", func() {
 			fakeClient, changed := handle(gate(true), newRecorder(), newVM(v1alpha2.CoreFractionAuto, "50%"), classWith(50, 100), newVPA(2000, 1600, 2400))
 
 			Expect(sizingpolicy.RecommendedCoreFraction(changed)).To(Equal("50%"))
+
 			_, ok := getVPA(fakeClient)
 			Expect(ok).To(BeFalse())
 

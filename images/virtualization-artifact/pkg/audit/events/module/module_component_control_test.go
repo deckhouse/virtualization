@@ -50,10 +50,12 @@ type moduleComponentControlTestArgs struct {
 }
 
 var _ = Describe("Module component control events", func() {
-	var event *audit.Event
-	var mod *module.Module
-	var node *corev1.Node
-	var pod *corev1.Pod
+	var (
+		event *audit.Event
+		mod   *module.Module
+		node  *corev1.Node
+		pod   *corev1.Pod
+	)
 
 	currentTime := time.Now()
 
@@ -197,7 +199,6 @@ var _ = Describe("Module component control events", func() {
 				Expect(eventLog.eventLog.QemuVersion).To(Equal("unknown"))
 				Expect(eventLog.eventLog.LibvirtVersion).To(Equal("unknown"))
 			} else {
-
 				Expect(eventLog.eventLog.QemuVersion).To(Equal("9.9.9"))
 				Expect(eventLog.eventLog.LibvirtVersion).To(Equal("1.1.1"))
 			}
@@ -219,10 +220,13 @@ var _ = Describe("Module component control events", func() {
 			// Temporary redirect stdout to /dev/null
 			devNull, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
 			Expect(err).To(BeNil())
+
 			defer func(stdout *os.File) {
 				os.Stdout = stdout
+
 				Expect(devNull.Close()).To(Succeed())
 			}(os.Stdout)
+
 			os.Stdout = devNull
 
 			Expect(eventLog.Log()).To(BeNil())

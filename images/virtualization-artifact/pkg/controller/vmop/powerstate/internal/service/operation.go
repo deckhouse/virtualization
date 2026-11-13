@@ -53,6 +53,7 @@ func isForceRequested(vmop *v1alpha2.VirtualMachineOperation) bool {
 	if vmop == nil {
 		return false
 	}
+
 	return ptr.Deref(vmop.Spec.Force, false)
 }
 

@@ -100,6 +100,7 @@ var _ = Describe("VirtualMachineIPAMForAdditionalNetworks", Label(label.SIGCompu
 			})
 
 			var allocatedIP string
+
 			By("Verify status.networks has ipAddress for cn-4006", func() {
 				updated := refreshVM(ctx, f, testVM)
 				allocatedIP = getVMNetworkIPAddress(updated)
@@ -119,11 +120,14 @@ var _ = Describe("VirtualMachineIPAMForAdditionalNetworks", Label(label.SIGCompu
 
 			By("Restart VM and verify the same IP is kept (stability)", func() {
 				previousRunningTime := time.Now()
+
 				util.RebootVirtualMachineByVMOP(f, testVM)
+
 				err := testVMObs.WaitFor(vmobs.BeRebootedAfter(previousRunningTime), framework.LongTimeout)
 				if err != nil {
 					util.SkipIfGuestPowerActionStuck(ctx, crclient.ObjectKeyFromObject(testVM))
 				}
+
 				Expect(err).NotTo(HaveOccurred())
 				err = testVMObs.WaitFor(vmobs.BeRunning(), framework.LongTimeout)
 				Expect(err).NotTo(HaveOccurred())
@@ -188,11 +192,14 @@ var _ = Describe("VirtualMachineIPAMForAdditionalNetworks", Label(label.SIGCompu
 
 			By("Restart VM and verify the same static IP is kept", func() {
 				previousRunningTime := time.Now()
+
 				util.RebootVirtualMachineByVMOP(f, testVM)
+
 				err := testVMObs.WaitFor(vmobs.BeRebootedAfter(previousRunningTime), framework.LongTimeout)
 				if err != nil {
 					util.SkipIfGuestPowerActionStuck(ctx, crclient.ObjectKeyFromObject(testVM))
 				}
+
 				Expect(err).NotTo(HaveOccurred())
 				err = testVMObs.WaitFor(vmobs.BeRunning(), framework.LongTimeout)
 				Expect(err).NotTo(HaveOccurred())
@@ -306,6 +313,7 @@ var _ = Describe("VirtualMachineIPAMForAdditionalNetworks", Label(label.SIGCompu
 				Expect(err).NotTo(HaveOccurred())
 
 				By("Verify pod was not recreated (hotplug via watcher)")
+
 				podUIDAfter := getVirtLauncherPodUID(ctx, f, testVM.Name, testVM.Namespace)
 				Expect(podUIDAfter).To(Equal(podUIDBefore), "pod should not be recreated on IPAddress creation")
 			})
@@ -364,6 +372,7 @@ var _ = Describe("VirtualMachineIPAMForAdditionalNetworks", Label(label.SIGCompu
 				Expect(f.Clients.GenericClient().Patch(ctx, testVM, crclient.RawPatch(types.JSONPatchType, []byte(patch)))).To(Succeed())
 
 				By("Verify NetworkReady=True with new auto IP and pod not recreated")
+
 				err := testVMObs.WaitFor(haveNetworkReadyWithAutoIPOtherThan(staticIPForHotplugStatic), framework.LongTimeout)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -413,6 +422,7 @@ var _ = Describe("VirtualMachineIPAMForAdditionalNetworks", Label(label.SIGCompu
 				Expect(f.Clients.GenericClient().Patch(ctx, testVM, crclient.RawPatch(types.JSONPatchType, []byte(patch)))).To(Succeed())
 
 				By("Verify NetworkReady=True with static IP and pod not recreated")
+
 				err := testVMObs.WaitFor(haveNetworkReadyWithIP(staticIPForHotplugAuto), framework.LongTimeout)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -449,6 +459,7 @@ var _ = Describe("VirtualMachineIPAMForAdditionalNetworks", Label(label.SIGCompu
 			})
 
 			var allocatedIP string
+
 			By("Record the allocated IP", func() {
 				updated := refreshVM(ctx, f, testVM)
 				allocatedIP = getVMNetworkIPAddress(updated)
@@ -456,6 +467,7 @@ var _ = Describe("VirtualMachineIPAMForAdditionalNetworks", Label(label.SIGCompu
 			})
 
 			var migrateVMOPObs vmopobs.Observer
+
 			By("Migrate VM", func() {
 				migrateVMOP := util.MigrateVirtualMachine(f, testVM, vmop.WithGenerateName("vmop-migrate-ipam-"))
 				migrateVMOPObs = vmopobs.StartObserver(ctx, migrateVMOP)
@@ -464,12 +476,14 @@ var _ = Describe("VirtualMachineIPAMForAdditionalNetworks", Label(label.SIGCompu
 			By("Wait for migration to complete", func() {
 				err := migrateVMOPObs.WaitFor(vmopobs.BeCompleted(), framework.LongTimeout)
 				Expect(err).NotTo(HaveOccurred())
+
 				err = testVMObs.WaitFor(vmobs.HaveMigrationSucceeded(), framework.LongTimeout)
 				if err != nil {
 					// TODO: remove temporary migration skip logic when both known issues
 					// are fixed: kubevirt "client socket is closed" and Volume(s)UpdateError.
 					util.SkipIfKnownMigrationFailureWithContext(ctx, testVM)
 				}
+
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -496,6 +510,7 @@ func neverAwaitRestart(message string) vmobs.Predicate {
 		if cond.Status == metav1.ConditionTrue {
 			return true, fmt.Errorf("%s", message)
 		}
+
 		return false, nil
 	}
 }
@@ -507,6 +522,7 @@ func getVMNetworkIPAddress(vm *v1alpha2.VirtualMachine) string {
 			return n.IPAddress
 		}
 	}
+
 	return ""
 }
 
@@ -520,11 +536,13 @@ func getActiveVirtLauncherPod(ctx context.Context, f *framework.Framework, vmNam
 			"vm.kubevirt.internal.virtualization.deckhouse.io/name": vmName,
 		},
 	)).To(Succeed())
+
 	for i := range podList.Items {
 		if podList.Items[i].Status.Phase == corev1.PodRunning {
 			return &podList.Items[i]
 		}
 	}
+
 	return nil
 }
 
@@ -532,6 +550,7 @@ func getActiveVirtLauncherPod(ctx context.Context, f *framework.Framework, vmNam
 func getVirtLauncherPodUID(ctx context.Context, f *framework.Framework, vmName, namespace string) string {
 	pod := getActiveVirtLauncherPod(ctx, f, vmName, namespace)
 	Expect(pod).NotTo(BeNil(), "active virt-launcher pod should exist")
+
 	return string(pod.UID)
 }
 
@@ -539,6 +558,7 @@ func getVirtLauncherPodUID(ctx context.Context, f *framework.Framework, vmName, 
 func getPodNetworksSpec(ctx context.Context, f *framework.Framework, vmName, namespace string) string {
 	pod := getActiveVirtLauncherPod(ctx, f, vmName, namespace)
 	Expect(pod).NotTo(BeNil(), "active virt-launcher pod should exist")
+
 	return pod.Annotations[annotations.AnnNetworksSpec]
 }
 
@@ -551,6 +571,7 @@ func networkInPodSpec(spec, networkName string) bool {
 func refreshVM(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine) *v1alpha2.VirtualMachine {
 	updated := &v1alpha2.VirtualMachine{}
 	Expect(f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vm), updated)).To(Succeed())
+
 	return updated
 }
 
@@ -577,6 +598,7 @@ func buildIPAMVM(name, ns, vdRootName, ipAddressName string, extraOpts ...vm.Opt
 		}),
 		vm.WithNetwork(v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeMain}),
 	}
+
 	netSpec := v1alpha2.NetworksSpec{
 		Type: v1alpha2.NetworksTypeClusterNetwork,
 		Name: ipamNetworkName,
@@ -584,8 +606,10 @@ func buildIPAMVM(name, ns, vdRootName, ipAddressName string, extraOpts ...vm.Opt
 	if ipAddressName != "" {
 		netSpec.IPAddressName = ipAddressName
 	}
+
 	opts = append(opts, vm.WithNetwork(netSpec))
 	opts = append(opts, extraOpts...)
+
 	return vm.New(opts...)
 }
 
@@ -602,6 +626,7 @@ func haveNetworkNotReady() vmobs.Predicate {
 func haveNetworkNotReadyMentioning(name string) vmobs.Predicate {
 	return func(vm *v1alpha2.VirtualMachine) (bool, error) {
 		cond, exists := conditions.GetCondition(vmcondition.TypeNetworkReady, vm.Status.Conditions)
+
 		return exists &&
 			cond.Status == metav1.ConditionFalse &&
 			cond.Reason == vmcondition.ReasonNetworkNotReady.String() &&
@@ -632,6 +657,7 @@ func haveNetworkReadyWithAutoIPOtherThan(old string) vmobs.Predicate {
 	return func(vm *v1alpha2.VirtualMachine) (bool, error) {
 		cond, _ := conditions.GetCondition(vmcondition.TypeNetworkReady, vm.Status.Conditions)
 		ip := getVMNetworkIPAddress(vm)
+
 		return cond.Status == metav1.ConditionTrue && ip != "" && ip != old, nil
 	}
 }

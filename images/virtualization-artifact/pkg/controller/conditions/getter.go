@@ -37,6 +37,7 @@ func GetKVVMCondition(condType virtv1.VirtualMachineConditionType, conds []virtv
 			return cond, true
 		}
 	}
+
 	return virtv1.VirtualMachineCondition{}, false
 }
 
@@ -46,6 +47,7 @@ func GetKVVMICondition(condType virtv1.VirtualMachineInstanceConditionType, cond
 			return cond, true
 		}
 	}
+
 	return virtv1.VirtualMachineInstanceCondition{}, false
 }
 

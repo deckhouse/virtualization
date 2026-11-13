@@ -106,6 +106,7 @@ func NewCommand() *cobra.Command {
 	cmd.Flags().IntVar(&compressLevel, "compress", compressLevel,
 		"--compress=6: Compression effort from 0 to 9. Higher spends more CPU on both ends; above 6 the gain is negligible")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
+
 	return cmd
 }
 
@@ -124,6 +125,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("--%s must be between 0 and 9, got %d", name, value)
 		}
 	}
+
 	viewerPrefsSet = cmd.Flags().Changed("quality") || cmd.Flags().Changed("compress")
 
 	// Connecting takes the VNC over, so ask about it first — once, before the loop below.
@@ -131,10 +133,12 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+
 	askNamespace := targetNamespace
 	if askNamespace == "" {
 		askNamespace = defaultNamespace
 	}
+
 	if session.AskBeforeConnecting(cmd.Context(), client.VirtualMachines(askNamespace), vmName,
 		subv1alpha2.VNCSession, o.force) == session.Abort {
 		return nil
@@ -146,7 +150,9 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 		listenAddress = "127.0.0.1"
 		klog.V(2).Infof("--proxy-only is set to false, listening on %s\n", listenAddress)
 	}
+
 	listenAddressFmt = listenAddress + ":%d"
+
 	lnAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf(listenAddressFmt, customPort))
 	if err != nil {
 		return fmt.Errorf("can't resolve the address: %s", err.Error())
@@ -240,6 +246,7 @@ func connect(ctx context.Context, ln *net.TCPListener, virtCli kubeclient.Client
 
 	go func() {
 		start := time.Now()
+
 		klog.V(2).Infof("trying to connect to the VM with timeout: %v", ListenTimeout)
 		// Don't set deadline if only proxy is running and VNC is to be connected manually
 		if !proxyOnly {
@@ -249,9 +256,11 @@ func connect(ctx context.Context, ln *net.TCPListener, virtCli kubeclient.Client
 				listenResErr <- err
 			}
 		}
+
 		fd, err := ln.Accept()
 		if err != nil {
 			klog.V(2).Infof("Failed to accept unix sock connection. %s", err.Error())
+
 			listenResErr <- err
 		}
 		defer fd.Close()
@@ -288,6 +297,7 @@ func connect(ctx context.Context, ln *net.TCPListener, virtCli kubeclient.Client
 				viewResErr <- fmt.Errorf("error encountered: %s", err.Error())
 				return
 			}
+
 			_, err = fmt.Fprintln(cmd.OutOrStdout(), string(optionString))
 			if err != nil {
 				viewResErr <- fmt.Errorf("error encountered: %s", err.Error())
@@ -319,6 +329,7 @@ func connect(ctx context.Context, ln *net.TCPListener, virtCli kubeclient.Client
 
 func checkAndRunVNCViewer(ctx context.Context, doneChan chan struct{}, viewResErr chan error, port int) {
 	defer close(doneChan)
+
 	var (
 		err    error
 		output []byte
@@ -326,6 +337,7 @@ func checkAndRunVNCViewer(ctx context.Context, doneChan chan struct{}, viewResEr
 	)
 
 	vncBin := ""
+
 	osType := runtime.GOOS
 	switch osType {
 	case "darwin":
@@ -370,6 +382,7 @@ func checkAndRunVNCViewer(ctx context.Context, doneChan chan struct{}, viewResEr
 		} else {
 			viewResErr <- fmt.Errorf("could not find %s or %s binary in $PATH",
 				RemoteViewer, TigerVNC)
+
 			return
 		}
 	default:
@@ -379,14 +392,17 @@ func checkAndRunVNCViewer(ctx context.Context, doneChan chan struct{}, viewResEr
 
 	if vncBin == "" {
 		klog.Errorf("No supported VNC app found in %s", osType)
+
 		viewResErr <- fmt.Errorf("no supported VNC app found in %s", osType)
 	} else {
 		klog.V(4).Infof("Executing commandline: '%s %v'", vncBin, args)
 		// #nosec No risk for attacket injection. vncBin and args include predefined strings
 		cmd := exec.CommandContext(ctx, vncBin, args...)
+
 		output, err = cmd.CombinedOutput()
 		if err != nil {
 			klog.V(2).Infof("%s execution failed: %v, output: %v", vncBin, err, string(output))
+
 			viewResErr <- err
 		} else {
 			klog.V(2).Infof("%v output: %v", vncBin, string(output))
@@ -411,6 +427,7 @@ func tigerVncArgs(port int) (args []string) {
 	if klog.V(4).Enabled() {
 		args = append(args, "Log=*:stderr:100")
 	}
+
 	return args
 }
 
@@ -423,10 +440,12 @@ func realVncArgs(port int) (args []string) {
 	args = append(args, fmt.Sprintf(listenAddressFmt, port))
 	args = append(args, "-WarnUnencrypted=0")
 	args = append(args, "-Shared=0")
+
 	args = append(args, "-ShareFiles=0")
 	if klog.V(4).Enabled() {
 		args = append(args, "-log=*:stderr:100")
 	}
+
 	return args
 }
 
@@ -435,6 +454,7 @@ func remoteViewerArgs(port int) (args []string) {
 	if klog.V(4).Enabled() {
 		args = append(args, "--debug")
 	}
+
 	return args
 }
 

@@ -49,6 +49,7 @@ func newTestSigner() *registrytoken.Signer {
 	Expect(err).ToNot(HaveOccurred())
 	signer, err := registrytoken.NewSignerFromPEM(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der}))
 	Expect(err).ToNot(HaveOccurred())
+
 	return signer
 }
 
@@ -65,6 +66,7 @@ var _ = Describe("Scoped token secret refresh", func() {
 		ctx = context.Background()
 		scheme = runtime.NewScheme()
 		Expect(corev1.AddToScheme(scheme)).To(Succeed())
+
 		signer = newTestSigner()
 		dest = types.NamespacedName{Name: "dvcr-auth", Namespace: "default"}
 		access = []registrytoken.Access{{Type: "repository", Name: "cvi/img", Actions: []string{"pull", "push"}}}
@@ -87,10 +89,12 @@ var _ = Describe("Scoped token secret refresh", func() {
 	It("does not re-mint while the token is still fresh", func() {
 		c := fake.NewClientBuilder().WithScheme(scheme).Build()
 		Expect(authSecret().CreateScopedTokenCDI(ctx, c, signer, access)).To(Succeed())
+
 		first := &corev1.Secret{}
 		Expect(c.Get(ctx, dest, first)).To(Succeed())
 
 		Expect(authSecret().CreateScopedTokenCDI(ctx, c, signer, access)).To(Succeed())
+
 		second := &corev1.Secret{}
 		Expect(c.Get(ctx, dest, second)).To(Succeed())
 		Expect(second.Data["secretKey"]).To(Equal(first.Data["secretKey"]))
@@ -99,6 +103,7 @@ var _ = Describe("Scoped token secret refresh", func() {
 	It("re-mints when the token is close to expiring", func() {
 		c := fake.NewClientBuilder().WithScheme(scheme).Build()
 		Expect(authSecret().CreateScopedTokenCDI(ctx, c, signer, access)).To(Succeed())
+
 		stale := &corev1.Secret{}
 		Expect(c.Get(ctx, dest, stale)).To(Succeed())
 		before := stale.Data["secretKey"]
@@ -107,6 +112,7 @@ var _ = Describe("Scoped token secret refresh", func() {
 		Expect(c.Update(ctx, stale)).To(Succeed())
 
 		Expect(authSecret().CreateScopedTokenCDI(ctx, c, signer, access)).To(Succeed())
+
 		after := &corev1.Secret{}
 		Expect(c.Get(ctx, dest, after)).To(Succeed())
 		Expect(after.Data["secretKey"]).ToNot(Equal(before))
@@ -115,6 +121,7 @@ var _ = Describe("Scoped token secret refresh", func() {
 	It("scopedTokenValidFor returns zero for missing, unparseable or past expiry", func() {
 		now := time.Now()
 		Expect(scopedTokenValidFor(&corev1.Secret{}, now)).To(BeZero())
+
 		bad := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{scopedTokenExpiryAnnotation: "garbage"}}}
 		Expect(scopedTokenValidFor(bad, now)).To(BeZero())
 		past := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{scopedTokenExpiryAnnotation: now.Add(-time.Hour).Format(time.RFC3339)}}}

@@ -36,6 +36,7 @@ func (e *usbExporter) Export(host, busID string, port int) error {
 	if err != nil {
 		return fmt.Errorf("failed to connect to usbipd: %w", err)
 	}
+
 	defer func() {
 		if err := conn.Close(); err != nil {
 			slog.Error("failed to close connection", slog.String("error", err.Error()))
@@ -73,6 +74,7 @@ func (e *usbExporter) Unexport(host, busID string, port int) error {
 	if err != nil {
 		return fmt.Errorf("failed to connect to usbipd: %w", err)
 	}
+
 	defer func() {
 		if err := conn.Close(); err != nil {
 			slog.Error("failed to close connection", slog.String("error", err.Error()))

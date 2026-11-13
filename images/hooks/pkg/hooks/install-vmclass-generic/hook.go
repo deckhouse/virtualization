@@ -115,6 +115,7 @@ func Reconcile(ctx context.Context, input *pkg.HookInput) error {
 	// Create vmclass/generic and set state in values, as it should be initial module installation.
 	if vmClassGeneric == nil {
 		input.Logger.Info("Install VirtualMachineClass/generic")
+
 		vmClass := vmClassGenericManifest()
 		input.PatchCollector.Create(vmClass)
 	}
@@ -126,6 +127,7 @@ func Reconcile(ctx context.Context, input *pkg.HookInput) error {
 
 	// Set state in values to prevent any further updates to vmclass/generic.
 	input.Values.Set(vmClassInstallationStateValuesPath, vmClassInstallationState{InstalledAt: time.Now()})
+
 	return nil
 }
 
@@ -141,6 +143,7 @@ func parseVMClassInstallationStateFromSnapshot(input *pkg.HookInput) (*vmClassIn
 	}
 
 	var ms corev1.Secret
+
 	err := snap[0].UnmarshalTo(&ms)
 	if err != nil {
 		return nil, err
@@ -152,6 +155,7 @@ func parseVMClassInstallationStateFromSnapshot(input *pkg.HookInput) (*vmClassIn
 	}
 
 	var s vmClassInstallationState
+
 	err = json.Unmarshal(stateRaw, &s)
 	if err != nil {
 		return nil, fmt.Errorf("restore vmclass generic state from secret: %w", err)
@@ -177,11 +181,13 @@ func getVMClassGeneric(ctx context.Context, input *pkg.HookInput) (*v1alpha2.Vir
 	}
 
 	vmClass := &v1alpha2.VirtualMachineClass{}
+
 	err = k8sClient.Get(ctx, client.ObjectKey{Name: vmClassGenericName}, vmClass)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil, nil
 		}
+
 		return nil, fmt.Errorf("get VirtualMachineClass/%s: %w", vmClassGenericName, err)
 	}
 
@@ -270,6 +276,7 @@ func isManagedByModule(vmClass *v1alpha2.VirtualMachineClass) bool {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -305,6 +312,7 @@ func addPatchesToCleanupMetadata(input *pkg.HookInput, vmClass *v1alpha2.Virtual
 		helmReleaseNamespaceAnno,
 	}
 	hasHelmAnnotations := false
+
 	for _, annoName := range annoNames {
 		if _, exists := vmClass.Annotations[annoName]; exists {
 			patches = append(patches, map[string]interface{}{

@@ -86,36 +86,45 @@ func hasBlockDeviceChanges(oldVM, newVM *v1alpha2.VirtualMachine) bool {
 	for _, bd := range oldVM.Spec.BlockDeviceRefs {
 		oldRefs[blockDeviceKey{Kind: bd.Kind, Name: bd.Name}] = struct{}{}
 	}
+
 	newRefs := make(map[blockDeviceKey]struct{}, len(newVM.Spec.BlockDeviceRefs))
 	for _, bd := range newVM.Spec.BlockDeviceRefs {
 		newRefs[blockDeviceKey{Kind: bd.Kind, Name: bd.Name}] = struct{}{}
 	}
+
 	for key := range oldRefs {
 		if _, ok := newRefs[key]; !ok {
 			return true
 		}
 	}
+
 	for key := range newRefs {
 		if _, ok := oldRefs[key]; !ok {
 			return true
 		}
 	}
+
 	return false
 }
 
 func (v *BlockDeviceSpecRefsValidator) validateBootOrder(vm *v1alpha2.VirtualMachine) error {
 	seen := make(map[uint]string)
+
 	for _, bdRef := range vm.Spec.BlockDeviceRefs {
 		if bdRef.BootOrder == nil {
 			continue
 		}
+
 		if *bdRef.BootOrder < 1 {
 			return fmt.Errorf("bootOrder must be >= 1, got %d for %s %q", *bdRef.BootOrder, bdRef.Kind, bdRef.Name)
 		}
+
 		if prev, exists := seen[*bdRef.BootOrder]; exists {
 			return fmt.Errorf("duplicate bootOrder %d: already used by %s, conflicts with %s %q", *bdRef.BootOrder, prev, bdRef.Kind, bdRef.Name)
 		}
+
 		seen[*bdRef.BootOrder] = fmt.Sprintf("%s/%s", bdRef.Kind, bdRef.Name)
 	}
+
 	return nil
 }

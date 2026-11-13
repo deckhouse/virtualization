@@ -73,12 +73,14 @@ var _ = Describe("MainIPAddressHandler", func() {
 	getIPAddress := func(cl client.Client) *sdnapi.IPAddress {
 		ipa := &sdnapi.IPAddress{}
 		Expect(cl.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, ipa)).To(Succeed())
+
 		return ipa
 	}
 
 	listIPAddresses := func(cl client.Client) []sdnapi.IPAddress {
 		ipas := &sdnapi.IPAddressList{}
 		Expect(cl.List(ctx, ipas, client.InNamespace(namespace))).To(Succeed())
+
 		return ipas.Items
 	}
 
@@ -118,6 +120,7 @@ var _ = Describe("MainIPAddressHandler", func() {
 
 		handler := NewMainIPAddressHandler(cl, name, namespace, address, []string{"vm-uid"}, restoreUID)
 		Expect(handler.ProcessRestore(ctx)).To(Succeed())
+
 		detached := getIPAddress(cl)
 
 		Expect(handler.ProcessRestore(ctx)).To(Succeed())

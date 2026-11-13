@@ -43,8 +43,10 @@ func ReadDockerConfigJSON(dockerconfigjson []byte) (*configfile.ConfigFile, erro
 // CredsFromRegistryAuthFile returns username and password for the registry related to ref.
 // It returns auth for the first registry if ref is empty.
 func CredsFromRegistryAuthFile(configFile *configfile.ConfigFile, ref string) (string, string, error) {
-	var authConfig types.AuthConfig
-	var host string
+	var (
+		authConfig types.AuthConfig
+		host       string
+	)
 
 	if ref == "" {
 		// Get credentials for the first entry.
@@ -52,6 +54,7 @@ func CredsFromRegistryAuthFile(configFile *configfile.ConfigFile, ref string) (s
 		if err != nil {
 			return "", "", err
 		}
+
 		for _, v := range auths {
 			authConfig = v
 			break
@@ -72,14 +75,18 @@ func CredsFromRegistryAuthFile(configFile *configfile.ConfigFile, ref string) (s
 		}
 
 		var err error
+
 		authConfig, err = configFile.GetAuthConfig(host)
 		if err != nil {
 			return "", "", fmt.Errorf("get auth config for %s: %w", host, err)
 		}
 	}
 
-	var username, password string
-	var err error
+	var (
+		username, password string
+		err                error
+	)
+
 	switch {
 	case authConfig.IdentityToken != "":
 		return "", "", fmt.Errorf("identity token not supported")
@@ -105,10 +112,12 @@ func decodeAuth(authStr string) (string, string, error) {
 	decLen := base64.StdEncoding.DecodedLen(len(authStr))
 	decoded := make([]byte, decLen)
 	authByte := []byte(authStr)
+
 	n, err := base64.StdEncoding.Decode(decoded, authByte)
 	if err != nil {
 		return "", "", err
 	}
+
 	if n > decLen {
 		return "", "", fmt.Errorf("something went wrong decoding auth config")
 	}

@@ -34,6 +34,7 @@ func main() {
 		if !errors.Is(err, report.ErrFailed) {
 			fmt.Fprintln(os.Stderr, err)
 		}
+
 		os.Exit(1)
 	}
 }

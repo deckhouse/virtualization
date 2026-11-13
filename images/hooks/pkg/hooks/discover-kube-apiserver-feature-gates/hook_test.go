@@ -169,6 +169,7 @@ var _ = Describe("reconcile", func() {
 		))
 
 		setValues := make(map[string]any)
+
 		values.SetMock.Set(func(path string, v any) {
 			setValues[path] = v
 		})
@@ -188,11 +189,14 @@ var _ = Describe("reconcile", func() {
 
 func joinLines(lines ...string) string {
 	result := ""
+
 	for i, line := range lines {
 		if i > 0 {
 			result += "\n"
 		}
+
 		result += line
 	}
+
 	return result
 }

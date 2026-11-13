@@ -45,6 +45,7 @@ const testNamespace = "ns"
 
 func newTestScheme(t *testing.T) *apiruntime.Scheme {
 	t.Helper()
+
 	scheme := apiruntime.NewScheme()
 	for _, f := range []func(*apiruntime.Scheme) error{
 		clientgoscheme.AddToScheme,
@@ -59,21 +60,25 @@ func newTestScheme(t *testing.T) *apiruntime.Scheme {
 			t.Fatal(err)
 		}
 	}
+
 	return scheme
 }
 
 func newTestReconciler(t *testing.T, objs ...client.Object) *Reconciler {
 	t.Helper()
 	c := fake.NewClientBuilder().WithScheme(newTestScheme(t)).WithObjects(objs...).WithStatusSubresource(&v1alpha2.VirtualDiskSnapshot{}).Build()
+
 	return &Reconciler{Client: c, APIReader: c}
 }
 
 func getVDS(t *testing.T, c client.Client) *v1alpha2.VirtualDiskSnapshot {
 	t.Helper()
+
 	vds := &v1alpha2.VirtualDiskSnapshot{}
 	if err := c.Get(context.Background(), types.NamespacedName{Namespace: testNamespace, Name: "vds1"}, vds); err != nil {
 		t.Fatalf("get VirtualDiskSnapshot: %v", err)
 	}
+
 	return vds
 }
 
@@ -92,6 +97,7 @@ func TestReconcile_DeletionTimestampIsANoOp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if res != (ctrl.Result{}) {
 		t.Fatalf("expected a no-op result, got %+v", res)
 	}
@@ -108,6 +114,7 @@ func TestReconcile_UnpinnedObjectIsTakenOver(t *testing.T) {
 	if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNamespace, Name: "vds1"}}); err != nil {
 		t.Fatal(err)
 	}
+
 	if got := getVDS(t, r.Client).Status.Phase; got != v1alpha2.VirtualDiskSnapshotPhasePending {
 		t.Fatalf("expected the reconciler to take an unpinned object over, got phase %q", got)
 	}
@@ -128,9 +135,11 @@ func TestReconcile_BuiltInPinIsANoOp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if res != (ctrl.Result{}) {
 		t.Fatalf("expected a no-op result, got %+v", res)
 	}
+
 	if getVDS(t, r.Client).Status.Phase != "" {
 		t.Fatal("expected phase to stay empty for an object pinned to the built-in mechanism")
 	}
@@ -147,9 +156,11 @@ func TestReconcile_BootstrapsPendingPhase(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if res.RequeueAfter == 0 {
 		t.Fatalf("expected RequeueAfter, got %+v", res)
 	}
+
 	if got := getVDS(t, r.Client).Status.Phase; got != v1alpha2.VirtualDiskSnapshotPhasePending {
 		t.Fatalf("got phase %q, want Pending", got)
 	}
@@ -167,6 +178,7 @@ func TestReconcile_WaitsWhenSourceVirtualDiskIsMissing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if res.RequeueAfter != requeueAfter {
 		t.Fatalf("got RequeueAfter %v, want %v", res.RequeueAfter, requeueAfter)
 	}
@@ -175,6 +187,7 @@ func TestReconcile_WaitsWhenSourceVirtualDiskIsMissing(t *testing.T) {
 	if got.Status.CaptureState == nil || got.Status.CaptureState.DomainSpecificController == nil {
 		t.Fatal("expected DomainSpecificController capture state to be published")
 	}
+
 	if got.Status.CaptureState.DomainSpecificController.Message == "" {
 		t.Fatal("expected a waiting message explaining the missing VirtualDisk")
 	}
@@ -196,6 +209,7 @@ func TestReconcile_WaitsWhenBackingPVCIsNotProvisionedYet(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if res.RequeueAfter != requeueAfter {
 		t.Fatalf("got RequeueAfter %v, want %v", res.RequeueAfter, requeueAfter)
 	}
@@ -204,6 +218,7 @@ func TestReconcile_WaitsWhenBackingPVCIsNotProvisionedYet(t *testing.T) {
 	if got.Status.CaptureState == nil || got.Status.CaptureState.DomainSpecificController == nil {
 		t.Fatal("expected DomainSpecificController capture state to be published")
 	}
+
 	if got.Status.CaptureState.DomainSpecificController.Message == "" {
 		t.Fatal("expected a waiting message explaining the unprovisioned PVC")
 	}
@@ -223,6 +238,7 @@ func TestPatchStatus_OnlyTouchesOwnedFields(t *testing.T) {
 
 	vds.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseReady
 	vds.Status.Consistent = ptr.To(true)
+
 	vds.Status.StorageClassName = "ssd"
 	if err := r.patchStatus(context.Background(), vds); err != nil {
 		t.Fatal(err)
@@ -232,9 +248,11 @@ func TestPatchStatus_OnlyTouchesOwnedFields(t *testing.T) {
 	if got.Status.Phase != v1alpha2.VirtualDiskSnapshotPhaseReady {
 		t.Fatalf("got phase %q, want Ready", got.Status.Phase)
 	}
+
 	if got.Status.StorageClassName != "ssd" {
 		t.Fatalf("got storageClassName %q, want ssd", got.Status.StorageClassName)
 	}
+
 	if got.Status.CaptureState == nil || got.Status.CaptureState.CommonController == nil || got.Status.CaptureState.CommonController.ManifestCaptured == nil || !*got.Status.CaptureState.CommonController.ManifestCaptured {
 		t.Fatal("expected the core-owned captureState.commonController to survive the domain controller's own status patch untouched")
 	}
@@ -299,6 +317,7 @@ func TestReconcile_MultipleAttachedVirtualMachines(t *testing.T) {
 			}
 
 			got := getVDS(t, r.Client)
+
 			failed := got.Status.Phase == v1alpha2.VirtualDiskSnapshotPhaseFailed
 			if failed != tt.wantFailed {
 				d := got.Status.CaptureState.DomainSpecificController
@@ -349,6 +368,7 @@ func TestReconcile_ImportModeOnlyMirrorsTheCoreProgress(t *testing.T) {
 					Reason: "Imported",
 				}}
 			}
+
 			r := newTestReconciler(t, vds)
 
 			if _, err := r.Reconcile(context.Background(), ctrl.Request{
@@ -361,9 +381,11 @@ func TestReconcile_ImportModeOnlyMirrorsTheCoreProgress(t *testing.T) {
 			if got.Status.Phase != tt.wantPhase {
 				t.Errorf("phase = %q, want %q", got.Status.Phase, tt.wantPhase)
 			}
+
 			if got.Status.Consistent != nil {
 				t.Errorf("consistent = %v, want it left unset on an import", *got.Status.Consistent)
 			}
+
 			if got.Status.CaptureState != nil {
 				t.Errorf("captureState = %+v; an import must not enter the capture state machine", got.Status.CaptureState)
 			}
@@ -405,6 +427,7 @@ func TestReconcile_MirrorsTheSizeTheDiskDeclares(t *testing.T) {
 			if tt.declared != "" {
 				vd.Spec.PersistentVolumeClaim.Size = ptr.To(resource.MustParse(tt.declared))
 			}
+
 			pvc := &corev1.PersistentVolumeClaim{
 				ObjectMeta: metav1.ObjectMeta{Name: "pvc1", Namespace: testNamespace},
 				Spec: corev1.PersistentVolumeClaimSpec{
@@ -537,12 +560,14 @@ func TestReconcile_ConsistencyFallsBackToTheParentFreezeRecord(t *testing.T) {
 			}
 
 			got := getVDS(t, r.Client)
+
 			failed := got.Status.Phase == v1alpha2.VirtualDiskSnapshotPhaseFailed
 			if failed != tt.wantFailed {
 				d := got.Status.CaptureState.DomainSpecificController
 				t.Fatalf("failed = %v, want %v (phase %q, reason %q, message %q)",
 					failed, tt.wantFailed, got.Status.Phase, d.Reason, d.Message)
 			}
+
 			if tt.wantConsistent {
 				if got.Status.Consistent == nil || !*got.Status.Consistent {
 					t.Errorf("consistent = %v, want true: the parent vouched for the freeze", got.Status.Consistent)
@@ -572,6 +597,7 @@ func newVCR(ready *metav1.Condition) *foundationv1alpha1.VolumeCaptureRequest {
 	if ready != nil {
 		vcr.Status.Conditions = []metav1.Condition{*ready}
 	}
+
 	return vcr
 }
 
@@ -588,12 +614,15 @@ func TestDataCaptureRetry_RelaysTheStorageError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if terminal {
 		t.Fatal("an unrecognized storage error must not be terminal")
 	}
+
 	if reason != reasonDataCaptureRetrying {
 		t.Fatalf("reason = %q, want %q", reason, reasonDataCaptureRetrying)
 	}
+
 	for _, want := range []string{`"vd1"`, "TargetsPending", "not of 'Thin' type"} {
 		if !strings.Contains(message, want) {
 			t.Fatalf("message %q does not contain %q", message, want)
@@ -612,16 +641,19 @@ func TestDataCaptureRetry_StaysQuietWithoutAProblem(t *testing.T) {
 	for name, vcr := range tests {
 		t.Run(name, func(t *testing.T) {
 			vds := newCapturingVDS()
+
 			objs := []client.Object{vds}
 			if vcr != nil {
 				objs = append(objs, vcr)
 			}
+
 			r := newTestReconciler(t, objs...)
 
 			reason, message, terminal, err := r.dataCaptureRetry(context.Background(), &adapter.VirtualDiskSnapshotAdapter{VDS: vds}, vds)
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			if reason != "" || message != "" || terminal {
 				t.Fatalf("got %q / %q, want nothing", reason, message)
 			}
@@ -644,9 +676,11 @@ func TestDataCaptureRetry_UnsupportedDriverIsTerminal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if !terminal || reason != reasonSnapshotsNotSupported {
 		t.Fatalf("terminal = %v, reason = %q, want a terminal %q", terminal, reason, reasonSnapshotsNotSupported)
 	}
+
 	if !strings.Contains(message, `"linstor-thick-r1"`) || strings.Contains(message, "LVM") || strings.Contains(message, "rpc error") {
 		t.Fatalf("message %q must name the StorageClass and hide the storage text", message)
 	}
@@ -659,6 +693,7 @@ func TestReconcile_UnsupportedDriverFailsTheSnapshot(t *testing.T) {
 		Type: foundationv1alpha1.ConditionTypeReady, Status: metav1.ConditionFalse,
 		Message: "Storage driver ''LVM'' does not support snapshots.",
 	}))
+
 	reason, message, terminal, err := r.dataCaptureRetry(context.Background(), &adapter.VirtualDiskSnapshotAdapter{VDS: vds}, vds)
 	if err != nil || !terminal {
 		t.Fatalf("terminal = %v, err = %v", terminal, err)
@@ -672,6 +707,7 @@ func TestReconcile_UnsupportedDriverFailsTheSnapshot(t *testing.T) {
 	if got.Status.Phase != v1alpha2.VirtualDiskSnapshotPhaseFailed {
 		t.Fatalf("phase = %q, want Failed", got.Status.Phase)
 	}
+
 	if d := got.Status.CaptureState.DomainSpecificController; d.Reason != reasonSnapshotsNotSupported || d.Message != message {
 		t.Fatalf("domain state = %+v", d)
 	}

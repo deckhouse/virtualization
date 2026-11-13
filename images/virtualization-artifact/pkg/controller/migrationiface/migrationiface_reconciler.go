@@ -95,10 +95,13 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		if obj.GetLabels()[sdnInterfaceType] != sdnInterfaceVLAN {
 			return ""
 		}
+
 		if n := obj.GetLabels()[sdnNodeNameLabel]; n != "" {
 			return n
 		}
+
 		n, _, _ := unstructured.NestedString(obj.Object, "spec", "nodeName")
+
 		return n
 	})
 
@@ -113,11 +116,13 @@ func (r *Reconciler) watchSdnKind(
 ) {
 	obj := &unstructured.Unstructured{}
 	obj.SetGroupVersionKind(gvk)
+
 	err := ctr.Watch(source.Kind(mgr.GetCache(), obj,
 		handler.TypedEnqueueRequestsFromMapFunc(func(_ context.Context, o *unstructured.Unstructured) []reconcile.Request {
 			if n := toNodeName(o); n != "" {
 				return []reconcile.Request{{NamespacedName: types.NamespacedName{Name: n}}}
 			}
+
 			return nil
 		}),
 	))
@@ -133,6 +138,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		if apierrors.IsNotFound(err) {
 			return reconcile.Result{}, nil
 		}
+
 		return reconcile.Result{}, err
 	}
 
@@ -149,6 +155,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	if desired != "" {
 		value = desired
 	}
+
 	patch, err := json.Marshal(map[string]any{
 		"metadata": map[string]any{
 			"annotations": map[string]any{annotations.AnnMigrationIface: value},
@@ -157,6 +164,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	if err := r.client.Patch(ctx, &node, client.RawPatch(types.StrategicMergePatchType, patch)); err != nil {
 		return reconcile.Result{}, fmt.Errorf("patch node %q annotation: %w", node.Name, err)
 	}
@@ -166,12 +174,14 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		"systemNetwork", r.systemNetworkName,
 		"interface", desired,
 	)
+
 	return reconcile.Result{}, nil
 }
 
 func (r *Reconciler) resolveInterfaceForNode(ctx context.Context, nodeName string) (string, error) {
 	list := &unstructured.UnstructuredList{}
 	list.SetGroupVersionKind(schema.GroupVersionKind{Group: sdnGroup, Version: sdnVersion, Kind: snnniaGVK.Kind + "List"})
+
 	err := r.client.List(ctx, list, client.MatchingFields{
 		indexer.IndexFieldSNNNIAByNodeName:          nodeName,
 		indexer.IndexFieldSNNNIABySystemNetworkName: r.systemNetworkName,
@@ -180,6 +190,7 @@ func (r *Reconciler) resolveInterfaceForNode(ctx context.Context, nodeName strin
 		if meta.IsNoMatchError(err) {
 			return "", nil
 		}
+
 		return "", fmt.Errorf("list %s: %w", snnniaGVK.Kind, err)
 	}
 
@@ -188,20 +199,26 @@ func (r *Reconciler) resolveInterfaceForNode(ctx context.Context, nodeName strin
 		if nniName == "" {
 			continue
 		}
+
 		return r.ifNameFromNNI(ctx, nniName)
 	}
+
 	return "", nil
 }
 
 func (r *Reconciler) ifNameFromNNI(ctx context.Context, nniName string) (string, error) {
 	nni := &unstructured.Unstructured{}
 	nni.SetGroupVersionKind(nniGVK)
+
 	if err := r.client.Get(ctx, client.ObjectKey{Name: nniName}, nni); err != nil {
 		if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
 			return "", nil
 		}
+
 		return "", fmt.Errorf("get %s %q: %w", nniGVK.Kind, nniName, err)
 	}
+
 	ifName, _, _ := unstructured.NestedString(nni.Object, "status", "ifName")
+
 	return ifName, nil
 }

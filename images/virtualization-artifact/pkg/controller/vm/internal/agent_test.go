@@ -57,11 +57,13 @@ var _ = Describe("AgentHandler Tests", func() {
 	newVM := func(phase v1alpha2.MachinePhase) *v1alpha2.VirtualMachine {
 		vm := vmbuilder.NewEmpty(name, namespace)
 		vm.Status.Phase = phase
+
 		return vm
 	}
 
 	newKVVMI := func(agentConnected, agentUnsupported bool) *virtv1.VirtualMachineInstance {
 		kvvmi := newEmptyKVVMI(name, namespace)
+
 		conditions := make([]virtv1.VirtualMachineInstanceCondition, 0)
 		if agentConnected {
 			conditions = append(conditions, virtv1.VirtualMachineInstanceCondition{
@@ -69,6 +71,7 @@ var _ = Describe("AgentHandler Tests", func() {
 				Status: corev1.ConditionTrue,
 			})
 		}
+
 		if agentUnsupported {
 			conditions = append(conditions, virtv1.VirtualMachineInstanceCondition{
 				Type:   virtv1.VirtualMachineInstanceUnsupportedAgent,
@@ -82,6 +85,7 @@ var _ = Describe("AgentHandler Tests", func() {
 		}
 
 		kvvmi.Status.Conditions = conditions
+
 		return kvvmi
 	}
 
@@ -107,6 +111,7 @@ var _ = Describe("AgentHandler Tests", func() {
 
 			cond, exists := conditions.GetCondition(vmcondition.TypeAgentReady, newVM.Status.Conditions)
 			Expect(exists).To(Equal(expectedExistence))
+
 			if exists {
 				Expect(cond.Status).To(Equal(expectedStatus))
 			}
@@ -144,6 +149,7 @@ var _ = Describe("AgentHandler Tests", func() {
 
 			cond, exists := conditions.GetCondition(vmcondition.TypeAgentVersionNotSupported, newVM.Status.Conditions)
 			Expect(exists).To(Equal(expectedExistence))
+
 			if exists {
 				Expect(cond.Status).To(Equal(expectedStatus))
 			}

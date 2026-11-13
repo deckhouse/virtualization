@@ -59,15 +59,18 @@ func newFullTestReconciler(t *testing.T, objs ...client.Object) *Reconciler {
 		WithIndex(indexer.IndexVMSnapshotByVM()).
 		WithIndex(indexer.IndexVDSnapshotByVD()).
 		Build()
+
 	return &Reconciler{Client: c, APIReader: c, Freezer: service.NewSnapshotService(unfreezingVirtClient{}, c, nil), Log: log.NewNop()}
 }
 
 func getVMS(t *testing.T, c client.Client) *v1alpha2.VirtualMachineSnapshot {
 	t.Helper()
+
 	vms := &v1alpha2.VirtualMachineSnapshot{}
 	if err := c.Get(context.Background(), types.NamespacedName{Namespace: testNamespace, Name: "vms1"}, vms); err != nil {
 		t.Fatalf("get VirtualMachineSnapshot: %v", err)
 	}
+
 	return vms
 }
 
@@ -86,6 +89,7 @@ func TestReconcile_DeletionTimestampIsANoOp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if res != (ctrl.Result{}) {
 		t.Fatalf("expected a no-op result, got %+v", res)
 	}
@@ -102,6 +106,7 @@ func TestReconcile_UnpinnedObjectIsTakenOver(t *testing.T) {
 	if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNamespace, Name: "vms1"}}); err != nil {
 		t.Fatal(err)
 	}
+
 	if got := getVMS(t, r.Client).Status.Phase; got != v1alpha2.VirtualMachineSnapshotPhasePending {
 		t.Fatalf("expected the reconciler to take an unpinned object over, got phase %q", got)
 	}
@@ -122,9 +127,11 @@ func TestReconcile_BuiltInPinIsANoOp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if res != (ctrl.Result{}) {
 		t.Fatalf("expected a no-op result, got %+v", res)
 	}
+
 	if getVMS(t, r.Client).Status.Phase != "" {
 		t.Fatal("expected phase to stay empty for an object pinned to the built-in mechanism")
 	}
@@ -141,9 +148,11 @@ func TestReconcile_BootstrapsPendingPhase(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if res.RequeueAfter == 0 {
 		t.Fatalf("expected RequeueAfter, got %+v", res)
 	}
+
 	if got := getVMS(t, r.Client).Status.Phase; got != v1alpha2.VirtualMachineSnapshotPhasePending {
 		t.Fatalf("got phase %q, want Pending", got)
 	}
@@ -161,6 +170,7 @@ func TestReconcile_WaitsWhenSourceVirtualMachineIsMissing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if res.RequeueAfter != requeueAfter {
 		t.Fatalf("got RequeueAfter %v, want %v", res.RequeueAfter, requeueAfter)
 	}
@@ -169,6 +179,7 @@ func TestReconcile_WaitsWhenSourceVirtualMachineIsMissing(t *testing.T) {
 	if got.Status.CaptureState == nil || got.Status.CaptureState.DomainSpecificController == nil {
 		t.Fatal("expected DomainSpecificController capture state to be published")
 	}
+
 	if got.Status.CaptureState.DomainSpecificController.Message == "" {
 		t.Fatal("expected a waiting message explaining the missing VirtualMachine")
 	}
@@ -187,6 +198,7 @@ func TestPatchStatus_OnlyTouchesOwnedFields(t *testing.T) {
 	r := newFullTestReconciler(t, vms)
 
 	vms.Status.Phase = v1alpha2.VirtualMachineSnapshotPhaseReady
+
 	vms.Status.Consistent = ptr.To(true)
 	if err := r.patchStatus(context.Background(), vms); err != nil {
 		t.Fatal(err)
@@ -196,9 +208,11 @@ func TestPatchStatus_OnlyTouchesOwnedFields(t *testing.T) {
 	if got.Status.Phase != v1alpha2.VirtualMachineSnapshotPhaseReady {
 		t.Fatalf("got phase %q, want Ready", got.Status.Phase)
 	}
+
 	if got.Status.Consistent == nil || !*got.Status.Consistent {
 		t.Fatal("expected Consistent to be patched to true")
 	}
+
 	if got.Status.CaptureState == nil || got.Status.CaptureState.CommonController == nil || got.Status.CaptureState.CommonController.ManifestCaptured == nil || !*got.Status.CaptureState.CommonController.ManifestCaptured {
 		t.Fatal("expected the core-owned captureState.commonController to survive the domain controller's own status patch untouched")
 	}
@@ -228,9 +242,11 @@ func TestPlanChildren(t *testing.T) {
 	if err != nil {
 		t.Fatalf("planChildren: %v", err)
 	}
+
 	if len(excluded) != 0 {
 		t.Fatalf("expected nothing excluded, got %+v", excluded)
 	}
+
 	if len(children) != 2 {
 		t.Fatalf("expected exactly 2 disk children, got %d: %+v", len(children), children)
 	}
@@ -239,24 +255,29 @@ func TestPlanChildren(t *testing.T) {
 		snapshotsdk.ChildSnapshotName(vms.UID, types.UID("disk-uid-1")): false,
 		snapshotsdk.ChildSnapshotName(vms.UID, types.UID("disk-uid-2")): false,
 	}
+
 	for _, c := range children {
 		vds, ok := c.Object.(*v1alpha2.VirtualDiskSnapshot)
 		if !ok {
 			t.Fatalf("expected a *v1alpha2.VirtualDiskSnapshot child, got %T", c.Object)
 		}
+
 		if _, ok := wantNames[vds.Name]; !ok {
 			t.Fatalf("unexpected child name %q", vds.Name)
 		}
+
 		wantNames[vds.Name] = true
 		// No mechanism annotation: a child resolves its mechanism from this parent's captureState, so
 		// that a controller restart or an upgrade mid-capture cannot separate the two.
 		if len(vds.Annotations) != 0 {
 			t.Fatalf("expected child %q to carry no mechanism annotation, got %v", vds.Name, vds.Annotations)
 		}
+
 		if !vds.Spec.RequiredConsistency {
 			t.Fatalf("expected child %q to inherit RequiredConsistency from the parent spec", vds.Name)
 		}
 	}
+
 	for name, seen := range wantNames {
 		if !seen {
 			t.Fatalf("expected a child named %q, none was produced", name)
@@ -331,6 +352,7 @@ func planningGateVMS(mcrName string, manifestCaptured *bool) *v1alpha2.VirtualMa
 			},
 		},
 	}
+
 	return vms
 }
 
@@ -350,6 +372,7 @@ func TestReconcile_ManifestLegIsNotRePlannedOnceEstablished(t *testing.T) {
 	if d := got.Status.CaptureState.DomainSpecificController; d.Phase == v1alpha2.UnifiedSnapshotterPhase(snapshotsdk.PhaseFailed) {
 		t.Fatalf("capture was failed after the manifest leg was established: reason=%q message=%q", d.Reason, d.Message)
 	}
+
 	if got.Status.Phase == v1alpha2.VirtualMachineSnapshotPhaseFailed {
 		t.Fatalf("VMS phase went Failed, want the established capture to survive")
 	}
@@ -404,6 +427,7 @@ func TestReconcile_TransientChildrenErrorIsRetriedNotFatal(t *testing.T) {
 				if _, ok := obj.(*v1alpha2.VirtualDiskSnapshot); ok {
 					return boom
 				}
+
 				return cl.Create(ctx, obj, opts...)
 			},
 		}).
@@ -419,6 +443,7 @@ func TestReconcile_TransientChildrenErrorIsRetriedNotFatal(t *testing.T) {
 	if got.Status.Phase == v1alpha2.VirtualMachineSnapshotPhaseFailed {
 		t.Fatal("VMS phase went Failed on a transient error")
 	}
+
 	if cs := got.Status.CaptureState; cs != nil && cs.DomainSpecificController != nil &&
 		cs.DomainSpecificController.Phase == v1alpha2.UnifiedSnapshotterPhase(snapshotsdk.PhaseFailed) {
 		t.Fatalf("capture was failed on a transient error: reason=%q", cs.DomainSpecificController.Reason)
@@ -447,6 +472,7 @@ func TestReconcile_UnresolvableSourceFailsAfterBootstrap(t *testing.T) {
 	if _, err := r.Reconcile(context.Background(), req); err != nil {
 		t.Fatal(err)
 	}
+
 	if got := getVMS(t, r.Client).Status.Phase; got != v1alpha2.VirtualMachineSnapshotPhasePending {
 		t.Fatalf("first reconcile should bootstrap the phase, got %q", got)
 	}
@@ -454,10 +480,12 @@ func TestReconcile_UnresolvableSourceFailsAfterBootstrap(t *testing.T) {
 	if _, err := r.Reconcile(context.Background(), req); err != nil {
 		t.Fatal(err)
 	}
+
 	got := getVMS(t, r.Client)
 	if got.Status.Phase != v1alpha2.VirtualMachineSnapshotPhaseFailed {
 		t.Fatalf("second reconcile should fail the capture, got phase %q", got.Status.Phase)
 	}
+
 	d := got.Status.CaptureState.DomainSpecificController
 	if d.Phase != v1alpha2.UnifiedSnapshotterPhase(snapshotsdk.PhaseFailed) || d.Reason != reasonInvalidSource {
 		t.Fatalf("got domain phase %q reason %q, want Failed/%s", d.Phase, d.Reason, reasonInvalidSource)
@@ -502,6 +530,7 @@ func TestCleanupSource_FallsBackToTheRecordedSource(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			switch {
 			case tt.wantName == "" && got != nil:
 				t.Fatalf("expected no VirtualMachine to unfreeze, got %q", got.Name)
@@ -553,16 +582,20 @@ func TestChildVirtualDiskSnapshots_EmptyRefsFallBackToOwnership(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if len(got) != 1 || got[0].Name != "child-of-vms1" {
 		names := make([]string, 0, len(got))
 		for _, c := range got {
 			names = append(names, c.Name)
 		}
+
 		t.Fatalf("resolved %v, want exactly [child-of-vms1]", names)
 	}
+
 	if childrenSettled(got, snapshotsdk.CoreCaptureState{}) {
 		t.Fatal("an unpublished but existing child must not read as settled")
 	}
+
 	if childrenAreConsistent(got) {
 		t.Fatal("a child that has not vouched for its disk must not read as consistent")
 	}
@@ -584,9 +617,11 @@ func TestChildVirtualDiskSnapshots_ChildlessStaysChildless(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if len(got) != 0 {
 		t.Fatalf("expected no children, got %d", len(got))
 	}
+
 	if !childrenSettled(got, snapshotsdk.CoreCaptureState{}) {
 		t.Fatal("a genuinely childless node must read as settled")
 	}
@@ -615,16 +650,20 @@ func TestChildVirtualDiskSnapshots_MissingPublishedChildStillCounts(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if len(got) != 1 || got[0].Name != "vanished" {
 		t.Fatalf("expected the vanished child to still count, got %+v", got)
 	}
+
 	if childrenSettled(got, snapshotsdk.CoreCaptureState{}) {
 		t.Fatal("a vanished child must not read as settled")
 	}
+
 	waited, pending := childrenWaitProgress(vms, got)
 	if waited <= childrenSettleDeadline {
 		t.Fatalf("waited %v, expected the node's own age to end the wait", waited)
 	}
+
 	if len(pending) != 1 || pending[0] != "vanished" {
 		t.Fatalf("pending = %v, want [vanished]", pending)
 	}
@@ -684,6 +723,7 @@ func TestReconcile_ChildrenAreNotRePlannedOnceFrozen(t *testing.T) {
 	if d := got.Status.CaptureState.DomainSpecificController; d.Phase == v1alpha2.UnifiedSnapshotterPhase(snapshotsdk.PhaseFailed) {
 		t.Fatalf("frozen plan was re-derived and failed: reason=%q message=%q", d.Reason, d.Message)
 	}
+
 	if got.Status.Phase == v1alpha2.VirtualMachineSnapshotPhaseFailed {
 		t.Fatal("VMS phase went Failed, want the captured snapshot to survive a disk that vanished after the barrier")
 	}
@@ -709,6 +749,7 @@ func TestReconcile_MissingVirtualMachineReportsWhyItWaits(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if res.RequeueAfter != requeueAfter {
 		t.Fatalf("got RequeueAfter %v, want %v — the wait must not give up", res.RequeueAfter, requeueAfter)
 	}
@@ -717,13 +758,16 @@ func TestReconcile_MissingVirtualMachineReportsWhyItWaits(t *testing.T) {
 	if got.Status.Phase == v1alpha2.VirtualMachineSnapshotPhaseFailed {
 		t.Fatal("an hour of waiting for a VirtualMachine must not fail the snapshot")
 	}
+
 	d := got.Status.CaptureState.DomainSpecificController
 	if d.Phase != v1alpha2.UnifiedSnapshotterPhase(snapshotsdk.PhasePlanning) {
 		t.Fatalf("domain phase = %q, want Planning", d.Phase)
 	}
+
 	if d.Reason != string(vmscondition.WaitingForTheVirtualMachine) {
 		t.Fatalf("domain reason = %q, want %q", d.Reason, vmscondition.WaitingForTheVirtualMachine)
 	}
+
 	if d.Message == "" {
 		t.Fatal("expected a message naming the missing VirtualMachine")
 	}
@@ -768,6 +812,7 @@ func TestPlanningStartedAt(t *testing.T) {
 // it and IsFrozen keep reporting ErrUntrustedFilesystemFrozenCondition.
 func freezeStuckFixture(t *testing.T, age time.Duration, owners []metav1.OwnerReference) (*Reconciler, ctrl.Request) {
 	t.Helper()
+
 	return freezeInFlightFixture(t, freezeFixture{
 		age:            age,
 		owners:         owners,
@@ -804,6 +849,7 @@ func freezeInFlightFixture(t *testing.T, f freezeFixture) (*Reconciler, ctrl.Req
 	if f.requestedAtAge > 0 {
 		vmsAnnotations[annFSFreezeRequestedAt] = time.Now().Add(-f.requestedAtAge).UTC().Format(time.RFC3339)
 	}
+
 	if f.unfreezeRequestedAtAge > 0 {
 		vmsAnnotations[annFSUnfreezeRequestedAt] = time.Now().Add(-f.unfreezeRequestedAtAge).UTC().Format(time.RFC3339)
 	}
@@ -827,6 +873,7 @@ func freezeInFlightFixture(t *testing.T, f freezeFixture) (*Reconciler, ctrl.Req
 			CreationTimestamp: metav1.NewTime(time.Now().Add(-f.age)),
 		},
 	}
+
 	kvvmi := &virtv1.VirtualMachineInstance{
 		ObjectMeta: metav1.ObjectMeta{Name: "vm1", Namespace: testNamespace},
 		Status: virtv1.VirtualMachineInstanceStatus{
@@ -859,6 +906,7 @@ func TestReconcile_FreezeInFlightReportsWhyItWaits(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if res.RequeueAfter != requeueAfter {
 		t.Fatalf("got RequeueAfter %v, want %v", res.RequeueAfter, requeueAfter)
 	}
@@ -867,6 +915,7 @@ func TestReconcile_FreezeInFlightReportsWhyItWaits(t *testing.T) {
 	if d.Reason != string(vmscondition.FileSystemFreezing) {
 		t.Fatalf("domain reason = %q, want %q", d.Reason, vmscondition.FileSystemFreezing)
 	}
+
 	if d.Message == "" {
 		t.Fatal("expected a message naming the virtual machine being waited on")
 	}
@@ -882,6 +931,7 @@ func assertFreezeRequestRetired(t *testing.T, c client.Client) {
 	if err := c.Get(context.Background(), types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, kvvmi); err != nil {
 		t.Fatalf("get VirtualMachineInstance: %v", err)
 	}
+
 	if req, ok := kvvmi.Annotations[annotations.AnnVMFilesystemRequest]; ok {
 		t.Fatalf("freeze request %q was left pending on the guest", req)
 	}
@@ -915,6 +965,7 @@ func TestReconcile_UnconfirmedFreezeFailsTheCapture(t *testing.T) {
 			if d.Reason != string(vmscondition.PotentiallyInconsistent) {
 				t.Fatalf("domain reason = %q, want %q", d.Reason, vmscondition.PotentiallyInconsistent)
 			}
+
 			assertFreezeRequestRetired(t, r.Client)
 		})
 	}
@@ -960,6 +1011,7 @@ func TestReconcile_ImportModeOnlyMirrorsTheCoreProgress(t *testing.T) {
 					Reason: "Imported",
 				}}
 			}
+
 			r := newFullTestReconciler(t, vms)
 
 			if _, err := r.Reconcile(context.Background(), ctrl.Request{
@@ -972,6 +1024,7 @@ func TestReconcile_ImportModeOnlyMirrorsTheCoreProgress(t *testing.T) {
 			if got.Status.Phase != tt.wantPhase {
 				t.Errorf("phase = %q, want %q", got.Status.Phase, tt.wantPhase)
 			}
+
 			if len(got.Finalizers) != 0 {
 				t.Errorf("finalizers = %v; an import freezes nothing, so it needs no cleanup finalizer", got.Finalizers)
 			}
@@ -980,6 +1033,7 @@ func TestReconcile_ImportModeOnlyMirrorsTheCoreProgress(t *testing.T) {
 			if got.Status.Consistent != nil {
 				t.Errorf("consistent = %v, want it left unset on an import", *got.Status.Consistent)
 			}
+
 			if got.Status.CaptureState != nil {
 				t.Errorf("captureState = %+v; an import must not enter the capture state machine", got.Status.CaptureState)
 			}
@@ -1014,10 +1068,12 @@ func TestReconcile_ImportModeRepublishesTheUploadedChildren(t *testing.T) {
 	}
 
 	got := getVMS(t, r.Client)
+
 	want := []string{"vds-a", "vds-b"}
 	if len(got.Status.VirtualDiskSnapshotNames) != len(want) {
 		t.Fatalf("virtualDiskSnapshotNames = %v, want %v", got.Status.VirtualDiskSnapshotNames, want)
 	}
+
 	for i := range want {
 		if got.Status.VirtualDiskSnapshotNames[i] != want[i] {
 			t.Errorf("virtualDiskSnapshotNames = %v, want %v", got.Status.VirtualDiskSnapshotNames, want)
@@ -1047,6 +1103,7 @@ func TestReconcile_AnInFlightUnfreezeIsNotAnUnconfirmedFreeze(t *testing.T) {
 	if d := vms.Status.CaptureState.DomainSpecificController; d != nil && d.Reason == string(vmscondition.PotentiallyInconsistent) {
 		t.Fatalf("the capture was failed as inconsistent on an unfreeze: reason=%q message=%q", d.Reason, d.Message)
 	}
+
 	if vms.Status.Phase == v1alpha2.VirtualMachineSnapshotPhaseFailed {
 		t.Error("phase = Failed; an unfreeze on its way through must be waited out, not charged to the freeze budget")
 	}
@@ -1056,6 +1113,7 @@ func TestReconcile_AnInFlightUnfreezeIsNotAnUnconfirmedFreeze(t *testing.T) {
 	if err := r.Client.Get(context.Background(), types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, kvvmi); err != nil {
 		t.Fatalf("get the instance: %v", err)
 	}
+
 	if got := kvvmi.Annotations[annotations.AnnVMFilesystemRequest]; got != service.RequestFSUnfreeze {
 		t.Errorf("filesystem request = %q, want the unfreeze left in flight", got)
 	}
@@ -1078,6 +1136,7 @@ func TestReconcile_AnUnfreezeInsideItsBudgetIsStillWaitedOn(t *testing.T) {
 	if err := r.Client.Get(context.Background(), types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, kvvmi); err != nil {
 		t.Fatalf("get the instance: %v", err)
 	}
+
 	if got := kvvmi.Annotations[annotations.AnnVMFilesystemRequest]; got != service.RequestFSUnfreeze {
 		t.Errorf("filesystem request = %q, want the unfreeze still in flight inside its budget", got)
 	}
@@ -1099,10 +1158,12 @@ func TestReconcile_AnUnconfirmedUnfreezeIsAbandonedNotWaitedOnForever(t *testing
 	}
 
 	vms := getVMS(t, r.Client)
+
 	d := vms.Status.CaptureState.DomainSpecificController
 	if d != nil && d.Reason == string(vmscondition.PotentiallyInconsistent) {
 		t.Fatalf("the capture was failed as inconsistent on an unfreeze: reason=%q message=%q", d.Reason, d.Message)
 	}
+
 	if vms.Status.Phase == v1alpha2.VirtualMachineSnapshotPhaseFailed {
 		t.Error("phase = Failed; an abandoned unfreeze must not fail a capture whose freeze was confirmed")
 	}
@@ -1125,10 +1186,12 @@ func TestReleaseFreeze_AbandonsAnUnfreezeTheGuestNeverConfirms(t *testing.T) {
 	ctx := context.Background()
 
 	vms := getVMS(t, r.Client)
+
 	vm := &v1alpha2.VirtualMachine{}
 	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, vm); err != nil {
 		t.Fatalf("get the virtual machine: %v", err)
 	}
+
 	kvvmi := &virtv1.VirtualMachineInstance{}
 	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, kvvmi); err != nil {
 		t.Fatalf("get the instance: %v", err)
@@ -1141,6 +1204,7 @@ func TestReleaseFreeze_AbandonsAnUnfreezeTheGuestNeverConfirms(t *testing.T) {
 	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, kvvmi); err != nil {
 		t.Fatalf("get the instance: %v", err)
 	}
+
 	if got := kvvmi.Annotations[annotations.AnnVMFilesystemRequest]; got == service.RequestFSUnfreeze {
 		t.Error("the abandoned unfreeze request is still pending; it is what keeps every later round-trip failing")
 	}
@@ -1159,10 +1223,12 @@ func TestReleaseFreeze_KeepsAnUnfreezeInsideItsBudget(t *testing.T) {
 	ctx := context.Background()
 
 	vms := getVMS(t, r.Client)
+
 	vm := &v1alpha2.VirtualMachine{}
 	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, vm); err != nil {
 		t.Fatalf("get the virtual machine: %v", err)
 	}
+
 	kvvmi := &virtv1.VirtualMachineInstance{}
 	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, kvvmi); err != nil {
 		t.Fatalf("get the instance: %v", err)
@@ -1175,6 +1241,7 @@ func TestReleaseFreeze_KeepsAnUnfreezeInsideItsBudget(t *testing.T) {
 	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, kvvmi); err != nil {
 		t.Fatalf("get the instance: %v", err)
 	}
+
 	if got := kvvmi.Annotations[annotations.AnnVMFilesystemRequest]; got != service.RequestFSUnfreeze {
 		t.Errorf("filesystem request = %q, want the unfreeze left in flight inside its budget", got)
 	}
@@ -1218,6 +1285,7 @@ func TestReconcile_TheFreezeBudgetStillExpires(t *testing.T) {
 	if d == nil || d.Reason != string(vmscondition.PotentiallyInconsistent) {
 		t.Fatalf("domain reason = %v, want %q", d, vmscondition.PotentiallyInconsistent)
 	}
+
 	assertFreezeRequestRetired(t, r.Client)
 }
 
@@ -1256,6 +1324,7 @@ func TestRecordFreezeRequest_SurvivesAStaleCopy(t *testing.T) {
 
 	// Somebody else advances the object, the way the core does when it binds a content.
 	live := getVMS(t, r.Client)
+
 	live.Status.BoundSnapshotContentName = "nss-content-1"
 	if err := r.Client.Status().Update(ctx, live); err != nil {
 		t.Fatalf("simulate the core's write: %v", err)
@@ -1274,6 +1343,7 @@ func TestRecordFreezeRequest_SurvivesAStaleCopy(t *testing.T) {
 	if _, ok := stored.Annotations[v1alpha2.AnnUseUnifiedSnapshotter]; !ok {
 		t.Error("the patch replaced the annotation map instead of merging into it")
 	}
+
 	if stored.Status.BoundSnapshotContentName != "nss-content-1" {
 		t.Error("the patch clobbered the status the core had written")
 	}
@@ -1299,6 +1369,7 @@ func TestPatchFinalizer_KeepsFinalizersAddedMeanwhile(t *testing.T) {
 	ctx := context.Background()
 
 	live := getVMS(t, r.Client)
+
 	live.Finalizers = append(live.Finalizers, "foregroundDeletion")
 	if err := r.Client.Update(ctx, live); err != nil {
 		t.Fatalf("simulate a concurrent finalizer: %v", err)
@@ -1312,6 +1383,7 @@ func TestPatchFinalizer_KeepsFinalizersAddedMeanwhile(t *testing.T) {
 	if !controllerutil.ContainsFinalizer(stored, v1alpha2.FinalizerVMSnapshotCleanup) {
 		t.Error("the cleanup finalizer was not added")
 	}
+
 	if !controllerutil.ContainsFinalizer(stored, "foregroundDeletion") {
 		t.Error("the foreignly-added finalizer was dropped; cascading deletion would break")
 	}
@@ -1337,6 +1409,7 @@ func TestPatchFinalizer_RemovesOnlyItsOwn(t *testing.T) {
 	if controllerutil.ContainsFinalizer(stored, v1alpha2.FinalizerVMSnapshotCleanup) {
 		t.Error("the cleanup finalizer is still there")
 	}
+
 	if !controllerutil.ContainsFinalizer(stored, "someone.else/keep-me") {
 		t.Error("somebody else's finalizer was removed too")
 	}
@@ -1364,6 +1437,7 @@ func TestReconcile_StopsQuietlyWhenTheSnapshotIsDeletedMidReconcile(t *testing.T
 	// The first read hands the snapshot over; everything after it finds the snapshot gone, which is what
 	// a deletion mid-reconcile looks like from in here.
 	var reads int
+
 	c := fake.NewClientBuilder().
 		WithScheme(newTestScheme(t)).
 		WithObjects(vms, vm).
@@ -1375,12 +1449,14 @@ func TestReconcile_StopsQuietlyWhenTheSnapshotIsDeletedMidReconcile(t *testing.T
 						return gone
 					}
 				}
+
 				return cl.Get(ctx, key, obj, opts...)
 			},
 			SubResourcePatch: func(_ context.Context, _ client.Client, _ string, obj client.Object, _ client.Patch, _ ...client.SubResourcePatchOption) error {
 				if _, ours := obj.(*v1alpha2.VirtualMachineSnapshot); ours {
 					return gone
 				}
+
 				return nil
 			},
 		}).
@@ -1393,9 +1469,11 @@ func TestReconcile_StopsQuietlyWhenTheSnapshotIsDeletedMidReconcile(t *testing.T
 	if err != nil {
 		t.Fatalf("Reconcile returned %v; a snapshot deleted mid-reconcile leaves nothing to reconcile", err)
 	}
+
 	if res.RequeueAfter != 0 {
 		t.Errorf("result = %+v, want no requeue for an object that will not come back", res)
 	}
+
 	if reads < 2 {
 		t.Fatalf("the snapshot was read %d time(s); the reconcile never got past its first read, so nothing was exercised", reads)
 	}
@@ -1417,16 +1495,20 @@ func TestReconcile_AWaitingPassDoesNotRewriteTheDomainStatus(t *testing.T) {
 	if _, err := r.Reconcile(ctx, req); err != nil {
 		t.Fatal(err)
 	}
+
 	settled := getVMS(t, r.Client)
+
 	d := settled.Status.CaptureState.DomainSpecificController
 	if d == nil || d.Reason != string(vmscondition.FileSystemFreezing) {
 		t.Fatalf("the first pass did not park in the freeze wait: %+v", d)
 	}
+
 	before := settled.ResourceVersion
 
 	if _, err := r.Reconcile(ctx, req); err != nil {
 		t.Fatal(err)
 	}
+
 	after := getVMS(t, r.Client).ResourceVersion
 
 	if before != after {
@@ -1477,6 +1559,7 @@ func TestReconcile_TheParentCarriesCaptureStateWhenAChildIsCreated(t *testing.T)
 	}
 
 	var orphanedChildren, createdChildren []string
+
 	c := fake.NewClientBuilder().
 		WithScheme(newTestScheme(t)).
 		WithObjects(vms, vm, vd, kvvmi).
@@ -1485,6 +1568,7 @@ func TestReconcile_TheParentCarriesCaptureStateWhenAChildIsCreated(t *testing.T)
 			Create: func(ctx context.Context, cl client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
 				if vds, ok := obj.(*v1alpha2.VirtualDiskSnapshot); ok {
 					createdChildren = append(createdChildren, vds.Name)
+
 					parent := &v1alpha2.VirtualMachineSnapshot{}
 					if err := cl.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vms1"}, parent); err == nil {
 						if parent.Status.CaptureState == nil {
@@ -1492,6 +1576,7 @@ func TestReconcile_TheParentCarriesCaptureStateWhenAChildIsCreated(t *testing.T)
 						}
 					}
 				}
+
 				return cl.Create(ctx, obj, opts...)
 			},
 		}).
@@ -1506,6 +1591,7 @@ func TestReconcile_TheParentCarriesCaptureStateWhenAChildIsCreated(t *testing.T)
 	if len(createdChildren) == 0 {
 		t.Fatal("no child was created, so the ordering this test is about was never exercised")
 	}
+
 	if len(orphanedChildren) > 0 {
 		t.Errorf("%d child(ren) were created while the parent had no captureState: %v; "+
 			"they would route to the built-in controller", len(orphanedChildren), orphanedChildren)
@@ -1530,7 +1616,9 @@ func TestReleaseFreeze_ReleasesAConfirmedFreezeWhenTheStatusReadsEmpty(t *testin
 	if vms.Annotations == nil {
 		vms.Annotations = map[string]string{}
 	}
+
 	r.Freezer = service.NewSnapshotService(unfreezingVirtClient{}, r.Client, nil)
+
 	vms.Annotations[annFSFrozenConfirmedAt] = time.Now().Add(-30 * time.Second).UTC().Format(time.RFC3339)
 	if err := r.Client.Update(ctx, vms); err != nil {
 		t.Fatalf("stamp the confirmed freeze: %v", err)
@@ -1540,6 +1628,7 @@ func TestReleaseFreeze_ReleasesAConfirmedFreezeWhenTheStatusReadsEmpty(t *testin
 	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, vm); err != nil {
 		t.Fatalf("get the virtual machine: %v", err)
 	}
+
 	kvvmi := &virtv1.VirtualMachineInstance{}
 	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, kvvmi); err != nil {
 		t.Fatalf("get the instance: %v", err)
@@ -1552,6 +1641,7 @@ func TestReleaseFreeze_ReleasesAConfirmedFreezeWhenTheStatusReadsEmpty(t *testin
 	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, kvvmi); err != nil {
 		t.Fatalf("get the instance: %v", err)
 	}
+
 	if got := kvvmi.Annotations[annotations.AnnVMFilesystemRequest]; got != service.RequestFSUnfreeze {
 		t.Errorf("filesystem request = %q, want an unfreeze to have been issued", got)
 	}
@@ -1572,7 +1662,9 @@ func TestReleaseFreeze_LeavesTheFreezeToASiblingStillCapturing(t *testing.T) {
 	if vms.Annotations == nil {
 		vms.Annotations = map[string]string{}
 	}
+
 	r.Freezer = service.NewSnapshotService(unfreezingVirtClient{}, r.Client, nil)
+
 	vms.Annotations[annFSFrozenConfirmedAt] = time.Now().Add(-30 * time.Second).UTC().Format(time.RFC3339)
 	if err := r.Client.Update(ctx, vms); err != nil {
 		t.Fatalf("stamp the confirmed freeze: %v", err)
@@ -1593,6 +1685,7 @@ func TestReleaseFreeze_LeavesTheFreezeToASiblingStillCapturing(t *testing.T) {
 	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, vm); err != nil {
 		t.Fatalf("get the virtual machine: %v", err)
 	}
+
 	kvvmi := &virtv1.VirtualMachineInstance{}
 	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, kvvmi); err != nil {
 		t.Fatalf("get the instance: %v", err)
@@ -1605,6 +1698,7 @@ func TestReleaseFreeze_LeavesTheFreezeToASiblingStillCapturing(t *testing.T) {
 	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, kvvmi); err != nil {
 		t.Fatalf("get the instance: %v", err)
 	}
+
 	if got := kvvmi.Annotations[annotations.AnnVMFilesystemRequest]; got != "" {
 		t.Errorf("filesystem request = %q, want none: the sibling still needs the guest frozen", got)
 	}
@@ -1628,10 +1722,12 @@ func TestReleaseFreeze_DoesNotReleaseAFreezeTheGuestNeverConfirmed(t *testing.T)
 	ctx := context.Background()
 
 	vms := getVMS(t, r.Client)
+
 	vm := &v1alpha2.VirtualMachine{}
 	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, vm); err != nil {
 		t.Fatalf("get the virtual machine: %v", err)
 	}
+
 	kvvmi := &virtv1.VirtualMachineInstance{}
 	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, kvvmi); err != nil {
 		t.Fatalf("get the instance: %v", err)
@@ -1672,6 +1768,7 @@ func TestRequestUnfreeze_StampsTheBudgetEvenWhenTheRequestFails(t *testing.T) {
 	ctx := context.Background()
 
 	vms := getVMS(t, r.Client)
+
 	kvvmi := &virtv1.VirtualMachineInstance{}
 	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, kvvmi); err != nil {
 		t.Fatalf("get the instance: %v", err)
@@ -1710,12 +1807,14 @@ func (m countingVirtualMachines) Unfreeze(context.Context, string) error {
 // releaseFreezeOnce runs one releaseFreeze pass against the objects as they are stored now.
 func releaseFreezeOnce(t *testing.T, r *Reconciler) bool {
 	t.Helper()
+
 	ctx := context.Background()
 
 	vm := &v1alpha2.VirtualMachine{}
 	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, vm); err != nil {
 		t.Fatalf("get the virtual machine: %v", err)
 	}
+
 	kvvmi := &virtv1.VirtualMachineInstance{}
 	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, kvvmi); err != nil {
 		t.Fatalf("get the instance: %v", err)
@@ -1740,12 +1839,14 @@ func TestReleaseFreeze_ResendsAPendingUnfreezeTheGuestHasNotConfirmed(t *testing
 	if releaseFreezeOnce(t, r) {
 		t.Error("releaseFreeze reported the freeze released; the guest is still frozen")
 	}
+
 	if virt.unfreezes != 1 {
 		t.Fatalf("unfreeze sent %d times, want it re-sent once", virt.unfreezes)
 	}
 
 	// The next requeue comes seconds later, well inside unfreezeRetryInterval.
 	releaseFreezeOnce(t, r)
+
 	if virt.unfreezes != 1 {
 		t.Errorf("unfreeze sent %d times, want no second re-send inside the retry interval", virt.unfreezes)
 	}
@@ -1770,6 +1871,7 @@ func TestReconcile_ResendsAPendingUnfreezeTheFreezeWaitWouldOtherwiseSwallow(t *
 	if _, err := r.Reconcile(context.Background(), req); err != nil {
 		t.Fatal(err)
 	}
+
 	if virt.unfreezes != 1 {
 		t.Fatalf("unfreeze sent %d times, want the reconcile to re-send it once", virt.unfreezes)
 	}
@@ -1778,6 +1880,7 @@ func TestReconcile_ResendsAPendingUnfreezeTheFreezeWaitWouldOtherwiseSwallow(t *
 	if _, err := r.Reconcile(context.Background(), req); err != nil {
 		t.Fatal(err)
 	}
+
 	if virt.unfreezes != 1 {
 		t.Errorf("unfreeze sent %d times, want no second re-send inside the retry interval", virt.unfreezes)
 	}
@@ -1799,6 +1902,7 @@ func TestReconcile_DoesNotResendAFreshUnfreeze(t *testing.T) {
 	if _, err := r.Reconcile(context.Background(), req); err != nil {
 		t.Fatal(err)
 	}
+
 	if virt.unfreezes != 0 {
 		t.Errorf("unfreeze sent %d times, want none inside the retry interval", virt.unfreezes)
 	}
@@ -1819,6 +1923,7 @@ func TestReleaseFreeze_DoesNotResendAFreshUnfreeze(t *testing.T) {
 	if releaseFreezeOnce(t, r) {
 		t.Error("releaseFreeze reported the freeze released; the guest is still frozen")
 	}
+
 	if virt.unfreezes != 0 {
 		t.Errorf("unfreeze sent %d times, want none inside the retry interval", virt.unfreezes)
 	}
@@ -1849,10 +1954,12 @@ func TestPendingChildrenDetails(t *testing.T) {
 	silent := v1alpha2.VirtualDiskSnapshot{ObjectMeta: metav1.ObjectMeta{Name: "d"}}
 
 	got := pendingChildrenDetails([]v1alpha2.VirtualDiskSnapshot{withReady, withDomain, failed, silent})
+
 	want := `. VirtualDiskSnapshot "a": DataCaptureRetrying: not Thin; VirtualDiskSnapshot "b": DataCapturePending: waiting`
 	if got != want {
 		t.Fatalf("got %q, want %q", got, want)
 	}
+
 	if got := pendingChildrenDetails([]v1alpha2.VirtualDiskSnapshot{silent, failed}); got != "" {
 		t.Fatalf("got %q, want empty", got)
 	}
@@ -1864,6 +1971,7 @@ func TestPendingChildrenDetails(t *testing.T) {
 // two failure markers (phase, domain capture phase) has landed yet.
 func TestReconcile_FailedChildNeverYieldsAReadySnapshot(t *testing.T) {
 	failedPhase := v1alpha2.UnifiedSnapshotterPhase(snapshotsdk.PhaseFailed)
+
 	tests := map[string]v1alpha2.VirtualDiskSnapshotStatus{
 		"phase only": {Phase: v1alpha2.VirtualDiskSnapshotPhaseFailed},
 		"domain phase only": {
@@ -1918,6 +2026,7 @@ func TestReconcile_FailedChildNeverYieldsAReadySnapshot(t *testing.T) {
 			if got.Status.Phase != v1alpha2.VirtualMachineSnapshotPhaseFailed {
 				t.Fatalf("phase = %q, want Failed", got.Status.Phase)
 			}
+
 			if d := got.Status.CaptureState.DomainSpecificController; d.Phase != failedPhase || !strings.Contains(d.Message, "[child]") {
 				t.Fatalf("domain state = %+v, want Failed naming the child", d)
 			}

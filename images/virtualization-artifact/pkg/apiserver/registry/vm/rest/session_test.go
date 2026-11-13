@@ -56,12 +56,14 @@ var _ = Describe("sessionManager", func() {
 	leaseOf := func() *coordinationv1.Lease {
 		lease, err := kubeCli.CoordinationV1().Leases(vm.Namespace).Get(context.Background(), sessionLeaseName(vm, subv1alpha2.ConsoleSession), metav1.GetOptions{})
 		Expect(err).NotTo(HaveOccurred())
+
 		return lease
 	}
 
 	currentOf := func() *sessionInfo {
 		current, err := manager.Current(context.Background(), vm, subv1alpha2.ConsoleSession)
 		Expect(err).NotTo(HaveOccurred())
+
 		return current
 	}
 
@@ -70,6 +72,7 @@ var _ = Describe("sessionManager", func() {
 		if current == nil {
 			return ""
 		}
+
 		return current.Holder
 	}
 
@@ -187,12 +190,14 @@ var _ = Describe("sessionManager", func() {
 		// session that stopped being renewed there would be reported as free to everybody asking,
 		// with somebody still connected.
 		sessionRenewInterval = 10 * time.Millisecond
+
 		DeferCleanup(func() { sessionRenewInterval = 10 * time.Second })
 
 		ctx, deadlineReached := context.WithCancel(asUser("alice"))
 		base := &BaseREST{sessions: manager}
 		handler := base.trackSession(vm, subv1alpha2.ConsoleSession, http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
 			acquired := leaseOf().Spec.RenewTime.Time
+
 			deadlineReached()
 
 			Eventually(func() time.Time { return leaseOf().Spec.RenewTime.Time }).Should(BeTemporally(">", acquired))
@@ -234,6 +239,7 @@ var _ = Describe("sessionManager", func() {
 	It("answers who holds the session without touching it", func() {
 		_, err := manager.Acquire(asUser("alice"), vm, subv1alpha2.ConsoleSession, "d8/v1.2.3")
 		Expect(err).NotTo(HaveOccurred())
+
 		held := leaseOf()
 
 		base := &BaseREST{sessions: manager}
@@ -241,6 +247,7 @@ var _ = Describe("sessionManager", func() {
 		base.probeSession(vm, subv1alpha2.ConsoleSession).ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/?probe=true", nil).WithContext(asUser("bob")))
 
 		Expect(w.Code).To(Equal(http.StatusOK))
+
 		var answer subv1alpha2.VirtualMachineSession
 		Expect(json.Unmarshal(w.Body.Bytes(), &answer)).To(Succeed())
 		Expect(answer.Holder).To(Equal("alice"))
@@ -258,6 +265,7 @@ var _ = Describe("sessionManager", func() {
 		base.probeSession(vm, subv1alpha2.VNCSession).ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/?probe=true", nil).WithContext(asUser("bob")))
 
 		Expect(w.Code).To(Equal(http.StatusOK))
+
 		var answer subv1alpha2.VirtualMachineSession
 		Expect(json.Unmarshal(w.Body.Bytes(), &answer)).To(Succeed())
 		Expect(answer.Holder).To(BeEmpty())

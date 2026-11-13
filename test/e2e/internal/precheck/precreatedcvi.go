@@ -69,6 +69,7 @@ func EnsurePrecreatedCVIs(ctx context.Context, f *framework.Framework, cvis ...*
 	GinkgoHelper()
 
 	By(fmt.Sprintf("Ensuring %d precreated CVIs are available", len(cvis)))
+
 	if err := ensureCVIs(ctx, f, cvis); err != nil {
 		return err
 	}
@@ -77,6 +78,7 @@ func EnsurePrecreatedCVIs(ctx context.Context, f *framework.Framework, cvis ...*
 	waitForCVIsReady(ctx, cvis)
 
 	By(fmt.Sprintf("All %d precreated CVIs are ready", len(cvis)))
+
 	return nil
 }
 
@@ -88,6 +90,7 @@ func (p *precreatedCVIPrecheck) validateCleanupEnv() error {
 	default:
 		return fmt.Errorf("invalid value for %s env: %q (allowed: \"\", \"yes\", \"no\")", config.PrecreatedCVICleanupEnv, env)
 	}
+
 	return nil
 }
 
@@ -100,22 +103,26 @@ func ensureCVIs(ctx context.Context, f *framework.Framework, cvis []*v1alpha2.Cl
 		sourceSize, probeErr := probeHTTPSource(ctx, cvi)
 
 		existing := &v1alpha2.ClusterVirtualImage{}
+
 		err := k8sClient.Get(ctx, client.ObjectKey{Name: cvi.GetName()}, existing)
 		switch {
 		case err == nil && !isStale(existing, cvi, sourceSize):
 			if existing.Status.Phase != v1alpha2.ImageReady {
 				_, _ = fmt.Fprintf(GinkgoWriter, "CVI %q exists but not ready (phase: %s), waiting...\n", cvi.GetName(), existing.Status.Phase)
 			}
+
 			continue
 		case err == nil:
 			if probeErr != nil {
 				return probeErr
 			}
+
 			_, _ = fmt.Fprintf(GinkgoWriter, "CVI %q is stale (phase %s, recorded source size %q, current %q), recreating it...\n",
 				cvi.GetName(), existing.Status.Phase, existing.GetAnnotations()[annSourceSize], sourceSize)
 			if err := k8sClient.Delete(ctx, existing); err != nil && !k8serrors.IsNotFound(err) {
 				return fmt.Errorf("failed to delete CVI %q: %w", cvi.GetName(), err)
 			}
+
 			util.UntilObjectsDeleted(ctx, framework.ShortTimeout, existing)
 		case !k8serrors.IsNotFound(err):
 			return fmt.Errorf("failed to get CVI %q: %w", cvi.GetName(), err)
@@ -124,14 +131,17 @@ func ensureCVIs(ctx context.Context, f *framework.Framework, cvis []*v1alpha2.Cl
 		if probeErr != nil {
 			return probeErr
 		}
+
 		if sourceSize != "" {
 			cvi.SetAnnotations(map[string]string{annSourceSize: sourceSize})
 		}
+
 		_, _ = fmt.Fprintf(GinkgoWriter, "Creating CVI %q\n", cvi.GetName())
 		if err := k8sClient.Create(ctx, cvi); err != nil && !k8serrors.IsAlreadyExists(err) {
 			return fmt.Errorf("failed to create CVI %q: %w", cvi.GetName(), err)
 		}
 	}
+
 	return nil
 }
 
@@ -148,14 +158,17 @@ func isStale(existing, desired *v1alpha2.ClusterVirtualImage, sourceSize string)
 	if existing.Status.Phase == v1alpha2.ImageLost || existing.Status.Phase == v1alpha2.ImageFailed {
 		return true
 	}
+
 	want := desired.Spec.DataSource.HTTP
 	if want == nil {
 		return false
 	}
+
 	have := existing.Spec.DataSource.HTTP
 	if have == nil || have.URL != want.URL {
 		return true
 	}
+
 	return sourceSize != "" && existing.GetAnnotations()[annSourceSize] != sourceSize
 }
 
@@ -177,11 +190,13 @@ func probeHTTPSource(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (st
 	if err != nil {
 		return "", fmt.Errorf("CVI %q: image is not available: %w", cvi.GetName(), err)
 	}
+
 	_ = resp.Body.Close()
 
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		return "", fmt.Errorf("CVI %q: image %s is not available: HTTP %d", cvi.GetName(), src.URL, resp.StatusCode)
 	}
+
 	return resp.Header.Get("Content-Length"), nil
 }
 

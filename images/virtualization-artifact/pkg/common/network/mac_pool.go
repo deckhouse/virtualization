@@ -36,6 +36,7 @@ func NewMacAddressPool(vm *v1alpha2.VirtualMachine, vmmacs []*v1alpha2.VirtualMa
 		if _, ok := macByNetwork[key]; ok || mac == "" || taken[mac] {
 			return
 		}
+
 		macByNetwork[key] = mac
 		taken[mac] = true
 	}
@@ -46,6 +47,7 @@ func NewMacAddressPool(vm *v1alpha2.VirtualMachine, vmmacs []*v1alpha2.VirtualMa
 			addressByVMMACName[v.Name] = v.Status.Address
 		}
 	}
+
 	bindStatus := func() {
 		for _, n := range vm.Status.Networks {
 			if n.Type != v1alpha2.NetworksTypeMain {
@@ -71,6 +73,7 @@ func NewMacAddressPool(vm *v1alpha2.VirtualMachine, vmmacs []*v1alpha2.VirtualMa
 	}
 
 	var free []string
+
 	for _, v := range vmmacs {
 		if mac := v.Status.Address; mac != "" && !taken[mac] {
 			free = append(free, mac)
@@ -78,6 +81,7 @@ func NewMacAddressPool(vm *v1alpha2.VirtualMachine, vmmacs []*v1alpha2.VirtualMa
 	}
 	// The listing comes in no particular order, and each caller builds its own pool.
 	slices.Sort(free)
+
 	for _, n := range vm.Spec.Networks {
 		if n.Type != v1alpha2.NetworksTypeMain && len(free) > 0 {
 			key := poolKey(n.Type, n.Name)

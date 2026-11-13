@@ -44,6 +44,7 @@ func NewVMBlockDeviceAttachmentHandler(client client.Client, vmbdaTmpl v1alpha2.
 		vmbdaTmpl.Annotations = make(map[string]string)
 		vmbdaTmpl.Annotations[annotations.AnnVMOPRestore] = vmRestoreUID
 	}
+
 	return &VMBlockDeviceAttachmentHandler{
 		vmbda: &v1alpha2.VirtualMachineBlockDeviceAttachment{
 			TypeMeta: metav1.TypeMeta{
@@ -93,6 +94,7 @@ func (v *VMBlockDeviceAttachmentHandler) Customize(prefix, suffix string) {
 
 func (v *VMBlockDeviceAttachmentHandler) ValidateRestore(ctx context.Context) error {
 	vmbdaKey := types.NamespacedName{Namespace: v.vmbda.Namespace, Name: v.vmbda.Name}
+
 	existed, err := object.FetchObject(ctx, vmbdaKey, v.client, &v1alpha2.VirtualMachineBlockDeviceAttachment{})
 	if err != nil {
 		return err
@@ -117,6 +119,7 @@ func (v *VMBlockDeviceAttachmentHandler) ValidateClone(ctx context.Context) erro
 	}
 
 	vmbdaKey := types.NamespacedName{Namespace: v.vmbda.Namespace, Name: v.vmbda.Name}
+
 	existed, err := object.FetchObject(ctx, vmbdaKey, v.client, &v1alpha2.VirtualMachineBlockDeviceAttachment{})
 	if err != nil {
 		return err
@@ -144,6 +147,7 @@ func (v *VMBlockDeviceAttachmentHandler) ProcessRestore(ctx context.Context) err
 	}
 
 	vmbdaKey := types.NamespacedName{Namespace: v.vmbda.Namespace, Name: v.vmbda.Name}
+
 	vmbdaObj, err := object.FetchObject(ctx, vmbdaKey, v.client, &v1alpha2.VirtualMachineBlockDeviceAttachment{})
 	if err != nil {
 		return fmt.Errorf("failed to fetch the `VirtualMachineBlockDeviceAttachment`: %w", err)
@@ -162,12 +166,15 @@ func (v *VMBlockDeviceAttachmentHandler) ProcessRestore(ctx context.Context) err
 		if vmbdaObj.Annotations == nil {
 			vmbdaObj.Annotations = make(map[string]string)
 		}
+
 		vmbdaObj.Annotations[annotations.AnnVMOPRestoreDeleted] = v.restoreUID
+
 		err := v.client.Update(ctx, vmbdaObj)
 		if err != nil {
 			if apierrors.IsConflict(err) {
 				return fmt.Errorf("waiting for the `VirtualMachineBlockDeviceAttachment` %w", common.ErrUpdating)
 			}
+
 			return fmt.Errorf("failed to update the `VirtualMachineBlockDeviceAttachment`: %w", err)
 		}
 
@@ -198,6 +205,7 @@ func (v *VMBlockDeviceAttachmentHandler) ProcessClone(ctx context.Context) error
 	}
 
 	vmbdaKey := types.NamespacedName{Namespace: v.vmbda.Namespace, Name: v.vmbda.Name}
+
 	existed, err := object.FetchObject(ctx, vmbdaKey, v.client, &v1alpha2.VirtualMachineBlockDeviceAttachment{})
 	if err != nil {
 		return err

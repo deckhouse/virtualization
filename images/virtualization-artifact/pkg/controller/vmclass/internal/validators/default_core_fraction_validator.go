@@ -57,6 +57,7 @@ func (v *DefaultCoreFractionValidator) validate(oldVMClass, newVMClass *v1alpha2
 			if err := v.validateAuto(oldVMClass, newVMClass, i, &policy, policy.DefaultCoreFraction.StrVal); err != nil {
 				return err
 			}
+
 			continue
 		}
 
@@ -109,10 +110,12 @@ func (v *DefaultCoreFractionValidator) validateAuto(oldVMClass, newVMClass *v1al
 	// every VM of this class to it, which is what an explicit percentage is for.
 	if !sizingpolicy.CanAutoscaleCoreFraction(policy) {
 		steps := sizingpolicy.AutoCoreFractionSteps(policy)
+
 		allowed := "no core fraction below 100%"
 		if len(steps) > 0 {
 			allowed = fmt.Sprintf("a single core fraction below 100%% (%s)", strings.Join(sizingpolicy.FormatCoreFractionValues(steps), ", "))
 		}
+
 		return fmt.Errorf("VirtualMachineClass %q: the automatic default core fraction (spec.sizingPolicies[%d].defaultCoreFraction: %q) needs at least %d core fractions to choose from, but the policy leaves %s; list more core fractions (spec.sizingPolicies[%d].coreFractions) or set an explicit default",
 			newVMClass.Name, policyIndex, v1alpha2.CoreFractionAuto, sizingpolicy.MinAutoCoreFractionSteps, allowed, policyIndex)
 	}
@@ -124,13 +127,16 @@ func hasAutoDefaultCoreFraction(vmclass *v1alpha2.VirtualMachineClass) bool {
 	if vmclass == nil {
 		return false
 	}
+
 	for _, policy := range vmclass.Spec.SizingPolicies {
 		if policy.DefaultCoreFraction == nil {
 			continue
 		}
+
 		if policy.DefaultCoreFraction.Type == intstr.String && policy.DefaultCoreFraction.StrVal == string(v1alpha2.CoreFractionAuto) {
 			return true
 		}
 	}
+
 	return false
 }

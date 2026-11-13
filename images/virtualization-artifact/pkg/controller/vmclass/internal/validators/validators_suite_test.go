@@ -120,8 +120,10 @@ var _ = Describe("Single default class validator", func() {
 
 	setup := func(objs ...client.Object) {
 		GinkgoHelper()
+
 		fakeClient, err := testutil.NewFakeClientWithObjects(objs...)
 		Expect(err).Should(BeNil())
+
 		vmClassService := service.NewVirtualMachineClassService(fakeClient)
 		validator = validators.NewSingleDefaultClassValidator(fakeClient, vmClassService)
 	}
@@ -145,6 +147,7 @@ var _ = Describe("Single default class validator", func() {
 		vmClass.Annotations = map[string]string{
 			annotations.AnnVirtualMachineClassDefault: "true",
 		}
+
 		return vmClass
 	}
 

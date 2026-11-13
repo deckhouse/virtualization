@@ -65,6 +65,7 @@ var _ = Describe("WaitForDVCRImporterStep", func() {
 			},
 		}
 		Expect(provisioner.KeepNodePlacementTolerations(nodePlacement, pod)).To(Succeed())
+
 		return pod
 	}
 
@@ -141,6 +142,7 @@ var _ = Describe("WaitForDVCRImporterStep", func() {
 		roundTripClient := fake.NewClientBuilder().WithScheme(newStepScheme()).WithObjects(objects...).Build()
 		nodePlacement, err := commonvd.GetDVCRNodePlacement(context.Background(), roundTripClient, vd)
 		Expect(err).ToNot(HaveOccurred())
+
 		pod := newImporterPod(nodePlacement)
 
 		cb := conditions.NewConditionBuilder(vdcondition.ReadyType)

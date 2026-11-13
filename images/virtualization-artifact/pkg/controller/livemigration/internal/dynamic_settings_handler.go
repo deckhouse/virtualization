@@ -51,14 +51,17 @@ func (h *DynamicSettingsHandler) Handle(ctx context.Context, kvvmi *virtv1.Virtu
 	}
 
 	var vm v1alpha2.VirtualMachine
+
 	vmKey := client.ObjectKeyFromObject(kvvmi)
 	vmFound := true
+
 	if err := h.client.Get(ctx, vmKey, &vm); err != nil {
 		// A decentralized migration may run for a KubeVirt VM with no VirtualMachine behind it
 		// (the prototype creates such VMs by hand): it gets the default settings.
 		if !k8serrors.IsNotFound(err) || !kvvmi.IsDecentralizedMigration() {
 			return reconcile.Result{}, err
 		}
+
 		vmFound = false
 	}
 
@@ -66,17 +69,22 @@ func (h *DynamicSettingsHandler) Handle(ctx context.Context, kvvmi *virtv1.Virtu
 	// We need to get a Kubevirt config to fill MigrationConfiguration fields:
 	// ParallelMigrationsPerCluster, ParallelOutboundMigrationsPerNode, BandwidthPerMigration.
 	var kvconfig virtv1.KubeVirt
+
 	configKey := types.NamespacedName{
 		Namespace: "d8-virtualization",
 		Name:      "config",
 	}
+
 	err := h.client.Get(ctx, configKey, &kvconfig)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	var effectivePolicy v1alpha2.LiveMigrationPolicy
-	var autoConverge bool
+	var (
+		effectivePolicy v1alpha2.LiveMigrationPolicy
+		autoConverge    bool
+	)
+
 	if vmFound {
 		vmopInProgress, err := h.getVMOPInProgressForVM(ctx, vmKey)
 		if err != nil {
@@ -120,6 +128,7 @@ func (h *DynamicSettingsHandler) shouldUpdateMigrationConfiguration(kvvmi *virtv
 // getVMOPInProgressForVM check if there is at least one VMOP for the same VM in progress phase.
 func (h *DynamicSettingsHandler) getVMOPInProgressForVM(ctx context.Context, vmKey client.ObjectKey) (*v1alpha2.VirtualMachineOperation, error) {
 	var vmopList v1alpha2.VirtualMachineOperationList
+
 	err := h.client.List(ctx, &vmopList, client.InNamespace(vmKey.Namespace))
 	if err != nil {
 		return nil, err
@@ -136,5 +145,6 @@ func (h *DynamicSettingsHandler) getVMOPInProgressForVM(ctx context.Context, vmK
 			return &vmop, nil
 		}
 	}
+
 	return nil, nil
 }

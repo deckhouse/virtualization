@@ -73,6 +73,7 @@ type CronSource struct {
 
 func (c *CronSource) Start(ctx context.Context, queue workqueue.TypedRateLimitingInterface[reconcile.Request]) error {
 	nextTime := nextScheduleTimeDuration(c.schedule, c.clock.Now())
+
 	go func() {
 		for {
 			select {
@@ -84,11 +85,13 @@ func (c *CronSource) Start(ctx context.Context, queue workqueue.TypedRateLimitin
 			}
 		}
 	}()
+
 	return nil
 }
 
 func (c *CronSource) enqueueObjects(ctx context.Context, queueAddFunc func(reconcile.Request)) {
 	now := c.clock.Now()
+
 	objs, err := c.objLister.List(ctx, now)
 	if err != nil {
 		c.log.Error("Failed to get ObjectList for delete", logger.SlogErr(err))
@@ -127,6 +130,7 @@ func (o *ObjectListerImpl) List(ctx context.Context, now time.Time) ([]client.Ob
 	if o.ListFunc == nil {
 		return nil, nil
 	}
+
 	return o.ListFunc(ctx, now)
 }
 

@@ -75,6 +75,7 @@ var _ = Describe("DVCR Secrets", func() {
 		defaultSaltBase64     = "bldlM01vZjVySlFNc3I2MDVFNDdBM1pYOU9IQ1dnVkY="                                             // "nWe3Mof5rJQMsr605E47A3ZX9OHCWgVF"
 		defaultHtpasswdBase64 = "YWRtaW46JDJhJDEwJHZza21wTjVLSERKUlpNU1pWd3RZWU91YmtEcTEueEF2MXVRQkkvSzFHQ1dpNUpxSnF5amdt" // "admin:$2a$10$vskmpN5KHDJRZMSZVwtYYOubkDq1.xAv1uQBI/K1GCWi5JqJqyjgm"
 	)
+
 	var (
 		dc            *mock.DependencyContainerMock
 		snapshots     *mock.SnapshotsMock
@@ -110,6 +111,7 @@ var _ = Describe("DVCR Secrets", func() {
 			data.Htpasswd = htpasswd
 			data.TokenPrivateKey = validTokenKey
 			data.TokenPublicKey = validTokenPub
+
 			return nil
 		})
 	}
@@ -118,8 +120,10 @@ var _ = Describe("DVCR Secrets", func() {
 		dc.GetK8sClientMock.Return(&fakeKubernetesClient{get: func(ctx context.Context, key ctrlclient.ObjectKey, obj ctrlclient.Object) error {
 			mc := obj.(*mcapi.ModuleConfig)
 			*mc = *settings.NewModuleConfigForTest(map[string]any{"dvcr": map[string]any{}, "virtualMachineCIDRs": []any{"10.0.0.0/24"}})
+
 			return nil
 		}}, nil)
+
 		return &pkg.HookInput{
 			Snapshots: snapshots,
 			Values:    values,
@@ -136,6 +140,7 @@ var _ = Describe("DVCR Secrets", func() {
 
 		priv, pub, err := generateECKeypair()
 		Expect(err).ToNot(HaveOccurred())
+
 		validTokenKey = base64.StdEncoding.EncodeToString(priv)
 		validTokenPub = base64.StdEncoding.EncodeToString(pub)
 	})
@@ -239,10 +244,12 @@ var _ = Describe("DVCR Secrets", func() {
 
 		bytes, err := base64.StdEncoding.DecodeString(passwordRW)
 		Expect(err).ToNot(HaveOccurred())
+
 		passwordRWForValidate := string(bytes)
 
 		bytes, err = base64.StdEncoding.DecodeString(htpasswd)
 		Expect(err).ToNot(HaveOccurred())
+
 		htpasswdForValidate := string(bytes)
 
 		values.SetMock.Set(func(path string, v any) {
@@ -280,8 +287,10 @@ var _ = Describe("Generate secrets", func() {
 	It("Should generate valid secrets", func() {
 		password := alphaNum(32)
 		Expect(password).To(HaveLen(32))
+
 		salt := alphaNum(32)
 		Expect(salt).To(HaveLen(32))
+
 		htpasswd, err := generateHtpasswd(password)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(validateHtpasswd(password, htpasswd)).To(BeTrue())

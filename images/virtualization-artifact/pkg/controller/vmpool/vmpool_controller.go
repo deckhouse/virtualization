@@ -98,5 +98,6 @@ func SetupController(
 	}
 
 	log.Info("Initialized VirtualMachinePool controller")
+
 	return nil
 }

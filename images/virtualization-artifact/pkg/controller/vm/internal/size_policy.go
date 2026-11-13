@@ -46,6 +46,7 @@ func (h *SizePolicyHandler) Handle(ctx context.Context, s state.VirtualMachineSt
 	if s.VirtualMachine().IsEmpty() {
 		return reconcile.Result{}, nil
 	}
+
 	current := s.VirtualMachine().Current()
 	changed := s.VirtualMachine().Changed()
 

@@ -56,10 +56,12 @@ func (s *pciDeviceState) NodePCIDevice(ctx context.Context) (*v1alpha2.NodePCIDe
 	}
 
 	nodePCIDevice := &v1alpha2.NodePCIDevice{}
+
 	err := s.client.Get(ctx, client.ObjectKey{Name: pciDevice.Name}, nodePCIDevice)
 	if apierrors.IsNotFound(err) {
 		return nil, nil
 	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -81,6 +83,7 @@ func (s *pciDeviceState) VirtualMachinesReferencingDevice(ctx context.Context) (
 	}
 
 	var result []*v1alpha2.VirtualMachine
+
 	for i := range vmList.Items {
 		vm := &vmList.Items[i]
 		if vm.Namespace == pciDevice.Namespace {

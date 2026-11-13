@@ -131,6 +131,7 @@ func (r SecretRestorer) RestoreMACAddressOrder(_ context.Context, secret *corev1
 	}
 
 	var macAddressOrder []string
+
 	for _, ns := range vm.Status.Networks {
 		switch ns.Type {
 		case v1alpha2.NetworksTypeMain:
@@ -139,6 +140,7 @@ func (r SecretRestorer) RestoreMACAddressOrder(_ context.Context, secret *corev1
 			macAddressOrder = append(macAddressOrder, ns.MAC)
 		}
 	}
+
 	return macAddressOrder, nil
 }
 
@@ -153,6 +155,7 @@ func (r SecretRestorer) setVirtualMachine(secret *corev1.Secret, vm *v1alpha2.Vi
 	}
 
 	secret.Data[virtualMachineKey] = JSON
+
 	return nil
 }
 
@@ -189,6 +192,7 @@ func (r SecretRestorer) setVirtualMachineBlockDeviceAttachments(ctx context.Cont
 	}
 
 	secret.Data[virtualMachineBlockDeviceAttachmentKey] = JSON
+
 	return nil
 }
 
@@ -197,21 +201,27 @@ func (r SecretRestorer) setMainIPAddress(ctx context.Context, secret *corev1.Sec
 	if mainIPAddressName == "" {
 		return nil
 	}
+
 	ipa, err := object.FetchObject(ctx, types.NamespacedName{Namespace: vm.Namespace, Name: mainIPAddressName}, r.client, &sdnapi.IPAddress{})
 	if err != nil {
 		return err
 	}
+
 	if ipa == nil {
 		return fmt.Errorf("the IPAddress %q of the Main network was not found", mainIPAddressName)
 	}
+
 	if keepIPAddress == v1alpha2.KeepIPAddressNever && !network.IsStaticOrNamedMainIPAddress(vm, ipa) {
 		return nil
 	}
+
 	JSON, err := json.Marshal(MainIPAddressSnapshot{Name: mainIPAddressName, Address: mainAddress})
 	if err != nil {
 		return err
 	}
+
 	secret.Data[mainIPAddressKey] = JSON
+
 	return nil
 }
 
@@ -288,11 +298,13 @@ func (r SecretRestorer) setVirtualMachineIPAddress(ctx context.Context, secret *
 	}
 
 	secret.Data[virtualMachineIPAddressKey] = JSON
+
 	return nil
 }
 
 func (r SecretRestorer) setVirtualMachineMACAddresses(ctx context.Context, secret *corev1.Secret, vm *v1alpha2.VirtualMachine) error {
 	var vmmacs []v1alpha2.VirtualMachineMACAddress
+
 	for _, ns := range vm.Status.Networks {
 		if ns.Type == v1alpha2.NetworksTypeMain {
 			continue
@@ -324,6 +336,7 @@ func (r SecretRestorer) setVirtualMachineMACAddresses(ctx context.Context, secre
 	}
 
 	secret.Data[virtualMachineMACAddressesKey] = JSON
+
 	return nil
 }
 
@@ -362,6 +375,7 @@ func (r SecretRestorer) setProvisioning(ctx context.Context, secret *corev1.Secr
 	}
 
 	secretKey := types.NamespacedName{Name: secretName, Namespace: vm.Namespace}
+
 	provisioner, err := object.FetchObject(ctx, secretKey, r.client, &corev1.Secret{})
 	if err != nil {
 		return err
@@ -377,6 +391,7 @@ func (r SecretRestorer) setProvisioning(ctx context.Context, secret *corev1.Secr
 	}
 
 	secret.Data[provisionerKey] = JSON
+
 	return nil
 }
 
@@ -398,6 +413,7 @@ func get[T any](secret *corev1.Secret, key string) (T, error) {
 	}
 
 	jsonData := extractJSON(data)
+
 	err := json.Unmarshal(jsonData, &t)
 	if err != nil {
 		return t, err

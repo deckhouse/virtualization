@@ -84,7 +84,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		if err := vd.Update(ctx); err != nil {
 			return err
 		}
+
 		internal.ObserveCreationDuration(vd.Current(), vd.Changed())
+
 		return nil
 	})
 
@@ -93,18 +95,21 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 
 func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller, logger *log.Logger, unifiedSnapshotterPresent bool) error {
 	vdFromVIEnqueuer := watchers.NewVirtualDiskRequestEnqueuer(mgr.GetClient(), &v1alpha2.VirtualImage{}, v1alpha2.VirtualDiskObjectRefKindVirtualImage)
+
 	viWatcher := watchers.NewObjectRefWatcher(watchers.NewVirtualImageFilter(), vdFromVIEnqueuer)
 	if err := viWatcher.Run(mgr, ctr); err != nil {
 		return fmt.Errorf("error setting watch on VIs: %w", err)
 	}
 
 	vdFromCVIEnqueuer := watchers.NewVirtualDiskRequestEnqueuer(mgr.GetClient(), &v1alpha2.ClusterVirtualImage{}, v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage)
+
 	cviWatcher := watchers.NewObjectRefWatcher(watchers.NewClusterVirtualImageFilter(), vdFromCVIEnqueuer)
 	if err := cviWatcher.Run(mgr, ctr); err != nil {
 		return fmt.Errorf("error setting watch on CVIs: %w", err)
 	}
 
 	mgrClient := mgr.GetClient()
+
 	vdWatchers := []Watcher{
 		watcher.NewVirtualDiskWatcher(),
 		watcher.NewPersistentVolumeClaimWatcher(mgrClient),
@@ -121,6 +126,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 	if unifiedSnapshotterPresent {
 		vdWatchers = append(vdWatchers, watcher.NewVolumeRestoreRequestWatcher())
 	}
+
 	for _, w := range vdWatchers {
 		err := w.Watch(mgr, ctr)
 		if err != nil {

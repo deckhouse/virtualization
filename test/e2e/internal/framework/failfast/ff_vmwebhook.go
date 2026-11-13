@@ -35,6 +35,7 @@ func VMSyncDeniedByWebhook(vms Client[*v1alpha2.VirtualMachine], namespace strin
 		if cond.Status != metav1.ConditionFalse || !strings.Contains(cond.Message, "admission webhook") {
 			return nil
 		}
+
 		return &Finding{
 			Message: "KVVM sync is denied by an admission webhook, the controller cannot proceed: " + cond.Message,
 			Grace:   defaultGrace,

@@ -66,9 +66,11 @@ func ValidateAffinity(affinity *v1alpha2.VMAffinity, fldPath *field.Path) field.
 		if affinity.NodeAffinity != nil {
 			allErrs = append(allErrs, validateNodeAffinity(affinity.NodeAffinity, fldPath.Child("nodeAffinity"))...)
 		}
+
 		if affinity.VirtualMachineAndPodAffinity != nil {
 			allErrs = append(allErrs, validatePodAffinity(affinity.VirtualMachineAndPodAffinity, fldPath.Child("virtualMachineAndPodAffinity"))...)
 		}
+
 		if affinity.VirtualMachineAndPodAntiAffinity != nil {
 			allErrs = append(allErrs, validatePodAntiAffinity(affinity.VirtualMachineAndPodAntiAffinity, fldPath.Child("virtualMachineAndPodAntiAffinity"))...)
 		}
@@ -87,9 +89,11 @@ func validateNodeAffinity(na *corev1.NodeAffinity, fldPath *field.Path) field.Er
 	if na.RequiredDuringSchedulingIgnoredDuringExecution != nil {
 		allErrs = append(allErrs, ValidateNodeSelector(na.RequiredDuringSchedulingIgnoredDuringExecution, fldPath.Child("requiredDuringSchedulingIgnoredDuringExecution"))...)
 	}
+
 	if len(na.PreferredDuringSchedulingIgnoredDuringExecution) > 0 {
 		allErrs = append(allErrs, ValidatePreferredSchedulingTerms(na.PreferredDuringSchedulingIgnoredDuringExecution, fldPath.Child("preferredDuringSchedulingIgnoredDuringExecution"))...)
 	}
+
 	return allErrs
 }
 
@@ -104,6 +108,7 @@ func ValidatePreferredSchedulingTerms(terms []corev1.PreferredSchedulingTerm, fl
 
 		allErrs = append(allErrs, ValidateNodeSelectorTerm(term.Preference, fldPath.Index(i).Child("preference"))...)
 	}
+
 	return allErrs
 }
 
@@ -119,22 +124,27 @@ func validatePodAffinity(virtualMachineAndPodAffinity *v1alpha2.VirtualMachineAn
 		allErrs = append(allErrs, validatePodAffinityTerms(virtualMachineAndPodAffinity.RequiredDuringSchedulingIgnoredDuringExecution,
 			fldPath.Child("requiredDuringSchedulingIgnoredDuringExecution"))...)
 	}
+
 	if virtualMachineAndPodAffinity.PreferredDuringSchedulingIgnoredDuringExecution != nil {
 		allErrs = append(allErrs, validateWeightedPodAffinityTerms(virtualMachineAndPodAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
 			fldPath.Child("preferredDuringSchedulingIgnoredDuringExecution"))...)
 	}
+
 	return allErrs
 }
 
 // validateWeightedPodAffinityTerms tests that the specified weightedPodAffinityTerms fields have valid data
 func validateWeightedPodAffinityTerms(weightedPodAffinityTerms []v1alpha2.WeightedVirtualMachineAndPodAffinityTerm, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
+
 	for j, weightedTerm := range weightedPodAffinityTerms {
 		if weightedTerm.Weight <= 0 || weightedTerm.Weight > 100 {
 			allErrs = append(allErrs, field.Invalid(fldPath.Index(j).Child("weight"), weightedTerm.Weight, "must be in the range 1-100"))
 		}
+
 		allErrs = append(allErrs, validatePodAffinityTerm(weightedTerm.VirtualMachineAndPodAffinityTerm, fldPath.Index(j).Child("virtualMachineAndPodAffinityTerm"))...)
 	}
+
 	return allErrs
 }
 
@@ -150,9 +160,11 @@ func validatePodAffinityTerm(podAffinityTerm v1alpha2.VirtualMachineAndPodAffini
 			allErrs = append(allErrs, field.Invalid(fldPath.Child("namespace"), name, msg))
 		}
 	}
+
 	if len(podAffinityTerm.TopologyKey) == 0 {
 		allErrs = append(allErrs, field.Required(fldPath.Child("topologyKey"), "can not be empty"))
 	}
+
 	return append(allErrs, unversionedvalidation.ValidateLabelName(podAffinityTerm.TopologyKey, fldPath.Child("topologyKey"))...)
 }
 
@@ -168,10 +180,12 @@ func validatePodAntiAffinity(podAntiAffinity *v1alpha2.VirtualMachineAndPodAntiA
 		allErrs = append(allErrs, validatePodAffinityTerms(podAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution,
 			fldPath.Child("requiredDuringSchedulingIgnoredDuringExecution"))...)
 	}
+
 	if podAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution != nil {
 		allErrs = append(allErrs, validateWeightedPodAffinityTerms(podAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
 			fldPath.Child("preferredDuringSchedulingIgnoredDuringExecution"))...)
 	}
+
 	return allErrs
 }
 
@@ -197,6 +211,7 @@ func validatePodAffinityTerms(podAffinityTerms []v1alpha2.VirtualMachineAndPodAf
 	for i, podAffinityTerm := range podAffinityTerms {
 		allErrs = append(allErrs, validatePodAffinityTerm(podAffinityTerm, fldPath.Index(i))...)
 	}
+
 	return allErrs
 }
 
@@ -218,6 +233,7 @@ func ValidateNodeSelectorTerm(term corev1.NodeSelectorTerm, fldPath *field.Path)
 // ValidateNodeSelectorRequirement tests that the specified NodeSelectorRequirement fields has valid data
 func ValidateNodeSelectorRequirement(rq corev1.NodeSelectorRequirement, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
+
 	switch rq.Operator {
 	case corev1.NodeSelectorOpIn, corev1.NodeSelectorOpNotIn:
 		if len(rq.Values) == 0 {
@@ -279,9 +295,11 @@ func ValidateTopologySpreadConstraints(constraints []corev1.TopologySpreadConstr
 		if err := ValidateMaxSkew(subFldPath.Child("maxSkew"), constraint.MaxSkew); err != nil {
 			allErrs = append(allErrs, err)
 		}
+
 		if errs := ValidateTopologyKey(subFldPath.Child("topologyKey"), constraint.TopologyKey); errs != nil {
 			allErrs = append(allErrs, errs...)
 		}
+
 		if err := ValidateWhenUnsatisfiable(subFldPath.Child("whenUnsatisfiable"), constraint.WhenUnsatisfiable); err != nil {
 			allErrs = append(allErrs, err)
 		}
@@ -304,6 +322,7 @@ func ValidateMaxSkew(fldPath *field.Path, maxSkew int32) *field.Error {
 	if maxSkew <= 0 {
 		return field.Invalid(fldPath, maxSkew, isNotPositiveErrorMsg)
 	}
+
 	return nil
 }
 
@@ -313,6 +332,7 @@ func ValidateTopologyKey(fldPath *field.Path, topologyKey string) field.ErrorLis
 	if len(topologyKey) == 0 {
 		return append(allErrs, field.Required(fldPath, "can not be empty"))
 	}
+
 	return unversionedvalidation.ValidateLabelName(topologyKey, fldPath)
 }
 
@@ -321,6 +341,7 @@ func ValidateWhenUnsatisfiable(fldPath *field.Path, action corev1.UnsatisfiableC
 	if !supportedScheduleActions.Has(string(action)) {
 		return field.NotSupported(fldPath, action, supportedScheduleActions.List())
 	}
+
 	return nil
 }
 
@@ -333,5 +354,6 @@ func ValidateSpreadConstraintNotRepeat(fldPath *field.Path, constraint corev1.To
 			return field.Duplicate(fldPath, fmt.Sprintf("{%v, %v}", constraint.TopologyKey, constraint.WhenUnsatisfiable))
 		}
 	}
+
 	return nil
 }

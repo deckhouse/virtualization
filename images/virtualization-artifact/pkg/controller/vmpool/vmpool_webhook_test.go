@@ -35,6 +35,7 @@ var _ = Describe("pool validation webhook", func() {
 	newValidator := func() *poolValidator {
 		c, err := testutil.NewFakeClientWithObjects()
 		Expect(err).NotTo(HaveOccurred())
+
 		return &poolValidator{
 			vmValidator:   vm.NewTemplateSpecValidator(c, featuregates.Default(), log.NewNop(), nil),
 			diskValidator: vd.NewTemplateSpecValidator(c),

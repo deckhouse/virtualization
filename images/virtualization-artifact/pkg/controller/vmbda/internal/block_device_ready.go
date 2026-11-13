@@ -47,6 +47,7 @@ func NewBlockDeviceReadyHandler(attachment AttachmentService) *BlockDeviceReadyH
 
 func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment) (reconcile.Result, error) {
 	cb := conditions.NewConditionBuilder(vmbdacondition.BlockDeviceReadyType)
+
 	defer func() { conditions.SetCondition(cb.Generation(vmbda.Generation), &vmbda.Status.Conditions) }()
 
 	if !conditions.HasCondition(cb.GetType(), vmbda.Status.Conditions) {
@@ -77,6 +78,7 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *v1alpha2.Vir
 				Status(metav1.ConditionFalse).
 				Reason(vmbdacondition.BlockDeviceNotReady).
 				Message(fmt.Sprintf("VirtualImage %q not found.", viKey.String()))
+
 			return reconcile.Result{}, nil
 		}
 
@@ -85,6 +87,7 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *v1alpha2.Vir
 				Status(metav1.ConditionFalse).
 				Reason(vmbdacondition.BlockDeviceNotReady).
 				Message(fmt.Sprintf("VirtualImage %q is being deleted. Delete VirtualMachineBlockDeviceAttachment to detach image from the VirtualMachine.", viKey.String()))
+
 			return reconcile.Result{}, nil
 		}
 
@@ -93,6 +96,7 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *v1alpha2.Vir
 				Status(metav1.ConditionFalse).
 				Reason(vmbdacondition.BlockDeviceNotReady).
 				Message(fmt.Sprintf("Waiting for the VirtualImage %q changes to be processed.", viKey.String()))
+
 			return reconcile.Result{}, nil
 		}
 
@@ -101,8 +105,10 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *v1alpha2.Vir
 				Status(metav1.ConditionFalse).
 				Reason(vmbdacondition.BlockDeviceNotReady).
 				Message(fmt.Sprintf("VirtualImage %q is not ready to be attached to the virtual machine: waiting for the VirtualImage to be ready for attachment.", viKey.String()))
+
 			return reconcile.Result{}, nil
 		}
+
 		switch vi.Spec.Storage {
 		case v1alpha2.StorageKubernetes, v1alpha2.StoragePersistentVolumeClaim:
 			if vi.Status.Target.PersistentVolumeClaim == "" {
@@ -110,9 +116,12 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *v1alpha2.Vir
 					Status(metav1.ConditionFalse).
 					Reason(vmbdacondition.BlockDeviceNotReady).
 					Message(fmt.Sprintf("Waiting for the VirtualImage %q storage to be provisioned.", viKey.String()))
+
 				return reconcile.Result{}, nil
 			}
+
 			ad := service.NewAttachmentDiskFromVirtualImage(vi)
+
 			pvc, err := h.attachment.GetPersistentVolumeClaim(ctx, ad)
 			if err != nil {
 				return reconcile.Result{}, err
@@ -123,6 +132,7 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *v1alpha2.Vir
 					Status(metav1.ConditionFalse).
 					Reason(vmbdacondition.BlockDeviceNotReady).
 					Message(fmt.Sprintf("The VirtualImage %q storage was not found.", viKey.String()))
+
 				return reconcile.Result{}, nil
 			}
 
@@ -131,6 +141,7 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *v1alpha2.Vir
 					Status(metav1.ConditionFalse).
 					Reason(vmbdacondition.BlockDeviceNotReady).
 					Message(fmt.Sprintf("The VirtualImage %q storage is not ready yet.", viKey.String()))
+
 				return reconcile.Result{}, nil
 			}
 
@@ -142,11 +153,13 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *v1alpha2.Vir
 					Status(metav1.ConditionFalse).
 					Reason(vmbdacondition.BlockDeviceNotReady).
 					Message(fmt.Sprintf("Waiting for the VirtualImage %q to be published and become available.", viKey.String()))
+
 				return reconcile.Result{}, nil
 			}
 		}
 
 		cb.Status(metav1.ConditionTrue).Reason(vmbdacondition.BlockDeviceReady)
+
 		return reconcile.Result{}, nil
 	case v1alpha2.VMBDAObjectRefKindClusterVirtualImage:
 		cviKey := types.NamespacedName{
@@ -163,6 +176,7 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *v1alpha2.Vir
 				Status(metav1.ConditionFalse).
 				Reason(vmbdacondition.BlockDeviceNotReady).
 				Message(fmt.Sprintf("ClusterVirtualImage %q not found.", cviKey.String()))
+
 			return reconcile.Result{}, nil
 		}
 
@@ -171,6 +185,7 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *v1alpha2.Vir
 				Status(metav1.ConditionFalse).
 				Reason(vmbdacondition.BlockDeviceNotReady).
 				Message(fmt.Sprintf("ClusterVirtualImage %q is being deleted. Delete VirtualMachineBlockDeviceAttachment to detach image from the VirtualMachine.", cviKey.String()))
+
 			return reconcile.Result{}, nil
 		}
 
@@ -179,6 +194,7 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *v1alpha2.Vir
 				Status(metav1.ConditionFalse).
 				Reason(vmbdacondition.BlockDeviceNotReady).
 				Message(fmt.Sprintf("Waiting for the ClusterVirtualImage %q changes to be processed.", cviKey.String()))
+
 			return reconcile.Result{}, nil
 		}
 
@@ -187,6 +203,7 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *v1alpha2.Vir
 				Status(metav1.ConditionFalse).
 				Reason(vmbdacondition.BlockDeviceNotReady).
 				Message(fmt.Sprintf("ClusterVirtualImage %q is not ready to be attached to the virtual machine: waiting for the ClusterVirtualImage to be ready for attachment.", cviKey.String()))
+
 			return reconcile.Result{}, nil
 		}
 
@@ -195,10 +212,12 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *v1alpha2.Vir
 				Status(metav1.ConditionFalse).
 				Reason(vmbdacondition.BlockDeviceNotReady).
 				Message(fmt.Sprintf("Waiting for the ClusterVirtualImage %q to be published and become available.", cviKey.String()))
+
 			return reconcile.Result{}, nil
 		}
 
 		cb.Status(metav1.ConditionTrue).Reason(vmbdacondition.BlockDeviceReady)
+
 		return reconcile.Result{}, nil
 	default:
 		return reconcile.Result{}, fmt.Errorf("unknown block device kind %s", vmbda.Spec.BlockDeviceRef.Kind)
@@ -221,6 +240,7 @@ func (h BlockDeviceReadyHandler) ValidateVirtualDiskReady(ctx context.Context, v
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.BlockDeviceNotReady).
 			Message(fmt.Sprintf("VirtualDisk %q not found.", vdKey.String()))
+
 		return nil
 	}
 
@@ -229,6 +249,7 @@ func (h BlockDeviceReadyHandler) ValidateVirtualDiskReady(ctx context.Context, v
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.BlockDeviceNotReady).
 			Message(fmt.Sprintf("VirtualDisk %q is being deleted. Delete VirtualMachineBlockDeviceAttachment to detach disk from the VirtualMachine.", vdKey.String()))
+
 		return nil
 	}
 
@@ -236,11 +257,13 @@ func (h BlockDeviceReadyHandler) ValidateVirtualDiskReady(ctx context.Context, v
 	if err != nil {
 		return err
 	}
+
 	if !ready {
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.BlockDeviceNotReady).
 			Message(message)
+
 		return nil
 	}
 
@@ -249,6 +272,7 @@ func (h BlockDeviceReadyHandler) ValidateVirtualDiskReady(ctx context.Context, v
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.BlockDeviceNotReady).
 			Message(fmt.Sprintf("Waiting for the VirtualDisk %q to be observed in its latest state generation.", vdKey.String()))
+
 		return nil
 	}
 
@@ -258,6 +282,7 @@ func (h BlockDeviceReadyHandler) ValidateVirtualDiskReady(ctx context.Context, v
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.BlockDeviceNotReady).
 			Message(fmt.Sprintf("VirtualDisk %q is not ready to be attached to the virtual machine: waiting for the VirtualDisk to be ready for attachment.", vdKey.String()))
+
 		return nil
 	}
 
@@ -268,6 +293,7 @@ func (h BlockDeviceReadyHandler) ValidateVirtualDiskReady(ctx context.Context, v
 				Status(metav1.ConditionFalse).
 				Reason(vmbdacondition.BlockDeviceNotReady).
 				Message(fmt.Sprintf("VirtualDisk %q is not Ready: waiting for the VirtualDisk to be Ready.", vdKey.String()))
+
 			return nil
 		}
 	}
@@ -277,10 +303,12 @@ func (h BlockDeviceReadyHandler) ValidateVirtualDiskReady(ctx context.Context, v
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.BlockDeviceNotReady).
 			Message(fmt.Sprintf("Waiting for the VirtualDisk %q storage to be provisioned.", vdKey.String()))
+
 		return nil
 	}
 
 	ad := service.NewAttachmentDiskFromVirtualDisk(vd)
+
 	pvc, err := h.attachment.GetPersistentVolumeClaim(ctx, ad)
 	if err != nil {
 		return err
@@ -291,6 +319,7 @@ func (h BlockDeviceReadyHandler) ValidateVirtualDiskReady(ctx context.Context, v
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.BlockDeviceNotReady).
 			Message(fmt.Sprintf("The VirtualDisk %q storage was not found.", vdKey.String()))
+
 		return nil
 	}
 
@@ -299,10 +328,12 @@ func (h BlockDeviceReadyHandler) ValidateVirtualDiskReady(ctx context.Context, v
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.BlockDeviceNotReady).
 			Message(fmt.Sprintf("The VirtualDisk %q storage is not ready yet.", vdKey.String()))
+
 		return nil
 	}
 
 	cb.Status(metav1.ConditionTrue).Reason(vmbdacondition.BlockDeviceReady)
+
 	return nil
 }
 
@@ -323,6 +354,7 @@ func (h BlockDeviceReadyHandler) checkDiskOwner(ctx context.Context, vmbda *v1al
 	if err != nil {
 		return false, "", err
 	}
+
 	if vm == nil {
 		return true, "", nil
 	}

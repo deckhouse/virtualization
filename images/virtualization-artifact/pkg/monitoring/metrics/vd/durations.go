@@ -86,5 +86,6 @@ func ObserveProvisioningStage(stage, datasource string, d time.Duration) {
 	if d < 0 {
 		return
 	}
+
 	ProvisioningDuration.WithLabelValues(stage, datasource).Observe(d.Seconds())
 }

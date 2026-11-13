@@ -36,6 +36,7 @@ func record(t *testing.T, ctx context.Context, attrs []any) map[string]any {
 	t.Helper()
 
 	var buf bytes.Buffer
+
 	ctx = logger.ToContext(ctx, slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug})))
 
 	For(ctx).Info("freeze record", attrs...)
@@ -44,6 +45,7 @@ func record(t *testing.T, ctx context.Context, attrs []any) map[string]any {
 	if err := json.Unmarshal(buf.Bytes(), &got); err != nil {
 		t.Fatalf("decode the emitted record %q: %v", buf.String(), err)
 	}
+
 	return got
 }
 
@@ -55,6 +57,7 @@ func TestFor_TagsTheSubsystem(t *testing.T) {
 	if got["subsystem"] != "fsfreeze" {
 		t.Errorf("subsystem = %v, want fsfreeze", got["subsystem"])
 	}
+
 	if got["msg"] != "freeze record" {
 		t.Errorf("msg = %v", got["msg"])
 	}
@@ -65,6 +68,7 @@ func TestFor_TagsTheSubsystem(t *testing.T) {
 // snapshot it belongs to.
 func TestFor_KeepsTheReconcileContext(t *testing.T) {
 	var buf bytes.Buffer
+
 	base := slog.New(slog.NewJSONHandler(&buf, nil)).With(
 		logger.SlogNamespace("ns-1"), logger.SlogName("vms-1"),
 	)
@@ -76,6 +80,7 @@ func TestFor_KeepsTheReconcileContext(t *testing.T) {
 	if err := json.Unmarshal(buf.Bytes(), &got); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
+
 	if got["namespace"] != "ns-1" || got["name"] != "vms-1" {
 		t.Errorf("record = %v, want it to carry namespace=ns-1 name=vms-1", got)
 	}
@@ -88,6 +93,7 @@ func TestState_DistinguishesAMissingInstanceFromAThawedOne(t *testing.T) {
 	if missing["kvvmiPresent"] != false {
 		t.Errorf("kvvmiPresent = %v, want false", missing["kvvmiPresent"])
 	}
+
 	if _, ok := missing["fsFreezeStatus"]; ok {
 		t.Error("a missing instance reported an fsFreezeStatus; there is no instance to have one")
 	}
@@ -99,9 +105,11 @@ func TestState_DistinguishesAMissingInstanceFromAThawedOne(t *testing.T) {
 	if thawed["kvvmiPresent"] != true {
 		t.Errorf("kvvmiPresent = %v, want true", thawed["kvvmiPresent"])
 	}
+
 	if thawed["fsFreezeStatus"] != "" {
 		t.Errorf("fsFreezeStatus = %q, want the empty string a thawed guest reports", thawed["fsFreezeStatus"])
 	}
+
 	if thawed["requestPending"] != false {
 		t.Errorf("requestPending = %v, want false", thawed["requestPending"])
 	}
@@ -121,9 +129,11 @@ func TestState_ReportsAPendingRequest(t *testing.T) {
 	if got["requestPending"] != true {
 		t.Errorf("requestPending = %v, want true", got["requestPending"])
 	}
+
 	if got["request"] != "freeze" {
 		t.Errorf("request = %v, want freeze", got["request"])
 	}
+
 	if got["fsFreezeStatus"] != "" {
 		t.Errorf("fsFreezeStatus = %q, want empty: the guest has not confirmed yet", got["fsFreezeStatus"])
 	}
@@ -140,6 +150,7 @@ func TestState_ReportsAFrozenGuest(t *testing.T) {
 	if got["fsFreezeStatus"] != "frozen" {
 		t.Errorf("fsFreezeStatus = %v, want frozen", got["fsFreezeStatus"])
 	}
+
 	if got["kvvmiPhase"] != "Running" {
 		t.Errorf("kvvmiPhase = %v, want Running", got["kvvmiPhase"])
 	}
@@ -152,6 +163,7 @@ func TestAttrs_KeepsBothHalves(t *testing.T) {
 	if got["kvvmiPresent"] != false {
 		t.Errorf("kvvmiPresent = %v, want the state half to survive", got["kvvmiPresent"])
 	}
+
 	if got["verdict"] != "failed" {
 		t.Errorf("verdict = %v, want the caller's half to survive", got["verdict"])
 	}

@@ -69,9 +69,12 @@ func (u *usbPrecheck) checkVirtualizationDra(ctx context.Context, f *framework.F
 		if k8serrors.IsNotFound(err) {
 			return false
 		}
+
 		GinkgoWriter.Printf("failed to get virtualization-dra DaemonSet: %v\n", err)
+
 		return false
 	}
+
 	return true
 }
 

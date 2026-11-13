@@ -155,6 +155,7 @@ func (t *cpuHotplugTest) applyCPUCoreChangeWithQuotaBlockedMigration(initialCore
 	ctx := context.Background()
 
 	By("Environment preparation")
+
 	vmName := fmt.Sprintf("vm-%d-%d-quota-migrate", initialCores, changedCores)
 	t.generateResources(vmName, initialCores)
 
@@ -177,6 +178,7 @@ func (t *cpuHotplugTest) applyCPUCoreChangeWithQuotaBlockedMigration(initialCore
 	vmObs.Never(vmobs.BeFailed())
 
 	By("Wait until VM agent is ready")
+
 	err = vmObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -184,6 +186,7 @@ func (t *cpuHotplugTest) applyCPUCoreChangeWithQuotaBlockedMigration(initialCore
 	eventually.SSHReadyAsRoot(t.Framework, t.VM, framework.ShortTimeout)
 
 	By("Checking initial CPU configuration")
+
 	err = t.Framework.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VM), t.VM)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(t.VM.Status.Resources.CPU.Cores).To(Equal(initialCores))
@@ -198,6 +201,7 @@ func (t *cpuHotplugTest) applyCPUCoreChangeWithQuotaBlockedMigration(initialCore
 	disableInPlaceResizeOnKVVMI(ctx, t.Framework, t.VM)
 
 	By("Applying CPU core changes")
+
 	patch, err := json.Marshal([]map[string]any{{
 		"op":    "replace",
 		"path":  "/spec/cpu/cores",
@@ -208,27 +212,32 @@ func (t *cpuHotplugTest) applyCPUCoreChangeWithQuotaBlockedMigration(initialCore
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Waiting for workload updater to create migration VMOP")
+
 	vmop := untilHotplugMigrationVMOPCreated(ctx, t.Framework, t.VM, framework.MaxTimeout)
 	// The discovery above already saw the VMOP parked in Pending by the quota;
 	// the observer is armed now so its later transitions are captured.
 	vmopObs := vmopobs.StartObserver(ctx, vmop)
 
 	By("Checking CPU configuration is not applied before migration can proceed")
+
 	guestCPUCount, err = t.getGuestCPUCount()
 	Expect(err).NotTo(HaveOccurred())
 	Expect(guestCPUCount).To(Equal(initialCores))
 
 	By("Removing resource quota")
+
 	err = t.Framework.GenericClient().Delete(ctx, quota)
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Waiting until CPU configuration is applied via live migration")
+
 	err = vmObs.WaitFor(vmobs.HaveMigrationSucceeded(), framework.MaxTimeout)
 	if err != nil {
 		// TODO: remove temporary migration skip logic when both known issues are
 		// fixed: kubevirt "client socket is closed" and Volume(s)UpdateError.
 		util.SkipIfKnownMigrationFailureWithContext(ctx, t.VM)
 	}
+
 	Expect(err).NotTo(HaveOccurred())
 	err = vmopObs.WaitFor(vmopobs.BeCompleted(), framework.LongTimeout)
 	Expect(err).NotTo(HaveOccurred())
@@ -236,6 +245,7 @@ func (t *cpuHotplugTest) applyCPUCoreChangeWithQuotaBlockedMigration(initialCore
 	eventually.SSHReadyAsRoot(t.Framework, t.VM, framework.MiddleTimeout)
 
 	By("Checking changed CPU configuration")
+
 	err = t.Framework.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VM), t.VM)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(t.VM.Status.Resources.CPU.Cores).To(Equal(changedCores))
@@ -247,10 +257,12 @@ func (t *cpuHotplugTest) applyCPUCoreChange(initialCores, changedCores int, live
 	ctx := context.Background()
 
 	By("Environment preparation")
+
 	vmName := fmt.Sprintf("vm-%d-%d", initialCores, changedCores)
 	if liveMigration {
 		vmName += "-migrate"
 	}
+
 	t.generateResources(vmName, initialCores)
 	err := t.Framework.CreateWithDeferredDeletion(ctx, t.VM, t.VD)
 	Expect(err).NotTo(HaveOccurred())
@@ -259,6 +271,7 @@ func (t *cpuHotplugTest) applyCPUCoreChange(initialCores, changedCores int, live
 	vmObs.Never(vmobs.BeFailed())
 
 	By("Wait until VM agent is ready")
+
 	err = vmObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -266,6 +279,7 @@ func (t *cpuHotplugTest) applyCPUCoreChange(initialCores, changedCores int, live
 	eventually.SSHReadyAsRoot(t.Framework, t.VM, framework.ShortTimeout)
 
 	By("Checking initial CPU configuration")
+
 	err = t.Framework.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VM), t.VM)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(t.VM.Status.Resources.CPU.Cores).To(Equal(initialCores))
@@ -285,6 +299,7 @@ func (t *cpuHotplugTest) applyCPUCoreChange(initialCores, changedCores int, live
 	}
 
 	By("Applying CPU core changes")
+
 	patch, err := json.Marshal([]map[string]interface{}{{
 		"op":    "replace",
 		"path":  "/spec/cpu/cores",
@@ -296,15 +311,18 @@ func (t *cpuHotplugTest) applyCPUCoreChange(initialCores, changedCores int, live
 
 	if liveMigration {
 		By("Waiting until CPU configuration is applied via live migration")
+
 		err = vmObs.WaitFor(vmobs.HaveMigrationSucceeded(), framework.MaxTimeout)
 		if err != nil {
 			// TODO: remove temporary migration skip logic when both known issues are
 			// fixed: kubevirt "client socket is closed" and Volume(s)UpdateError.
 			util.SkipIfKnownMigrationFailureWithContext(ctx, t.VM)
 		}
+
 		Expect(err).NotTo(HaveOccurred())
 	} else {
 		By("Waiting until CPU configuration is applied in-place")
+
 		err = vmObs.WaitFor(haveCPUCores(changedCores), framework.MaxTimeout)
 		Expect(err).NotTo(HaveOccurred())
 		util.ExpectNoVMOperationsForVirtualMachine(ctx, t.Framework, t.VM)
@@ -314,6 +332,7 @@ func (t *cpuHotplugTest) applyCPUCoreChange(initialCores, changedCores int, live
 	eventually.SSHReadyAsRoot(t.Framework, t.VM, framework.MiddleTimeout)
 
 	By("Checking changed CPU configuration")
+
 	err = t.Framework.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VM), t.VM)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(t.VM.Status.Resources.CPU.Cores).To(Equal(changedCores))
@@ -360,6 +379,7 @@ func (t *cpuHotplugTest) getGuestCPUCount() (int, error) {
 	}
 
 	var cpuCount int
+
 	_, err = fmt.Sscanf(strings.TrimSpace(cmdOut), "%d", &cpuCount)
 	if err != nil {
 		return 0, fmt.Errorf("parse guest cpu count from %q: %w", cmdOut, err)

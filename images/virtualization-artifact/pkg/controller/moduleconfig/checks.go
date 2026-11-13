@@ -59,6 +59,7 @@ func CheckCIDRsOverlapWithNodeAddresses(cidrs []netip.Prefix, nodes []corev1.Nod
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -68,6 +69,7 @@ func CheckCIDRsOverlapWithAddress(cidrs []netip.Prefix, address netip.Addr) erro
 			return fmt.Errorf("subnet %v is invalid: should not contain address %v. Please adjust the configuration to resolve this issue", cidr, address)
 		}
 	}
+
 	return nil
 }
 
@@ -77,6 +79,7 @@ func CheckCIDRsOverlapWithSubnet(cidrs []netip.Prefix, subnet netip.Prefix) erro
 			return fmt.Errorf("subnet %v is invalid: should not overlap with subnet %v. Please adjust the configuration to resolve this issue", cidr, subnet)
 		}
 	}
+
 	return nil
 }
 
@@ -85,6 +88,7 @@ func CheckCIDRsOverlapWithPodSubnet(cidrs []netip.Prefix, subnet netip.Prefix) e
 	if err != nil {
 		return fmt.Errorf("check overlap with global podSubnetCIDR: %w", err)
 	}
+
 	return nil
 }
 
@@ -93,6 +97,7 @@ func CheckCIDRsOverlapWithServiceSubnet(cidrs []netip.Prefix, subnet netip.Prefi
 	if err != nil {
 		return fmt.Errorf("check overlap with global serviceSubnetCIDR: %w", err)
 	}
+
 	return nil
 }
 
@@ -115,14 +120,17 @@ func ParseCIDRs(settings mcapi.SettingsValues) ([]netip.Prefix, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	parsedCIDRs := make([]netip.Prefix, len(CIDRs))
 	for i, CIDR := range CIDRs {
 		parsedCIDR, err := netip.ParsePrefix(CIDR)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse CIDR %s: %w", CIDR, err)
 		}
+
 		parsedCIDRs[i] = parsedCIDR
 	}
+
 	return parsedCIDRs, nil
 }
 
@@ -133,7 +141,9 @@ func convertToStringSlice(input []interface{}) ([]string, error) {
 		if !ok {
 			return nil, fmt.Errorf("failed to convert value %v to a string", v)
 		}
+
 		result[i] = strVal
 	}
+
 	return result, nil
 }

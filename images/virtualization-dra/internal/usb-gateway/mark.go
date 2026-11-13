@@ -69,6 +69,7 @@ func (m Marker) Mark(ctx context.Context, any, hs, ss bool) error {
 	if err != nil {
 		return fmt.Errorf("failed to label node %s: %w", m.nodeName, err)
 	}
+
 	return nil
 }
 
@@ -77,5 +78,6 @@ func (m Marker) Unmark(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to unlabel node %s: %w", m.nodeName, err)
 	}
+
 	return nil
 }

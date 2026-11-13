@@ -44,17 +44,21 @@ func findMigrationWindow(ctx context.Context, f *framework.Framework, vm *v1alph
 	Expect(err).NotTo(HaveOccurred())
 
 	var newest *v1alpha2.VirtualMachineOperation
+
 	for i := range vmops.Items {
 		vmop := &vmops.Items[i]
 		if vmop.Spec.VirtualMachine != vm.Name || vmop.Spec.Type != v1alpha2.VMOPTypeEvict {
 			continue
 		}
+
 		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseCompleted),
 			"Evict VirtualMachineOperation %s/%s of virtual machine %s must be Completed", vmop.Namespace, vmop.Name, vm.Name)
+
 		if newest == nil || vmop.CreationTimestamp.After(newest.CreationTimestamp.Time) {
 			newest = vmop
 		}
 	}
+
 	Expect(newest).NotTo(BeNil(),
 		"virtual machine %s/%s has no Evict VirtualMachineOperation: the upgrade was expected to migrate it (set %s=false for an upgrade that does not)",
 		vm.Namespace, vm.Name, migratesVMsEnv)
@@ -66,6 +70,7 @@ func findMigrationWindow(ctx context.Context, f *framework.Framework, vm *v1alph
 			break
 		}
 	}
+
 	Expect(window.end.IsZero()).To(BeFalse(),
 		"Evict VirtualMachineOperation %s/%s has no Completed condition, so the migration end is unknown", newest.Namespace, newest.Name)
 	Expect(window.end.Before(window.start)).To(BeFalse(), "the migration end must not precede its start")

@@ -73,6 +73,7 @@ func PVCImporterIngressPeers(controllerNamespace string) []netv1.NetworkPolicyPe
 			},
 		})
 	}
+
 	return peers
 }
 
@@ -91,6 +92,7 @@ func PVCImporterIngressPeers(controllerNamespace string) []netv1.NetworkPolicyPe
 func CreateNetworkPolicy(ctx context.Context, c client.Client, obj metav1.Object, sup supplements.Generator, controllerNamespace, finalizer string) error {
 	npName := sup.NetworkPolicy()
 	cnp := newCiliumNetworkPolicy(npName, obj.GetOwnerReferences(), []string{finalizer}, importerCNPSpec(controllerNamespace))
+
 	return client.IgnoreAlreadyExists(c.Create(ctx, cnp))
 }
 
@@ -103,6 +105,7 @@ func GetNetworkPolicy(ctx context.Context, client client.Client, legacyName type
 	if err != nil {
 		return nil, err
 	}
+
 	if cnp != nil {
 		return cnp, nil
 	}
@@ -111,9 +114,11 @@ func GetNetworkPolicy(ctx context.Context, client client.Client, legacyName type
 	if err != nil {
 		return nil, err
 	}
+
 	if np == nil {
 		return nil, nil
 	}
+
 	return np, nil
 }
 
@@ -124,6 +129,7 @@ func GetNetworkPolicyFromObject(ctx context.Context, client client.Client, legac
 	if err != nil {
 		return nil, err
 	}
+
 	if cnp != nil {
 		return cnp, nil
 	}
@@ -132,9 +138,11 @@ func GetNetworkPolicyFromObject(ctx context.Context, client client.Client, legac
 	if err != nil {
 		return nil, err
 	}
+
 	if np == nil {
 		return nil, nil
 	}
+
 	return np, nil
 }
 
@@ -149,6 +157,7 @@ func newCiliumNetworkPolicy(name types.NamespacedName, ownerRefs []metav1.OwnerR
 	cnp.SetOwnerReferences(ownerRefs)
 	cnp.SetFinalizers(finalizers)
 	cnp.Object["spec"] = spec
+
 	return cnp
 }
 
@@ -157,6 +166,7 @@ func newCiliumNetworkPolicy(name types.NamespacedName, ownerRefs []metav1.OwnerR
 func newCiliumNetworkPolicyZero() *unstructured.Unstructured {
 	cnp := &unstructured.Unstructured{}
 	cnp.SetGroupVersionKind(ciliumNetworkPolicyGVK)
+
 	return cnp
 }
 
@@ -215,5 +225,6 @@ func importerCNPSpec(controllerNamespace string) map[string]interface{} {
 			},
 		}
 	}
+
 	return spec
 }

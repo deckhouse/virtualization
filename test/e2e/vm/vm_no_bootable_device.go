@@ -51,6 +51,7 @@ var _ = Describe("VirtualMachineNoBootableDevice", Label(label.SIGCompute, prech
 
 	It("sets Running condition reason to NoBootableDevice", func() {
 		By("Generating a blank disk and virtual machine with no bootable devices")
+
 		vdBlank := object.NewBlankVD("vd-blank", f.Namespace().Name, nil, ptr.To(resource.MustParse(vdCustomImageSize)))
 
 		vm := object.NewMinimalVM("vm-", f.Namespace().Name,
@@ -62,12 +63,14 @@ var _ = Describe("VirtualMachineNoBootableDevice", Label(label.SIGCompute, prech
 		)
 
 		By("Creating resources")
+
 		err := f.CreateWithDeferredDeletion(ctx, vdBlank, vm)
 		Expect(err).NotTo(HaveOccurred())
 
 		vmObs := vmobs.StartObserver(ctx, f, vm)
 
 		By("Waiting for virtual machine to be Running")
+
 		err = vmObs.WaitFor(vmobs.BeRunning(), framework.LongTimeout)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -88,6 +91,7 @@ func haveNoBootableDeviceReported() vmobs.Predicate {
 		if !found {
 			return false, nil
 		}
+
 		return runningCondition.Reason == vmcondition.ReasonNoBootableDeviceFound.String() &&
 			runningCondition.Status == metav1.ConditionTrue, nil
 	}

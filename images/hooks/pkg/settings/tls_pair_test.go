@@ -45,6 +45,7 @@ var _ = Describe("TLS pair", func() {
 
 	BeforeEach(func() {
 		var err error
+
 		ca, err = certificate.GenerateCA("common-ca")
 		Expect(err).ToNot(HaveOccurred())
 		otherCA, err = certificate.GenerateCA("other-ca")
@@ -66,6 +67,7 @@ var _ = Describe("TLS pair", func() {
 		It("rejects a key that does not match the leaf", func() {
 			other, err := certificate.GenerateSelfSignedCert("leaf", ca)
 			Expect(err).ToNot(HaveOccurred())
+
 			pair.Key = other.Key
 			Expect(VerifyTLSPair(*pair)).ToNot(Succeed())
 		})
@@ -85,7 +87,9 @@ var _ = Describe("TLS pair", func() {
 		newInput := func(snaps ...pkg.Snapshot) *pkg.HookInput {
 			snapshots = mock.NewSnapshotsMock(GinkgoT())
 			patches = mock.NewPatchCollectorMock(GinkgoT())
+
 			snapshots.GetMock.When(tlscertificate.InternalTLSSnapshotKey).Then(snaps)
+
 			return &pkg.HookInput{Snapshots: snapshots, PatchCollector: patches, Logger: log.NewNop()}
 		}
 
@@ -109,6 +113,7 @@ var _ = Describe("TLS pair", func() {
 		It("deletes a secret whose leaf is not signed by its ca.crt", func() {
 			pair.CA = otherCA.Cert
 			input := newInput(snapshotOf(*pair))
+
 			patches.DeleteMock.Expect("v1", "Secret", ModuleNamespace, secretName).Return()
 			ReissueBrokenTLSPair(input, secretName)
 			Expect(patches.DeleteAfterCounter()).To(Equal(uint64(1)))

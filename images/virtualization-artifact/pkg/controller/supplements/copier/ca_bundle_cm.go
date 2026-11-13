@@ -51,6 +51,7 @@ func (c CABundleConfigMap) Create(ctx context.Context, client client.Client, caB
 	if err != nil && k8serrors.IsAlreadyExists(err) {
 		return destObj, nil
 	}
+
 	return destObj, err
 }
 
@@ -62,6 +63,7 @@ func (c CABundleConfigMap) Copy(ctx context.Context, client client.Client) error
 	if err != nil {
 		return err
 	}
+
 	if srcObj != nil {
 		caBundle = string(srcObj.Data[CAFieldName])
 	}
@@ -73,6 +75,7 @@ func (c CABundleConfigMap) Copy(ctx context.Context, client client.Client) error
 	if err != nil && k8serrors.IsAlreadyExists(err) {
 		return nil
 	}
+
 	return err
 }
 

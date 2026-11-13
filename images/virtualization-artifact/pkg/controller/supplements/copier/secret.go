@@ -49,6 +49,7 @@ func (s Secret) Create(ctx context.Context, client client.Client, data map[strin
 	if err != nil && k8serrors.IsAlreadyExists(err) {
 		return destObj, nil
 	}
+
 	return destObj, err
 }
 
@@ -66,6 +67,7 @@ func (s Secret) Copy(ctx context.Context, client client.Client) error {
 	}
 
 	_, err = s.Create(ctx, client, srcObj.Data, srcObj.Type)
+
 	return err
 }
 

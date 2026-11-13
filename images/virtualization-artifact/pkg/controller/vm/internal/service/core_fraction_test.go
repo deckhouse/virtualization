@@ -33,6 +33,7 @@ func vm(cores int, current string) *v1alpha2.VirtualMachine {
 		},
 	}
 	sizingpolicy.SetRecommendedCoreFraction(out, current)
+
 	return out
 }
 
@@ -41,6 +42,7 @@ func classWithFractions(max int, fractions ...int) *v1alpha2.VirtualMachineClass
 	for i, f := range fractions {
 		cf[i] = v1alpha2.CoreFractionValue(f)
 	}
+
 	return &v1alpha2.VirtualMachineClass{
 		Spec: v1alpha2.VirtualMachineClassSpec{
 			SizingPolicies: []v1alpha2.SizingPolicy{

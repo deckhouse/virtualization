@@ -74,20 +74,24 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (
 	supgen := vdsupplements.NewGenerator(vd)
 
 	cb := conditions.NewConditionBuilder(vdcondition.ReadyType).Generation(vd.Generation)
+
 	defer func() { conditions.SetCondition(cb, &vd.Status.Conditions) }()
 
 	pod, err := ds.uploaderService.GetPod(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("fetch uploader pod: %w", err)
 	}
+
 	svc, err := ds.uploaderService.GetService(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("fetch uploader service: %w", err)
 	}
+
 	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("fetch pvc: %w", err)
 	}
+
 	if pvc != nil {
 		ctx = logger.ToContext(ctx, log.With("pvc.name", pvc.Name, "pvc.status.phase", pvc.Status.Phase))
 	}

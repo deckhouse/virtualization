@@ -25,6 +25,7 @@ import (
 func New(options ...Option) *v1alpha2.VirtualMachineSnapshotOperation {
 	vmsop := NewEmpty("", "")
 	ApplyOptions(vmsop, options...)
+
 	return vmsop
 }
 
@@ -32,6 +33,7 @@ func ApplyOptions(vmsop *v1alpha2.VirtualMachineSnapshotOperation, opts ...Optio
 	if vmsop == nil {
 		return
 	}
+
 	for _, opt := range opts {
 		opt(vmsop)
 	}

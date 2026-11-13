@@ -62,6 +62,7 @@ func HasCPUSizePoliciesCrosses(vmclass *v1alpha2.VirtualMachineClassSpec) bool {
 			if i == j {
 				continue
 			}
+
 			_, ok := usedPairs[[2]int{i, j}]
 			if ok {
 				continue
@@ -97,5 +98,6 @@ func HasValidCores(vmclass *v1alpha2.VirtualMachineClassSpec) bool {
 			return false
 		}
 	}
+
 	return true
 }

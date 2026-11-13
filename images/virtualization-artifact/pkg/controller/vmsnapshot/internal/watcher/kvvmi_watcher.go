@@ -59,11 +59,13 @@ func (w KVVMIWatcher) Watch(mgr manager.Manager, ctr controller.Controller) erro
 	); err != nil {
 		return fmt.Errorf("error setting watch on KVVMI: %w", err)
 	}
+
 	return nil
 }
 
 func (w KVVMIWatcher) enqueueRequests(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) (requests []reconcile.Request) {
 	var vmSnapshots v1alpha2.VirtualMachineSnapshotList
+
 	err := w.client.List(ctx, &vmSnapshots, &client.ListOptions{
 		Namespace:     kvvmi.GetNamespace(),
 		FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVMSnapshotByVM, kvvmi.GetName()),

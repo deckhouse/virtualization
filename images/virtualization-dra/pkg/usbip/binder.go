@@ -103,6 +103,7 @@ func (b *usbBinder) IsBound(busID string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("device with bus ID %s does not exist: %w", busID, err)
 	}
+
 	return b.isBound(devInfo), nil
 }
 
@@ -153,27 +154,34 @@ func (b *usbBinder) getUSBDeviceInfo(busID string) (*usbDeviceInfo, error) {
 	}
 
 	bDevClassPath := filepath.Join(path, "bDeviceClass")
+
 	data, err := os.ReadFile(bDevClassPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read %s: %w", bDevClassPath, err)
 	}
+
 	info.IsHub = strings.TrimSpace(string(data)) == "09" // 09 = USB Hub class
 
 	ueventPath := filepath.Join(path, "uevent")
+
 	ueventFile, err := os.Open(ueventPath)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open the file %s: %w", ueventPath, err)
 	}
 	defer ueventFile.Close()
+
 	scanner := bufio.NewScanner(ueventFile)
 
 	count := 0
+
 	for scanner.Scan() {
 		line := scanner.Text()
+
 		values := strings.Split(line, "=")
 		if len(values) != 2 {
 			continue
 		}
+
 		switch values[0] {
 		case "DEVNAME":
 			info.DevPath = filepath.Join("/dev", values[1])
@@ -182,6 +190,7 @@ func (b *usbBinder) getUSBDeviceInfo(busID string) (*usbDeviceInfo, error) {
 			info.Driver = values[1]
 			count++
 		}
+
 		if count == 2 {
 			break
 		}
@@ -242,6 +251,7 @@ func (a modifyMatchBusIDAttr) Complete() string {
 	if a.add {
 		return fmt.Sprintf("add %s", a.busID)
 	}
+
 	return fmt.Sprintf("del %s", a.busID)
 }
 

@@ -71,6 +71,7 @@ var _ = Describe("DeletionHandler", func() {
 		_, err = NewDeletionHandler(k8sClient).Handle(context.Background(), vmmac)
 		Expect(err).NotTo(HaveOccurred())
 		err = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(vmmac), &v1alpha2.VirtualMachineMACAddress{})
+
 		return k8serrors.IsNotFound(err)
 	}
 
@@ -86,18 +87,23 @@ var _ = Describe("DeletionHandler", func() {
 
 	It("deletes an address once its virtual machine no longer uses it", func() {
 		vm.Status.Networks = []v1alpha2.NetworksStatus{{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "net", VirtualMachineMACAddressName: vmmac.Name}}
+
 		Expect(reconcile()).To(BeFalse())
 		Expect(attachedReason()).To(Equal(vmmaccondition.Attached.String()))
 
 		vm.Status.Networks = nil
+
 		Expect(reconcile()).To(BeTrue())
 		Expect(attachedReason()).To(Equal(vmmaccondition.Detached.String()))
 	})
 
 	It("still deletes a detached address on the next reconcile", func() {
 		vm.Status.Networks = []v1alpha2.NetworksStatus{{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "net", VirtualMachineMACAddressName: vmmac.Name}}
+
 		Expect(reconcile()).To(BeFalse())
+
 		vm.Status.Networks = nil
+
 		Expect(reconcile()).To(BeTrue())
 
 		Expect(vmmac.Status.VirtualMachine).To(BeEmpty())

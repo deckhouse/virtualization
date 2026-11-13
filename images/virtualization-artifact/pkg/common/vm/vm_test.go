@@ -132,6 +132,7 @@ func newVMScheme() *runtime.Scheme {
 	Expect(clientgoscheme.AddToScheme(scheme)).To(Succeed())
 	Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
 	Expect(virtv1.AddToScheme(scheme)).To(Succeed())
+
 	return scheme
 }
 

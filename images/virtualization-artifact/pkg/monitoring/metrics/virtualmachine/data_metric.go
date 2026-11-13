@@ -90,6 +90,7 @@ func newDataMetric(vm *v1alpha2.VirtualMachine) *dataMetric {
 	if vm == nil {
 		return nil
 	}
+
 	res := vm.Status.Resources
 	cf := getPercent(res.CPU.CoreFraction)
 	// spec.cpu.coreFraction may be the literal "Auto", which getPercent cannot parse and
@@ -99,6 +100,7 @@ func newDataMetric(vm *v1alpha2.VirtualMachine) *dataMetric {
 	if specCoreFraction == v1alpha2.CoreFractionAuto {
 		specCoreFraction = sizingpolicy.RecommendedCoreFraction(vm)
 	}
+
 	cfSpec := getPercent(specCoreFraction)
 
 	var (
@@ -186,9 +188,11 @@ func newMigrationDataMetric(vm *v1alpha2.VirtualMachine) *migrationDataMetric {
 	if m.Result == "" {
 		m.Result = migrationResultInProgress
 	}
+
 	if state.StartTimestamp != nil {
 		m.Start = float64(state.StartTimestamp.Unix())
 	}
+
 	if state.EndTimestamp != nil {
 		m.End = float64(state.EndTimestamp.Unix())
 	}
@@ -204,6 +208,7 @@ func evictionRequiredReason(vm *v1alpha2.VirtualMachine) string {
 	if !found || cond.Status != metav1.ConditionTrue {
 		return ""
 	}
+
 	return cond.Reason
 }
 

@@ -136,6 +136,7 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 	if boundCondition.Status == metav1.ConditionTrue {
 		if oldVmip.Spec.Type == v1alpha2.VirtualMachineIPAddressTypeAuto && newVmip.Spec.Type == v1alpha2.VirtualMachineIPAddressTypeStatic {
 			v.log.Info("Change the VirtualMachineIP address type to 'Auto' from 'Static'", "ipAddress", newVmip.Spec.StaticIP)
+
 			if newVmip.Spec.StaticIP != newVmip.Status.Address {
 				return nil, fmt.Errorf("only type change Auto->Static is allowed: can't change current IP %s to the specified %s", newVmip.Status.Address, newVmip.Spec.StaticIP)
 			}
@@ -158,6 +159,7 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 func (v *Validator) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
 	err := fmt.Errorf("misconfigured webhook rules: delete operation not implemented")
 	v.log.Error("Ensure the correctness of ValidatingWebhookConfiguration", "err", err)
+
 	return nil, nil
 }
 
@@ -196,6 +198,7 @@ func (v *Validator) validateAllocatedIPAddresses(ctx context.Context, ipAddress 
 	_, ok := allocatedIPs[ipAddress]
 	if ok {
 		var lease *v1alpha2.VirtualMachineIPAddressLease
+
 		lease, err = object.FetchObject(ctx, types.NamespacedName{Name: ip.IPToLeaseName(ipAddress)}, v.client, &v1alpha2.VirtualMachineIPAddressLease{})
 		if err != nil {
 			return fmt.Errorf("failed to fetch allocated IP address: %w", err)
@@ -211,9 +214,11 @@ func (v *Validator) validateAllocatedIPAddresses(ctx context.Context, ipAddress 
 			if err != nil {
 				return fmt.Errorf("failed to find the IPAddress using %s: %w", ipAddress, err)
 			}
+
 			if ipaName, ok := ipas[ipAddress]; ok {
 				return fmt.Errorf("the VirtualMachineIPAddress cannot be created: the specified IP address %s is used by the IPAddress %s of the sdn module; choose another address or delete that IPAddress", ipAddress, ipaName)
 			}
+
 			return fmt.Errorf("the VirtualMachineIPAddress cannot be created: the specified IP address %s has already been allocated; choose another address", ipAddress)
 		}
 	}
@@ -225,6 +230,7 @@ func (v *Validator) validateVirtualMachineCIDRsConfigured() error {
 	if len(v.virtualMachineCIDRs) == 0 {
 		return fmt.Errorf("operations with VirtualMachineIPAddresses are forbidden: ModuleConfig/virtualization spec.settings.virtualMachineCIDRs field is not configured")
 	}
+
 	return nil
 }
 

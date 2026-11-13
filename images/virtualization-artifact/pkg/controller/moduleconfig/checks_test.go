@@ -44,11 +44,14 @@ func TestParseCIDRs(t *testing.T) {
 				if err == nil {
 					t.Fatalf("expected error")
 				}
+
 				return
 			}
+
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
+
 			if len(cidrs) != tt.wantLen {
 				t.Fatalf("expected %d cidrs, got %d", tt.wantLen, len(cidrs))
 			}

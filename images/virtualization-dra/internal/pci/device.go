@@ -55,17 +55,22 @@ func (d *Device) Validate() error {
 	if d.Address == "" {
 		return fmt.Errorf("address is required")
 	}
+
 	if d.VendorID == "" {
 		return fmt.Errorf("vendorID is required")
 	}
+
 	if d.DeviceID == "" {
 		return fmt.Errorf("deviceID is required")
 	}
+
 	if d.ClassCode == "" {
 		return fmt.Errorf("class is required")
 	}
+
 	if d.IOMMUGroup < 0 {
 		return fmt.Errorf("iommuGroup is required")
 	}
+
 	return nil
 }

@@ -111,6 +111,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		log.Debug("Reconcile kvvmi without updating",
 			"current.migration.configuration", livemigration.DumpKVVMIMigrationConfiguration(kvvmi.Current()),
 		)
+
 		return nil
 	})
 

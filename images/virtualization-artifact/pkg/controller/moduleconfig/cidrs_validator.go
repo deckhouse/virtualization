@@ -46,6 +46,7 @@ func (v cidrsValidator) ValidateUpdate(ctx context.Context, _, newMC *mcapi.Modu
 	if err != nil {
 		return admission.Warnings{}, err
 	}
+
 	if len(cidrs) == 0 {
 		return admission.Warnings{}, nil
 	}
@@ -75,9 +76,11 @@ func (v cidrsValidator) ValidateUpdate(ctx context.Context, _, newMC *mcapi.Modu
 
 func (v cidrsValidator) checkOverlapWithNodeAddresses(ctx context.Context, cidrs []netip.Prefix) error {
 	nodes := &corev1.NodeList{}
+
 	err := v.client.List(ctx, nodes)
 	if err != nil {
 		return fmt.Errorf("internal error: unable to retrieve nodes at the moment, please try again later. Details: %w", err)
 	}
+
 	return CheckCIDRsOverlapWithNodeAddresses(cidrs, nodes.Items)
 }

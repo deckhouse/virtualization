@@ -107,6 +107,7 @@ var _ = Describe("Sources helpers", func() {
 		Expect(corev1.AddToScheme(scheme)).To(Succeed())
 		Expect(netv1.AddToScheme(scheme)).To(Succeed())
 		Expect(storagev1.AddToScheme(scheme)).To(Succeed())
+
 		return scheme
 	}
 
@@ -150,6 +151,7 @@ var _ = Describe("Sources helpers", func() {
 			sources := NewSources()
 			first := &sourcesHandlerStub{}
 			second := &sourcesHandlerStub{cleanupRequeue: true, cleanupReason: "waiting for cleanup"}
+
 			sources.Set(v1alpha2.DataSourceTypeHTTP, first)
 			sources.Set(v1alpha2.DataSourceTypeObjectRef, second)
 
@@ -409,6 +411,7 @@ var _ = Describe("Sources helpers", func() {
 
 			_, handled, err := setPhaseConditionFromStorageError(inputErr, vi, cb)
 			Expect(handled).To(Equal(expectedHandled))
+
 			if expectedErr == nil {
 				Expect(err).ToNot(HaveOccurred())
 			} else {
@@ -491,6 +494,7 @@ var _ = Describe("pvcImportFailed", func() {
 		cb := conditions.NewConditionBuilder(vicondition.ReadyType)
 		failed := pvcImportFailed(vi, cb, pod)
 		conditions.SetCondition(cb, &vi.Status.Conditions)
+
 		return vi, failed
 	}
 
@@ -546,6 +550,7 @@ var _ = Describe("refreshPVCImportProgress", func() {
 		// The pod is fetched once per reconcile and handed around; the progress must still be
 		// taken from that same pod.
 		var seen string
+
 		statSvc := &StatMock{
 			GetProgressFunc: func(_ types.UID, pod *corev1.Pod, _ string, _ ...servicestat.GetProgressOption) string {
 				seen = pod.Name

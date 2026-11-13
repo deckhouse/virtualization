@@ -105,6 +105,7 @@ func Reconcile(ctx context.Context, input *pkg.HookInput) error {
 	if stateInSecret != nil {
 		input.Values.Set(routeForgerStateValuesPath, *stateInSecret)
 		setRouteForgerSupportedMetric(input, true)
+
 		return nil
 	}
 
@@ -120,6 +121,7 @@ func Reconcile(ctx context.Context, input *pkg.HookInput) error {
 		// rather than drop the routing of a running fleet on a transient error.
 		input.Logger.Error("Cannot check whether sdn routes virtual machines, keep shipping vm-route-forge", "error", err)
 	}
+
 	if !sdnRoutesVMs {
 		setRouteForgerSupportedMetric(input, false)
 		return nil
@@ -128,6 +130,7 @@ func Reconcile(ctx context.Context, input *pkg.HookInput) error {
 	input.Logger.Info("The sdn module took over the routing of virtual machines, stop shipping vm-route-forge")
 	input.Values.Set(routeForgerStateValuesPath, routeForgerState{DetectedAt: time.Now()})
 	setRouteForgerSupportedMetric(input, true)
+
 	return nil
 }
 
@@ -136,6 +139,7 @@ func setRouteForgerSupportedMetric(input *pkg.HookInput, supported bool) {
 	if supported {
 		value = 1
 	}
+
 	input.MetricsCollector.Set(routeForgerSupportedMetric, value, nil)
 }
 
@@ -181,6 +185,7 @@ func sdnRoutesVirtualMachines(ctx context.Context, input *pkg.HookInput) (bool, 
 	}
 
 	clusterNetwork := &sdnapi.ClusterNetwork{}
+
 	err = k8sClient.Get(ctx, client.ObjectKey{Name: network.MainClusterNetworkName}, clusterNetwork)
 	switch {
 	case apierrors.IsNotFound(err), meta.IsNoMatchError(err):
@@ -196,10 +201,12 @@ func sdnRoutesVirtualMachines(ctx context.Context, input *pkg.HookInput) (bool, 
 	// Once vm-route-forge is gone, the sdn agents drop every route without an IPAddress:
 	// wait until each vmip address has one.
 	ctx = logger.ToContext(ctx, slog.New(input.Logger.Handler()))
+
 	taken, err := network.VMIPAddressesTakenInSDNPool(ctx, k8sClient)
 	if err != nil || !taken {
 		return false, err
 	}
+
 	return vmsOnVMIPRoutedBySDN(ctx, k8sClient)
 }
 
@@ -211,10 +218,12 @@ func vmsOnVMIPRoutedBySDN(ctx context.Context, c client.Client) (bool, error) {
 	if err := c.List(ctx, vms); err != nil {
 		return false, fmt.Errorf("list VirtualMachine: %w", err)
 	}
+
 	vmips := &v1alpha2.VirtualMachineIPAddressList{}
 	if err := c.List(ctx, vmips); err != nil {
 		return false, fmt.Errorf("list VirtualMachineIPAddress: %w", err)
 	}
+
 	ipas := &sdnapi.IPAddressList{}
 	if err := c.List(ctx, ipas); err != nil {
 		return false, fmt.Errorf("list SDN IPAddress: %w", err)
@@ -227,16 +236,19 @@ func vmsOnVMIPRoutedBySDN(ctx context.Context, c client.Client) (bool, error) {
 
 	for i := range vms.Items {
 		vm := &vms.Items[i]
+
 		pod := activePodName(vm)
 		if pod == "" || vm.Status.VirtualMachineIPAddress == "" {
 			continue
 		}
+
 		vmip := vmipByName[types.NamespacedName{Namespace: vm.Namespace, Name: vm.Status.VirtualMachineIPAddress}]
 		if vmip == nil || !mirrorRoutesPod(ipas.Items, vmip, vm.Namespace+"/"+pod) {
 			logger.FromContext(ctx).Debug("sdn cannot route a running VM on a vmip yet", "vm", vm.Namespace+"/"+vm.Name, "pod", pod)
 			return false, nil
 		}
 	}
+
 	return true, nil
 }
 
@@ -246,6 +258,7 @@ func activePodName(vm *v1alpha2.VirtualMachine) string {
 			return pod.Name
 		}
 	}
+
 	return ""
 }
 
@@ -255,10 +268,12 @@ func mirrorRoutesPod(ipas []sdnapi.IPAddress, vmip *v1alpha2.VirtualMachineIPAdd
 		if !network.IsMirrorOf(ipa, vmip) || ipa.Status.Address != vmip.Status.Address {
 			continue
 		}
+
 		if ipa.Status.Phase == sdnapi.PhaseBound || ipa.Status.Phase == sdnapi.PhaseAttached {
 			return slices.Contains(ipa.Status.UsedByPods, pod)
 		}
 	}
+
 	return false
 }
 

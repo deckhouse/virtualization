@@ -33,6 +33,7 @@ func WithEffectiveMain(networks []v1alpha2.NetworksSpec) []v1alpha2.NetworksSpec
 	if len(networks) > 0 {
 		return networks
 	}
+
 	return []v1alpha2.NetworksSpec{{
 		Type: v1alpha2.NetworksTypeMain,
 		ID:   ptr.To(MinID),
@@ -49,6 +50,7 @@ func MainNetworkSpec(networks []v1alpha2.NetworksSpec) *v1alpha2.NetworksSpec {
 			return &networks[i]
 		}
 	}
+
 	return nil
 }
 
@@ -62,6 +64,7 @@ func HasAdditionalNetworks(networks []v1alpha2.NetworksSpec) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -69,6 +72,7 @@ func HasAdditionalNetworks(networks []v1alpha2.NetworksSpec) bool {
 // An empty list yields no interface at all, never the Main one.
 func CreateNetworkSpec(vm *v1alpha2.VirtualMachine, networks []v1alpha2.NetworksSpec, vmmacs []*v1alpha2.VirtualMachineMACAddress, kvvmExists bool) InterfaceSpecList {
 	macPool := NewMacAddressPool(vm, vmmacs, kvvmExists)
+
 	var specs InterfaceSpecList
 
 	for _, net := range networks {
@@ -113,11 +117,13 @@ func createAdditionalInterfaceSpec(net v1alpha2.NetworksSpec, mac string) Interf
 	if net.IPAddressName != "" {
 		spec.IPAddressNames = []string{net.IPAddressName}
 	}
+
 	if net.Type == v1alpha2.NetworksTypeUnderlayNetwork {
 		spec.BindingMode = BindingModeVFIOPCI
 		spec.VLANID = net.VLANID
 		spec.VFMAC = mac
 	}
+
 	return spec
 }
 
@@ -133,5 +139,6 @@ func generateInterfaceName(macAddress, networkType string) string {
 	case v1alpha2.NetworksTypeClusterNetwork:
 		name = fmt.Sprintf("veth_cn%s", hashHex[:8])
 	}
+
 	return name
 }

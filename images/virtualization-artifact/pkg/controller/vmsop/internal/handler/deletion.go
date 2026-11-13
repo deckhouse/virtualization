@@ -57,6 +57,7 @@ func (h DeletionHandler) Handle(ctx context.Context, vmsop *v1alpha2.VirtualMach
 	} else {
 		log.Info("Deletion observed: remove cleanup finalizer from VirtualMachineSnapshotOperation", "phase", vmsop.Status.Phase)
 	}
+
 	controllerutil.RemoveFinalizer(vmsop, v1alpha2.FinalizerVMSOPCleanup)
 
 	return reconcile.Result{}, nil

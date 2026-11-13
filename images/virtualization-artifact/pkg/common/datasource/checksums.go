@@ -32,6 +32,7 @@ func Checksums(checksum *v1alpha2.Checksum) map[string]string {
 	}
 
 	checksums := make(map[string]string)
+
 	for algorithm, sum := range map[string]string{
 		"md5":         checksum.MD5,
 		"sha1":        checksum.SHA1,
@@ -60,6 +61,7 @@ func FormatChecksums(checksums map[string]string) string {
 	for algorithm := range checksums {
 		algorithms = append(algorithms, algorithm)
 	}
+
 	sort.Strings(algorithms)
 
 	pairs := make([]string, 0, len(algorithms))

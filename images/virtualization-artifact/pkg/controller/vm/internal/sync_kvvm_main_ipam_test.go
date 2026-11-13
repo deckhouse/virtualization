@@ -96,6 +96,7 @@ var _ = Describe("Main interface spec of a machine moving to the sdn module", fu
 		mirror.Spec.Type = sdnapi.IPAddressTypeStatic
 		mirror.Spec.Static = &sdnapi.StaticIPAddress{IP: mirrorAddress}
 		mirror.SetAnnotations(map[string]string{annotations.AnnMirrorOfVMIP: string(vmipUID)})
+
 		return mirror
 	}
 
@@ -116,12 +117,14 @@ var _ = Describe("Main interface spec of a machine moving to the sdn module", fu
 	getKVVM := func() *virtv1.VirtualMachine {
 		obj := &virtv1.VirtualMachine{}
 		Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(kvvm), obj)).To(Succeed())
+
 		return obj
 	}
 
 	getKVVMI := func() *virtv1.VirtualMachineInstance {
 		obj := &virtv1.VirtualMachineInstance{}
 		Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(kvvm), obj)).To(Succeed())
+
 		return obj
 	}
 
@@ -129,6 +132,7 @@ var _ = Describe("Main interface spec of a machine moving to the sdn module", fu
 		h := &SyncKvvmHandler{client: fakeClient, recorder: recorder}
 		written, err := h.addMainInterfaceSpec(ctx, vmState, getKVVM())
 		Expect(err).NotTo(HaveOccurred())
+
 		return written
 	}
 
@@ -168,6 +172,7 @@ var _ = Describe("Main interface spec of a machine moving to the sdn module", fu
 
 		It("leaves a migrated machine alone", func() {
 			withMainInterfaceSpec(kvvm.Spec.Template.ObjectMeta.Annotations)
+
 			kvvmi := newKVVMI()
 			withMainInterfaceSpec(kvvmi.Annotations)
 			fakeClient, _, vmState = setupEnvironment(vm, kvvm, kvvmi, newMainPrimaryCNINetwork(), newManagedVMIP(), newMirror("vm-uid", address, true))
@@ -247,6 +252,7 @@ var _ = Describe("Main interface spec of a machine moving to the sdn module", fu
 		getMirror := func() *sdnapi.IPAddress {
 			obj := &sdnapi.IPAddress{}
 			Expect(fakeClient.Get(ctx, types.NamespacedName{Name: mirrorName, Namespace: namespace}, obj)).To(Succeed())
+
 			return obj
 		}
 
@@ -288,6 +294,7 @@ var _ = Describe("Main interface spec of a machine moving to the sdn module", fu
 				userVMIP.Spec.Type = v1alpha2.VirtualMachineIPAddressTypeStatic
 				vm.Spec.VirtualMachineIPAddress = userVMIP.Name
 				vm.Status.IPAddress = runningAddress
+
 				withMainInterfaceSpec(kvvm.Spec.Template.ObjectMeta.Annotations)
 				fakeClient, _, vmState = setupEnvironment(vm, kvvm, newMainPrimaryCNINetwork(), userVMIP, newMirror("", address, true), newOwnIPAddress())
 			}
@@ -298,6 +305,7 @@ var _ = Describe("Main interface spec of a machine moving to the sdn module", fu
 				handle()
 
 				Expect(getMirror().GetLabels()).To(HaveKeyWithValue(annotations.LabelVirtualMachineUID, "vm-uid"))
+
 				ipa, err := commonnetwork.GetMainSDNIPAddress(ctx, fakeClient, vm)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(ipa).NotTo(BeNil())
@@ -311,6 +319,7 @@ var _ = Describe("Main interface spec of a machine moving to the sdn module", fu
 				handle()
 
 				Expect(getMirror().GetLabels()).To(HaveKeyWithValue(annotations.LabelVirtualMachineUID, "vm-uid"))
+
 				err := fakeClient.Get(ctx, types.NamespacedName{Name: "vm-own", Namespace: namespace}, &sdnapi.IPAddress{})
 				Expect(k8serrors.IsNotFound(err)).To(BeTrue(), "nothing uses the former address any more")
 			})

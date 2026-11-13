@@ -40,6 +40,7 @@ func (h ProtectionHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk)
 	}
 
 	unmounted := true
+
 	for _, vm := range vd.Status.AttachedToVirtualMachines {
 		if vm.Mounted {
 			unmounted = false
@@ -50,6 +51,7 @@ func (h ProtectionHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk)
 	if unmounted || vd.Status.Phase == v1alpha2.DiskPending {
 		log.Debug("Allow virtual disk deletion")
 		controllerutil.RemoveFinalizer(vd, v1alpha2.FinalizerVDProtection)
+
 		return reconcile.Result{}, nil
 	}
 
@@ -57,5 +59,6 @@ func (h ProtectionHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk)
 		log.Debug("Protect virtual disk from deletion")
 		controllerutil.AddFinalizer(vd, v1alpha2.FinalizerVDProtection)
 	}
+
 	return reconcile.Result{}, nil
 }

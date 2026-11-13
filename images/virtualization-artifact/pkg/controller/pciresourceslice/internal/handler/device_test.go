@@ -62,15 +62,19 @@ func TestConvertDeviceToAttributes(t *testing.T) {
 	if attrs.NodeName != "node-a" {
 		t.Fatalf("expected node name node-a, got %q", attrs.NodeName)
 	}
+
 	if attrs.PCIAddress != "0000:3b:00.0" {
 		t.Fatalf("expected pci address 0000:3b:00.0, got %q", attrs.PCIAddress)
 	}
+
 	if attrs.VendorID != "10de" || attrs.DeviceID != "2204" || attrs.Class != "0300" || attrs.Driver != "vfio-pci" {
 		t.Fatalf("unexpected attributes: %+v", attrs)
 	}
+
 	if attrs.IOMMUGroup != 42 {
 		t.Fatalf("expected iommu group 42, got %d", attrs.IOMMUGroup)
 	}
+
 	if attrs.NUMANode != 1 {
 		t.Fatalf("expected numa node 1, got %d", attrs.NUMANode)
 	}

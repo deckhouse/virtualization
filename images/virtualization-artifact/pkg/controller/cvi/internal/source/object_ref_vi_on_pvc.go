@@ -68,6 +68,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *v1alpha2.Clu
 	log, ctx := logger.GetDataSourceContext(ctx, "objectref")
 
 	supgen := supplements.NewGenerator(annotations.CVIShortName, cvi.Name, viRef.Namespace, cvi.UID)
+
 	pod, err := ds.importerService.GetPod(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -110,6 +111,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *v1alpha2.Clu
 		cvi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 
 		pvc := &corev1.PersistentVolumeClaim{}
+
 		err = ds.client.Get(ctx, types.NamespacedName{Name: viRef.Status.Target.PersistentVolumeClaim, Namespace: viRef.Namespace}, pvc)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -119,6 +121,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *v1alpha2.Clu
 
 		ownerRef := metav1.NewControllerRef(cvi, cvi.GroupVersionKind())
 		podSettings := ds.importerService.GetPodSettingsWithPVC(ownerRef, supgen, viRef.Status.Target.PersistentVolumeClaim, viRef.Namespace)
+
 		err = ds.importerService.StartWithPodSetting(ctx, envSettings, supgen, datasource.NewCABundleForCVMI(cvi.Spec.DataSource), podSettings, service.WithSystemNodeToleration())
 		switch {
 		case err == nil:
@@ -189,10 +192,12 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *v1alpha2.Clu
 
 func (ds ObjectRefVirtualImageOnPvc) CleanUp(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (requeue bool, reason string, err error) {
 	supgen := supplements.NewGenerator(annotations.CVIShortName, cvi.Name, cvi.Namespace, cvi.UID)
+
 	deleted, err := ds.importerService.DeletePod(ctx, cvi, controllerName, supgen)
 	if err != nil {
 		return false, "", err
 	}
+
 	if !deleted {
 		return false, "", nil
 	}
@@ -207,6 +212,7 @@ func (ds ObjectRefVirtualImageOnPvc) getEnvSettings(cvi *v1alpha2.ClusterVirtual
 	} else {
 		importer.ApplyFilesystemSourceSettings(&settings)
 	}
+
 	importer.ApplyDVCRDestinationSettings(
 		&settings,
 		ds.dvcrSettings,

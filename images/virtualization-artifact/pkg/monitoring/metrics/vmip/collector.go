@@ -40,6 +40,7 @@ func SetupCollector(reader client.Reader,
 		log:      log.With(logger.SlogCollector(collectorName)),
 	}
 	registerer.MustRegister(c)
+
 	return c
 }
 
@@ -73,6 +74,7 @@ func (c Collector) Collect(ch chan<- prometheus.Metric) {
 		c.log.Error("Failed to check whether the sdn module serves the Main network", logger.SlogErr(err))
 		return
 	}
+
 	if !mainIPAMAvailable {
 		return
 	}
@@ -85,5 +87,6 @@ func (c Collector) Collect(ch chan<- prometheus.Metric) {
 		c.log.Error("Failed to iterate over VirtualMachineIPAddresses", logger.SlogErr(err))
 		return
 	}
+
 	s.Report()
 }

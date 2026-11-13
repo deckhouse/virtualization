@@ -29,6 +29,7 @@ func installEnterpriseResources(resources map[string]rest.Storage, poolStorage *
 	if poolStorage == nil {
 		return
 	}
+
 	resources["virtualmachinepools"] = poolStorage
 	resources["virtualmachinepools/scaledownwith"] = poolStorage.ScaleDownWithREST()
 }

@@ -30,6 +30,7 @@ func ScalePercentage(percent string, low, high float64) string {
 	}
 
 	scaled := pctVal*((high-low)/100) + low
+
 	return Format(scaled)
 }
 
@@ -56,9 +57,11 @@ func ExtractPercentageFloat(in string) float64 {
 	if len(parts) == 0 {
 		return math.NaN()
 	}
+
 	v, err := strconv.ParseFloat(parts[0], 32)
 	if err != nil {
 		return math.NaN()
 	}
+
 	return v
 }

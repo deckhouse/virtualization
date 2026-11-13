@@ -61,11 +61,14 @@ type ModuleVersion struct {
 
 func ExtractFileFromImage(image, targetFile string) (string, error) {
 	ctx := context.Background()
+
 	img, err := crane.Pull(image, crane.WithContext(ctx))
 	if err != nil {
 		return "", fmt.Errorf("pull failed for image %v: %w", image, err)
 	}
+
 	var buf bytes.Buffer
+
 	err = crane.Export(img, &buf)
 	if err != nil {
 		return "", fmt.Errorf("export failed for image %v: %w", image, err)
@@ -78,6 +81,7 @@ func ExtractFileFromImage(image, targetFile string) (string, error) {
 		if err == io.EOF {
 			return "", fmt.Errorf("there is no file %v in tar archive for %v", targetFile, image)
 		}
+
 		if err != nil {
 			return "", fmt.Errorf("tar read error for image %v: %w", image, err)
 		}
@@ -87,6 +91,7 @@ func ExtractFileFromImage(image, targetFile string) (string, error) {
 			if _, err := io.Copy(&buf, tr); err != nil {
 				return "", fmt.Errorf("copy file content: %w", err)
 			}
+
 			return buf.String(), nil
 		}
 	}
@@ -95,6 +100,7 @@ func ExtractFileFromImage(image, targetFile string) (string, error) {
 func VerifyModuleRequirements(module string, sv SemVerRange, edition, channel string) error {
 	fmt.Printf("semver range of module %s: %s\n", module, sv)
 	normalizedRange := version.NormalizeSemVerRange(string(sv))
+
 	prange, err := semver.ParseRange(normalizedRange)
 	if err != nil {
 		fmt.Printf("semver.ParseRange failed for module %s: range=%q error=%v\n", module, sv, err)
@@ -120,13 +126,16 @@ func VerifyModuleRequirements(module string, sv SemVerRange, edition, channel st
 
 	if !isDeckhouse {
 		tmp := ModuleVersion{}
+
 		err = json.Unmarshal([]byte(vs), &tmp)
 		if err != nil {
 			fmt.Printf("Unmarshal failed for JSON")
 			return err
 		}
+
 		vs = tmp.Version
 	}
+
 	vs = version.NormalizeSemVer(vs)
 	fmt.Printf("normalized version of module %s: %s\n", module, vs)
 
@@ -134,9 +143,11 @@ func VerifyModuleRequirements(module string, sv SemVerRange, edition, channel st
 	if err != nil {
 		return fmt.Errorf("can't parse module %s version %s: %w", module, vs, err)
 	}
+
 	if !prange(version) {
 		return fmt.Errorf("module %s version %s is not in range %s", module, version, sv)
 	}
+
 	return nil
 }
 
@@ -147,6 +158,7 @@ func CheckVersionWithRetries(channel, version, moduleName string, attempts int) 
 
 	moduleFileLink := fmt.Sprintf(moduleFileLinkTemplate, version)
 	fmt.Printf("Fetching module requirements from %s\n", moduleFileLink)
+
 	resp, err := client.Get(moduleFileLink)
 	if err != nil {
 		fmt.Printf("%v\n", err)
@@ -170,6 +182,7 @@ func CheckVersionWithRetries(channel, version, moduleName string, attempts int) 
 		fmt.Printf("Failed to parse module.yaml: %v\n", err)
 		return fmt.Errorf("failed to parse module.yaml: %w", err)
 	}
+
 	fmt.Printf("Parsed requirements: deckhouse=%q, modules=%d\n", c.Requirements.Deckhouse, len(c.Requirements.Modules))
 
 	// Skip checking other module requirements, because now we only have one dependency,
@@ -186,12 +199,15 @@ func CheckVersionWithRetries(channel, version, moduleName string, attempts int) 
 	supportedEditions := []string{"fe", "ee", "ce", "se-plus"}
 	for _, e := range supportedEditions {
 		fmt.Printf("Verifying deckhouse (range %q) on channel %s version %s\n", c.Requirements.Deckhouse, channel, version)
+
 		err = VerifyModuleRequirements("deckhouse", c.Requirements.Deckhouse, e, channel)
 		if err != nil {
 			fmt.Printf("requirements of the %s module (%s) are not satisfied: on channel %s edition %s Deckhouse is currently at a version that is not in the range required by the module. %v\n",
 				moduleName, moduleFileLink, channel, e, err)
+
 			return err
 		}
+
 		fmt.Printf("Deckhouse on channel %s edition %s version %s OK!\n", channel, e, version)
 	}
 

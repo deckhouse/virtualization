@@ -31,11 +31,13 @@ func (s *AllocationStore) discoveryPluggedUSBDevices(ctx context.Context) (map[s
 	allUSBDevices := s.monitor.GetDevices()
 
 	busIDSet := make(map[string]struct{})
+
 	if featuregates.Default().USBGatewayEnabled() {
 		info, err := s.usbipInfoGetter.GetAttachInfo()
 		if err != nil {
 			return nil, nil, err
 		}
+
 		for _, item := range info.Items {
 			busIDSet[item.LocalBusID] = struct{}{}
 		}
@@ -55,8 +57,10 @@ func (s *AllocationStore) discoveryPluggedUSBDevices(ctx context.Context) (map[s
 				if os.IsNotExist(err) {
 					continue
 				}
+
 				return nil, nil, fmt.Errorf("failed to check if usb device is usbip device: %w", err)
 			}
+
 			if isUSBIPDevice {
 				continue
 			}

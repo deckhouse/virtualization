@@ -91,6 +91,7 @@ type udevMonitor interface {
 // NewUdevMonitor creates a new USB monitor that uses the udev package
 func NewUdevMonitor(ctx context.Context, opts ...UdevMonitorOption) (Monitor, error) {
 	log := slog.With(slog.String("component", "udev-usb-monitor"))
+
 	devices, err := DiscoverPluggedUSBDevices()
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover USB devices during resync: %w", err)
@@ -149,13 +150,16 @@ func (m *UdevMonitor) run(ctx context.Context) {
 				m.log.Debug("event channel closed")
 				return
 			}
+
 			m.handleEvent(event)
 
 		case err, ok := <-errCh:
 			if !ok {
 				continue
 			}
+
 			m.log.Error("udev monitor error", slog.String("error", err.Error()))
+
 			return
 
 		case <-resyncTicker.C:
@@ -190,6 +194,7 @@ func (m *UdevMonitor) scheduleEvent(path string, action udev.Action) {
 		if action == udev.ActionRemove {
 			entry.action = udev.ActionRemove
 		}
+
 		delete(m.pendingEvents, path)
 	}
 
@@ -259,6 +264,7 @@ func (m *UdevMonitor) handleDeviceRemove(path string) {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		m.log.Debug("Remove usb device", slog.String("path", path))
 		m.store.RemoveDevice(path)
+
 		return
 	}
 
@@ -271,6 +277,7 @@ func (m *UdevMonitor) handleDeviceRemove(path string) {
 		m.log.Debug("Remove usb device", slog.String("path", path))
 		m.log.Debug("failed to load device", slog.String("path", path), slog.String("error", err.Error()))
 		m.store.RemoveDevice(path)
+
 		return
 	}
 
@@ -278,6 +285,7 @@ func (m *UdevMonitor) handleDeviceRemove(path string) {
 		m.log.Debug("Remove usb device", slog.String("path", path))
 		m.log.Debug("device validation failed", slog.String("path", path), slog.String("error", err.Error()))
 		m.store.RemoveDevice(path)
+
 		return
 	}
 
@@ -289,6 +297,7 @@ func (m *UdevMonitor) handleDeviceRemove(path string) {
 
 func (m *UdevMonitor) resync() {
 	m.log.Info("Resync usb devices")
+
 	devices, err := DiscoverPluggedUSBDevices()
 	if err != nil {
 		m.log.Error("failed to discover USB devices during resync", slog.String("error", err.Error()))

@@ -85,20 +85,25 @@ var _ = Describe("VNC", func() {
 			listenAddress = "127.0.0.1"
 
 			var clientCalls int
+
 			clientAndNamespaceFromContext = func(context.Context) (kubeclient.Client, string, bool, error) {
 				clientCalls++
 				return newFakeClient(), "default", false, nil
 			}
 
 			var connectCalls int
+
 			connectFunc = func(_ context.Context, ln *net.TCPListener, _ kubeclient.Client, _ *cobra.Command, namespace, vmName string) error {
 				connectCalls++
+
 				Expect(ln).NotTo(BeNil())
 				Expect(namespace).To(Equal("default"))
 				Expect(vmName).To(Equal("test-vm"))
+
 				if connectCalls == 1 {
 					return errors.New("temporary error")
 				}
+
 				return nil
 			}
 
@@ -131,8 +136,10 @@ var _ = Describe("VNC", func() {
 				port := ln.Addr().(*net.TCPAddr).Port
 				Expect(port).To(BeNumerically(">", 0))
 				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "{\"port\":%d}\n", port)
+
 				<-ctx.Done()
 				close(connectDone)
+
 				return ctx.Err()
 			}
 
@@ -144,16 +151,20 @@ var _ = Describe("VNC", func() {
 			cmd.SetContext(ctx)
 
 			runDone := make(chan error, 1)
+
 			go func() { runDone <- (&VNC{}).Run(cmd, []string{"test-vm"}) }()
 
 			// Listener must be reachable after the port is printed.
 			Eventually(stdout).Should(ContainSubstring(`"port"`))
+
 			var port int
+
 			for _, line := range bytes.Split(stdout.Bytes(), []byte("\n")) {
 				if bytes.Contains(line, []byte(`"port"`)) {
 					Expect(json.Unmarshal(line, &struct {
 						Port *int `json:"port"`
 					}{Port: &port})).To(Succeed())
+
 					break
 				}
 			}

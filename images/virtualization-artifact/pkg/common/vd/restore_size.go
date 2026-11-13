@@ -77,6 +77,7 @@ func RestoreFloorsFrom(vdSnapshot *v1alpha2.VirtualDiskSnapshot, vs *vsv1.Volume
 		if err != nil {
 			return floors, fmt.Errorf("parse the captured PVC size: %w", err)
 		}
+
 		floors.Declared = declared
 
 		if vdSnapshot.Status.Data != nil {
@@ -84,6 +85,7 @@ func RestoreFloorsFrom(vdSnapshot *v1alpha2.VirtualDiskSnapshot, vs *vsv1.Volume
 			if err != nil {
 				return floors, fmt.Errorf("parse the captured artifact size: %w", err)
 			}
+
 			floors.Driver = driver
 		}
 
@@ -98,6 +100,7 @@ func RestoreFloorsFrom(vdSnapshot *v1alpha2.VirtualDiskSnapshot, vs *vsv1.Volume
 	if err != nil {
 		return floors, fmt.Errorf("parse the original size: %w", err)
 	}
+
 	floors.Declared = declared
 
 	if vs.Status != nil && vs.Status.RestoreSize != nil {
@@ -126,9 +129,11 @@ func (f RestoreFloors) Target(requested *resource.Quantity) *resource.Quantity {
 	if size == nil {
 		size = f.Declared
 	}
+
 	if size == nil {
 		size = f.Driver
 	}
+
 	if size == nil {
 		return nil
 	}

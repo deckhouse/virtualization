@@ -46,6 +46,7 @@ func (w *KVVMIMWatcher) Watch(mgr manager.Manager, ctr controller.Controller) er
 				if vmiName == "" {
 					return nil
 				}
+
 				return []reconcile.Request{
 					{
 						NamespacedName: types.NamespacedName{

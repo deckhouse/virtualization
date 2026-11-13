@@ -81,6 +81,7 @@ var _ = Describe("VirtualMachineProvisioningRemoval", Label(label.SIGCompute, pr
 		util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(t.VM), framework.LongTimeout)
 
 		By("Checking the running VMI carries the cloud-init disk")
+
 		kvvmi, err := util.GetInternalVirtualMachineInstance(ctx, t.VM)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(kvvmi).NotTo(BeNil())
@@ -92,6 +93,7 @@ var _ = Describe("VirtualMachineProvisioningRemoval", Label(label.SIGCompute, pr
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Removing provisioning from the VM spec")
+
 		patchset := patch.NewJSONPatch(patch.WithRemove("/spec/provisioning"))
 		patchBytes, err := patchset.Bytes()
 		Expect(err).NotTo(HaveOccurred())
@@ -112,6 +114,7 @@ var _ = Describe("VirtualMachineProvisioningRemoval", Label(label.SIGCompute, pr
 		Consistently(func(g Gomega) {
 			err := f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VM), t.VM)
 			g.Expect(err).NotTo(HaveOccurred())
+
 			_, exists := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, t.VM.Status.Conditions)
 			g.Expect(exists).To(BeFalse(), "removing cloud-init must not require a restart")
 			g.Expect(t.VM.Status.RestartAwaitingChanges).To(BeNil())
@@ -148,6 +151,7 @@ var _ = Describe("VirtualMachineProvisioningRemoval", Label(label.SIGCompute, pr
 		util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(t.VM), framework.LongTimeout)
 
 		By("Checking the running VMI carries the cloud-init disk backed by the Secret")
+
 		kvvmi, err := util.GetInternalVirtualMachineInstance(ctx, t.VM)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(kvvmi).NotTo(BeNil())
@@ -156,6 +160,7 @@ var _ = Describe("VirtualMachineProvisioningRemoval", Label(label.SIGCompute, pr
 		vmiUID := kvvmi.UID
 
 		By("Removing provisioning from the VM spec")
+
 		patchset := patch.NewJSONPatch(patch.WithRemove("/spec/provisioning"))
 		patchBytes, err := patchset.Bytes()
 		Expect(err).NotTo(HaveOccurred())
@@ -176,6 +181,7 @@ var _ = Describe("VirtualMachineProvisioningRemoval", Label(label.SIGCompute, pr
 		Consistently(func(g Gomega) {
 			err := f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VM), t.VM)
 			g.Expect(err).NotTo(HaveOccurred())
+
 			_, exists := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, t.VM.Status.Conditions)
 			g.Expect(exists).To(BeFalse(), "removing cloud-init must not require a restart")
 			g.Expect(t.VM.Status.RestartAwaitingChanges).To(BeNil())
@@ -228,6 +234,7 @@ var _ = Describe("VirtualMachineProvisioningRemoval", Label(label.SIGCompute, pr
 		util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, t.VM)
 
 		By("Checking the running VMI carries the sysprep disk")
+
 		kvvmi, err := util.GetInternalVirtualMachineInstance(ctx, t.VM)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(kvvmi).NotTo(BeNil())
@@ -236,6 +243,7 @@ var _ = Describe("VirtualMachineProvisioningRemoval", Label(label.SIGCompute, pr
 		vmiUID := kvvmi.UID
 
 		By("Removing provisioning from the VM spec")
+
 		patchset := patch.NewJSONPatch(patch.WithRemove("/spec/provisioning"))
 		patchBytes, err := patchset.Bytes()
 		Expect(err).NotTo(HaveOccurred())
@@ -252,6 +260,7 @@ var _ = Describe("VirtualMachineProvisioningRemoval", Label(label.SIGCompute, pr
 		Consistently(func(g Gomega) {
 			err := f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VM), t.VM)
 			g.Expect(err).NotTo(HaveOccurred())
+
 			cond, exists := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, t.VM.Status.Conditions)
 			g.Expect(exists).To(BeTrue(), "removing sysprep must require a restart")
 			g.Expect(cond.Status).To(Equal(metav1.ConditionTrue), "AwaitingRestartToApplyConfiguration must be True for sysprep removal")
@@ -412,6 +421,7 @@ func vmiHasVolume(vmi *virtv1.VirtualMachineInstance, name string) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -421,5 +431,6 @@ func vmiHasDisk(vmi *virtv1.VirtualMachineInstance, name string) bool {
 			return true
 		}
 	}
+
 	return false
 }

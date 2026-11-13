@@ -64,6 +64,7 @@ func (s WaitForPVCStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*re
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.Provisioning).
 			Message("Waiting for the underlying PersistentVolumeClaim to be created.")
+
 		return &reconcile.Result{}, nil
 	}
 
@@ -82,6 +83,7 @@ func (s WaitForPVCStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*re
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.WaitingForFirstConsumer).
 			Message("Awaiting the creation and scheduling of the VirtualMachine with the attached VirtualDisk.")
+
 		return &reconcile.Result{}, nil
 	}
 
@@ -90,6 +92,7 @@ func (s WaitForPVCStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*re
 		Status(metav1.ConditionFalse).
 		Reason(vdcondition.Provisioning).
 		Message(fmt.Sprintf("Waiting for the PersistentVolumeClaim %q to be Bound.", s.pvc.Name))
+
 	return &reconcile.Result{}, nil
 }
 

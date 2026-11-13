@@ -51,19 +51,24 @@ func (v *PeerMigrationLockValidator) ValidateUpdate(ctx context.Context, oldVM, 
 	if err := validateLockOwner(ctx, oldVM, newVM); err != nil {
 		return nil, err
 	}
+
 	if equality.Semantic.DeepEqual(oldVM.Spec, newVM.Spec) {
 		return nil, nil
 	}
+
 	if op := oldVM.GetAnnotations()[annotations.AnnVMMovedToPeer]; op != "" && newVM.GetAnnotations()[annotations.AnnVMMovedToPeer] == op {
 		var vmop v1alpha2.VirtualMachineOperation
 		if err := v.client.Get(ctx, types.NamespacedName{Name: op, Namespace: oldVM.Namespace}, &vmop); err == nil && commonvmop.PeerName(&vmop) != "" {
 			return nil, fmt.Errorf("the virtual machine is being migrated to cluster %q. Cancel the migration by deleting the VirtualMachineOperation first", commonvmop.PeerName(&vmop))
 		}
+
 		return nil, errors.New("the virtual machine is being migrated to a peer cluster. Cancel the migration by deleting the VirtualMachineOperation first")
 	}
+
 	if uid := oldVM.GetAnnotations()[annotations.AnnVMMigrationReceiver]; uid != "" && newVM.GetAnnotations()[annotations.AnnVMMigrationReceiver] == uid {
 		return nil, errors.New("the virtual machine is being migrated from a peer cluster and cannot be changed until the migration completes")
 	}
+
 	return nil, nil
 }
 
@@ -78,14 +83,18 @@ func validateLockOwner(ctx context.Context, oldVM, newVM *v1alpha2.VirtualMachin
 		if old := oldVM.GetAnnotations()[ann]; old == "" || newVM.GetAnnotations()[ann] == old {
 			continue
 		}
+
 		req, err := admission.RequestFromContext(ctx)
 		if err != nil {
 			return err
 		}
+
 		if req.UserInfo.Username == controllerUser || slices.Contains(req.UserInfo.Groups, "system:masters") {
 			return nil
 		}
+
 		return fmt.Errorf("the annotation %s is managed by the migration to a peer cluster. Delete the VirtualMachineOperation to cancel the migration", ann)
 	}
+
 	return nil
 }

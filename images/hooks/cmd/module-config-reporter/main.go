@@ -87,13 +87,16 @@ func loadValues() (gjson.Result, error) {
 	if valuesPath == "" {
 		return gjson.Result{}, fmt.Errorf("wrong env: VALUES_PATH is empty, should be a path to values.json")
 	}
+
 	valuesBytes, err := os.ReadFile(valuesPath)
 	if err != nil {
 		return gjson.Result{}, err
 	}
+
 	if !gjson.ValidBytes(valuesBytes) {
 		return gjson.Result{}, fmt.Errorf("invalid json in values file %s", valuesPath)
 	}
+
 	return gjson.ParseBytes(valuesBytes), nil
 }
 
@@ -106,5 +109,6 @@ func handle(values gjson.Result) error {
 			return fmt.Errorf("%s", validationErr.String())
 		}
 	}
+
 	return nil
 }

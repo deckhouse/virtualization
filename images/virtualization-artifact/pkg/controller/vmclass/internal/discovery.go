@@ -52,6 +52,7 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 	if s.VirtualMachineClass().IsEmpty() {
 		return reconcile.Result{}, nil
 	}
+
 	current := s.VirtualMachineClass().Current()
 	changed := s.VirtualMachineClass().Changed()
 
@@ -79,6 +80,7 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 		featuresEnabled []string
 		discoveryPool   []corev1.Node
 	)
+
 	switch cpuType {
 	case v1alpha2.CPUTypeDiscovery:
 		// Discover features only once from the discovery nodeSelector pool and
@@ -92,6 +94,7 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 			if err != nil {
 				return reconcile.Result{}, err
 			}
+
 			featuresEnabled = h.discoveryCommonFeatures(discoveryPool)
 		}
 		// Drop unstable vulnerability-status CPU features from the discovered
@@ -106,6 +109,7 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 		if !current.NestedVirtualizationEnabled() {
 			featuresEnabled = filterNestedVirtualizationCPUFeatures(featuresEnabled)
 		}
+
 		availableNodes = h.nodesWithAllFeatures(availableNodes, featuresEnabled)
 	case v1alpha2.CPUTypeFeatures:
 		featuresEnabled = current.Spec.CPU.Features
@@ -116,6 +120,7 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 	// all schedulable nodes beyond the discovered intersection; for Features
 	// these are features the nodes support but the user did not request.
 	var featuresNotEnabled []string
+
 	if cpuType == v1alpha2.CPUTypeDiscovery || cpuType == v1alpha2.CPUTypeFeatures {
 		commonFeatures := h.discoveryCommonFeatures(availableNodes)
 		for _, cf := range commonFeatures {
@@ -131,6 +136,7 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 	}
 
 	cb := conditions.NewConditionBuilder(vmclasscondition.TypeDiscovered).Generation(current.GetGeneration())
+
 	switch cpuType {
 	case v1alpha2.CPUTypeDiscovery:
 		if len(featuresEnabled) == 0 {
@@ -139,24 +145,31 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 					cb.Message("No nodes match the discovery nodeSelector, can't discover common CPU features.").
 						Reason(vmclasscondition.ReasonDiscoveryFailed).
 						Status(metav1.ConditionFalse)
+
 					break
 				}
+
 				cb.Message("No common CPU features are discovered across discovery nodes.").
 					Reason(vmclasscondition.ReasonDiscoveryFailed).
 					Status(metav1.ConditionFalse)
+
 				break
 			}
+
 			cb.Message("No available nodes expose all discovered CPU features.").
 				Reason(vmclasscondition.ReasonDiscoveryFailed).
 				Status(metav1.ConditionFalse)
+
 			break
 		}
+
 		cb.Message("").Reason(vmclasscondition.ReasonDiscoverySucceeded).Status(metav1.ConditionTrue)
 	default:
 		cb.Message(fmt.Sprintf("Discovery not needed for cpu.type %q", cpuType)).
 			Reason(vmclasscondition.ReasonDiscoverySkip).
 			Status(metav1.ConditionFalse)
 	}
+
 	conditions.SetCondition(cb, &changed.Status.Conditions)
 
 	sort.Strings(availableNodeNames)
@@ -250,13 +263,16 @@ func filterCPUFeatures(features []string, drop func(string) bool) []string {
 	if len(features) == 0 {
 		return features
 	}
+
 	result := make([]string, 0, len(features))
 	for _, f := range features {
 		if drop(f) {
 			continue
 		}
+
 		result = append(result, f)
 	}
+
 	return result
 }
 
@@ -264,7 +280,9 @@ func (h *DiscoveryHandler) discoveryCommonFeatures(nodes []corev1.Node) []string
 	if len(nodes) == 0 {
 		return nil
 	}
+
 	featuresCount := make(map[string]int)
+
 	for _, n := range nodes {
 		for k, v := range n.GetLabels() {
 			if strings.HasPrefix(k, virtv1.CPUFeatureLabel) && v == "true" {
@@ -272,12 +290,15 @@ func (h *DiscoveryHandler) discoveryCommonFeatures(nodes []corev1.Node) []string
 			}
 		}
 	}
+
 	var features []string
+
 	for k, v := range featuresCount {
 		if v == len(nodes) {
 			features = append(features, k)
 		}
 	}
+
 	return features
 }
 
@@ -288,24 +309,29 @@ func (h *DiscoveryHandler) nodesWithAllFeatures(nodes []corev1.Node, features []
 	if len(features) == 0 {
 		return nodes
 	}
+
 	required := make(map[string]struct{}, len(features))
 	for _, f := range features {
 		required[virtv1.CPUFeatureLabel+f] = struct{}{}
 	}
+
 	result := make([]corev1.Node, 0, len(nodes))
 	for _, n := range nodes {
 		labels := n.GetLabels()
 		ok := true
+
 		for k := range required {
 			if labels[k] != "true" {
 				ok = false
 				break
 			}
 		}
+
 		if ok {
 			result = append(result, n)
 		}
 	}
+
 	return result
 }
 
@@ -321,11 +347,13 @@ func (h *DiscoveryHandler) maxAllocatableResources(nodes []corev1.Node) corev1.R
 			if newQ.IsZero() {
 				continue
 			}
+
 			oldQ := resourceList[resourceName]
 			if newQ.Cmp(oldQ) == 1 {
 				resourceList[resourceName] = newQ
 			}
 		}
 	}
+
 	return resourceList
 }

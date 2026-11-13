@@ -89,11 +89,13 @@ func (r *ManifestsAndChildrenRefsUploadREST) Connect(ctx context.Context, name s
 				writeStatus(w, serviceErr)
 				return
 			}
+
 			writeStatus(w, &nodeapi.StatusError{
 				Code:    http.StatusInternalServerError,
 				Reason:  "InternalError",
 				Message: err.Error(),
 			})
+
 			return
 		}
 
@@ -126,6 +128,7 @@ func readUploadBody(w http.ResponseWriter, req *http.Request) ([]byte, bool) {
 			Message: fmt.Sprintf("the upload payload is larger than the %d bytes this subresource accepts",
 				nodeapi.MaxUploadBytes),
 		})
+
 		return nil, false
 	}
 
@@ -134,5 +137,6 @@ func readUploadBody(w http.ResponseWriter, req *http.Request) ([]byte, bool) {
 		Reason:  "BadRequest",
 		Message: fmt.Sprintf("reading the upload payload failed: %v", err),
 	})
+
 	return nil, false
 }

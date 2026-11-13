@@ -29,6 +29,7 @@ import (
 func (f *Framework) GetModuleConfig(ctx context.Context, name string) (*dv1alpha1.ModuleConfig, error) {
 	mc := &dv1alpha1.ModuleConfig{}
 	err := f.GenericClient().Get(ctx, client.ObjectKey{Name: name}, mc)
+
 	return mc, err
 }
 
@@ -37,6 +38,7 @@ func (f *Framework) GetVirtualizationModuleConfig(ctx context.Context) (*Virtual
 	if err != nil {
 		return nil, err
 	}
+
 	return convertToVirtualizationModuleConfig(mc)
 }
 
@@ -45,11 +47,14 @@ func convertToVirtualizationModuleConfig(mc *dv1alpha1.ModuleConfig) (*Virtualiz
 	if err != nil {
 		return nil, err
 	}
+
 	var vc VirtualizationModuleConfig
+
 	err = json.Unmarshal(bytes, &vc)
 	if err != nil {
 		return nil, err
 	}
+
 	return &vc, nil
 }
 

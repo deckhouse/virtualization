@@ -82,6 +82,7 @@ func (m *Forbid) Fill() error {
 	if m.event.ObjectRef.Namespace != "" {
 		resource += "/" + m.event.ObjectRef.Namespace
 	}
+
 	if m.event.ObjectRef.Name != "" {
 		resource += "/" + m.event.ObjectRef.Name
 	}

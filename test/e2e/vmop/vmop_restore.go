@@ -130,11 +130,13 @@ var _ = Describe("VirtualMachineOperationRestore", label.Slow(), Label(label.SIG
 				ctx, t.VI, t.VDRoot, t.VDBlank, t.VM, t.VDBlankWithNoFstabEntry,
 			)
 			Expect(err).NotTo(HaveOccurred())
+
 			if t.VM.Spec.RunPolicy == v1alpha2.ManualPolicy {
 				err := t.VMObs.WaitFor(vmobs.BeStopped(), framework.LongTimeout)
 				Expect(err).NotTo(HaveOccurred())
 				util.StartVirtualMachine(ctx, f, t.VM)
 			}
+
 			err = t.VMObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -184,10 +186,12 @@ var _ = Describe("VirtualMachineOperationRestore", label.Slow(), Label(label.SIG
 				if err := f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VM), t.VM); err != nil {
 					return err
 				}
+
 				t.VM.Annotations[vmAnnotationName] = vmAnnotationChangedValue
 				t.VM.Labels[vmLabelName] = vmLabelChangedValue
 				t.VM.Spec.CPU.Cores = changedCPUCores
 				t.VM.Spec.Memory.Size = resource.MustParse(changedMemorySize)
+
 				return f.Clients.GenericClient().Update(ctx, t.VM)
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -466,6 +470,7 @@ func (t *restoreModeTest) WaitVMRebooted(ctx context.Context, previousRunningTim
 		// like util.UntilVirtualMachineRebooted did.
 		util.SkipIfGuestPowerActionStuck(ctx, crclient.ObjectKeyFromObject(t.VM))
 	}
+
 	Expect(err).NotTo(HaveOccurred(), "virtual machine %s should be rebooted", t.VM.Name)
 }
 
@@ -475,10 +480,12 @@ func (t *restoreModeTest) WaitVMRebooted(ctx context.Context, previousRunningTim
 // problem, not a virtualization one. Any other failure fails the spec.
 func waitVMSnapshotReady(vmObs vmobs.Observer, vmsObs vmsnapshotobs.Observer, timeout time.Duration) {
 	GinkgoHelper()
+
 	err := vmsObs.WaitFor(vmsnapshotobs.BeReady(), timeout)
 	if err != nil && util.IsCSIVolumeSnapshotError(err.Error()) {
 		Skip(fmt.Sprintf("VirtualMachineSnapshot failed on the CSI side, skipping: %s", err))
 	}
+
 	Expect(err).NotTo(HaveOccurred(), "should take snapshot successfully")
 
 	err = vmObs.WaitFor(vmobs.BeUnmaintained(), timeout)
@@ -504,6 +511,7 @@ func (t *restoreModeTest) RemoveRecoverableResources(ctx context.Context) {
 		)
 		Expect(err).NotTo(HaveOccurred())
 	}
+
 	for _, vmbda := range []*v1alpha2.VirtualMachineBlockDeviceAttachment{t.VMBDA, t.VMBDAWithNoFstabEntry} {
 		err := observer.WaitForDeleted(ctx,
 			t.Framework.VirtClient().VirtualMachineBlockDeviceAttachments(vmbda.Namespace), vmbda.Name, vmbda.Namespace,
@@ -521,6 +529,7 @@ func (t *restoreModeTest) isVDDeleted(vd *v1alpha2.VirtualDisk) observer.IsDelet
 		if k8serrors.IsNotFound(err) {
 			return true, nil
 		}
+
 		return false, err
 	}
 }
@@ -533,6 +542,7 @@ func (t *restoreModeTest) isVMBDADeleted(vmbda *v1alpha2.VirtualMachineBlockDevi
 		if k8serrors.IsNotFound(err) {
 			return true, nil
 		}
+
 		return false, err
 	}
 }
@@ -631,6 +641,7 @@ func (t *restoreModeTest) RestoreVM(ctx context.Context, vm *v1alpha2.VirtualMac
 	// clock skew against this machine.
 	err := t.Framework.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vm), vm)
 	Expect(err).NotTo(HaveOccurred())
+
 	vmPhaseBeforeRestore := vm.Status.Phase
 	if vmPhaseBeforeRestore != v1alpha2.MachineRunning && vmPhaseBeforeRestore != v1alpha2.MachineStopped {
 		Expect(errors.New("unexpected VM phase before restore. Should be Stopped or Running")).NotTo(HaveOccurred(), vm.Status.Phase, vm.Status.Stats.PhasesTransitions)
@@ -665,6 +676,7 @@ func (t *restoreModeTest) RestoreVM(ctx context.Context, vm *v1alpha2.VirtualMac
 
 	err = t.Framework.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vm), vm)
 	Expect(err).NotTo(HaveOccurred())
+
 	_, _ = fmt.Fprintf(GinkgoWriter, "VM phase after restore: %s (wait err: %v)\n", vm.Status.Phase, waitErr)
 
 	// A VM restored into Stopped stays Stopped, so start it explicitly. Doing this
@@ -708,11 +720,13 @@ func (t *restoreModeTest) CheckAdditionalNetworkInterface(ctx context.Context, v
 	Expect(err).NotTo(HaveOccurred())
 
 	var ip string
+
 	for _, n := range updated.Status.Networks {
 		if n.Name == util.ClusterNetworkName(WithIPPoolNetworkVLANID) {
 			ip = n.IPAddress
 		}
 	}
+
 	Expect(ip).NotTo(BeEmpty(), "auto IP should be allocated in status.networks for %s", util.ClusterNetworkName(WithIPPoolNetworkVLANID))
 
 	cmdOut, err := t.Framework.SSHCommand(vm.GetName(), vm.GetNamespace(), "ip -4 addr show", framework.WithSSHUser("root"))
@@ -749,6 +763,7 @@ func (t *restoreModeTest) WaitEvictionSettled(ctx context.Context) {
 		if time.Now().After(deadline) {
 			return
 		}
+
 		time.Sleep(time.Second)
 	}
 
@@ -768,17 +783,21 @@ func (t *restoreModeTest) findEviction(ctx context.Context) *v1alpha2.VirtualMac
 	if err := t.Framework.GenericClient().List(ctx, &vmops, crclient.InNamespace(t.VM.Namespace)); err != nil {
 		return nil
 	}
+
 	for i := range vmops.Items {
 		op := &vmops.Items[i]
 		if op.Spec.Type != v1alpha2.VMOPTypeEvict || op.Spec.VirtualMachine != t.VM.Name {
 			continue
 		}
+
 		switch op.Status.Phase {
 		case v1alpha2.VMOPPhaseCompleted, v1alpha2.VMOPPhaseFailed, v1alpha2.VMOPPhaseSuperseded:
 			continue
 		}
+
 		return op
 	}
+
 	return nil
 }
 
@@ -787,7 +806,9 @@ func (t *restoreModeTest) isLocalStorage(ctx context.Context) bool {
 	if err := framework.GetClients().GenericClient().List(ctx, &scList); err != nil {
 		return false
 	}
+
 	sc := config.FindDefaultStorageClass(&scList)
+
 	return sc != nil && sc.Provisioner == framework.SDSLocalVolume
 }
 
@@ -795,6 +816,7 @@ func (t *restoreModeTest) IsStorageClassAvailableForTest(ctx context.Context, vm
 	GinkgoHelper()
 
 	var scList storagev1.StorageClassList
+
 	err := framework.GetClients().GenericClient().List(ctx, &scList)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -813,6 +835,7 @@ func haveNetworkIPFor(networkName string) vmobs.Predicate {
 				return true, nil
 			}
 		}
+
 		return false, nil
 	}
 }

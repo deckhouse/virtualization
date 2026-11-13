@@ -27,6 +27,7 @@ func IndexEventByInvolvedObjectName() (obj client.Object, field string, extractV
 		if !ok || event == nil {
 			return nil
 		}
+
 		return []string{event.InvolvedObject.Name}
 	}
 }
@@ -37,6 +38,7 @@ func IndexEventByInvolvedObjectKind() (obj client.Object, field string, extractV
 		if !ok || event == nil {
 			return nil
 		}
+
 		return []string{event.InvolvedObject.Kind}
 	}
 }

@@ -81,10 +81,12 @@ func parseCapacityBytes(capacity string) int64 {
 	if capacity == "" {
 		return 0
 	}
+
 	q, err := resource.ParseQuantity(capacity)
 	if err != nil {
 		return 0
 	}
+
 	return q.Value()
 }
 

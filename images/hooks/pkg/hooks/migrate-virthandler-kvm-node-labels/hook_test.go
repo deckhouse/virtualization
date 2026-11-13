@@ -38,9 +38,12 @@ func createSnapshotMock(nodeInfo NodeInfo) pkg.Snapshot {
 		if !ok {
 			return fmt.Errorf("expected *NodeInfo, got %T", v)
 		}
+
 		*target = nodeInfo
+
 		return nil
 	})
+
 	return m
 }
 
@@ -74,6 +77,7 @@ var _ = Describe("Migrate virtHandler KVM labels", func() {
 				log.WithTimeFunc(func(_ time.Time) time.Time {
 					parsedTime, err := time.Parse(time.DateTime, "2006-01-02 15:04:05")
 					Expect(err).ShouldNot(HaveOccurred())
+
 					return parsedTime
 				}),
 			),
@@ -86,6 +90,7 @@ var _ = Describe("Migrate virtHandler KVM labels", func() {
 			snapshots.GetMock.When(nodesSnapshot).Then(
 				[]pkg.Snapshot{},
 			)
+
 			err := handler(context.Background(), input)
 			Expect(err).ShouldNot(HaveOccurred())
 		})

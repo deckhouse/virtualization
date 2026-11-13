@@ -281,6 +281,7 @@ var _ = Describe("TestMigrationHandler", func() {
 			for i := 0; i < 20; i++ {
 				vmops[i] = newVMOP(fmt.Sprintf("volume-migration-%d", i), v1alpha2.VMOPPhaseFailed)
 			}
+
 			withCreationTime(secondTime, vmops...)
 			backoff := handler.calculateBackoff(vmops, firstTime)
 			Expect(backoff).To(Equal(5 * time.Minute)) // max delay

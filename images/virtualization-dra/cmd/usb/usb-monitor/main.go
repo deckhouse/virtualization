@@ -81,6 +81,7 @@ func (o *options) Run(cmd *cobra.Command, _ []string) error {
 	o.printDevices(cmd, devices)
 
 	changes := monitor.DeviceChanges()
+
 	for {
 		select {
 		case <-cmd.Context().Done():
@@ -89,7 +90,9 @@ func (o *options) Run(cmd *cobra.Command, _ []string) error {
 			if !ok {
 				return nil
 			}
+
 			slog.Info("USB devices changed")
+
 			devices = monitor.GetDevices()
 			o.printDevices(cmd, devices)
 		}
@@ -102,5 +105,6 @@ func (o *options) printDevices(cmd *cobra.Command, devices []libusb.USBDevice) {
 		slog.Error("failed to marshal devices", slog.Any("err", err))
 		return
 	}
+
 	cmd.Println(string(b))
 }

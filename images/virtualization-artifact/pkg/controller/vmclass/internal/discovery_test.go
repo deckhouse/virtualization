@@ -89,11 +89,13 @@ func newVMClass(name string, cpuType v1alpha2.CPUType, nodeSelector *v1alpha2.No
 	if nodeSelector != nil {
 		vmc.Spec.NodeSelector = *nodeSelector
 	}
+
 	if discoveryNodeSelector != nil {
 		vmc.Spec.CPU.Discovery = &v1alpha2.CpuDiscovery{
 			NodeSelector: *discoveryNodeSelector,
 		}
 	}
+
 	return vmc
 }
 
@@ -239,6 +241,7 @@ var _ = DescribeTable(
 	"DiscoveryHandler discoveryCommonFeatures Test",
 	func(params discoveryCommonFeaturesTestParams) {
 		handler := &DiscoveryHandler{}
+
 		result := handler.discoveryCommonFeatures(params.nodes)
 		if len(params.expectedFeatures) == 0 {
 			Expect(result).To(BeEmpty())
@@ -1133,7 +1136,9 @@ var _ = Describe("DiscoveryHandler", func() {
 				virtHandler1)
 
 			ctx := context.Background()
+
 			var capturedEventType, capturedReason, capturedMessage string
+
 			mockRecorder := &eventrecord.EventRecorderLoggerMock{
 				EventfFunc: func(involved client.Object, eventtype, reason, messageFmt string, args ...any) {
 					capturedEventType = eventtype

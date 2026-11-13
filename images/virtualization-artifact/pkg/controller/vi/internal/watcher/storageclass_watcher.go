@@ -60,6 +60,7 @@ func (w StorageClassWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 			predicate.TypedFuncs[*storagev1.StorageClass]{
 				UpdateFunc: func(e event.TypedUpdateEvent[*storagev1.StorageClass]) bool {
 					oldIsDefault, oldIsDefaultOk := e.ObjectOld.Annotations[annotations.AnnDefaultStorageClass]
+
 					newIsDefault, newIsDefaultOk := e.ObjectNew.Annotations[annotations.AnnDefaultStorageClass]
 					switch {
 					case oldIsDefaultOk && newIsDefaultOk:
@@ -77,11 +78,13 @@ func (w StorageClassWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 	); err != nil {
 		return fmt.Errorf("error setting watch on StorageClass: %w", err)
 	}
+
 	return nil
 }
 
 func (w StorageClassWatcher) enqueueRequests(ctx context.Context, sc *storagev1.StorageClass) []reconcile.Request {
 	var vis v1alpha2.VirtualImageList
+
 	err := w.client.List(ctx, &vis, &client.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVIByStorageClass, sc.Name),
 	})

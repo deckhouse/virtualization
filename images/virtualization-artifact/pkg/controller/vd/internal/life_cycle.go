@@ -172,8 +172,10 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) 
 				Reason(vdcondition.Provisioning).
 				Message("Namespace is terminating: provisioning is paused.")
 			conditions.SetCondition(cb, &vd.Status.Conditions)
+
 			return reconcile.Result{}, nil
 		}
+
 		return reconcile.Result{}, fmt.Errorf("failed to sync virtual disk data source %s: %w", ds.Name(), err)
 	}
 

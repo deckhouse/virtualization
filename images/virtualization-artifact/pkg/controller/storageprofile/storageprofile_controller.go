@@ -52,6 +52,7 @@ type Reconciler struct {
 
 func NewController(mgr manager.Manager, log *log.Logger, volumeSnapshotAPIAvailable bool) (controller.Controller, error) {
 	reconciler := &Reconciler{client: mgr.GetClient(), log: log}
+
 	ctr, err := controller.New(ControllerName, mgr, controller.Options{
 		Reconciler:     reconciler,
 		LogConstructor: logger.NewConstructor(log),
@@ -59,10 +60,13 @@ func NewController(mgr manager.Manager, log *log.Logger, volumeSnapshotAPIAvaila
 	if err != nil {
 		return nil, err
 	}
+
 	if err := addWatches(mgr, ctr, volumeSnapshotAPIAvailable); err != nil {
 		return nil, err
 	}
+
 	log.Info("Initialized StorageProfile controller")
+
 	return ctr, nil
 }
 
@@ -72,11 +76,14 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		if k8serrors.IsNotFound(err) {
 			return reconcile.Result{}, r.deleteStorageProfile(ctx, req.Name)
 		}
+
 		return reconcile.Result{}, err
 	}
+
 	if sc.DeletionTimestamp != nil {
 		return reconcile.Result{}, r.deleteStorageProfile(ctx, req.Name)
 	}
+
 	return r.requeueOnStaleCache(r.reconcileStorageProfile(ctx, sc))
 }
 
@@ -91,16 +98,20 @@ func (r *Reconciler) requeueOnStaleCache(err error) (reconcile.Result, error) {
 		r.log.Debug("StorageProfile cache is stale, requeuing", logger.SlogErr(err))
 		return reconcile.Result{RequeueAfter: 100 * time.Millisecond}, nil
 	}
+
 	return reconcile.Result{}, err
 }
 
 func (r *Reconciler) reconcileStorageProfile(ctx context.Context, sc *storagev1.StorageClass) error {
 	profile := &storagev1alpha1.StorageProfile{}
+
 	var previous *storagev1alpha1.StorageProfile
+
 	if err := r.client.Get(ctx, types.NamespacedName{Name: sc.Name}, profile); err != nil {
 		if !k8serrors.IsNotFound(err) {
 			return err
 		}
+
 		profile = emptyStorageProfile(sc.Name)
 	} else {
 		previous = profile.DeepCopy()
@@ -108,13 +119,16 @@ func (r *Reconciler) reconcileStorageProfile(ctx context.Context, sc *storagev1.
 
 	profile.Status.StorageClass = &sc.Name
 	profile.Status.Provisioner = &sc.Provisioner
+
 	snapshotClass := r.snapshotClassForProvisioner(ctx, sc.Provisioner, profile.Spec.SnapshotClass)
 	if snapshotClass == "" {
 		profile.Status.SnapshotClass = nil
 	} else {
 		profile.Status.SnapshotClass = &snapshotClass
 	}
+
 	profile.Status.CloneStrategy = reconcileCloneStrategy(sc, profile.Spec.CloneStrategy, snapshotClass)
+
 	profile.Status.DataImportCronSourceFormat = reconcileDataImportCronSourceFormat(profile.Spec.DataImportCronSourceFormat)
 	if len(profile.Spec.ClaimPropertySets) > 0 {
 		profile.Status.ClaimPropertySets = profile.Spec.ClaimPropertySets
@@ -127,9 +141,11 @@ func (r *Reconciler) reconcileStorageProfile(ctx context.Context, sc *storagev1.
 	if previous == nil {
 		return r.client.Create(ctx, profile)
 	}
+
 	if !reflect.DeepEqual(previous, profile) {
 		return r.client.Update(ctx, profile)
 	}
+
 	return nil
 }
 
@@ -138,6 +154,7 @@ func (r *Reconciler) deleteStorageProfile(ctx context.Context, name string) erro
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return err
 	}
+
 	return nil
 }
 
@@ -146,19 +163,23 @@ func (r *Reconciler) snapshotClassForProvisioner(ctx context.Context, provisione
 	if err := r.client.List(ctx, &list); err != nil {
 		return ""
 	}
+
 	if desired != nil && *desired != "" {
 		for _, item := range list.Items {
 			if item.Name == *desired && item.Driver == provisioner {
 				return item.Name
 			}
 		}
+
 		return ""
 	}
+
 	for _, item := range list.Items {
 		if item.Driver == provisioner {
 			return item.Name
 		}
 	}
+
 	return ""
 }
 
@@ -166,6 +187,7 @@ func reconcileCloneStrategy(sc *storagev1.StorageClass, desired *cdiv1.CDICloneS
 	if desired != nil {
 		return desired
 	}
+
 	if value, ok := sc.Annotations["cdi.kubevirt.io/clone-strategy"]; ok {
 		switch value {
 		case "copy":
@@ -179,11 +201,14 @@ func reconcileCloneStrategy(sc *storagev1.StorageClass, desired *cdiv1.CDICloneS
 			return &strategy
 		}
 	}
+
 	if snapshotClass != "" {
 		strategy := cdiv1.CloneStrategySnapshot
 		return &strategy
 	}
+
 	strategy := cdiv1.CloneStrategyHostAssisted
+
 	return &strategy
 }
 
@@ -191,13 +216,16 @@ func reconcileDataImportCronSourceFormat(desired *cdiv1.DataImportCronSourceForm
 	if desired != nil {
 		return desired
 	}
+
 	format := cdiv1.DataImportCronSourceFormatPvc
+
 	return &format
 }
 
 func defaultClaimPropertySets() []cdiv1.ClaimPropertySet {
 	fs := corev1.PersistentVolumeFilesystem
 	block := corev1.PersistentVolumeBlock
+
 	return []cdiv1.ClaimPropertySet{
 		{AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}, VolumeMode: &fs},
 		{AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}, VolumeMode: &block},
@@ -220,14 +248,17 @@ func addWatches(mgr manager.Manager, ctr controller.Controller, volumeSnapshotAP
 	if err := ctr.Watch(source.Kind(mgr.GetCache(), &storagev1.StorageClass{}, &handler.TypedEnqueueRequestForObject[*storagev1.StorageClass]{})); err != nil {
 		return err
 	}
+
 	if err := ctr.Watch(source.Kind(mgr.GetCache(), &storagev1alpha1.StorageProfile{}, &handler.TypedEnqueueRequestForObject[*storagev1alpha1.StorageProfile]{})); err != nil {
 		return err
 	}
+
 	if err := ctr.Watch(source.Kind(mgr.GetCache(), &corev1.PersistentVolume{},
 		handler.TypedEnqueueRequestsFromMapFunc(func(_ context.Context, pv *corev1.PersistentVolume) []reconcile.Request {
 			if pv.Spec.StorageClassName == "" {
 				return nil
 			}
+
 			return []reconcile.Request{{NamespacedName: types.NamespacedName{Name: pv.Spec.StorageClassName}}}
 		}),
 		predicate.TypedFuncs[*corev1.PersistentVolume]{
@@ -244,9 +275,11 @@ func addWatches(mgr manager.Manager, ctr controller.Controller, volumeSnapshotAP
 	)); err != nil {
 		return err
 	}
+
 	if !volumeSnapshotAPIAvailable {
 		return nil
 	}
+
 	if err := ctr.Watch(source.Kind(mgr.GetCache(), &vsv1.VolumeSnapshotClass{},
 		handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vsc *vsv1.VolumeSnapshotClass) []reconcile.Request {
 			var scs storagev1.StorageClassList
@@ -254,16 +287,20 @@ func addWatches(mgr manager.Manager, ctr controller.Controller, volumeSnapshotAP
 				ctr.GetLogger().Error(err, "Unable to list StorageClasses")
 				return nil
 			}
+
 			var requests []reconcile.Request
+
 			for _, sc := range scs.Items {
 				if sc.Provisioner == vsc.Driver {
 					requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{Name: sc.Name}})
 				}
 			}
+
 			return requests
 		}),
 	)); err != nil {
 		return fmt.Errorf("watch VolumeSnapshotClass: %w", err)
 	}
+
 	return nil
 }

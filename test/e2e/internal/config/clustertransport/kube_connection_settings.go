@@ -42,9 +42,11 @@ func KubeConnectionCmdSettings(conf ClusterTransport) (env, args []string, err e
 		if conf.Endpoint == "" {
 			return nil, nil, fmt.Errorf("token is not enough, specify endpoint to connect to cluster")
 		}
+
 		if conf.Token == "" {
 			return nil, nil, fmt.Errorf("endpoint is not enough, specify token to connect to cluster")
 		}
+
 		args = []string{
 			fmt.Sprintf("--token=%s", conf.Token),
 			fmt.Sprintf("--server=%s", conf.Endpoint),
@@ -52,6 +54,7 @@ func KubeConnectionCmdSettings(conf ClusterTransport) (env, args []string, err e
 		if conf.CertificateAuthority != "" {
 			args = append(args, fmt.Sprintf("--certificate-authority=%s", conf.CertificateAuthority))
 		}
+
 		if conf.InsecureTLS {
 			args = append(args, "--insecure-skip-tls-verify=true")
 		}

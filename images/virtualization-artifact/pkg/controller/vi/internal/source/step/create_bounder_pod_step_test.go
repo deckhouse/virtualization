@@ -69,7 +69,9 @@ var _ = Describe("CreateBounderPodStep", func() {
 
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(storageClasses...).Build()
 			bounder := &createBounderPodStepBounderStub{startErr: bounderErr}
+
 			var recorder *eventrecord.EventRecorderLoggerMock
+
 			recorder = &eventrecord.EventRecorderLoggerMock{
 				EventFunc: func(client.Object, string, string, string) {},
 				WithLoggingFunc: func(logger eventrecord.InfoLogger) eventrecord.EventRecorderLogger {
@@ -106,6 +108,7 @@ var _ = Describe("CreateBounderPodStep", func() {
 			Expect(vi.Status.Phase).To(Equal(expectedPhase))
 			Expect(cb.Condition().Reason).To(Equal(expectedReason))
 			Expect(cb.Condition().Message).To(Equal(expectedMessage))
+
 			if expectedReason != conditions.ReasonUnknown.String() {
 				Expect(cb.Condition().Status).To(Equal(metav1.ConditionFalse))
 			}

@@ -61,11 +61,13 @@ func (s EnsurePVCOwnershipStep) Take(ctx context.Context, vd *v1alpha2.VirtualDi
 	}
 
 	adopted, foreignController := false, false
+
 	for _, ref := range s.pvc.OwnerReferences {
 		if ref.Kind == v1alpha2.VirtualDiskKind && ref.UID == vd.UID {
 			adopted = true
 			continue
 		}
+
 		if ref.Controller != nil && *ref.Controller {
 			foreignController = true
 		}
@@ -77,19 +79,23 @@ func (s EnsurePVCOwnershipStep) Take(ctx context.Context, vd *v1alpha2.VirtualDi
 	}
 
 	patched := s.pvc.DeepCopy()
+
 	if !adopted {
 		ownerRef := service.MakeControllerOwnerReference(vd)
 		if foreignController {
 			ownerRef.Controller = nil
 			ownerRef.BlockOwnerDeletion = nil
 		}
+
 		patched.OwnerReferences = append(patched.OwnerReferences, ownerRef)
 	}
+
 	patched.Finalizers = append(patched.Finalizers, missingFinalizers...)
 
 	if err := s.client.Patch(ctx, patched, client.StrategicMergeFrom(s.pvc)); err != nil {
 		return nil, fmt.Errorf("adopt restored pvc %q: %w", s.pvc.Name, err)
 	}
+
 	return nil, nil
 }
 
@@ -100,10 +106,12 @@ func (s EnsurePVCOwnershipStep) missingFinalizers() []string {
 	}
 
 	var missing []string
+
 	for _, f := range s.finalizers {
 		if _, ok := present[f]; !ok {
 			missing = append(missing, f)
 		}
 	}
+
 	return missing
 }

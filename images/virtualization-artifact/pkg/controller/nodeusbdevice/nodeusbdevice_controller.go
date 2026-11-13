@@ -70,5 +70,6 @@ func NewController(
 	}
 
 	log.Info("Initialized NodeUSBDevice controller")
+
 	return c, nil
 }

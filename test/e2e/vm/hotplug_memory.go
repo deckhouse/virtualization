@@ -135,10 +135,12 @@ func (t *memoryHotplugTest) requireRestartToDecreaseMemory(initialMemory, change
 	initialQuantity := resource.MustParse(initialMemory)
 
 	By("Environment preparation")
+
 	vmName := strings.ToLower(fmt.Sprintf("vm-%s-%s-decrease", initialMemory, changedMemory))
 	if liveMigration {
 		vmName += "-migrate"
 	}
+
 	t.generateResourcesWithRestartApproval(vmName, initialMemory, v1alpha2.Manual)
 	err := t.Framework.CreateWithDeferredDeletion(ctx, t.VM, t.VD)
 	Expect(err).NotTo(HaveOccurred())
@@ -147,6 +149,7 @@ func (t *memoryHotplugTest) requireRestartToDecreaseMemory(initialMemory, change
 	vmObs.Never(vmobs.BeFailed())
 
 	By("Wait until VM agent is ready")
+
 	err = vmObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -168,6 +171,7 @@ func (t *memoryHotplugTest) requireRestartToDecreaseMemory(initialMemory, change
 	}
 
 	By("Applying memory decrease")
+
 	patch, err := json.Marshal([]map[string]interface{}{{
 		"op":    "replace",
 		"path":  "/spec/memory/size",
@@ -186,6 +190,7 @@ func (t *memoryHotplugTest) requireRestartToDecreaseMemory(initialMemory, change
 	util.ExpectVMOnNode(ctx, t.Framework, t.VM, initialNode)
 
 	By("Checking memory size is not applied without restart")
+
 	err = t.Framework.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VM), t.VM)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(t.VM.Status.Resources.Memory.Size).To(Equal(initialQuantity))
@@ -201,10 +206,12 @@ func (t *memoryHotplugTest) applyMemoryChange(initialMemory, changedMemory strin
 	changedQuantity := resource.MustParse(changedMemory)
 
 	By("Environment preparation")
+
 	vmName := strings.ToLower(fmt.Sprintf("vm-%s-%s", initialMemory, changedMemory))
 	if liveMigration {
 		vmName += "-migrate"
 	}
+
 	t.generateResources(vmName, initialMemory)
 	err := t.Framework.CreateWithDeferredDeletion(ctx, t.VM, t.VD)
 	Expect(err).NotTo(HaveOccurred())
@@ -213,6 +220,7 @@ func (t *memoryHotplugTest) applyMemoryChange(initialMemory, changedMemory strin
 	vmObs.Never(vmobs.BeFailed())
 
 	By("Wait until VM agent is ready")
+
 	err = vmObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -222,6 +230,7 @@ func (t *memoryHotplugTest) applyMemoryChange(initialMemory, changedMemory strin
 	eventually.SSHReadyAsRoot(t.Framework, t.VM, framework.LongTimeout)
 
 	By("Checking initial memory size")
+
 	err = t.Framework.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VM), t.VM)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(t.VM.Status.Resources.Memory.Size).To(Equal(initialQuantity))
@@ -241,6 +250,7 @@ func (t *memoryHotplugTest) applyMemoryChange(initialMemory, changedMemory strin
 	}
 
 	By("Applying memory size changes")
+
 	patch, err := json.Marshal([]map[string]interface{}{{
 		"op":    "replace",
 		"path":  "/spec/memory/size",
@@ -252,15 +262,18 @@ func (t *memoryHotplugTest) applyMemoryChange(initialMemory, changedMemory strin
 
 	if liveMigration {
 		By("Waiting until memory size is applied via live migration")
+
 		err = vmObs.WaitFor(vmobs.HaveMigrationSucceeded(), framework.MaxTimeout)
 		if err != nil {
 			// TODO: remove temporary migration skip logic when both known issues are
 			// fixed: kubevirt "client socket is closed" and Volume(s)UpdateError.
 			util.SkipIfKnownMigrationFailureWithContext(ctx, t.VM)
 		}
+
 		Expect(err).NotTo(HaveOccurred())
 	} else {
 		By("Waiting until memory size is applied in-place")
+
 		err = vmObs.WaitFor(haveMemorySize(changedQuantity), framework.MaxTimeout)
 		Expect(err).NotTo(HaveOccurred())
 		// In-place resize needs the node to absorb the launcher pod's enlarged
@@ -378,6 +391,7 @@ func (t *memoryHotplugTest) findHotplugResourcesVMOP(ctx context.Context) *v1alp
 			return vmop
 		}
 	}
+
 	return nil
 }
 

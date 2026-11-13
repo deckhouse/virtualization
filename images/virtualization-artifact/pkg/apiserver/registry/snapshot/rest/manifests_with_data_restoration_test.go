@@ -69,13 +69,16 @@ func TestAPIError_StatusCodes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := apiError(v1alpha2.VirtualMachineSnapshotResource, "vms", tt.err)
+
 			var statusErr k8serrors.APIStatus
 			if !errorAs(got, &statusErr) {
 				t.Fatalf("apiError returned %T, want an APIStatus error", got)
 			}
+
 			if code := statusErr.Status().Code; code != tt.want {
 				t.Errorf("code = %d, want %d (message: %s)", code, tt.want, statusErr.Status().Message)
 			}
+
 			if tt.wantReason != "" && string(statusErr.Status().Reason) != tt.wantReason {
 				t.Errorf("reason = %q, want %q", statusErr.Status().Reason, tt.wantReason)
 			}
@@ -88,6 +91,7 @@ func errorAs(err error, target *k8serrors.APIStatus) bool {
 	if ok {
 		*target = s
 	}
+
 	return ok
 }
 

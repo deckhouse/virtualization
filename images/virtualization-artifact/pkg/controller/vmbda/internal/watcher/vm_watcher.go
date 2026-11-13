@@ -62,6 +62,7 @@ func (w VirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Control
 					}
 
 					oldMigrating, oldFound := conditions.GetCondition(vmcondition.TypeMigrating, e.ObjectOld.Status.Conditions)
+
 					newMigrating, newFound := conditions.GetCondition(vmcondition.TypeMigrating, e.ObjectNew.Status.Conditions)
 					if oldFound != newFound ||
 						oldMigrating.Status != newMigrating.Status ||
@@ -76,11 +77,13 @@ func (w VirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Control
 	); err != nil {
 		return fmt.Errorf("error setting watch on VMs: %w", err)
 	}
+
 	return nil
 }
 
 func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, vm *v1alpha2.VirtualMachine) (requests []reconcile.Request) {
 	var vmbdas v1alpha2.VirtualMachineBlockDeviceAttachmentList
+
 	err := w.client.List(ctx, &vmbdas, &client.ListOptions{
 		Namespace: vm.GetNamespace(),
 	})
@@ -107,6 +110,7 @@ func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, vm *v1alpha2
 
 func (w VirtualMachineWatcher) hasBlockDeviceAttachmentChanges(oldVM, newVM *v1alpha2.VirtualMachine) bool {
 	var oldVMBDA []v1alpha2.BlockDeviceStatusRef
+
 	for _, bdRef := range oldVM.Status.BlockDeviceRefs {
 		if bdRef.VirtualMachineBlockDeviceAttachmentName != "" {
 			oldVMBDA = append(oldVMBDA, bdRef)
@@ -114,6 +118,7 @@ func (w VirtualMachineWatcher) hasBlockDeviceAttachmentChanges(oldVM, newVM *v1a
 	}
 
 	var newVMBDA []v1alpha2.BlockDeviceStatusRef
+
 	for _, bdRef := range newVM.Status.BlockDeviceRefs {
 		if bdRef.VirtualMachineBlockDeviceAttachmentName != "" {
 			newVMBDA = append(newVMBDA, bdRef)

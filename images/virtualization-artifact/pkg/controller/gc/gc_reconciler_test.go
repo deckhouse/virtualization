@@ -77,6 +77,7 @@ var _ = Describe("GCReconciler", func() {
 		objs := &FakeObjectList{}
 		Expect(fakeClient.List(ctx, objs)).To(Succeed())
 		Expect(len(objs.Items)).To(Equal(200))
+
 		for _, obj := range objs.Items {
 			Expect(obj.Phase).NotTo(Equal(fakeObjectPhaseCompleted))
 		}

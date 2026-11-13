@@ -30,8 +30,10 @@ func (in *ModuleConfig) DeepCopy() *ModuleConfig {
 	if in == nil {
 		return nil
 	}
+
 	out := new(ModuleConfig)
 	in.DeepCopyInto(out)
+
 	return out
 }
 
@@ -39,6 +41,7 @@ func (in *ModuleConfig) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}
+
 	return nil
 }
 
@@ -46,8 +49,10 @@ func (in *ModuleConfigList) DeepCopyInto(out *ModuleConfigList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ListMeta.DeepCopyInto(&out.ListMeta)
+
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
+
 		*out = make([]ModuleConfig, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
@@ -59,8 +64,10 @@ func (in *ModuleConfigList) DeepCopy() *ModuleConfigList {
 	if in == nil {
 		return nil
 	}
+
 	out := new(ModuleConfigList)
 	in.DeepCopyInto(out)
+
 	return out
 }
 
@@ -68,12 +75,14 @@ func (in *ModuleConfigList) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}
+
 	return nil
 }
 
 func (in *ModuleConfigSpec) DeepCopyInto(out *ModuleConfigSpec) {
 	*out = *in
 	in.Settings.DeepCopyInto(&out.Settings)
+
 	if in.Enabled != nil {
 		in, out := &in.Enabled, &out.Enabled
 		*out = new(bool)
@@ -85,8 +94,10 @@ func (in *ModuleConfigSpec) DeepCopy() *ModuleConfigSpec {
 	if in == nil {
 		return nil
 	}
+
 	out := new(ModuleConfigSpec)
 	in.DeepCopyInto(out)
+
 	return out
 }
 
@@ -98,8 +109,10 @@ func (in *ModuleConfigStatus) DeepCopy() *ModuleConfigStatus {
 	if in == nil {
 		return nil
 	}
+
 	out := new(ModuleConfigStatus)
 	in.DeepCopyInto(out)
+
 	return out
 }
 
@@ -120,6 +133,7 @@ func (v SettingsValues) DeepCopyInto(out *SettingsValues) {
 		v := &v
 		clone := v.DeepCopy()
 		*out = *clone
+
 		return
 	}
 }

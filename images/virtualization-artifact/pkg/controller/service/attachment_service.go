@@ -212,9 +212,11 @@ func (s AttachmentService) UnplugDisk(ctx context.Context, kvvm *virtv1.VirtualM
 	if kvvm == nil {
 		return errors.New("cannot unplug a disk from a nil KVVM")
 	}
+
 	if diskName == "" {
 		return errors.New("cannot unplug a disk with a empty DiskName")
 	}
+
 	return s.virtClient.VirtualMachines(kvvm.GetNamespace()).RemoveVolume(ctx, kvvm.GetName(), subv1alpha2.VirtualMachineRemoveVolume{
 		Name: diskName,
 	})
@@ -247,6 +249,7 @@ func (s AttachmentService) IsConflictedAttachment(ctx context.Context, vmbda *v1
 	}
 
 	var vmbdas v1alpha2.VirtualMachineBlockDeviceAttachmentList
+
 	err := s.client.List(ctx, &vmbdas, &client.ListOptions{Namespace: vmbda.Namespace})
 	if err != nil {
 		return false, "", err
@@ -321,9 +324,11 @@ func (s AttachmentService) IsPVAvailableOnVMNode(ctx context.Context, pvc *corev
 	if pvc == nil {
 		return false, errors.New("pvc is nil")
 	}
+
 	if kvvmi == nil {
 		return false, errors.New("kvvmi is nil")
 	}
+
 	if pvc.Spec.VolumeName == "" || kvvmi.Status.NodeName == "" {
 		return true, nil
 	}
@@ -332,6 +337,7 @@ func (s AttachmentService) IsPVAvailableOnVMNode(ctx context.Context, pvc *corev
 	if err != nil {
 		return false, fmt.Errorf("failed to get PersistentVolume %q: %w", pvc.Spec.VolumeName, err)
 	}
+
 	if pv == nil {
 		return false, fmt.Errorf("PersistentVolume %q not found", pvc.Spec.VolumeName)
 	}
@@ -342,6 +348,7 @@ func (s AttachmentService) IsPVAvailableOnVMNode(ctx context.Context, pvc *corev
 
 	nodeName := kvvmi.Status.NodeName
 	node := &corev1.Node{}
+
 	err = s.client.Get(ctx, types.NamespacedName{Name: nodeName}, node)
 	if err != nil {
 		return false, fmt.Errorf("failed to get Node %q: %w", nodeName, err)
@@ -390,6 +397,7 @@ func NewAttachmentDiskFromVirtualImage(vi *v1alpha2.VirtualImage) *AttachmentDis
 	if !vi.Status.CDROM {
 		serial = kvbuilder.GenerateSerialFromObject(vi)
 	}
+
 	ad := AttachmentDisk{
 		Kind:         v1alpha2.ImageDevice,
 		Name:         vi.GetName(),
@@ -413,6 +421,7 @@ func NewAttachmentDiskFromClusterVirtualImage(cvi *v1alpha2.ClusterVirtualImage)
 	if !cvi.Status.CDROM {
 		serial = kvbuilder.GenerateSerialFromObject(cvi)
 	}
+
 	return &AttachmentDisk{
 		Kind:         v1alpha2.ClusterImageDevice,
 		Name:         cvi.GetName(),

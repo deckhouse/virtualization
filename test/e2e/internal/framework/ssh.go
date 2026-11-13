@@ -66,6 +66,7 @@ func makeSSHCommandOptions(options ...SSHCommandOption) *sshCommandOptions {
 	for _, option := range options {
 		option(o)
 	}
+
 	return o
 }
 
@@ -78,6 +79,7 @@ func (f *Framework) SSHCommand(vmName, vmNamespace, command string, options ...S
 	if err != nil {
 		return "", err
 	}
+
 	defer func() {
 		_ = file.Close()
 		_ = os.Remove(file.Name())
@@ -86,6 +88,7 @@ func (f *Framework) SSHCommand(vmName, vmNamespace, command string, options ...S
 	if _, err = file.WriteString(o.privateKey); err != nil {
 		return "", err
 	}
+
 	if err = os.Chmod(file.Name(), 0o600); err != nil {
 		return "", err
 	}
@@ -100,6 +103,7 @@ func (f *Framework) SSHCommand(vmName, vmNamespace, command string, options ...S
 	if !res.WasSuccess() {
 		err := sshCommandError(command, o.timeout, res)
 		skipIfKnownKubeletTLSVerifyFailure(err)
+
 		return "", err
 	}
 
@@ -129,6 +133,7 @@ func skipIfKnownKubeletTLSVerifyFailure(err error) {
 	if err == nil {
 		return
 	}
+
 	if knownKubeletTLSVerifyRe.MatchString(err.Error()) {
 		Skip("skip due to known transient kubelet TLS verification failure: " + err.Error())
 	}

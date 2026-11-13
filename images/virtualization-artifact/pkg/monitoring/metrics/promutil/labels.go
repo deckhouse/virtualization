@@ -32,10 +32,12 @@ type SkipLabel func(key, value string) bool
 
 func WrapPrometheusLabels(labels map[string]string, prefix string, skip SkipLabel) map[string]string {
 	keys, values := mapToPrometheusLabels(labels, prefix, skip)
+
 	wrapLabels := make(map[string]string, len(keys))
 	for i, k := range keys {
 		wrapLabels[k] = values[i]
 	}
+
 	return wrapLabels
 }
 
@@ -44,12 +46,15 @@ func mapToPrometheusLabels(labels map[string]string, prefix string, skip SkipLab
 	labelValues := make([]string, 0, len(labels))
 
 	sortedKeys := make([]string, 0)
+
 	for key, value := range labels {
 		if skip != nil && skip(key, value) {
 			continue
 		}
+
 		sortedKeys = append(sortedKeys, key)
 	}
+
 	sort.Strings(sortedKeys)
 
 	// conflictDesc holds some metadata for resolving potential label conflicts
@@ -63,6 +68,7 @@ func mapToPrometheusLabels(labels map[string]string, prefix string, skip SkipLab
 	}
 
 	conflicts := make(map[string]*conflictDesc)
+
 	for _, k := range sortedKeys {
 		labelKey := labelName(prefix, k)
 		if conflict, ok := conflicts[labelKey]; ok {
@@ -81,9 +87,11 @@ func mapToPrometheusLabels(labels map[string]string, prefix string, skip SkipLab
 				initial: len(labelKeys),
 			}
 		}
+
 		labelKeys = append(labelKeys, labelKey)
 		labelValues = append(labelValues, labels[k])
 	}
+
 	return labelKeys, labelValues
 }
 

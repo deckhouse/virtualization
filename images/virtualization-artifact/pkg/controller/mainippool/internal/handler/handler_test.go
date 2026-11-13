@@ -37,11 +37,14 @@ import (
 func newRecordingClient(applied *[]client.Object, objs ...client.Object) client.Client {
 	scheme := apiruntime.NewScheme()
 	Expect(sdnapi.AddToScheme(scheme)).To(Succeed())
+
 	return fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).
 		WithInterceptorFuncs(interceptor.Funcs{
 			Patch: func(_ context.Context, _ client.WithWatch, obj client.Object, patch client.Patch, _ ...client.PatchOption) error {
 				Expect(patch).To(Equal(client.Apply))
+
 				*applied = append(*applied, obj.DeepCopyObject().(client.Object))
+
 				return nil
 			},
 		}).Build()
@@ -55,12 +58,14 @@ func newMainClusterNetwork(networkType string, poolRef *sdnapi.IPAddressPoolRef)
 	if poolRef != nil {
 		cn.Spec.IPAM = &sdnapi.IPAMSpec{IPAddressPoolRef: poolRef}
 	}
+
 	return cn
 }
 
 var _ = Describe("PoolHandler", func() {
 	It("applies a range per virtualMachineCIDRs entry", func() {
 		var applied []client.Object
+
 		h := NewPoolHandler(newRecordingClient(&applied), []string{"10.66.10.0/24", "10.66.20.0/24"})
 
 		Expect(h.Handle(context.Background())).To(Succeed())
@@ -81,6 +86,7 @@ var _ = Describe("PoolHandler on a pool being deleted", func() {
 			Patch: func(_ context.Context, _ client.WithWatch, obj client.Object, _ client.Patch, _ ...client.PatchOption) error {
 				now := metav1.Now()
 				obj.SetDeletionTimestamp(&now)
+
 				return nil
 			},
 		}).Build()
@@ -97,6 +103,7 @@ var _ = Describe("PoolRefHandler", func() {
 	handle := func(objs ...client.Object) []client.Object {
 		var applied []client.Object
 		Expect(NewPoolRefHandler(newRecordingClient(&applied, objs...)).Handle(context.Background())).To(Succeed())
+
 		return applied
 	}
 

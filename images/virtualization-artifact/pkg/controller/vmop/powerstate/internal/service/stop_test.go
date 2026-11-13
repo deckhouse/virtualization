@@ -79,7 +79,9 @@ var _ = Describe("StopOperation.Execute", func() {
 
 	execute := func(objs ...client.Object) {
 		GinkgoHelper()
+
 		var err error
+
 		fakeClient, err = testutil.NewFakeClientWithObjects(objs...)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(NewStopOperation(fakeClient, stopVMOP()).Execute(ctx)).To(Succeed())
@@ -87,8 +89,10 @@ var _ = Describe("StopOperation.Execute", func() {
 
 	liveKVVM := func() *virtv1.VirtualMachine {
 		GinkgoHelper()
+
 		live := &virtv1.VirtualMachine{}
 		Expect(fakeClient.Get(ctx, key, live)).To(Succeed())
+
 		return live
 	}
 

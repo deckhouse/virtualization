@@ -101,6 +101,7 @@ func Reconcile(_ context.Context, input *pkg.HookInput) error {
 		input.Values.Set(settings.InternalValuesConfigValidationPath, map[string]string{
 			"error": fmt.Sprintf("ModuleConfig/virtualization is invalid: %v", err),
 		})
+
 		return nil
 	}
 
@@ -121,6 +122,7 @@ func validateModuleConfigSettings(mc *mcapi.ModuleConfig, nodes []corev1.Node, p
 	if err != nil {
 		return err
 	}
+
 	if len(CIDRs) == 0 {
 		return nil
 	}
@@ -179,7 +181,9 @@ func moduleConfigFromSnapshot(input *pkg.HookInput) (*mcapi.ModuleConfig, error)
 	}
 
 	var mc mcapi.ModuleConfig
+
 	err := snap[0].UnmarshalTo(&mc)
+
 	return &mc, err
 }
 
@@ -193,10 +197,12 @@ func nodesFromSnapshot(input *pkg.HookInput) ([]corev1.Node, error) {
 	nodes := make([]corev1.Node, 0, len(snap))
 	for _, snapNode := range snap {
 		node := corev1.Node{}
+
 		err := snapNode.UnmarshalTo(&node)
 		if err != nil {
 			return nil, err
 		}
+
 		nodes = append(nodes, node)
 	}
 
@@ -208,10 +214,12 @@ func podSubnetFromValues(input *pkg.HookInput) (netip.Prefix, error) {
 	if podSubnetStr == "" {
 		return netip.Prefix{}, fmt.Errorf("get podSubnetCIDR: %s value should not be empty, check cluster configuration", podSubnetCIDRPath)
 	}
+
 	cidr, err := netip.ParsePrefix(podSubnetStr)
 	if err != nil {
 		return netip.Prefix{}, fmt.Errorf("parse global podSubnetCIDR: %w", err)
 	}
+
 	return cidr, nil
 }
 
@@ -220,9 +228,11 @@ func serviceSubnetFromValues(input *pkg.HookInput) (netip.Prefix, error) {
 	if serviceSubnetStr == "" {
 		return netip.Prefix{}, fmt.Errorf("get serviceSubnetCIDR: %s value should not be empty, check cluster configuration", podSubnetCIDRPath)
 	}
+
 	cidr, err := netip.ParsePrefix(serviceSubnetStr)
 	if err != nil {
 		return netip.Prefix{}, fmt.Errorf("parse global serviceSubnetCIDR: %w", err)
 	}
+
 	return cidr, nil
 }

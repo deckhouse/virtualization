@@ -52,6 +52,7 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+
 	instance = gate
 	addFlags = gateAddFlags
 }
@@ -74,6 +75,7 @@ func New() (*FeatureGate, AddFlagsFunc, SetFromMapFunc, error) {
 	if err := gate.Add(featureSpecs); err != nil {
 		return nil, nil, nil, err
 	}
+
 	return &FeatureGate{gate}, gate.AddFlag, gate.SetFromMap, nil
 }
 

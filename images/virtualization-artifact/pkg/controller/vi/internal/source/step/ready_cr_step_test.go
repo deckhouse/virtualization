@@ -81,6 +81,7 @@ func (s readyContainerRegistryStepStatStub) GetCDROM(_ *corev1.Pod) bool {
 var _ = Describe("ReadyContainerRegistryStep", func() {
 	newRecorder := func() *eventrecord.EventRecorderLoggerMock {
 		var recorder *eventrecord.EventRecorderLoggerMock
+
 		recorder = &eventrecord.EventRecorderLoggerMock{
 			EventFunc: noopEvent,
 			WithLoggingFunc: func(eventrecord.InfoLogger) eventrecord.EventRecorderLogger {
@@ -174,6 +175,7 @@ var _ = Describe("ReadyContainerRegistryStep", func() {
 			Expect(vi.Status.Phase).To(Equal(expectedPhase))
 			Expect(cb.Condition().Reason).To(Equal(expectedReason))
 			Expect(cb.Condition().Message).To(Equal(expectedMessage))
+
 			if expectedReason == vicondition.ProvisioningFailed.String() {
 				Expect(cb.Condition().Status).To(Equal(metav1.ConditionFalse))
 			} else {

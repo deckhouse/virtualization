@@ -46,6 +46,7 @@ func (s stubIterator) Iter(_ context.Context, h handler) error {
 			return nil
 		}
 	}
+
 	return nil
 }
 
@@ -79,10 +80,12 @@ func phaseSeries(name string, current v1alpha2.VirtualDiskSnapshotPhase) string 
 	var b strings.Builder
 	b.WriteString("# HELP d8_virtualization_virtualdisksnapshot_status_phase The virtualdisksnapshot current phase.\n")
 	b.WriteString("# TYPE d8_virtualization_virtualdisksnapshot_status_phase gauge\n")
+
 	for _, p := range snapshotPhases {
 		fmt.Fprintf(&b, "d8_virtualization_virtualdisksnapshot_status_phase{name=%q,namespace=\"team-a\",phase=%q,uid=%q} %v\n",
 			name, string(p), "uid-"+name, common.BoolFloat64(p == current))
 	}
+
 	return b.String()
 }
 

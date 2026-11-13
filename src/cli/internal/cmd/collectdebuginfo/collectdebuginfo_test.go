@@ -70,6 +70,7 @@ func newFakeClientFailingVMGet(err error) kubeclient.Client {
 	virt.PrependReactor("get", "virtualmachines", func(k8stesting.Action) (bool, runtime.Object, error) {
 		return true, nil, err
 	})
+
 	return &fakeClient{
 		Clientset:                       k8sfake.NewSimpleClientset(),
 		VirtualizationV1alpha2Interface: virt.VirtualizationV1alpha2(),
@@ -85,11 +86,13 @@ func forbidden(resource, name string) error {
 // List returns an empty list — matching a VM that has no KubeVirt VMI yet.
 func newDynamicFake(objects ...runtime.Object) *dynamicfake.FakeDynamicClient {
 	const group = "internal.virtualization.deckhouse.io"
+
 	gvrToListKind := map[schema.GroupVersionResource]string{
 		{Group: group, Version: "v1", Resource: "internalvirtualizationvirtualmachines"}:                  "InternalVirtualizationVirtualMachineList",
 		{Group: group, Version: "v1", Resource: "internalvirtualizationvirtualmachineinstances"}:          "InternalVirtualizationVirtualMachineInstanceList",
 		{Group: group, Version: "v1", Resource: "internalvirtualizationvirtualmachineinstancemigrations"}: "InternalVirtualizationVirtualMachineInstanceMigrationList",
 	}
+
 	return dynamicfake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), gvrToListKind, objects...)
 }
 
@@ -102,6 +105,7 @@ func newInternalResource(kind, name string) *unstructured.Unstructured {
 	})
 	obj.SetNamespace(testNamespace)
 	obj.SetName(name)
+
 	return obj
 }
 
@@ -127,6 +131,7 @@ func newVM(name string, refs ...v1alpha2.BlockDeviceSpecRef) *v1alpha2.VirtualMa
 // and the returned error.
 func runCollect(client kubeclient.Client, dyn dynamic.Interface, vmName string) (map[string]string, string, error) {
 	var out, errBuf bytes.Buffer
+
 	b := &DebugBundle{
 		dynamicClient: dyn,
 		stdout:        &out,
@@ -145,10 +150,12 @@ func runCollect(client kubeclient.Client, dyn dynamic.Interface, vmName string) 
 
 func readArchive(buf *bytes.Buffer) map[string]string {
 	files := map[string]string{}
+
 	gz, err := gzip.NewReader(buf)
 	if err != nil {
 		return files
 	}
+
 	defer func() { _ = gz.Close() }()
 
 	tr := tar.NewReader(gz)
@@ -157,12 +164,15 @@ func readArchive(buf *bytes.Buffer) map[string]string {
 		if err == io.EOF {
 			break
 		}
+
 		if err != nil {
 			break
 		}
+
 		content, _ := io.ReadAll(tr)
 		files[hdr.Name] = string(content)
 	}
+
 	return files
 }
 
@@ -245,6 +255,7 @@ var _ = Describe("collect-debug-info", func() {
 		dyn.PrependReactor("get", "internalvirtualizationvirtualmachines", func(k8stesting.Action) (bool, runtime.Object, error) {
 			return true, nil, forbidden("internalvirtualizationvirtualmachines", "vm-x")
 		})
+
 		client := newFakeClient(newVM("vm-x"))
 
 		files, stderr, err := runCollect(client, dyn, "vm-x")
@@ -259,6 +270,7 @@ var _ = Describe("collect-debug-info", func() {
 		dyn.PrependReactor("get", "internalvirtualizationvirtualmachines", func(k8stesting.Action) (bool, runtime.Object, error) {
 			return true, nil, errors.New("etcdserver: request timed out")
 		})
+
 		client := newFakeClient(newVM("vm-x"))
 
 		_, _, err := runCollect(client, dyn, "vm-x")

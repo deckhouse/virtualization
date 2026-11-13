@@ -57,12 +57,15 @@ func NewCommand() *cobra.Command {
 				klog.Errorf("fatal: Number of input parameters is incorrect, portforward requires at least 2 arg(s), received %d", n)
 				// always write to stderr on failures to ensure they get printed in stdio mode
 				cmd.SetOut(os.Stderr)
+
 				err := cmd.Help()
 				if err != nil {
 					return err
 				}
+
 				return errors.New("argument validation failed")
 			}
+
 			return nil
 		},
 		RunE: portforward.Run,
@@ -72,6 +75,7 @@ func NewCommand() *cobra.Command {
 	cmd.Flags().StringVar(&address, addressFlag, address,
 		fmt.Sprintf("--%s=: Set this to the address the local ports should be opened on", addressFlag))
 	cmd.SetUsageTemplate(templates.UsageTemplate())
+
 	return cmd
 }
 
@@ -99,6 +103,7 @@ func (o *PortForward) Run(cmd *cobra.Command, args []string) error {
 		if len(ports) != 1 {
 			return errors.New("only one port supported when forwarding to stdout")
 		}
+
 		return o.startStdoutStream(namespace, name, ports[0])
 	}
 
@@ -143,6 +148,7 @@ func (o *PortForward) startStdoutStream(namespace, name string, port forwardedPo
 	}
 
 	klog.V(3).Infof("forwarding to %s/%s:%d", namespace, name, port.remote)
+
 	if err := streamer.Stream(virtualizationv1alpha2.StreamOptions{
 		In:  os.Stdin,
 		Out: os.Stdout,
@@ -164,6 +170,7 @@ func (o *PortForward) startPortForwards(namespace, name string, ports []forwarde
 			return err
 		}
 	}
+
 	return nil
 }
 

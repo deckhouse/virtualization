@@ -51,9 +51,11 @@ func newPodGCManager(client client.Client, ttl time.Duration, max int) *podGCMan
 	if ttl == 0 {
 		ttl = defaultPodGCTTL
 	}
+
 	if max == 0 {
 		max = defaultPodGCMaxCount
 	}
+
 	return &podGCManager{
 		client: client,
 		ttl:    ttl,
@@ -78,14 +80,17 @@ func (m *podGCManager) ShouldBeDeleted(obj client.Object) bool {
 	if !ok {
 		return false
 	}
+
 	if _, hasLabel := pod.Labels[virtv1.VirtualMachineNameLabel]; !hasLabel {
 		return false
 	}
+
 	return pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed
 }
 
 func (m *podGCManager) ListForDelete(ctx context.Context, now time.Time) ([]client.Object, error) {
 	podList := &corev1.PodList{}
+
 	err := m.client.List(ctx, podList, client.HasLabels{virtv1.VirtualMachineNameLabel})
 	if err != nil {
 		return nil, err
@@ -104,5 +109,6 @@ func (m *podGCManager) getIndex(obj client.Object) string {
 	if !ok {
 		return ""
 	}
+
 	return pod.Namespace + "/" + pod.Labels[virtv1.VirtualMachineNameLabel]
 }

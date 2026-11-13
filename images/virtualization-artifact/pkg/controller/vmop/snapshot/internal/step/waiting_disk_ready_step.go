@@ -60,6 +60,7 @@ func (s WaitingDisksReadyStep) Take(ctx context.Context, vmop *v1alpha2.VirtualM
 	}
 
 	cb := conditions.NewConditionBuilder(vmopcondition.TypeCompleted).Status(metav1.ConditionFalse)
+
 	switch vmop.Spec.Type {
 	case v1alpha2.VMOPTypeClone:
 		cb.Reason(vmopcondition.ReasonCloneInProgress)
@@ -73,14 +74,18 @@ func (s WaitingDisksReadyStep) Take(ctx context.Context, vmop *v1alpha2.VirtualM
 		}
 
 		var vd v1alpha2.VirtualDisk
+
 		vdKey := types.NamespacedName{Namespace: vmop.Namespace, Name: status.Name}
+
 		err := s.client.Get(ctx, vdKey, &vd)
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
 				cb.Message("Waiting for the virtual disks to become ready.")
 				conditions.SetCondition(cb, &vmop.Status.Conditions)
+
 				return &reconcile.Result{}, nil
 			}
+
 			return &reconcile.Result{}, fmt.Errorf("failed to get the `VirtualDisk`: %w", err)
 		}
 
@@ -98,12 +103,15 @@ func (s WaitingDisksReadyStep) Take(ctx context.Context, vmop *v1alpha2.VirtualM
 			if vmop.Spec.Type == v1alpha2.VMOPTypeClone {
 				cb.Message("Waiting for the virtual disks to become ready.")
 				conditions.SetCondition(cb, &vmop.Status.Conditions)
+
 				return &reconcile.Result{}, nil // Should wait for disk ready.
 			}
+
 			continue
 		default:
 			cb.Message("Waiting for the virtual disks to become ready.")
 			conditions.SetCondition(cb, &vmop.Status.Conditions)
+
 			return &reconcile.Result{}, nil
 		}
 	}

@@ -51,5 +51,6 @@ func (o *detachOptions) Run(_ *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("invalid port: %w", err)
 	}
+
 	return usbip.NewUSBAttacher().Detach(port)
 }

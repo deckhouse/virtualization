@@ -59,11 +59,14 @@ func (h *PoolHandler) Handle(ctx context.Context) error {
 	for _, cidr := range h.cidrs {
 		pool.Spec.Pools = append(pool.Spec.Pools, sdnapi.IPAddressPoolRange{Network: cidr})
 	}
+
 	if err := h.client.Patch(ctx, pool, client.Apply, client.FieldOwner(FieldOwner), client.ForceOwnership); err != nil {
 		return fmt.Errorf("apply ClusterIPAddressPool %s: %w", network.MainIPAddressPoolName, err)
 	}
+
 	if pool.GetDeletionTimestamp() != nil {
 		return ErrPoolTerminating
 	}
+
 	return nil
 }

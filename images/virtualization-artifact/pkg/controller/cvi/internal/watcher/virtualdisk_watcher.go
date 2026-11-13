@@ -68,11 +68,13 @@ func (w *VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 	); err != nil {
 		return fmt.Errorf("error setting watch on VDs: %w", err)
 	}
+
 	return nil
 }
 
 func (w *VirtualDiskWatcher) enqueueRequestsFromVDs(ctx context.Context, vd *v1alpha2.VirtualDisk) (requests []reconcile.Request) {
 	var cviList v1alpha2.ClusterVirtualImageList
+
 	err := w.client.List(ctx, &cviList, &client.ListOptions{})
 	if err != nil {
 		slog.Default().Error(fmt.Sprintf("failed to list cvi: %s", err))

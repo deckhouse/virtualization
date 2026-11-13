@@ -41,11 +41,13 @@ func (l *iterator) Iter(ctx context.Context, h handler) error {
 	if err := l.reader.List(ctx, &vmsops, client.UnsafeDisableDeepCopy); err != nil {
 		return err
 	}
+
 	for _, vmsop := range vmsops.Items {
 		m := newDataMetric(&vmsop)
 		if stop := h(m); stop {
 			return nil
 		}
+
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -53,5 +55,6 @@ func (l *iterator) Iter(ctx context.Context, h handler) error {
 			continue
 		}
 	}
+
 	return nil
 }

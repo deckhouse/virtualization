@@ -113,6 +113,7 @@ func (ff *failFast[T]) Start(ctx context.Context, exempt *Exemptions) {
 // running.
 func (ff *failFast[T]) run(ctx context.Context) {
 	defer GinkgoRecover()
+
 	for ctx.Err() == nil {
 		// The exemption check belongs in the watch predicate: an exempted
 		// object wedged for good would otherwise match on every restart of
@@ -129,6 +130,7 @@ func (ff *failFast[T]) run(ctx context.Context) {
 				return
 			case <-time.After(time.Second):
 			}
+
 			continue
 		}
 
@@ -136,27 +138,33 @@ func (ff *failFast[T]) run(ctx context.Context) {
 		if finding == nil {
 			continue
 		}
+
 		if finding.Grace > 0 {
 			select {
 			case <-ctx.Done():
 				return
 			case <-time.After(finding.Grace):
 			}
+
 			current, err := ff.client.Get(ctx, obj.GetName(), metav1.GetOptions{})
 			if err != nil {
 				// The object is gone; whatever it was wedged on died with it.
 				continue
 			}
+
 			finding = ff.match(current)
 			if finding == nil || ff.exempt.IsExempted(current) {
 				continue
 			}
 		}
+
 		if finding.Skip {
 			Skip(fmt.Sprintf("fail-fast: %s%s %s", ff.subject, obj.GetName(), finding.Message))
 			return
 		}
+
 		Fail(fmt.Sprintf("fail-fast: %s%s %s", ff.subject, obj.GetName(), finding.Message))
+
 		return
 	}
 }

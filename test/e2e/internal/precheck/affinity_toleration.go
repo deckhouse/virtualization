@@ -59,6 +59,7 @@ func (a *affinityTolerationPrecheck) Run(ctx context.Context, f *framework.Frame
 	if err != nil {
 		return fmt.Errorf("%s=no to disable this precheck: failed to list ready KVM-enabled master nodes: %w", affinityTolerationPrecheckEnvName, err)
 	}
+
 	if len(masterNodes) < minReadyKVMMasterNodes {
 		return fmt.Errorf("%s=no to disable this precheck: at least %d ready KVM-enabled master node is required, got %d", affinityTolerationPrecheckEnvName, minReadyKVMMasterNodes, len(masterNodes))
 	}
@@ -70,6 +71,7 @@ func (a *affinityTolerationPrecheck) Run(ctx context.Context, f *framework.Frame
 	if err != nil {
 		return fmt.Errorf("%s=no to disable this precheck: failed to list ready KVM-enabled worker nodes: %w", affinityTolerationPrecheckEnvName, err)
 	}
+
 	if len(workerNodes) < minReadyKVMWorkerNodes {
 		return fmt.Errorf("%s=no to disable this precheck: at least %d ready KVM-enabled worker nodes are required, got %d", affinityTolerationPrecheckEnvName, minReadyKVMWorkerNodes, len(workerNodes))
 	}
@@ -93,12 +95,14 @@ func validateDefaultVMClassPermitsMaster(ctx context.Context, f *framework.Frame
 	}
 
 	var defaultClass *v1alpha2.VirtualMachineClass
+
 	for i := range classes.Items {
 		if classes.Items[i].Annotations[annotations.AnnVirtualMachineClassDefault] == "true" {
 			defaultClass = &classes.Items[i]
 			break
 		}
 	}
+
 	if defaultClass == nil {
 		return fmt.Errorf("no default VirtualMachineClass found (annotation %s)", annotations.AnnVirtualMachineClassDefault)
 	}
@@ -119,6 +123,7 @@ func validateDefaultVMClassPermitsMaster(ctx context.Context, f *framework.Frame
 		if err != nil {
 			return fmt.Errorf("failed to match the default VirtualMachineClass %q against master node %q: %w", defaultClass.Name, masterNodes[i].Name, err)
 		}
+
 		if matches {
 			return nil
 		}
@@ -134,6 +139,7 @@ func validateDefaultVMClassPermitsMaster(ctx context.Context, f *framework.Frame
 
 func listReadyNodesByLabels(ctx context.Context, f *framework.Framework, labels map[string]string) ([]corev1.Node, error) {
 	nodes := &corev1.NodeList{}
+
 	err := f.GenericClient().List(ctx, nodes, crclient.MatchingLabels(labels))
 	if err != nil {
 		return nil, err

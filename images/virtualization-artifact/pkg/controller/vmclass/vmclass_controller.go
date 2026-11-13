@@ -90,5 +90,6 @@ func NewController(
 	vmclasscollector.SetupCollector(mgr.GetCache(), metrics.Registry, log)
 
 	log.Info("Initialized VirtualMachineClass controller")
+
 	return c, nil
 }

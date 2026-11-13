@@ -47,6 +47,7 @@ func (v *PVNodeAffinityValidator) ValidateCreate(ctx context.Context, vmbda *v1a
 	if err != nil {
 		return nil, fmt.Errorf("failed to get VirtualMachine %q: %w", vmbda.Spec.VirtualMachineName, err)
 	}
+
 	if vm == nil {
 		return nil, nil
 	}
@@ -67,6 +68,7 @@ func (v *PVNodeAffinityValidator) validateScheduledVM(ctx context.Context, vm *v
 	if err != nil {
 		return nil, fmt.Errorf("failed to get KVVMI for VM %q: %w", vm.Name, err)
 	}
+
 	if kvvmi == nil {
 		return nil, nil
 	}
@@ -75,6 +77,7 @@ func (v *PVNodeAffinityValidator) validateScheduledVM(ctx context.Context, vm *v
 	if err != nil {
 		return nil, err
 	}
+
 	if ad == nil || ad.PVCName == "" {
 		return nil, nil
 	}
@@ -83,6 +86,7 @@ func (v *PVNodeAffinityValidator) validateScheduledVM(ctx context.Context, vm *v
 	if err != nil {
 		return nil, fmt.Errorf("failed to get PVC %q: %w", ad.PVCName, err)
 	}
+
 	if pvc == nil {
 		return nil, nil
 	}
@@ -104,10 +108,12 @@ func (v *PVNodeAffinityValidator) validateScheduledVM(ctx context.Context, vm *v
 
 func (v *PVNodeAffinityValidator) validateUnscheduledVM(ctx context.Context, vm *v1alpha2.VirtualMachine, vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment) (admission.Warnings, error) {
 	log := logger.FromContext(ctx)
+
 	ad, err := v.resolveAttachmentDisk(ctx, vmbda)
 	if err != nil {
 		return nil, err
 	}
+
 	if ad == nil || ad.PVCName == "" {
 		return nil, nil
 	}
@@ -116,6 +122,7 @@ func (v *PVNodeAffinityValidator) validateUnscheduledVM(ctx context.Context, vm 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get PVC %q: %w", ad.PVCName, err)
 	}
+
 	if pvc == nil || pvc.Spec.VolumeName == "" {
 		return nil, nil
 	}
@@ -125,8 +132,10 @@ func (v *PVNodeAffinityValidator) validateUnscheduledVM(ctx context.Context, vm 
 		if k8serrors.IsNotFound(err) {
 			return nil, nil
 		}
+
 		return nil, fmt.Errorf("get PersistentVolume %q: %w", pvc.Spec.VolumeName, err)
 	}
+
 	if pv.Spec.NodeAffinity == nil || pv.Spec.NodeAffinity.Required == nil {
 		log.Info("PersistentVolume has no node affinity, no topology constraint applied", "pv", pv.Name, "pvc", ad.PVCName)
 		return nil, nil
@@ -142,6 +151,7 @@ func (v *PVNodeAffinityValidator) validateUnscheduledVM(ctx context.Context, vm 
 		if k8serrors.IsNotFound(err) {
 			return nil, nil
 		}
+
 		return nil, fmt.Errorf("get VirtualMachineClass %q: %w", vm.Spec.VirtualMachineClassName, err)
 	}
 
@@ -152,10 +162,12 @@ func (v *PVNodeAffinityValidator) validateUnscheduledVM(ctx context.Context, vm 
 
 	for i := range nodeList.Items {
 		node := &nodeList.Items[i]
+
 		match, err := nodeaffinity.MatchesVMPlacement(node, vm, &vmClass)
 		if err != nil {
 			return nil, fmt.Errorf("match VM placement for node %q: %w", node.Name, err)
 		}
+
 		if match && pvSel.Match(node) {
 			return nil, nil
 		}
@@ -176,27 +188,33 @@ func (v *PVNodeAffinityValidator) resolveAttachmentDisk(ctx context.Context, vmb
 		if err != nil {
 			return nil, fmt.Errorf("failed to get VirtualDisk %q: %w", ref.Name, err)
 		}
+
 		if vd == nil {
 			return nil, nil
 		}
+
 		return service.NewAttachmentDiskFromVirtualDisk(vd), nil
 	case v1alpha2.VMBDAObjectRefKindVirtualImage:
 		vi, err := v.attacher.GetVirtualImage(ctx, ref.Name, vmbda.Namespace)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get VirtualImage %q: %w", ref.Name, err)
 		}
+
 		if vi == nil {
 			return nil, nil
 		}
+
 		return service.NewAttachmentDiskFromVirtualImage(vi), nil
 	case v1alpha2.VMBDAObjectRefKindClusterVirtualImage:
 		cvi, err := v.attacher.GetClusterVirtualImage(ctx, ref.Name)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get ClusterVirtualImage %q: %w", ref.Name, err)
 		}
+
 		if cvi == nil {
 			return nil, nil
 		}
+
 		return service.NewAttachmentDiskFromClusterVirtualImage(cvi), nil
 	default:
 		return nil, nil

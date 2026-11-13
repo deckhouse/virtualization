@@ -96,9 +96,11 @@ func Test_MakePodSpec_CABundle(t *testing.T) {
 	require.NoError(t, err)
 
 	hasCAVol := false
+
 	for _, vol := range pod.Spec.Volumes {
 		if vol.Name == certVolName {
 			hasCAVol = true
+
 			if vol.ConfigMap.Name == "" {
 				t.Fatalf("configMap.name should not be empty for %s volume", caBundleVolName)
 			}

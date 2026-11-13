@@ -93,6 +93,7 @@ func (v *NetworksValidator) ValidateUpdate(ctx context.Context, oldVM, newVM *v1
 	if len(added) == 0 {
 		return nil, nil
 	}
+
 	return v.validateNetworksExist(ctx, newVM.Namespace, added)
 }
 
@@ -100,46 +101,55 @@ func (v *NetworksValidator) validateNetworksExist(ctx context.Context, namespace
 	if v.client == nil {
 		return nil, nil
 	}
+
 	for _, n := range networks {
 		switch n.Type {
 		case v1alpha2.NetworksTypeClusterNetwork:
 			obj := &unstructured.Unstructured{}
 			obj.SetGroupVersionKind(commonnetwork.ClusterNetworkGVK)
+
 			err := v.client.Get(ctx, types.NamespacedName{Name: n.Name}, obj)
 			if k8serrors.IsNotFound(err) {
 				return nil, fmt.Errorf("ClusterNetwork %q referenced in spec.networks does not exist", n.Name)
 			}
+
 			if err != nil {
 				return nil, fmt.Errorf("failed to verify ClusterNetwork %q: %w", n.Name, err)
 			}
 		case v1alpha2.NetworksTypeNetwork:
 			obj := &unstructured.Unstructured{}
 			obj.SetGroupVersionKind(commonnetwork.NetworkGVK)
+
 			err := v.client.Get(ctx, types.NamespacedName{Name: n.Name, Namespace: namespace}, obj)
 			if k8serrors.IsNotFound(err) {
 				return nil, fmt.Errorf("network %q referenced in spec.networks does not exist in namespace %q", n.Name, namespace)
 			}
+
 			if err != nil {
 				return nil, fmt.Errorf("failed to verify Network %q: %w", n.Name, err)
 			}
 		case v1alpha2.NetworksTypeUnderlayNetwork:
 			obj := &unstructured.Unstructured{}
 			obj.SetGroupVersionKind(commonnetwork.UnderlayNetworkGVK)
+
 			err := v.client.Get(ctx, types.NamespacedName{Name: n.Name}, obj)
 			if k8serrors.IsNotFound(err) {
 				return nil, fmt.Errorf("UnderlayNetwork %q referenced in spec.networks does not exist", n.Name)
 			}
+
 			if err != nil {
 				return nil, fmt.Errorf("failed to verify UnderlayNetwork %q: %w", n.Name, err)
 			}
 		}
 	}
+
 	return nil, nil
 }
 
 func (v *NetworksValidator) validateNetworksSpec(networksSpec []v1alpha2.NetworksSpec) (admission.Warnings, error) {
 	namesSet := make(map[string]struct{})
 	idsSet := make(map[int]struct{})
+
 	for i, network := range networksSpec {
 		typ := network.Type
 		name := network.Name
@@ -180,6 +190,7 @@ func (v *NetworksValidator) validateUnderlayNetworkFields(network v1alpha2.Netwo
 		if network.VLANID != nil {
 			return fmt.Errorf("vlanID is only applicable to networks of type %s, but it is set for network %s", v1alpha2.NetworksTypeUnderlayNetwork, v.getNetworkIdentifier(network))
 		}
+
 		return nil
 	}
 
@@ -203,6 +214,7 @@ func (v *NetworksValidator) validateNetworkName(networkType, networkName string)
 		if networkName != "" {
 			return fmt.Errorf("network with type '%s' should not have a name", v1alpha2.NetworksTypeMain)
 		}
+
 		return nil
 	}
 
@@ -219,9 +231,12 @@ func (v *NetworksValidator) validateNetworkUniqueness(networkType, networkName s
 		if networkName != "" {
 			return fmt.Errorf("network %s:%s is duplicated", networkType, networkName)
 		}
+
 		return fmt.Errorf("network %s is duplicated", networkType)
 	}
+
 	namesSet[key] = struct{}{}
+
 	return nil
 }
 
@@ -230,11 +245,14 @@ func (v *NetworksValidator) validateNetworkIDUniqueness(network v1alpha2.Network
 	if id == 0 {
 		return nil
 	}
+
 	if _, exists := idsSet[id]; exists {
 		networkIdentifier := v.getNetworkIdentifier(network)
 		return fmt.Errorf("network id %d is duplicated for network %s", id, networkIdentifier)
 	}
+
 	idsSet[id] = struct{}{}
+
 	return nil
 }
 
@@ -258,6 +276,7 @@ func (v *NetworksValidator) validateNetworkIDsUnchanged(oldNetworksSpec, newNetw
 
 		if phase != v1alpha2.MachineStopped {
 			networkIdentifier := v.getNetworkIdentifier(oldNetwork)
+
 			return fmt.Errorf("cannot change network ID for network '%s' while VM is in phase '%s' (only allowed when VM is stopped)",
 				networkIdentifier, phase)
 		}
@@ -268,10 +287,12 @@ func (v *NetworksValidator) validateNetworkIDsUnchanged(oldNetworksSpec, newNetw
 
 func (v *NetworksValidator) buildNetworksMap(networksSpec []v1alpha2.NetworksSpec) map[string]v1alpha2.NetworksSpec {
 	networksMap := make(map[string]v1alpha2.NetworksSpec)
+
 	for _, network := range networksSpec {
 		key := v.getNetworkIdentifier(network)
 		networksMap[key] = network
 	}
+
 	return networksMap
 }
 
@@ -293,6 +314,7 @@ func (v *NetworksValidator) getNetworkIdentifier(network v1alpha2.NetworksSpec) 
 	if network.Type == v1alpha2.NetworksTypeMain {
 		return network.Type
 	}
+
 	return fmt.Sprintf("%s/%s", network.Type, network.Name)
 }
 
@@ -310,6 +332,7 @@ func (v *NetworksValidator) validateNetworkRequirements(networksSpec []v1alpha2.
 		if len(v.virtualMachineCIDRs) == 0 {
 			return fmt.Errorf("%w; also note that the Main network is unavailable for VirtualMachines because ModuleConfig/virtualization has no configured IP ranges in the spec.settings.virtualMachineCIDRs field", err)
 		}
+
 		return err
 	}
 
@@ -348,15 +371,19 @@ func (v *NetworksValidator) validateAdditionalNetworksAvailability(networksSpec 
 
 func networksAdded(oldSpec, newSpec []v1alpha2.NetworksSpec) []v1alpha2.NetworksSpec {
 	oldKey := func(n v1alpha2.NetworksSpec) string { return n.Type + "/" + n.Name }
+
 	old := make(map[string]struct{}, len(oldSpec))
 	for _, n := range oldSpec {
 		old[oldKey(n)] = struct{}{}
 	}
+
 	var added []v1alpha2.NetworksSpec
+
 	for _, n := range newSpec {
 		if _, ok := old[oldKey(n)]; !ok {
 			added = append(added, n)
 		}
 	}
+
 	return added
 }

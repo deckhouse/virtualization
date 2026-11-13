@@ -113,6 +113,7 @@ func (m *sessionManager) Current(ctx context.Context, vm *v1alpha2.VirtualMachin
 		if k8serrors.IsNotFound(err) {
 			return nil, nil
 		}
+
 		return nil, err
 	}
 
@@ -120,10 +121,12 @@ func (m *sessionManager) Current(ctx context.Context, vm *v1alpha2.VirtualMachin
 	if holder == "" {
 		return nil, nil
 	}
+
 	info := &sessionInfo{Holder: holder, Client: lease.Annotations[sessionClientAnnotation]}
 	if lease.Spec.AcquireTime != nil {
 		info.StartTime = ptr.To(metav1.NewTime(lease.Spec.AcquireTime.Time))
 	}
+
 	return info, nil
 }
 
@@ -137,10 +140,12 @@ func (m *sessionManager) Acquire(ctx context.Context, vm *v1alpha2.VirtualMachin
 		// user would be worse than no answer: tracking is advisory and the stream proceeds anyway.
 		return nil, errors.New("the request carries no authenticated user")
 	}
+
 	name := sessionLeaseName(vm, kind)
 	leases := m.leases.Leases(vm.Namespace)
 
 	s := &session{manager: m, id: string(uuid.NewUUID()), kind: kind}
+
 	var displaced string
 
 	// Two clients connecting at the same instant race for the lease; the loser retries and
@@ -152,9 +157,12 @@ func (m *sessionManager) Acquire(ctx context.Context, vm *v1alpha2.VirtualMachin
 			if createErr != nil {
 				return createErr
 			}
+
 			displaced, s.lease = "", created
+
 			return nil
 		}
+
 		if err != nil {
 			return err
 		}
@@ -162,14 +170,18 @@ func (m *sessionManager) Acquire(ctx context.Context, vm *v1alpha2.VirtualMachin
 		taken := s.newLease(vm, name, user, client)
 		taken.ResourceVersion = current.ResourceVersion
 		taken.Spec.LeaseTransitions = nextTransition(current)
+
 		updated, err := leases.Update(ctx, taken, metav1.UpdateOptions{})
 		if err != nil {
 			return err
 		}
+
 		if holder := activeHolder(current); holder != user {
 			displaced = holder
 		}
+
 		s.lease = updated
+
 		return nil
 	})
 	if err != nil {
@@ -181,11 +193,13 @@ func (m *sessionManager) Acquire(ctx context.Context, vm *v1alpha2.VirtualMachin
 			"The %s of the VirtualMachine was taken over by user %q, the session of user %q was disconnected.",
 			kind.Description(), user, displaced)
 	}
+
 	return s, nil
 }
 
 func (s *session) newLease(vm *v1alpha2.VirtualMachine, name, user, client string) *coordinationv1.Lease {
 	now := metav1.NewMicroTime(time.Now())
+
 	return &coordinationv1.Lease{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -227,7 +241,9 @@ func (s *session) keep(r *http.Request) func() {
 	detached := context.WithoutCancel(r.Context())
 	renewCtx, stopRenewing := context.WithCancel(detached)
 	releaseCtx := detached
+
 	go s.keepAlive(renewCtx)
+
 	return func() {
 		stopRenewing()
 		s.release(releaseCtx)
@@ -237,6 +253,7 @@ func (s *session) keep(r *http.Request) func() {
 func (s *session) keepAlive(ctx context.Context) {
 	ticker := time.NewTicker(sessionRenewInterval)
 	defer ticker.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -255,19 +272,23 @@ func (s *session) keepAlive(ctx context.Context) {
 func (s *session) renew(ctx context.Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	if s.lost {
 		return nil
 	}
 
 	leases := s.manager.leases.Leases(s.lease.Namespace)
+
 	current, err := leases.Get(ctx, s.lease.Name, metav1.GetOptions{})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			s.lost = true
 			return nil
 		}
+
 		return err
 	}
+
 	if current.Annotations[sessionIDAnnotation] != s.id {
 		s.lost = true
 		return nil
@@ -275,17 +296,21 @@ func (s *session) renew(ctx context.Context) error {
 
 	now := metav1.NewMicroTime(time.Now())
 	current.Spec.RenewTime = &now
+
 	renewed, err := leases.Update(ctx, current, metav1.UpdateOptions{})
 	if err != nil {
 		return err
 	}
+
 	s.lease = renewed
+
 	return nil
 }
 
 func (s *session) release(ctx context.Context) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	if s.lost {
 		return
 	}
@@ -312,6 +337,7 @@ func (s *session) release(ctx context.Context) {
 func (r *BaseREST) trackSession(vm *v1alpha2.VirtualMachine, kind subv1alpha2.SessionKind, handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		ctx := req.Context()
+
 		session, err := r.sessions.Acquire(ctx, vm, kind, sessionClient(req))
 		if err != nil {
 			klog.FromContext(ctx).Error(err, "failed to record the session, connecting without it",
@@ -335,6 +361,7 @@ func (r *BaseREST) probeSession(vm *v1alpha2.VirtualMachine, kind subv1alpha2.Se
 		if err != nil {
 			status := k8serrors.NewInternalError(err).Status()
 			responsewriters.WriteRawJSON(int(status.Code), status, w)
+
 			return
 		}
 
@@ -346,6 +373,7 @@ func (r *BaseREST) probeSession(vm *v1alpha2.VirtualMachine, kind subv1alpha2.Se
 			result.StartTime = current.StartTime
 			result.Client = current.Client
 		}
+
 		responsewriters.WriteRawJSON(http.StatusOK, result, w)
 	})
 }
@@ -358,6 +386,7 @@ func sessionClient(req *http.Request) string {
 	if len(agent) > maxSessionClientLen {
 		agent = agent[:maxSessionClientLen]
 	}
+
 	return string(agent)
 }
 
@@ -367,13 +396,16 @@ func activeHolder(lease *coordinationv1.Lease) string {
 	if lease.Spec.HolderIdentity == nil || lease.Spec.RenewTime == nil {
 		return ""
 	}
+
 	duration := sessionLeaseDuration
 	if lease.Spec.LeaseDurationSeconds != nil {
 		duration = time.Duration(*lease.Spec.LeaseDurationSeconds) * time.Second
 	}
+
 	if time.Since(lease.Spec.RenewTime.Time) > duration {
 		return ""
 	}
+
 	return *lease.Spec.HolderIdentity
 }
 
@@ -400,6 +432,7 @@ func nextTransition(lease *coordinationv1.Lease) *int32 {
 	if lease.Spec.LeaseTransitions != nil {
 		transitions = *lease.Spec.LeaseTransitions
 	}
+
 	return ptr.To(transitions + 1)
 }
 
@@ -411,5 +444,6 @@ func requestUserName(ctx context.Context) string {
 	if user, ok := request.UserFrom(ctx); ok {
 		return user.GetName()
 	}
+
 	return ""
 }

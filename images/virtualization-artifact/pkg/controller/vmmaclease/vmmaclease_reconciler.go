@@ -98,6 +98,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 
 		if specToUpdate != nil {
 			lease.Changed().Spec = *specToUpdate
+
 			err = r.client.Update(ctx, lease.Changed())
 			if err != nil && !k8serrors.IsNotFound(err) {
 				return fmt.Errorf("update spec: %w", err)

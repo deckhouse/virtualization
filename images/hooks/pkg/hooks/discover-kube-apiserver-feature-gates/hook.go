@@ -103,12 +103,14 @@ func parseEnabledFeatureGates(data []byte) []string {
 
 func extractLabel(metric, label string) string {
 	key := label + `="`
+
 	idx := strings.Index(metric, key)
 	if idx < 0 {
 		return ""
 	}
 
 	start := idx + len(key)
+
 	end := strings.Index(metric[start:], `"`)
 	if end < 0 {
 		return ""

@@ -66,20 +66,24 @@ func (o CloneOperation) Execute(ctx context.Context) (reconcile.Result, error) {
 	if o.vmop.Spec.Clone == nil {
 		err := fmt.Errorf("clone specification is mandatory to start cloning")
 		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
+
 		return reconcile.Result{}, err
 	}
 
 	vmKey := types.NamespacedName{Namespace: o.vmop.Namespace, Name: o.vmop.Spec.VirtualMachine}
+
 	vm, err := object.FetchObject(ctx, vmKey, o.client, &v1alpha2.VirtualMachine{})
 	if err != nil {
 		err := fmt.Errorf("failed to fetch the virtual machine %q: %w", vmKey.Name, err)
 		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
+
 		return reconcile.Result{}, err
 	}
 
 	if vm == nil {
 		err := fmt.Errorf("specified virtual machine was not found")
 		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
+
 		return reconcile.Result{}, err
 	}
 

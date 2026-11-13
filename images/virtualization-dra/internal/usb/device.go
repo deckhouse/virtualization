@@ -67,30 +67,39 @@ func (d *Device) Validate() error {
 	if d.BusID == "" {
 		return fmt.Errorf("busID is required")
 	}
+
 	if d.VendorID == 0 {
 		return fmt.Errorf("vendorID is required")
 	}
+
 	if d.ProductID == 0 {
 		return fmt.Errorf("productID is required")
 	}
+
 	if d.Bus == 0 {
 		return fmt.Errorf("bus is required")
 	}
+
 	if d.DeviceNumber == 0 {
 		return fmt.Errorf("deviceNumber is required")
 	}
+
 	if d.DevicePath == "" {
 		return fmt.Errorf("devicePath is required")
 	}
+
 	if d.Major == 0 {
 		return fmt.Errorf("major is required")
 	}
+
 	if d.Minor == 0 {
 		return fmt.Errorf("minor is required")
 	}
+
 	if d.Speed == 0 {
 		return fmt.Errorf("speed is required")
 	}
+
 	return nil
 }
 
@@ -120,6 +129,7 @@ func (i int4x) String() string {
 	if len(s) < 4 {
 		return strings.Repeat("0", 4-len(s)) + s
 	}
+
 	return s
 }
 
@@ -130,5 +140,6 @@ func (i int3d) String() string {
 	if len(s) < 3 {
 		return strings.Repeat("0", 3-len(s)) + s
 	}
+
 	return s
 }

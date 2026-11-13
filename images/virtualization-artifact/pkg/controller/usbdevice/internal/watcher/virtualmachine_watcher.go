@@ -52,6 +52,7 @@ func (w *VirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Contro
 						},
 					})
 				}
+
 				return result
 			}),
 			predicate.TypedFuncs[*v1alpha2.VirtualMachine]{

@@ -26,6 +26,7 @@ import (
 
 var _ = Describe("Network Config Generation", func() {
 	vm := &v1alpha2.VirtualMachine{}
+
 	var vmmacs []*v1alpha2.VirtualMachineMACAddress
 
 	newMACAddress := func(name, address string, phase v1alpha2.VirtualMachineMACAddressPhase, attachedVM string) *v1alpha2.VirtualMachineMACAddress {
@@ -45,9 +46,11 @@ var _ = Describe("Network Config Generation", func() {
 		if phase != "" {
 			mac.Status.Phase = phase
 		}
+
 		if attachedVM != "" {
 			mac.Status.VirtualMachine = attachedVM
 		}
+
 		return mac
 	}
 
@@ -316,6 +319,7 @@ var _ = Describe("The implicit Main network", func() {
 		func(networks []v1alpha2.NetworksSpec, usesMain, hasAdditional bool, mainIPAddressName string) {
 			Expect(UsesMainNetwork(networks)).To(Equal(usesMain))
 			Expect(HasAdditionalNetworks(networks)).To(Equal(hasAdditional))
+
 			if spec := MainNetworkSpec(networks); usesMain {
 				Expect(spec).NotTo(BeNil())
 				Expect(spec.Type).To(Equal(v1alpha2.NetworksTypeMain))

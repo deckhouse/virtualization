@@ -95,6 +95,7 @@ func (v VirtualMachineOperation) Evict(ctx context.Context, vmName, vmNamespace 
 
 func (v VirtualMachineOperation) Migrate(ctx context.Context, vmName, vmNamespace, targetNodeName, projectPeer string) (msg string, err error) {
 	vmop := v.newVMOP(vmName, vmNamespace, v1alpha2.VMOPTypeMigrate, v.options.force)
+
 	switch {
 	case projectPeer != "":
 		vmop.Spec.Migrate = &v1alpha2.VirtualMachineOperationMigrateSpec{ProjectPeerName: projectPeer}
@@ -103,6 +104,7 @@ func (v VirtualMachineOperation) Migrate(ctx context.Context, vmName, vmNamespac
 			NodeSelector: map[string]string{corev1.LabelHostname: targetNodeName},
 		}
 	}
+
 	return v.do(ctx, vmop, v.options.createOnly, v.options.waitComplete)
 }
 
@@ -112,7 +114,9 @@ func (v VirtualMachineOperation) do(ctx context.Context, vmop *v1alpha2.VirtualM
 	} else {
 		vmop, err = v.createAndWait(ctx, vmop, waitCompleted)
 	}
+
 	msg = v.generateMsg(vmop)
+
 	return msg, err
 }
 
@@ -120,6 +124,7 @@ func (v VirtualMachineOperation) generateMsg(vmop *v1alpha2.VirtualMachineOperat
 	if vmop == nil {
 		return ""
 	}
+
 	key := types.NamespacedName{Namespace: vmop.GetNamespace(), Name: vmop.GetName()}
 	vmKey := types.NamespacedName{Namespace: vmop.GetNamespace(), Name: vmop.Spec.VirtualMachine}
 	phase := vmop.Status.Phase
@@ -131,6 +136,7 @@ func (v VirtualMachineOperation) generateMsg(vmop *v1alpha2.VirtualMachineOperat
 		if !v.isCompleted(vmop) {
 			sb.WriteString("was not ")
 		}
+
 		switch vmop.Spec.Type {
 		case v1alpha2.VMOPTypeStart:
 			sb.WriteString("started. ")
@@ -159,6 +165,7 @@ func (v VirtualMachineOperation) generateMsg(vmop *v1alpha2.VirtualMachineOperat
 	}
 
 	fmt.Fprintf(&sb, "VirtualMachineOperation %q ", key.String())
+
 	switch phase {
 	case v1alpha2.VMOPPhasePending:
 		sb.WriteString("pending.")
@@ -177,7 +184,9 @@ func (v VirtualMachineOperation) generateMsg(vmop *v1alpha2.VirtualMachineOperat
 	default:
 		fmt.Fprintf(&sb, " phase=%q.", phase)
 	}
+
 	sb.WriteString("\n")
+
 	return sb.String()
 }
 
@@ -186,6 +195,7 @@ func (v VirtualMachineOperation) createAndWait(ctx context.Context, vmop *v1alph
 	if err != nil {
 		return nil, err
 	}
+
 	if v.isPhaseOrFailed(vmop, v1alpha2.VMOPPhaseCompleted) {
 		return vmop, nil
 	}
@@ -203,28 +213,34 @@ func (v VirtualMachineOperation) create(ctx context.Context, vmop *v1alpha2.Virt
 
 func (v VirtualMachineOperation) waitUntil(ctx context.Context, name, namespace string, phase v1alpha2.VMOPPhase) (*v1alpha2.VirtualMachineOperation, error) {
 	var vmop *v1alpha2.VirtualMachineOperation
+
 	selector, err := fields.ParseSelector(fmt.Sprintf("metadata.name=%s", name))
 	if err != nil {
 		return nil, err
 	}
+
 	watcher, err := v.client.VirtualMachineOperations(namespace).Watch(ctx, metav1.ListOptions{FieldSelector: selector.String()})
 	if err != nil {
 		return nil, err
 	}
 	defer watcher.Stop()
+
 	for event := range watcher.ResultChan() {
 		op, ok := event.Object.(*v1alpha2.VirtualMachineOperation)
 		if !ok {
 			continue
 		}
+
 		if v.isPhaseOrFailed(op, phase) {
 			vmop = op
 			break
 		}
 	}
+
 	if !v.isPhaseOrFailed(vmop, phase) {
 		return nil, context.DeadlineExceeded
 	}
+
 	return vmop, nil
 }
 
@@ -232,6 +248,7 @@ func (v VirtualMachineOperation) isCompleted(vmop *v1alpha2.VirtualMachineOperat
 	if vmop == nil {
 		return false
 	}
+
 	return vmop.Status.Phase == v1alpha2.VMOPPhaseCompleted
 }
 
@@ -239,6 +256,7 @@ func (v VirtualMachineOperation) isPhaseOrFailed(vmop *v1alpha2.VirtualMachineOp
 	if vmop == nil {
 		return false
 	}
+
 	return vmop.Status.Phase == phase || vmop.Status.Phase == v1alpha2.VMOPPhaseFailed || vmop.Status.Phase == v1alpha2.VMOPPhaseSuperseded
 }
 

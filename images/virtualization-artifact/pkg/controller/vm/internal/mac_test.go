@@ -98,9 +98,11 @@ var _ = Describe("MACHandler", func() {
 		if phase != "" {
 			mac.Status.Phase = phase
 		}
+
 		if attachedVM != "" {
 			mac.Status.VirtualMachine = attachedVM
 		}
+
 		return mac
 	}
 
@@ -122,6 +124,7 @@ var _ = Describe("MACHandler", func() {
 
 			macAddress1 := newMACAddress("test-mac-address1", "aa:bb:cc:dd:ee:ff", "", "")
 			fakeClient, resource, vmState = setupEnvironment(vm, macAddress1)
+
 			reconcile()
 
 			vmmacList := &v1alpha2.VirtualMachineMACAddressList{}
@@ -132,13 +135,16 @@ var _ = Describe("MACHandler", func() {
 
 		It("takes the MAC addresses of a received VM from the domain of the source", func() {
 			const sourceMAC = "aa:bb:cc:dd:ee:01"
+
 			vm.Annotations = map[string]string{annotations.AnnVMMigrationReceiver: "uid-1"}
 			vm.Spec.Networks = []v1alpha2.NetworksSpec{
 				{Type: v1alpha2.NetworksTypeMain},
 				{Type: v1alpha2.NetworksTypeNetwork, Name: "net-a"},
 			}
 			fakeClient, resource, vmState = setupEnvironment(vm)
+
 			reconcile()
+
 			vmmacList := &v1alpha2.VirtualMachineMACAddressList{}
 			Expect(fakeClient.List(ctx, vmmacList, client.InNamespace(namespace))).To(Succeed())
 			Expect(vmmacList.Items).To(BeEmpty(), "no address is allocated before the domain of the source is here")
@@ -150,6 +156,7 @@ var _ = Describe("MACHandler", func() {
 				}}},
 			}
 			fakeClient, resource, vmState = setupEnvironment(vm, kvvm)
+
 			reconcile()
 			Expect(fakeClient.List(ctx, vmmacList, client.InNamespace(namespace))).To(Succeed())
 			Expect(vmmacList.Items).To(HaveLen(1))
@@ -159,17 +166,20 @@ var _ = Describe("MACHandler", func() {
 		DescribeTable("should create a VMMAC only for a network replacing one still attached",
 			func(additionalNetworks []v1alpha2.NetworksSpec, netAInVMI bool, expectedVMMACs int) {
 				const netAMAC = "aa:bb:cc:dd:ee:ff"
+
 				vm.Spec.Networks = append([]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain}}, additionalNetworks...)
 				vm.Status.Networks = []v1alpha2.NetworksStatus{
 					{Type: v1alpha2.NetworksTypeMain},
 					{Type: v1alpha2.NetworksTypeNetwork, Name: "net-a", MAC: netAMAC},
 				}
+
 				kvvmi := newEmptyKVVMI(name, namespace)
 				if netAInVMI {
 					kvvmi.Spec.Domain.Devices.Interfaces = []virtv1.Interface{{Name: "veth_n1", MacAddress: netAMAC}}
 				}
 
 				fakeClient, resource, vmState = setupEnvironment(vm, kvvmi, newMACAddress("net-a-mac", netAMAC, v1alpha2.VirtualMachineMACAddressPhaseAttached, name))
+
 				reconcile()
 
 				vmmacList := &v1alpha2.VirtualMachineMACAddressList{}
@@ -188,6 +198,7 @@ var _ = Describe("MACHandler", func() {
 		Describe("NetworkSpec is nil", func() {
 			It("Condition 'MACAddressReady' should have status 'True'", func() {
 				fakeClient, resource, vmState = setupEnvironment(vm)
+
 				reconcile()
 
 				newVM := &v1alpha2.VirtualMachine{}
@@ -211,6 +222,7 @@ var _ = Describe("MACHandler", func() {
 				}
 				vm.Spec.Networks = networkSpec
 				fakeClient, resource, vmState = setupEnvironment(vm)
+
 				reconcile()
 
 				newVM := &v1alpha2.VirtualMachine{}
@@ -245,6 +257,7 @@ var _ = Describe("MACHandler", func() {
 
 				vm.Spec.Networks = networkSpec
 				fakeClient, resource, vmState = setupEnvironment(vm, macAddress1)
+
 				reconcile()
 
 				newVM := &v1alpha2.VirtualMachine{}
@@ -279,6 +292,7 @@ var _ = Describe("MACHandler", func() {
 
 			vm.Spec.Networks = networkSpec
 			fakeClient, resource, vmState = setupEnvironment(vm, macAddress1, macAddress2)
+
 			reconcile()
 
 			newVM := &v1alpha2.VirtualMachine{}
@@ -312,6 +326,7 @@ var _ = Describe("MACHandler", func() {
 
 			vm.Spec.Networks = networkSpec
 			fakeClient, resource, vmState = setupEnvironment(vm, macAddress1, macAddress2)
+
 			reconcile()
 
 			newVM := &v1alpha2.VirtualMachine{}

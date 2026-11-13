@@ -77,13 +77,16 @@ func (h *ProtectionHandler) cleanupUnusedMirror(ctx context.Context, vmip *v1alp
 	if err != nil || mirror == nil {
 		return err
 	}
+
 	if mirrorInUse(mirror) {
 		return nil
 	}
+
 	ipAddressOfVM, err := h.isIPAddressOfVM(ctx, vmip.Namespace, mirror.GetName())
 	if err != nil {
 		return err
 	}
+
 	if ipAddressOfVM {
 		return h.dropOwnerRefOnVMIP(ctx, mirror, vmip)
 	}
@@ -98,8 +101,10 @@ func (h *ProtectionHandler) dropOwnerRefOnVMIP(ctx context.Context, mirror *sdna
 	if len(ownerRefsWithoutVMIP) == len(mirror.GetOwnerReferences()) {
 		return nil
 	}
+
 	ipaWithoutVMIPOwner := mirror.DeepCopy()
 	ipaWithoutVMIPOwner.SetOwnerReferences(ownerRefsWithoutVMIP)
+
 	return client.IgnoreNotFound(h.client.Patch(ctx, ipaWithoutVMIPOwner, client.MergeFrom(mirror)))
 }
 
@@ -115,6 +120,7 @@ func (h *ProtectionHandler) isIPAddressOfVM(ctx context.Context, namespace, mirr
 	if err := h.client.List(ctx, &vms, client.InNamespace(namespace)); err != nil {
 		return false, err
 	}
+
 	for i := range vms.Items {
 		for _, netSpec := range vms.Items[i].Spec.Networks {
 			if netSpec.IPAddressName == mirrorName {
@@ -122,5 +128,6 @@ func (h *ProtectionHandler) isIPAddressOfVM(ctx context.Context, namespace, mirr
 			}
 		}
 	}
+
 	return false, nil
 }

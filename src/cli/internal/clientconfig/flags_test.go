@@ -40,8 +40,10 @@ var _ = Describe("ForwardedFlags", func() {
 		root.PersistentFlags().StringP("namespace", "n", "", "")
 		root.PersistentFlags().Bool("insecure-skip-tls-verify", false, "")
 		root.PersistentFlags().String("token", "", "")
+
 		child = &cobra.Command{Use: "ssh"}
 		root.AddCommand(child)
+
 		return root, child
 	}
 

@@ -57,6 +57,7 @@ func (s VMSnapshotReadyStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 	}
 
 	var snapshotName string
+
 	if vmop.Spec.Type == v1alpha2.VMOPTypeRestore {
 		if vmop.Spec.Restore.VirtualMachineSnapshotName == "" {
 			return &reconcile.Result{}, errors.New("the virtual machine snapshot name is empty")
@@ -65,6 +66,7 @@ func (s VMSnapshotReadyStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 		snapshotName = vmop.Spec.Restore.VirtualMachineSnapshotName
 	} else {
 		var exist bool
+
 		snapshotName, exist = vmop.Annotations[annotations.AnnVMOPSnapshotName]
 		if !exist {
 			return &reconcile.Result{}, errors.New("snapshot name annotation not found")
@@ -72,6 +74,7 @@ func (s VMSnapshotReadyStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 	}
 
 	vmSnapshotKey := types.NamespacedName{Namespace: vmop.Namespace, Name: snapshotName}
+
 	vmSnapshot, err := object.FetchObject(ctx, vmSnapshotKey, s.client, &v1alpha2.VirtualMachineSnapshot{})
 	if err != nil {
 		return &reconcile.Result{}, err
@@ -91,9 +94,11 @@ func (s VMSnapshotReadyStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 		if vmSnapshot.Status.Phase != v1alpha2.VirtualMachineSnapshotPhaseReady {
 			return &reconcile.Result{}, fmt.Errorf("virtual machine snapshot %q is not ready to use", vmSnapshot.Name)
 		}
+
 		if vmSnapshot.Status.BoundSnapshotContentName == "" {
 			return &reconcile.Result{RequeueAfter: boundContentRequeueAfter}, nil
 		}
+
 		return nil, nil
 	}
 

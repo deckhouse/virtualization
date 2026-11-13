@@ -86,6 +86,7 @@ func (s ProtectionService) AddProtection(ctx context.Context, objs ...client.Obj
 
 		if controllerutil.AddFinalizer(obj, s.finalizer) {
 			patch, err := GetPatchFinalizers(obj.GetFinalizers())
+
 			kind := obj.GetObjectKind().GroupVersionKind().Kind
 			if err != nil {
 				return fmt.Errorf("failed to generate patch for %q, %q: %w", kind, obj.GetName(), err)
@@ -104,6 +105,7 @@ func (s ProtectionService) AddProtection(ctx context.Context, objs ...client.Obj
 					controllerutil.RemoveFinalizer(obj, s.finalizer)
 					continue
 				}
+
 				return fmt.Errorf("failed to add finalizer %q on the %q, %q: %w", s.finalizer, kind, obj.GetName(), err)
 			}
 		}
@@ -145,6 +147,7 @@ func (s ProtectionService) RemoveProtection(ctx context.Context, objs ...client.
 					// The object is already gone; nothing to release.
 					return nil
 				}
+
 				return err
 			}
 

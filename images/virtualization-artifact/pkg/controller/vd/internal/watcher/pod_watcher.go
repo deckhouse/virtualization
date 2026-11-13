@@ -64,6 +64,7 @@ func (w PodWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error 
 	); err != nil {
 		return fmt.Errorf("error setting watch on Pod: %w", err)
 	}
+
 	return nil
 }
 
@@ -84,6 +85,7 @@ func (w PodWatcher) enqueueRequestsFromPVC(ctx context.Context, pod *corev1.Pod)
 			w.logger.Error(fmt.Sprintf("failed to fetch pod owner pvc: %s", err))
 			continue
 		}
+
 		if target == nil {
 			continue
 		}
@@ -96,5 +98,6 @@ func (w PodWatcher) enqueueRequestsFromPVC(ctx context.Context, pod *corev1.Pod)
 			}
 		}
 	}
+
 	return nil
 }

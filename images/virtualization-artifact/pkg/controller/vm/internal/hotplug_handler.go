@@ -86,6 +86,7 @@ func (h *HotplugHandler) Handle(ctx context.Context, s state.VirtualMachineState
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	vmbdaDevices := make(map[nameKindKey]struct{})
 	for ref := range vmbdaMap {
 		vmbdaDevices[nameKindKey{kind: v1alpha2.BlockDeviceKind(ref.Kind), name: ref.Name}] = struct{}{}
@@ -97,6 +98,7 @@ func (h *HotplugHandler) Handle(ctx context.Context, s state.VirtualMachineState
 	for _, bd := range current.Spec.BlockDeviceRefs {
 		resolver.Add(bd.Kind, bd.Name)
 	}
+
 	for ref := range vmbdaMap {
 		resolver.Add(v1alpha2.BlockDeviceKind(ref.Kind), ref.Name)
 	}
@@ -109,10 +111,12 @@ func (h *HotplugHandler) Handle(ctx context.Context, s state.VirtualMachineState
 	if canHotplug {
 		for _, bd := range current.Spec.BlockDeviceRefs {
 			key := nameKindKey{kind: bd.Kind, name: bd.Name}
+
 			volName := generateVolumeName(key)
 			if _, onKVVM := kvvmDevices[key]; onKVVM {
 				continue
 			}
+
 			if _, ok := pending[volName]; ok {
 				continue
 			}
@@ -122,6 +126,7 @@ func (h *HotplugHandler) Handle(ctx context.Context, s state.VirtualMachineState
 				errs = append(errs, fmt.Errorf("build attachment disk %s/%s: %w", key.kind, key.name, adErr))
 				continue
 			}
+
 			if ad == nil {
 				log.Info("Block device not ready for hotplug", "kind", key.kind, "name", key.name)
 				continue
@@ -142,9 +147,11 @@ func (h *HotplugHandler) Handle(ctx context.Context, s state.VirtualMachineState
 		if _, wanted := specDevices[key]; wanted {
 			continue
 		}
+
 		if _, isVMBDA := vmbdaDevices[key]; isVMBDA {
 			continue
 		}
+
 		if _, ok := pending[vol.name]; ok {
 			continue
 		}
@@ -152,12 +159,14 @@ func (h *HotplugHandler) Handle(ctx context.Context, s state.VirtualMachineState
 		if !vol.hotpluggable {
 			continue
 		}
+
 		if key.kind == v1alpha2.DiskDevice {
 			vd, vdErr := s.VirtualDisk(ctx, key.name)
 			if vdErr != nil {
 				errs = append(errs, fmt.Errorf("get %s/%s: %w", key.kind, key.name, vdErr))
 				continue
 			}
+
 			if vdmigration.ShouldDelayDetach(vd, kvvm) {
 				log.Info("Block device is migrating, delay the unplug", "kind", key.kind, "name", key.name)
 				continue
@@ -179,6 +188,7 @@ func (h *HotplugHandler) Handle(ctx context.Context, s state.VirtualMachineState
 // A WaitForFirstConsumer disk binds only once it is plugged, so its wait does not hold the hotplug back.
 func blockDevicesReady(vm *v1alpha2.VirtualMachine) bool {
 	bdReady, ok := conditions.GetCondition(vmcondition.TypeBlockDevicesReady, vm.Status.Conditions)
+
 	return !ok || bdReady.Status == metav1.ConditionTrue ||
 		bdReady.Reason == vmcondition.ReasonWaitingForWaitForFirstConsumerBlockDevicesToBeReady.String()
 }
@@ -202,6 +212,7 @@ func parseKVVMVolumes(kvvm *virtv1.VirtualMachine, resolver *kvbuilder.VolumeNam
 			if kind == "" {
 				continue
 			}
+
 			hp := (vol.PersistentVolumeClaim != nil && vol.PersistentVolumeClaim.Hotpluggable) ||
 				(vol.ContainerDisk != nil && vol.ContainerDisk.Hotpluggable)
 			devices[nameKindKey{kind: kind, name: name}] = kvvmVolume{name: vol.Name, hotpluggable: hp}
@@ -212,6 +223,7 @@ func parseKVVMVolumes(kvvm *virtv1.VirtualMachine, resolver *kvbuilder.VolumeNam
 		if vr.AddVolumeOptions != nil {
 			pending[vr.AddVolumeOptions.Name] = struct{}{}
 		}
+
 		if vr.RemoveVolumeOptions != nil {
 			pending[vr.RemoveVolumeOptions.Name] = struct{}{}
 		}
@@ -231,28 +243,35 @@ func (h *HotplugHandler) buildAttachmentDisk(ctx context.Context, key nameKindKe
 		if err != nil {
 			return nil, err
 		}
+
 		if vd == nil || vd.Status.Target.PersistentVolumeClaim == "" {
 			return nil, nil
 		}
+
 		return service.NewAttachmentDiskFromVirtualDisk(vd), nil
 	case v1alpha2.ImageDevice:
 		vi, err := s.VirtualImage(ctx, key.name)
 		if err != nil {
 			return nil, err
 		}
+
 		if vi == nil {
 			return nil, nil
 		}
+
 		return service.NewAttachmentDiskFromVirtualImage(vi), nil
 	case v1alpha2.ClusterImageDevice:
 		cvi, err := s.ClusterVirtualImage(ctx, key.name)
 		if err != nil {
 			return nil, err
 		}
+
 		if cvi == nil {
 			return nil, nil
 		}
+
 		return service.NewAttachmentDiskFromClusterVirtualImage(cvi), nil
 	}
+
 	return nil, nil
 }

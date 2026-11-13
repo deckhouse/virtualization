@@ -35,15 +35,18 @@ func GetConfig() (*Config, error) {
 	if e, ok := os.LookupEnv("E2E_CONFIG"); ok {
 		cfg = e
 	}
+
 	data, err := os.ReadFile(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file %q: %w", cfg, err)
 	}
+
 	var conf Config
 
 	if err := yamlv3.Unmarshal(data, &conf); err != nil {
 		return nil, err
 	}
+
 	if err := conf.setEnvs(); err != nil {
 		return nil, err
 	}
@@ -129,24 +132,31 @@ func (c ClusterTransport) RestConfig() (*rest.Config, error) {
 	if c.KubeConfig != "" {
 		configFlags.KubeConfig = &c.KubeConfig
 	}
+
 	if c.Token != "" {
 		configFlags.BearerToken = &c.Token
 	}
+
 	if c.InsecureTLS {
 		configFlags.Insecure = &c.InsecureTLS
 	}
+
 	if c.CertificateAuthority != "" {
 		configFlags.CAFile = &c.CertificateAuthority
 	}
+
 	if c.Endpoint != "" {
 		configFlags.APIServer = &c.Endpoint
 	}
+
 	restConfig, err := configFlags.ToRESTConfig()
 	if err != nil {
 		return nil, err
 	}
+
 	restConfig.QPS = clientQPS
 	restConfig.Burst = clientBurst
+
 	return restConfig, nil
 }
 
@@ -176,6 +186,7 @@ func (c *Config) setEnvs() error {
 	if err != nil {
 		return err
 	}
+
 	c.PostCleanupMode = postCleanupMode
 
 	// isPrecreatedCVICleanupNeeded: env var has priority over yaml config
@@ -186,22 +197,28 @@ func (c *Config) setEnvs() error {
 	if e, ok := os.LookupEnv("E2E_CLUSTERTRANSPORT_KUBECONFIG"); ok {
 		c.ClusterTransport.KubeConfig = e
 	}
+
 	if e, ok := os.LookupEnv("E2E_CLUSTERTRANSPORT_TOKEN"); ok {
 		c.ClusterTransport.Token = e
 	}
+
 	if e, ok := os.LookupEnv("E2E_CLUSTERTRANSPORT_ENDPOINT"); ok {
 		c.ClusterTransport.Endpoint = e
 	}
+
 	if e, ok := os.LookupEnv("E2E_CLUSTERTRANSPORT_CERTIFICATEAUTHORITY"); ok {
 		c.ClusterTransport.CertificateAuthority = e
 	}
+
 	if e, ok := os.LookupEnv("E2E_CLUSTERTRANSPORT_INSECURETLS"); ok {
 		v, err := strconv.ParseBool(e)
 		if err != nil {
 			return err
 		}
+
 		c.ClusterTransport.InsecureTLS = v
 	}
+
 	return nil
 }
 
@@ -222,10 +239,12 @@ func (k *Kustomize) SetParams(filePath, namespace, namePrefix string) error {
 	testCaseName := filepath.Base(fileDir)
 
 	kustomizeFile.Namespace = namespace + "-" + testCaseName
+
 	kustomizeFile.NamePrefix = namePrefix + "-"
 	if len(kustomizeFile.Labels) > 0 {
 		kustomizeFile.Labels[0].Pairs["id"] = namePrefix
 	}
+
 	updatedKustomizeFile, marshalErr := yamlv3.Marshal(&kustomizeFile)
 	if marshalErr != nil {
 		return marshalErr
@@ -267,6 +286,7 @@ func (k *Kustomize) ExcludeResource(filePath, resourceName string) error {
 	if unmarshalErr != nil {
 		return unmarshalErr
 	}
+
 	newResourceList := make([]string, 0, len(kustomizeFile.Resources))
 	for _, v := range kustomizeFile.Resources {
 		if v != resourceName {
@@ -275,6 +295,7 @@ func (k *Kustomize) ExcludeResource(filePath, resourceName string) error {
 	}
 
 	kustomizeFile.Resources = newResourceList
+
 	updatedKustomizeFile, marshalErr := yamlv3.Marshal(&kustomizeFile)
 	if marshalErr != nil {
 		return marshalErr

@@ -46,6 +46,7 @@ var internalVMIGVR = schema.GroupVersionResource{
 // into a Skip (ending the spec and the rule with it) before the rule fires.
 func KVVMIMigrationFailed(dyn dynamic.Interface, namespace string) FailFast {
 	kvvmis := dynamicClient{dyn.Resource(internalVMIGVR).Namespace(namespace)}
+
 	return New("InternalVirtualMachineInstance "+namespace+"/", kvvmis, func(kvvmi *unstructured.Unstructured) *Finding {
 		failed, _, _ := unstructured.NestedBool(kvvmi.Object, "status", "migrationState", "failed")
 		if !failed {
@@ -55,10 +56,12 @@ func KVVMIMigrationFailed(dyn dynamic.Interface, namespace string) FailFast {
 		// marks record that the termination was requested, not suffered: a
 		// spec cancelling its migration is making progress, not wedging.
 		abortRequested, _, _ := unstructured.NestedBool(kvvmi.Object, "status", "migrationState", "abortRequested")
+
 		abortStatus, _, _ := unstructured.NestedString(kvvmi.Object, "status", "migrationState", "abortStatus")
 		if abortRequested || abortStatus != "" {
 			return nil
 		}
+
 		reason, _, _ := unstructured.NestedString(kvvmi.Object, "status", "migrationState", "failureReason")
 		if IsKnownDRBDDualPrimaryDeniedFailureReason(reason) {
 			return &Finding{
@@ -67,6 +70,7 @@ func KVVMIMigrationFailed(dyn dynamic.Interface, namespace string) FailFast {
 				Skip:    true,
 			}
 		}
+
 		return &Finding{
 			Message: "reports a terminally failed live migration: " + reason,
 			Grace:   defaultGrace,
@@ -94,6 +98,7 @@ func VirtualDiskMigrationReverted(vds Client[*v1alpha2.VirtualDisk], namespace s
 		if vd.Status.MigrationState.Result != v1alpha2.VirtualDiskMigrationResultFailed {
 			return nil
 		}
+
 		return &Finding{
 			Message: "volume migration failed: " + vd.Status.MigrationState.Message,
 			Grace:   defaultGrace,

@@ -74,6 +74,7 @@ func NewController(
 	if err != nil {
 		return nil, fmt.Errorf("setup DVCR cleanup cron source: %w", err)
 	}
+
 	err = dvcrController.Watch(cronSourceGC)
 	if err != nil {
 		return nil, fmt.Errorf("failed to setup dvcr-cleanup cron watcher: %w", err)

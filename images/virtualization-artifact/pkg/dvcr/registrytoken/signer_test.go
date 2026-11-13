@@ -42,6 +42,7 @@ func newSignerPEM() ([]byte, *ecdsa.PublicKey) {
 	Expect(err).NotTo(HaveOccurred())
 	der, err := x509.MarshalPKCS8PrivateKey(key)
 	Expect(err).NotTo(HaveOccurred())
+
 	return pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der}), &key.PublicKey
 }
 
@@ -86,6 +87,7 @@ var _ = Describe("Signer", func() {
 		keyPEM, _ := newSignerPEM()
 		signer, err := NewSignerFromPEM(keyPEM)
 		Expect(err).NotTo(HaveOccurred())
+
 		_, otherPub := newSignerPEM()
 
 		raw, err := signer.Sign(nil, now)
@@ -119,6 +121,7 @@ var _ = Describe("Signer", func() {
 				Expect(err).To(HaveOccurred())
 				return
 			}
+
 			Expect(err).NotTo(HaveOccurred())
 			_, err = signer.Sign(nil, now)
 			Expect(err).NotTo(HaveOccurred())
@@ -128,6 +131,7 @@ var _ = Describe("Signer", func() {
 			Expect(err).NotTo(HaveOccurred())
 			der, err := x509.MarshalPKCS8PrivateKey(key)
 			Expect(err).NotTo(HaveOccurred())
+
 			return pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der})
 		}, false),
 		Entry("SEC1 EC key", func() []byte {
@@ -135,6 +139,7 @@ var _ = Describe("Signer", func() {
 			Expect(err).NotTo(HaveOccurred())
 			der, err := x509.MarshalECPrivateKey(key)
 			Expect(err).NotTo(HaveOccurred())
+
 			return pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: der})
 		}, false),
 		Entry("not a PEM block", func() []byte {
@@ -145,6 +150,7 @@ var _ = Describe("Signer", func() {
 			Expect(err).NotTo(HaveOccurred())
 			der, err := x509.MarshalPKCS8PrivateKey(key)
 			Expect(err).NotTo(HaveOccurred())
+
 			return pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der})
 		}, true),
 	)

@@ -61,6 +61,7 @@ func (w VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controller
 	); err != nil {
 		return fmt.Errorf("error setting watch on VDs: %w", err)
 	}
+
 	return nil
 }
 
@@ -74,6 +75,7 @@ func diskChangeMattersToAttachments(oldVD, newVD *v1alpha2.VirtualDisk) bool {
 	}
 
 	oldReadyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, oldVD.Status.Conditions)
+
 	newReadyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, newVD.Status.Conditions)
 	if oldReadyCondition.Status != newReadyCondition.Status {
 		return true
@@ -89,6 +91,7 @@ func diskChangeMattersToAttachments(oldVD, newVD *v1alpha2.VirtualDisk) bool {
 
 func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, vd *v1alpha2.VirtualDisk) (requests []reconcile.Request) {
 	var vmbdas v1alpha2.VirtualMachineBlockDeviceAttachmentList
+
 	err := w.client.List(ctx, &vmbdas, &client.ListOptions{
 		Namespace: vd.GetNamespace(),
 	})

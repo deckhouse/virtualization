@@ -80,5 +80,6 @@ func (w *VirtualMachinesWatcher) Watch(mgr manager.Manager, ctr controller.Contr
 	); err != nil {
 		return fmt.Errorf("error setting watch on VMs: %w", err)
 	}
+
 	return nil
 }

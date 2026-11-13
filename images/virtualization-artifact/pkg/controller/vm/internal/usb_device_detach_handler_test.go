@@ -34,10 +34,12 @@ import (
 )
 
 var _ = Describe("USBDeviceDetachHandler", func() {
-	var ctx context.Context
-	var mockVirtCl *mockVirtClient
-	var handler *USBDeviceDetachHandler
-	var vmState state.VirtualMachineState
+	var (
+		ctx        context.Context
+		mockVirtCl *mockVirtClient
+		handler    *USBDeviceDetachHandler
+		vmState    state.VirtualMachineState
+	)
 
 	BeforeEach(func() {
 		ctx = logger.ToContext(context.TODO(), slog.Default())
@@ -63,13 +65,17 @@ var _ = Describe("USBDeviceDetachHandler", func() {
 			}
 
 			objs := []client.Object{}
+
 			if inSpec {
 				conds := []metav1.Condition{}
+
 				vendor := ""
 				if usbReady {
 					vendor = "1234"
+
 					conds = append(conds, metav1.Condition{Type: "Ready", Status: metav1.ConditionTrue})
 				}
+
 				objs = append(objs, &v1alpha2.USBDevice{
 					ObjectMeta: metav1.ObjectMeta{Name: "usb-device-1", Namespace: "default"},
 					Status: v1alpha2.USBDeviceStatus{
@@ -91,6 +97,7 @@ var _ = Describe("USBDeviceDetachHandler", func() {
 			_ = mockVirtCl.VirtualMachines("default")
 			calls := mockVirtCl.vmClients["default"].removeResourceClaimCalls
 			Expect(calls).To(HaveLen(expectDetachCalls))
+
 			if expectDetachCalls > 0 {
 				Expect(calls[0].Name).To(Equal(expectFirstDetachName))
 			}

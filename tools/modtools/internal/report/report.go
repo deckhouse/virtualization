@@ -64,9 +64,11 @@ func (msg Message) Format() string {
 	} else {
 		res += fmt.Sprintf("  * %s ... %s: %s", msg.FileName, msg.Type, msg.Message)
 	}
+
 	if msg.Details != "" {
 		res += "\n" + indentTextBlock(msg.Details, 6)
 	}
+
 	return res
 }
 
@@ -84,11 +86,13 @@ func (m *Messages) Add(msg Message) {
 
 func (m *Messages) count(t MsgType) int {
 	res := 0
+
 	for _, msg := range m.messages {
 		if msg.Type == t {
 			res++
 		}
 	}
+
 	return res
 }
 
@@ -107,7 +111,9 @@ func (m *Messages) PrintReport() {
 		if m.count(s.typ) == 0 {
 			continue
 		}
+
 		fmt.Println(s.title)
+
 		for _, msg := range m.messages {
 			if msg.Type == s.typ {
 				fmt.Println(msg.Format())
@@ -122,7 +128,9 @@ func Result(exitCode int) error {
 		fmt.Println("Validation successful.")
 		return nil
 	}
+
 	fmt.Println("Validation failed.")
+
 	return ErrFailed
 }
 
@@ -132,18 +140,23 @@ func ExitErr(exitCode int) error {
 	if exitCode == 0 {
 		return nil
 	}
+
 	return ErrFailed
 }
 
 func indentTextBlock(msg string, n int) string {
 	lines := strings.Split(msg, "\n")
+
 	var b strings.Builder
+
 	for i, line := range lines {
 		if i > 0 {
 			b.WriteString("\n")
 		}
+
 		b.WriteString(strings.Repeat(" ", n))
 		b.WriteString(line)
 	}
+
 	return b.String()
 }

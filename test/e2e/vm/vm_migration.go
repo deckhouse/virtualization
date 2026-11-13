@@ -85,8 +85,11 @@ var _ = Describe("VirtualMachineMigration", Label(label.SIGCompute, precheck.NoP
 	It("verifies that migrations are successful", func() {
 		// TODO(e2e-flaky-parallel): flaky under parallel load on the 3-node cluster (ready-to-migrate timeout under migration contention). Re-enable once stabilized.
 		Skip("flaky under parallel load: ready-to-migrate timeout under contention")
-		var vmBIOSObs, vmUEFIObs vmobs.Observer
-		var vmbdaObservers []vmbdaobs.Observer
+
+		var (
+			vmBIOSObs, vmUEFIObs vmobs.Observer
+			vmbdaObservers       []vmbdaobs.Observer
+		)
 
 		By("Environment preparation", func() {
 			vdRootBIOS = object.NewVDFromCVI("vd-root-bios", f.Namespace().Name, object.PrecreatedCVICustomBIOS, vd.WithSize(ptr.To(resource.MustParse(vdCustomImageSize))))
@@ -196,6 +199,7 @@ var _ = Describe("VirtualMachineMigration", Label(label.SIGCompute, precheck.NoP
 
 			// Arm the observers before creating anything so no transition is missed.
 			vmBIOSObs = vmobs.StartObserver(ctx, f, vmBIOS)
+
 			vmUEFIObs = vmobs.StartObserver(ctx, f, vmUEFI)
 			for _, a := range vmbdas {
 				vmbdaObservers = append(vmbdaObservers, vmbdaobs.StartObserver(ctx, f, a))
@@ -208,6 +212,7 @@ var _ = Describe("VirtualMachineMigration", Label(label.SIGCompute, precheck.NoP
 			Expect(err).NotTo(HaveOccurred())
 			err = vmUEFIObs.WaitFor(vmobs.BeRunning(), framework.LongTimeout)
 			Expect(err).NotTo(HaveOccurred())
+
 			for i, obs := range vmbdaObservers {
 				err := obs.WaitFor(vmbdaobs.BeAttached(), framework.LongTimeout)
 				Expect(err).NotTo(HaveOccurred(),
@@ -245,10 +250,12 @@ var _ = Describe("VirtualMachineMigration", Label(label.SIGCompute, precheck.NoP
 			defer cancelVMBDA()
 
 			vmbdaWatchErrCh := make(chan error, 1)
+
 			vmbdaNames := make([]string, len(vmbdas))
 			for i, a := range vmbdas {
 				vmbdaNames[i] = a.Name
 			}
+
 			go func() {
 				vmbdaWatchErrCh <- ensureVMBDAsStayAttached(ctxVMBDA,
 					f.VirtClient().VirtualMachineBlockDeviceAttachments(f.Namespace().Name),
@@ -263,6 +270,7 @@ var _ = Describe("VirtualMachineMigration", Label(label.SIGCompute, precheck.NoP
 			eventually.SSHReadyAsRoot(f, vmUEFI, framework.MiddleTimeout)
 
 			By("Check that the disk count of the virtual machine is equal to the disk count before migration.")
+
 			biosDiskCount, err := f.SSHCommand(vmBIOS.Name, f.Namespace().Name, lsblkCommand, framework.WithSSHUser("root"))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(biosDiskCount).To(Equal(biosDiskCountOriginal),
@@ -328,12 +336,15 @@ func ensureVMBDAsStayAttached(ctx context.Context, w util.Watcher, names []strin
 				if ctx.Err() != nil {
 					return nil
 				}
+
 				return fmt.Errorf("watch channel closed unexpectedly while VMBDAs were still being monitored")
 			}
+
 			vmbda, ok := event.Object.(*v1alpha2.VirtualMachineBlockDeviceAttachment)
 			if !ok {
 				continue
 			}
+
 			if _, ok := tracked[vmbda.Name]; ok && vmbda.Status.Phase != v1alpha2.BlockDeviceAttachmentPhaseAttached {
 				return fmt.Errorf("VMBDA %s unexpectedly transitioned to phase %q", vmbda.Name, vmbda.Status.Phase)
 			}

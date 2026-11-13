@@ -41,6 +41,7 @@ func (h *AgentHandler) Handle(ctx context.Context, s state.VirtualMachineState) 
 	if s.VirtualMachine().IsEmpty() {
 		return reconcile.Result{}, nil
 	}
+
 	current := s.VirtualMachine().Current()
 	changed := s.VirtualMachine().Changed()
 
@@ -52,10 +53,12 @@ func (h *AgentHandler) Handle(ctx context.Context, s state.VirtualMachineState) 
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	var nodeName string
 	if kvvmi != nil {
 		nodeName = kvvmi.Status.NodeName
 	}
+
 	nodeUnresponsive, nodeMessage, err := isNodeUnresponsive(ctx, s.Client(), nodeName)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -63,9 +66,11 @@ func (h *AgentHandler) Handle(ctx context.Context, s state.VirtualMachineState) 
 
 	h.syncAgentReady(changed, kvvmi, nodeUnresponsive, nodeMessage)
 	h.syncAgentVersionNotSupport(changed, kvvmi)
+
 	if kvvmi != nil {
 		changed.Status.GuestOSInfo = kvvmi.Status.GuestOSInfo
 	}
+
 	return reconcile.Result{}, nil
 }
 
@@ -95,6 +100,7 @@ func (h *AgentHandler) syncAgentReady(vm *v1alpha2.VirtualMachine, kvvmi *virtv1
 		cb.Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonAgentNodeUnresponsive).
 			Message(nodeMessage)
+
 		return
 	}
 
@@ -102,6 +108,7 @@ func (h *AgentHandler) syncAgentReady(vm *v1alpha2.VirtualMachine, kvvmi *virtv1
 		cb.Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonAgentNotReady).
 			Message("VirtualMachine is not running.")
+
 		return
 	}
 
@@ -150,6 +157,7 @@ func (h *AgentHandler) syncAgentVersionNotSupport(vm *v1alpha2.VirtualMachine, k
 		cb.Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonAgentNotReady).
 			Message("Cannot check the guest agent version: the VirtualMachine is not running.")
+
 		return
 	}
 

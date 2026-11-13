@@ -136,11 +136,13 @@ func (s *PVCImporterService) Import(ctx context.Context, target *corev1.Persiste
 	directTransfer := source != nil && source.Registry != nil && directTransferEligible(source.Registry.Format, prime.Spec.VolumeMode)
 
 	scratchName := ""
+
 	if !directTransfer {
 		scratch, err := s.ensureScratch(ctx, prime)
 		if err != nil {
 			return err
 		}
+
 		scratchName = scratch.Name
 	}
 
@@ -156,6 +158,7 @@ func (s *PVCImporterService) Import(ctx context.Context, target *corev1.Persiste
 		if err != nil {
 			return fmt.Errorf("fetch source pvc: %w", err)
 		}
+
 		if sourceClaim == nil {
 			return fmt.Errorf("source pvc %s/%s not found", source.PVC.Namespace, source.PVC.Name)
 		}
@@ -170,16 +173,19 @@ func (s *PVCImporterService) Import(ctx context.Context, target *corev1.Persiste
 	}
 
 	podKey := sup.PVCImporterPod()
+
 	pod, err := object.FetchObject(ctx, podKey, s.client, &corev1.Pod{})
 	if err != nil {
 		return fmt.Errorf("fetch importer pod: %w", err)
 	}
+
 	if pod == nil {
 		pod = s.makeImporterPod(podKey.Name, target, prime, owner.GetUID(), source, sourceClaim, scratchName, directTransfer, nodePlacement, wffc)
 		if err := s.client.Create(ctx, pod); err != nil && !k8serrors.IsAlreadyExists(err) {
 			return fmt.Errorf("create importer pod: %w", err)
 		}
 	}
+
 	return nil
 }
 
@@ -188,6 +194,7 @@ func (s *PVCImporterService) importFromPVC(ctx context.Context, target *corev1.P
 	if err != nil {
 		return fmt.Errorf("fetch source pvc: %w", err)
 	}
+
 	if sourceClaim == nil {
 		return fmt.Errorf("source pvc %s/%s not found", source.PVC.Namespace, source.PVC.Name)
 	}
@@ -200,6 +207,7 @@ func (s *PVCImporterService) importFromPVC(ctx context.Context, target *corev1.P
 	if err := s.ensureNetworkPolicy(ctx, target, sup); err != nil {
 		return err
 	}
+
 	if err := s.ensureSourceImporterService(ctx, target, sup); err != nil {
 		return err
 	}
@@ -207,10 +215,12 @@ func (s *PVCImporterService) importFromPVC(ctx context.Context, target *corev1.P
 	sourceNBDHost := sup.PVCSourceImporterService().Name
 
 	sourcePodKey := sup.PVCSourceImporterPod()
+
 	sourcePod, err := object.FetchObject(ctx, sourcePodKey, s.client, &corev1.Pod{})
 	if err != nil {
 		return fmt.Errorf("fetch source importer pod: %w", err)
 	}
+
 	if sourcePod == nil {
 		sourcePod = s.makeSourceImporterPod(sourcePodKey.Name, target, sourceClaim)
 		if err := s.client.Create(ctx, sourcePod); err != nil && !k8serrors.IsAlreadyExists(err) {
@@ -221,16 +231,19 @@ func (s *PVCImporterService) importFromPVC(ctx context.Context, target *corev1.P
 	}
 
 	targetPodKey := sup.PVCTargetImporterPod()
+
 	targetPod, err := object.FetchObject(ctx, targetPodKey, s.client, &corev1.Pod{})
 	if err != nil {
 		return fmt.Errorf("fetch target importer pod: %w", err)
 	}
+
 	if targetPod == nil {
 		targetPod = s.makeTargetImporterPod(targetPodKey.Name, target, prime, owner.GetUID(), sourceNBDHost, nodePlacement)
 		if err := s.client.Create(ctx, targetPod); err != nil && !k8serrors.IsAlreadyExists(err) {
 			return fmt.Errorf("create target importer pod: %w", err)
 		}
 	}
+
 	return nil
 }
 
@@ -257,10 +270,12 @@ const SelectedNodeAnnotation = selectedNodeAnnotation
 // excluded from namespace quota accounting.
 func (s *PVCImporterService) ensurePrime(ctx context.Context, target *corev1.PersistentVolumeClaim, nodePlacement *provisioner.NodePlacement) (*corev1.PersistentVolumeClaim, error) {
 	name := primePVCName(target)
+
 	prime, err := object.FetchObject(ctx, types.NamespacedName{Name: name, Namespace: target.Namespace}, s.client, &corev1.PersistentVolumeClaim{})
 	if err != nil {
 		return nil, fmt.Errorf("fetch prime pvc: %w", err)
 	}
+
 	if prime != nil {
 		return prime, nil
 	}
@@ -297,10 +312,12 @@ func (s *PVCImporterService) ensurePrime(ctx context.Context, target *corev1.Per
 	if nodePlacement != nil && nodePlacement.Node != "" {
 		selectedNode = nodePlacement.Node
 	}
+
 	if selectedNode != "" {
 		if prime.Annotations == nil {
 			prime.Annotations = map[string]string{}
 		}
+
 		prime.Annotations[selectedNodeAnnotation] = selectedNode
 	}
 
@@ -313,6 +330,7 @@ func (s *PVCImporterService) ensurePrime(ctx context.Context, target *corev1.Per
 	if err := s.client.Create(ctx, prime); err != nil && !k8serrors.IsAlreadyExists(err) {
 		return nil, fmt.Errorf("create prime pvc: %w", err)
 	}
+
 	return prime, nil
 }
 
@@ -329,27 +347,35 @@ func (s *PVCImporterService) Wait(ctx context.Context, target *corev1.Persistent
 	if err != nil {
 		return "", fmt.Errorf("fetch importer pod: %w", err)
 	}
+
 	if pod == nil {
 		return corev1.PodPending, nil
 	}
+
 	if pod.Status.Phase == "" {
 		return corev1.PodPending, nil
 	}
+
 	if pod.Status.Phase == corev1.PodSucceeded {
 		// The prime PVC is populated; rebind its volume to the target. Rebind is
 		// idempotent and resumable: it returns false until the target is Bound, so
 		// the import is only reported Succeeded once the target carries the data.
 		primeKey := types.NamespacedName{Name: primePVCName(target), Namespace: target.Namespace}
+
 		done, err := Rebind(ctx, s.client, primeKey, client.ObjectKeyFromObject(target))
 		if err != nil {
 			return "", fmt.Errorf("rebind prime to target: %w", err)
 		}
+
 		if !done {
 			return corev1.PodRunning, nil
 		}
+
 		_, err = s.CleanUp(ctx, sup, target)
+
 		return corev1.PodSucceeded, err
 	}
+
 	return pod.Status.Phase, nil
 }
 
@@ -358,6 +384,7 @@ func (s *PVCImporterService) waitHostAssigned(ctx context.Context, target *corev
 	if err != nil {
 		return "", fmt.Errorf("fetch source importer pod: %w", err)
 	}
+
 	if sourcePod != nil && sourcePod.Status.Phase == corev1.PodFailed {
 		return corev1.PodFailed, nil
 	}
@@ -366,22 +393,28 @@ func (s *PVCImporterService) waitHostAssigned(ctx context.Context, target *corev
 	if err != nil {
 		return "", fmt.Errorf("fetch target importer pod: %w", err)
 	}
+
 	if targetPod == nil || targetPod.Status.Phase == "" {
 		return corev1.PodPending, nil
 	}
+
 	if targetPod.Status.Phase != corev1.PodSucceeded {
 		return targetPod.Status.Phase, nil
 	}
 
 	primeKey := types.NamespacedName{Name: primePVCName(target), Namespace: target.Namespace}
+
 	done, err := Rebind(ctx, s.client, primeKey, client.ObjectKeyFromObject(target))
 	if err != nil {
 		return "", fmt.Errorf("rebind prime to target: %w", err)
 	}
+
 	if !done {
 		return corev1.PodRunning, nil
 	}
+
 	_, err = s.CleanUp(ctx, sup, target)
+
 	return corev1.PodSucceeded, err
 }
 
@@ -392,6 +425,7 @@ func (s *PVCImporterService) waitHostAssigned(ctx context.Context, target *corev
 // CleanUp is idempotent: missing resources are ignored.
 func (s *PVCImporterService) CleanUp(ctx context.Context, sup supplements.Generator, target *corev1.PersistentVolumeClaim) (bool, error) {
 	var deleted bool
+
 	for _, obj := range []client.Object{
 		&corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: sup.PVCSourceImporterService().Name, Namespace: target.Namespace}},
 		&corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: sup.PVCImporterPod().Name, Namespace: target.Namespace}},
@@ -408,6 +442,7 @@ func (s *PVCImporterService) CleanUp(ctx context.Context, sup supplements.Genera
 			return false, err
 		}
 	}
+
 	return deleted, nil
 }
 
@@ -437,6 +472,7 @@ func (s *PVCImporterService) ensureSupplements(ctx context.Context, target *core
 				OwnerReference: ownerRef,
 			},
 		}
+
 		scope := []registrytoken.Access{repoAccess(s.dvcrSettings.RepoPath(source.Registry.URL), "pull")}
 		if err := authCopier.CreateScopedTokenCDI(ctx, s.client, s.dvcrSettings.TokenSigner, scope); err != nil {
 			return fmt.Errorf("create scoped dvcr auth secret: %w", err)
@@ -465,10 +501,12 @@ func (s *PVCImporterService) ensureSupplements(ctx context.Context, target *core
 // garbage-collected once the import finishes.
 func (s *PVCImporterService) ensureScratch(ctx context.Context, base *corev1.PersistentVolumeClaim) (*corev1.PersistentVolumeClaim, error) {
 	name := base.Name + "-scratch"
+
 	scratch, err := object.FetchObject(ctx, types.NamespacedName{Name: name, Namespace: base.Namespace}, s.client, &corev1.PersistentVolumeClaim{})
 	if err != nil {
 		return nil, fmt.Errorf("fetch scratch pvc: %w", err)
 	}
+
 	if scratch != nil {
 		return scratch, nil
 	}
@@ -497,10 +535,12 @@ func (s *PVCImporterService) ensureScratch(ctx context.Context, base *corev1.Per
 	scratch.Spec.VolumeName = ""
 	scratch.Spec.VolumeMode = &volumeMode
 	scratch.Spec.AccessModes = []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}
+
 	scratch.Spec.Resources.Requests[corev1.ResourceStorage] = size
 	if err := s.client.Create(ctx, scratch); err != nil && !k8serrors.IsAlreadyExists(err) {
 		return nil, fmt.Errorf("create scratch pvc: %w", err)
 	}
+
 	return scratch, nil
 }
 
@@ -517,6 +557,7 @@ func (s *PVCImporterService) ensureNetworkPolicy(ctx context.Context, target *co
 	if s.dvcrSettings != nil {
 		controllerNamespace = s.dvcrSettings.ControllerNamespace
 	}
+
 	npName := sup.NetworkPolicy()
 	np := &netv1.NetworkPolicy{
 		TypeMeta: metav1.TypeMeta{Kind: "NetworkPolicy", APIVersion: "networking.k8s.io/v1"},
@@ -580,6 +621,7 @@ func (s *PVCImporterService) ensureSourceImporterService(ctx context.Context, ta
 			}},
 		},
 	}
+
 	return client.IgnoreAlreadyExists(s.client.Create(ctx, svc))
 }
 
@@ -596,6 +638,7 @@ func directTransferEligible(sourceFormat string, volumeMode *corev1.PersistentVo
 	if volumeMode == nil {
 		return false
 	}
+
 	switch *volumeMode {
 	case corev1.PersistentVolumeBlock:
 		return sourceFormat == imageformat.FormatRAW
@@ -609,11 +652,14 @@ func directTransferEligible(sourceFormat string, volumeMode *corev1.PersistentVo
 func scratchPVCSize(targetSize resource.Quantity) resource.Quantity {
 	size := targetSize.DeepCopy()
 	minOverhead := resource.MustParse("256Mi")
+
 	overhead := *resource.NewQuantity(targetSize.Value()/10, targetSize.Format)
 	if overhead.Cmp(minOverhead) < 0 {
 		overhead = minOverhead
 	}
+
 	size.Add(overhead)
+
 	return size
 }
 
@@ -623,13 +669,16 @@ func (s *PVCImporterService) isWaitForFirstConsumer(ctx context.Context, pvc *co
 	if pvc.Spec.StorageClassName == nil || *pvc.Spec.StorageClassName == "" {
 		return false, nil
 	}
+
 	sc, err := object.FetchObject(ctx, types.NamespacedName{Name: *pvc.Spec.StorageClassName}, s.client, &storagev1.StorageClass{})
 	if err != nil {
 		return false, fmt.Errorf("fetch storage class %q: %w", *pvc.Spec.StorageClassName, err)
 	}
+
 	if sc == nil || sc.VolumeBindingMode == nil {
 		return false, nil
 	}
+
 	return *sc.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer, nil
 }
 
@@ -641,8 +690,10 @@ func importerConvertThreads(wffc bool, nodePlacement *provisioner.NodePlacement)
 		if nodePlacement.CPUCores > 16 {
 			return 16
 		}
+
 		return nodePlacement.CPUCores
 	}
+
 	return 1
 }
 
@@ -653,7 +704,9 @@ func (s *PVCImporterService) importerResources(cpuLimit int) corev1.ResourceRequ
 	if resources.Limits == nil {
 		resources.Limits = corev1.ResourceList{}
 	}
+
 	resources.Limits[corev1.ResourceCPU] = *resource.NewQuantity(int64(cpuLimit), resource.DecimalSI)
+
 	return *resources
 }
 
@@ -666,6 +719,7 @@ func (s *PVCImporterService) makeImporterPod(podName string, target, dataPVC *co
 	if source != nil && source.Registry != nil {
 		registryEndpoint = source.Registry.URL
 	}
+
 	imageSize := dataPVC.Spec.Resources.Requests[corev1.ResourceStorage]
 
 	// The importer pod's CPU limit and the qemu-img convert parallelism (-m) are
@@ -704,7 +758,9 @@ func (s *PVCImporterService) makeImporterPod(podName string, target, dataPVC *co
 	if !directTransfer {
 		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{Name: pvcImporterScratchVolName, MountPath: pvcImporterScratchDataDir})
 	}
+
 	container.Resources = s.importerResources(convertThreads)
+
 	if source != nil && source.Registry != nil && source.Registry.Secret != "" {
 		secretName := source.Registry.Secret
 		container.Env = append(container.Env, corev1.EnvVar{
@@ -721,10 +777,12 @@ func (s *PVCImporterService) makeImporterPod(podName string, target, dataPVC *co
 			}},
 		})
 	}
+
 	if source != nil && source.Registry != nil && source.Registry.CertConfigMap != "" {
 		container.Env = append(container.Env, corev1.EnvVar{Name: common.ImporterCertDirVar, Value: common.ImporterCertDir})
 		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{Name: "cert-vol", MountPath: common.ImporterCertDir})
 	}
+
 	if dataPVC.Spec.VolumeMode != nil && *dataPVC.Spec.VolumeMode == corev1.PersistentVolumeBlock {
 		container.VolumeDevices = []corev1.VolumeDevice{{Name: pvcImporterDataVolName, DevicePath: pvcImporterWriteBlockPath}}
 	} else {
@@ -738,6 +796,7 @@ func (s *PVCImporterService) makeImporterPod(podName string, target, dataPVC *co
 	if !directTransfer {
 		volumes = append(volumes, corev1.Volume{Name: pvcImporterScratchVolName, VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: scratchName}}})
 	}
+
 	if source != nil && source.Registry != nil && source.Registry.CertConfigMap != "" {
 		volumes = append(volumes, corev1.Volume{
 			Name: "cert-vol",
@@ -746,6 +805,7 @@ func (s *PVCImporterService) makeImporterPod(podName string, target, dataPVC *co
 			}},
 		})
 	}
+
 	if source != nil && source.PVC != nil && sourceClaim != nil {
 		sourcePath := "/source/disk.img"
 		if sourceClaim.Spec.VolumeMode != nil && *sourceClaim.Spec.VolumeMode == corev1.PersistentVolumeBlock {
@@ -764,6 +824,7 @@ func (s *PVCImporterService) makeImporterPod(podName string, target, dataPVC *co
 		container.Args = []string{"convert", "-p", "-O", "raw", sourcePath, targetPath}
 		container.Env = nil
 		container.Ports = nil
+
 		volumes = append(volumes, corev1.Volume{
 			Name: "source-vol",
 			VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
@@ -800,6 +861,7 @@ func (s *PVCImporterService) makeImporterPod(podName string, target, dataPVC *co
 		},
 	}
 	podutil.SetRestrictedSecurityContext(&pod.Spec)
+
 	if nodePlacement != nil {
 		pod.Spec.Tolerations = nodePlacement.Tolerations
 		_ = provisioner.KeepNodePlacementTolerations(nodePlacement, pod)
@@ -823,13 +885,17 @@ func (s *PVCImporterService) makeImporterPod(podName string, target, dataPVC *co
 			},
 		}
 	}
+
 	return pod
 }
 
 func (s *PVCImporterService) makeSourceImporterPod(podName string, target, sourceClaim *corev1.PersistentVolumeClaim) *corev1.Pod {
 	sourcePath := "/source/disk.img"
+
 	var volumeDevices []corev1.VolumeDevice
+
 	volumeMounts := []corev1.VolumeMount{{Name: "tmp", MountPath: "/tmp"}}
+
 	if sourceClaim.Spec.VolumeMode != nil && *sourceClaim.Spec.VolumeMode == corev1.PersistentVolumeBlock {
 		sourcePath = pvcImporterSourceBlockPath
 		volumeDevices = append(volumeDevices, corev1.VolumeDevice{Name: pvcImporterSourceVolName, DevicePath: pvcImporterSourceBlockPath})
@@ -883,12 +949,15 @@ func (s *PVCImporterService) makeSourceImporterPod(podName string, target, sourc
 	if s.resourceRequirements.Requests != nil || s.resourceRequirements.Limits != nil {
 		pod.Spec.Containers[0].Resources = s.resourceRequirements
 	}
+
 	podutil.SetRestrictedSecurityContext(&pod.Spec)
+
 	return pod
 }
 
 func (s *PVCImporterService) makeTargetImporterPod(podName string, target, dataPVC *corev1.PersistentVolumeClaim, ownerUID types.UID, sourceNBDHost string, nodePlacement *provisioner.NodePlacement) *corev1.Pod {
 	volumeMounts := []corev1.VolumeMount{{Name: "tmp", MountPath: "/tmp"}}
+
 	var volumeDevices []corev1.VolumeDevice
 	if dataPVC.Spec.VolumeMode != nil && *dataPVC.Spec.VolumeMode == corev1.PersistentVolumeBlock {
 		volumeDevices = append(volumeDevices, corev1.VolumeDevice{Name: pvcImporterDataVolName, DevicePath: pvcImporterWriteBlockPath})
@@ -942,10 +1011,12 @@ func (s *PVCImporterService) makeTargetImporterPod(podName string, target, dataP
 	if s.resourceRequirements.Requests != nil || s.resourceRequirements.Limits != nil {
 		pod.Spec.Containers[0].Resources = s.resourceRequirements
 	}
+
 	if nodePlacement != nil {
 		pod.Spec.Tolerations = nodePlacement.Tolerations
 		_ = provisioner.KeepNodePlacementTolerations(nodePlacement, pod)
 	}
+
 	if selectedNode := dataPVC.Annotations[selectedNodeAnnotation]; selectedNode != "" {
 		pod.Spec.Affinity = &corev1.Affinity{
 			NodeAffinity: &corev1.NodeAffinity{
@@ -961,6 +1032,8 @@ func (s *PVCImporterService) makeTargetImporterPod(podName string, target, dataP
 			},
 		}
 	}
+
 	podutil.SetRestrictedSecurityContext(&pod.Spec)
+
 	return pod
 }

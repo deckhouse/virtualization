@@ -58,11 +58,14 @@ func (w *KVVMIWatcher) Watch(mgr manager.Manager, ctr controller.Controller) err
 					if nodePlacementCondition.Status == corev1.ConditionTrue {
 						return true
 					}
+
 					hotMemoryChangeCondition, _ := conditions.GetKVVMICondition(virtv1.VirtualMachineInstanceMemoryChange, e.ObjectNew.Status.Conditions)
 					if hotMemoryChangeCondition.Status == corev1.ConditionTrue {
 						return true
 					}
+
 					hotCPUChangeCondition, _ := conditions.GetKVVMICondition(virtv1.VirtualMachineInstanceVCPUChange, e.ObjectNew.Status.Conditions)
+
 					return hotCPUChangeCondition.Status == corev1.ConditionTrue
 				},
 			},
@@ -70,5 +73,6 @@ func (w *KVVMIWatcher) Watch(mgr manager.Manager, ctr controller.Controller) err
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualMachineInstance: %w", err)
 	}
+
 	return nil
 }

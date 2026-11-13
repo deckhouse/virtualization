@@ -61,6 +61,7 @@ func (h *TemplateHandler) Handle(ctx context.Context, pool *v1alpha2.VirtualMach
 	tmplSpec := pool.Spec.VirtualMachineTemplate.Spec
 
 	var errs error
+
 	for i := range members {
 		vm := &members[i]
 		if vm.GetDeletionTimestamp() != nil {
@@ -72,16 +73,20 @@ func (h *TemplateHandler) Handle(ctx context.Context, pool *v1alpha2.VirtualMach
 		// forever.
 		if vm.GetAnnotations()[poollabels.PatchedTemplateHash] != desiredHash {
 			applyTemplateSpec(vm, tmplSpec)
+
 			if vm.Annotations == nil {
 				vm.Annotations = make(map[string]string)
 			}
+
 			vm.Annotations[poollabels.PatchedTemplateHash] = desiredHash
 			if err := h.client.Update(ctx, vm); err != nil {
 				if isPersistent(err) {
 					ReportFrom(ctx).UpdateFailed(vm.GetName(), fmt.Sprintf("Cannot apply the template to VirtualMachine %q: %s", vm.GetName(), explain(err, vmTemplatePath)))
 				}
+
 				errs = errors.Join(errs, fmt.Errorf("patch replica %s to template: %w", vm.GetName(), err))
 			}
+
 			continue
 		}
 
@@ -90,10 +95,12 @@ func (h *TemplateHandler) Handle(ctx context.Context, pool *v1alpha2.VirtualMach
 		if awaitingRestart(vm) {
 			continue
 		}
+
 		if vm.GetLabels()[poollabels.TemplateHash] != desiredHash {
 			if vm.Labels == nil {
 				vm.Labels = make(map[string]string)
 			}
+
 			vm.Labels[poollabels.TemplateHash] = desiredHash
 			if err := h.client.Update(ctx, vm); err != nil {
 				errs = errors.Join(errs, fmt.Errorf("mark replica %s on current template: %w", vm.GetName(), err))

@@ -58,6 +58,7 @@ func (w *VMWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error 
 	); err != nil {
 		return fmt.Errorf("error setting watch on VM: %w", err)
 	}
+
 	return nil
 }
 

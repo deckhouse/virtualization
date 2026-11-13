@@ -59,6 +59,7 @@ func (r AddResourceClaimREST) Connect(ctx context.Context, name string, opts run
 	if !ok {
 		return nil, fmt.Errorf("invalid options object: %#v", opts)
 	}
+
 	var (
 		resourceClaimPather pather
 		hooks               []mutateRequestHook
@@ -68,16 +69,20 @@ func (r AddResourceClaimREST) Connect(ctx context.Context, name string, opts run
 		resourceClaimPather = newKVVMIPather("addresourceclaim")
 	} else {
 		resourceClaimPather = newKVVMPather("addresourceclaim")
+
 		h, err := r.genMutateRequestHook(addResourceClaimOpts)
 		if err != nil {
 			return nil, err
 		}
+
 		hooks = append(hooks, h)
 	}
+
 	location, transport, err := AddResourceClaimLocation(ctx, r.vmLister, name, r.kubevirt, r.proxyCertManager, resourceClaimPather)
 	if err != nil {
 		return nil, err
 	}
+
 	handler := newThrottledUpgradeAwareProxyHandler(location, transport, false, responder, r.kubevirt.ServiceAccount, hooks...)
 
 	return handler, nil

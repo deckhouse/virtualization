@@ -114,6 +114,7 @@ func (ds *CABundle) GetCABundle() string {
 	if ds == nil {
 		return ""
 	}
+
 	switch ds.Type {
 	case v1alpha2.DataSourceTypeHTTP:
 		if ds.HTTP != nil {
@@ -124,6 +125,7 @@ func (ds *CABundle) GetCABundle() string {
 			return string(ds.ContainerImage.CABundle)
 		}
 	}
+
 	return ""
 }
 

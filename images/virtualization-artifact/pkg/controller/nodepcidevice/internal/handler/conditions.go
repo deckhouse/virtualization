@@ -80,5 +80,6 @@ func deviceAbsenceDuration(conditions []metav1.Condition) (time.Duration, bool) 
 	if readyCondition == nil || readyCondition.Reason != string(nodepcidevicecondition.NotFound) || readyCondition.LastTransitionTime.IsZero() {
 		return 0, false
 	}
+
 	return time.Since(readyCondition.LastTransitionTime.Time), true
 }

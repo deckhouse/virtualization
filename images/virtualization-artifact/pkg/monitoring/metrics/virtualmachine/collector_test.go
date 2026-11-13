@@ -54,6 +54,7 @@ func (s stubIterator) Iter(_ context.Context, h handler) error {
 			return nil
 		}
 	}
+
 	return nil
 }
 
@@ -70,6 +71,7 @@ func collectorOf(vms ...*v1alpha2.VirtualMachine) Collector {
 func registryOf(c Collector) *prometheus.Registry {
 	reg := prometheus.NewRegistry()
 	reg.MustRegister(c)
+
 	return reg
 }
 
@@ -92,10 +94,12 @@ func phaseSeries(current v1alpha2.MachinePhase) string {
 	var b strings.Builder
 	b.WriteString("# HELP d8_virtualization_virtualmachine_status_phase The virtualmachine current phase.\n")
 	b.WriteString("# TYPE d8_virtualization_virtualmachine_status_phase gauge\n")
+
 	for _, p := range machinePhases {
 		fmt.Fprintf(&b, "d8_virtualization_virtualmachine_status_phase{name=\"vm-01\",namespace=\"team-a\",node=\"node-1\",phase=%q,uid=\"uid-vm-01\"} %v\n",
 			string(p), common.BoolFloat64(p == current))
 	}
+
 	return b.String()
 }
 
@@ -112,10 +116,12 @@ func runPolicySeries(current v1alpha2.RunPolicy) string {
 	var b strings.Builder
 	b.WriteString("# HELP d8_virtualization_virtualmachine_configuration_run_policy The virtualmachine current runPolicy.\n")
 	b.WriteString("# TYPE d8_virtualization_virtualmachine_configuration_run_policy gauge\n")
+
 	for _, p := range runPolicies {
 		fmt.Fprintf(&b, "d8_virtualization_virtualmachine_configuration_run_policy{name=\"vm-01\",namespace=\"team-a\",node=\"node-1\",runPolicy=%q,uid=\"uid-vm-01\"} %v\n",
 			string(p), common.BoolFloat64(p == current))
 	}
+
 	return b.String()
 }
 

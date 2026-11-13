@@ -132,8 +132,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		if err := vm.Update(ctx); err != nil {
 			return err
 		}
+
 		internal.ObserveLaunchStages(vm.Current(), vm.Changed())
 		internal.ObserveShutdown(vm.Current(), vm.Changed())
+
 		return nil
 	})
 

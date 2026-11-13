@@ -168,12 +168,14 @@ var _ = Describe("InUseHandler", func() {
 			Expect(len(vd.Status.AttachedToVirtualMachines)).To(Equal(3))
 
 			found := false
+
 			for _, attachedVM := range vd.Status.AttachedToVirtualMachines {
 				if attachedVM.Name == "test-vm2" && attachedVM.Mounted {
 					found = true
 					break
 				}
 			}
+
 			Expect(found).To(BeTrue(), "Expected to find 'test-vm' with Mounted true in AttachedToVirtualMachines")
 		})
 
@@ -822,6 +824,7 @@ var _ = Describe("InUseHandler", func() {
 			if listed {
 				vm.Status.BlockDeviceRefs = []v1alpha2.BlockDeviceStatusRef{{Kind: v1alpha2.DiskDevice, Name: vdName}}
 			}
+
 			return vm
 		}
 		// attachmentOfB returns an attachment of the disk to vm-b.
@@ -847,13 +850,16 @@ var _ = Describe("InUseHandler", func() {
 
 		handle := func(current string, objs ...client.Object) []v1alpha2.AttachedVirtualMachine {
 			GinkgoHelper()
+
 			vd := &v1alpha2.VirtualDisk{ObjectMeta: metav1.ObjectMeta{Name: vdName, Namespace: "default"}}
 			if current != "" {
 				vd.Status.AttachedToVirtualMachines = []v1alpha2.AttachedVirtualMachine{{Name: current, Mounted: true}}
 			}
+
 			k8sClient := withVolumeIndexes(fake.NewClientBuilder().WithScheme(scheme)).WithObjects(append(objs, vd)...).Build()
 			_, err := NewInUseHandler(k8sClient).Handle(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
+
 			return vd.Status.AttachedToVirtualMachines
 		}
 
@@ -894,6 +900,7 @@ var _ = Describe("InUseHandler", func() {
 				att := attachmentOfB(v1alpha2.BlockDeviceAttachmentPhaseAttached)
 				att.DeletionTimestamp = ptr.To(metav1.Now())
 				att.Finalizers = []string{"test"}
+
 				return att
 			}()),
 		)
@@ -1090,5 +1097,6 @@ func withVolumeIndexes(b *fake.ClientBuilder) *fake.ClientBuilder {
 	for _, index := range []indexer.IndexGetter{indexer.IndexKVVMIByVolume, indexer.IndexKVVMByAddVolumeRequest} {
 		b.WithIndex(index())
 	}
+
 	return b
 }

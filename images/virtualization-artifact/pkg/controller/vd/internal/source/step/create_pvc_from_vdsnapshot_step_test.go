@@ -48,6 +48,7 @@ var sizeStep = CreatePVCFromVDSnapshotStep{}
 func vdWithSize(size *resource.Quantity) *v1alpha2.VirtualDisk {
 	vd := &v1alpha2.VirtualDisk{ObjectMeta: metav1.ObjectMeta{Name: "vd"}}
 	vd.Spec.PersistentVolumeClaim.Size = size
+
 	return vd
 }
 
@@ -67,6 +68,7 @@ func unifiedFloors(declared, artifact string) commonvd.RestoreFloors {
 
 	floors, err := commonvd.RestoreFloorsFrom(vds, nil)
 	Expect(err).NotTo(HaveOccurred())
+
 	return floors
 }
 
@@ -135,6 +137,7 @@ var _ = Describe("CreatePVCFromVDSnapshotStep", func() {
 		Expect(vsv1.AddToScheme(scheme)).To(Succeed())
 		Expect(storagev1.AddToScheme(scheme)).To(Succeed())
 		Expect(storagefoundationv1alpha1.AddToScheme(scheme)).To(Succeed())
+
 		return scheme
 	}
 
@@ -149,6 +152,7 @@ var _ = Describe("CreatePVCFromVDSnapshotStep", func() {
 		if size != "" {
 			vd.Spec.PersistentVolumeClaim.Size = ptr.To(resource.MustParse(size))
 		}
+
 		return vd
 	}
 
@@ -173,9 +177,11 @@ var _ = Describe("CreatePVCFromVDSnapshotStep", func() {
 		if originalSize != "" {
 			vs.Annotations = map[string]string{annotations.AnnVirtualDiskOriginalSize: originalSize}
 		}
+
 		if restoreSize != "" {
 			vs.Status.RestoreSize = ptr.To(resource.MustParse(restoreSize))
 		}
+
 		return vs
 	}
 
@@ -186,11 +192,13 @@ var _ = Describe("CreatePVCFromVDSnapshotStep", func() {
 			createTargetFromVS: func(_ context.Context, key types.NamespacedName, _ string, size *resource.Quantity, _ client.Object, _ *vsv1.VolumeSnapshot, _ service.VolumeAndAccessModesGetter, _ *provisioner.NodePlacement) (corev1.PersistentVolumeClaim, error) {
 				pvc.called = true
 				pvc.size = size
+
 				return corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: key.Name, Namespace: key.Namespace}}, nil
 			},
 			ensureVolumeRestoreRequest: func(_ context.Context, _ types.NamespacedName, _ string, size *resource.Quantity, _ client.Object, _ storagefoundationv1alpha1.ObjectReference, _ service.VolumeAndAccessModesGetter) error {
 				pvc.called = true
 				pvc.size = size
+
 				return nil
 			},
 		}
@@ -370,6 +378,7 @@ var _ = Describe("CreatePVCFromVDSnapshotStep", func() {
 					Name:       "artifact",
 				},
 			}
+
 			return vdSnapshot
 		}
 

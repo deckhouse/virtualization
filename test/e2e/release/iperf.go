@@ -68,6 +68,7 @@ func startIPerfSession(ctx context.Context, f *framework.Framework, server, clie
 	eventually.StartIPerfServer(f, server)
 
 	By("Starting the endless iperf3 client")
+
 	serverIP := getVirtualMachine(ctx, f, server).Status.IPAddress
 	Expect(serverIP).NotTo(BeEmpty(), "the iperf server %s/%s has no IP address", server.Namespace, server.Name)
 	eventually.StartIPerfClient(f, client, serverIP, iperfReportPath)
@@ -97,6 +98,7 @@ func expectIPerfSessionSurvivedUpgrade(ctx context.Context, f *framework.Framewo
 	}
 
 	By("Verifying the session brackets the migration of the iperf server")
+
 	window := findMigrationWindow(ctx, f, server)
 	iperfStart, err := report.GetStartTime()
 	Expect(err).NotTo(HaveOccurred(), "the iperf3 report start timestamp must be parseable")

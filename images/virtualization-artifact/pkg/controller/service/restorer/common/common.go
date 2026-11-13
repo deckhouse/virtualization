@@ -80,10 +80,12 @@ func ValidateResourceNameLength(resourceName, kind string) error {
 	if kind == v1alpha2.VirtualMachineKind {
 		maxLength = validate.MaxVirtualMachineNameLen
 	}
+
 	if len(resourceName) > maxLength {
 		return fmt.Errorf("name %q too long (%d > %d): %w",
 			resourceName, len(resourceName), maxLength, ErrResourceNameTooLong)
 	}
+
 	return nil
 }
 
@@ -92,5 +94,6 @@ func ApplyNameCustomization(name, prefix, suffix string) string {
 	if name == "" {
 		return ""
 	}
+
 	return prefix + name + suffix
 }

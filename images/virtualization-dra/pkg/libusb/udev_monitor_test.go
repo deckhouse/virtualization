@@ -64,6 +64,7 @@ var _ = Describe("Udev monitor", func() {
 			debounceDuration: 100 * time.Millisecond,
 			pendingEvents:    make(map[string]*debounceEntry),
 		}
+
 		return m
 	}
 
@@ -76,6 +77,7 @@ var _ = Describe("Udev monitor", func() {
 	It("should monitor usb devices", func() {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
+
 		go usbMonitor.run(ctx)
 
 		devices := usbMonitor.GetDevices()

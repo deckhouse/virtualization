@@ -67,5 +67,6 @@ func NewController(
 	}
 
 	log.Info("Initialized NodeUSBDevice ResourceSlice controller")
+
 	return c, nil
 }

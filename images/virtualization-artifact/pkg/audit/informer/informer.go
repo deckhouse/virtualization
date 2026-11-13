@@ -47,6 +47,7 @@ type InformerList struct {
 
 func NewInformerList(ctx context.Context, kubeCfg *rest.Config, ttlCache cache) (*InformerList, error) {
 	inf := &InformerList{}
+
 	virtSharedInformerFactory, err := VirtualizationInformerFactory(kubeCfg)
 	if err != nil {
 		log.Error("failed to create virtualization shared factory", log.Err(err))
@@ -66,6 +67,7 @@ func NewInformerList(ctx context.Context, kubeCfg *rest.Config, ttlCache cache) 
 	}
 
 	vmInformer := virtSharedInformerFactory.Virtualization().V1alpha2().VirtualMachines().Informer()
+
 	_, err = vmInformer.AddEventHandler(kubecache.ResourceEventHandlerFuncs{
 		DeleteFunc: func(obj any) {
 			_, ok := obj.(kubecache.DeletedFinalStateUnknown)
@@ -82,9 +84,11 @@ func NewInformerList(ctx context.Context, kubeCfg *rest.Config, ttlCache cache) 
 		log.Error("failed to add event handler for virtual machines", log.Err(err))
 		return inf, err
 	}
+
 	inf.vmInformer = vmInformer
 
 	vdInformer := virtSharedInformerFactory.Virtualization().V1alpha2().VirtualDisks().Informer()
+
 	_, err = vdInformer.AddEventHandler(kubecache.ResourceEventHandlerFuncs{
 		DeleteFunc: func(obj any) {
 			_, ok := obj.(kubecache.DeletedFinalStateUnknown)
@@ -101,9 +105,11 @@ func NewInformerList(ctx context.Context, kubeCfg *rest.Config, ttlCache cache) 
 		log.Error("failed to add event handler for virtual disks", log.Err(err))
 		return inf, err
 	}
+
 	inf.vdInformer = vdInformer
 
 	podInformer := coreSharedInformerFactory.Core().V1().Pods().Informer()
+
 	_, err = podInformer.AddEventHandler(kubecache.ResourceEventHandlerFuncs{
 		DeleteFunc: func(obj any) {
 			_, ok := obj.(kubecache.DeletedFinalStateUnknown)
@@ -120,9 +126,11 @@ func NewInformerList(ctx context.Context, kubeCfg *rest.Config, ttlCache cache) 
 		log.Error("failed to add event handler for pods", log.Err(err))
 		return inf, err
 	}
+
 	inf.podInformer = podInformer
 
 	internalVMIInformer := GetInternalVMIInformer(dynamicInformerFactory).Informer()
+
 	_, err = internalVMIInformer.AddEventHandler(kubecache.ResourceEventHandlerFuncs{
 		DeleteFunc: func(obj any) {
 			_, ok := obj.(kubecache.DeletedFinalStateUnknown)
@@ -134,6 +142,7 @@ func NewInformerList(ctx context.Context, kubeCfg *rest.Config, ttlCache cache) 
 			if !ok {
 				return
 			}
+
 			key := fmt.Sprintf("intVMI/%s/%s", unstructuredObj.GetNamespace(), unstructuredObj.GetName())
 			ttlCache.Add(key, unstructuredObj)
 		},
@@ -142,6 +151,7 @@ func NewInformerList(ctx context.Context, kubeCfg *rest.Config, ttlCache cache) 
 		log.Error("failed to add event handler for internalVMI", log.Err(err))
 		return inf, err
 	}
+
 	inf.internalVMIInformer = internalVMIInformer
 
 	vmopInformer := virtSharedInformerFactory.Virtualization().V1alpha2().VirtualMachineOperations().Informer()

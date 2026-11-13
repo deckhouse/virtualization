@@ -51,6 +51,7 @@ var _ = Describe("Validator source storage class provisioner compatibility", fun
 		if vsSC != "" {
 			vsAnnotations[annotations.AnnStorageClassName] = vsSC
 		}
+
 		return []client.Object{
 			&v1alpha2.VirtualDiskSnapshot{
 				ObjectMeta: metav1.ObjectMeta{Name: vdSnapshotName, Namespace: namespace},
@@ -119,6 +120,7 @@ var _ = Describe("Validator source storage class provisioner compatibility", fun
 			Expect(err).NotTo(HaveOccurred())
 			return
 		}
+
 		Expect(err).To(MatchError(ContainSubstring(expectedErr)))
 	},
 		Entry("defaults to the storage class captured on the VolumeSnapshot", newVI(nil), "nfs", ""),

@@ -46,13 +46,16 @@ func (v *MigrationReceiverValidator) ValidateCreate(ctx context.Context, obj run
 	if !ok {
 		return nil, fmt.Errorf("expected a InternalVirtualizationVirtualMachineReceiver but got a %T", obj)
 	}
+
 	req, err := admission.RequestFromContext(ctx)
 	if err != nil {
 		return nil, err
 	}
+
 	if !isPeerUser(req.UserInfo.Username) {
 		return nil, fmt.Errorf("InternalVirtualizationVirtualMachineReceiver can only be created by a peer cluster")
 	}
+
 	return nil, validateReceiver(r)
 }
 
@@ -61,13 +64,16 @@ func (v *MigrationReceiverValidator) ValidateUpdate(_ context.Context, oldObj, n
 	if !ok {
 		return nil, fmt.Errorf("expected an old InternalVirtualizationVirtualMachineReceiver but got a %T", oldObj)
 	}
+
 	newR, ok := newObj.(*intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver)
 	if !ok {
 		return nil, fmt.Errorf("expected a new InternalVirtualizationVirtualMachineReceiver but got a %T", newObj)
 	}
+
 	if !reflect.DeepEqual(oldR.Spec, newR.Spec) {
 		return nil, fmt.Errorf("the spec of InternalVirtualizationVirtualMachineReceiver cannot be changed")
 	}
+
 	return nil, nil
 }
 
@@ -81,7 +87,9 @@ func isPeerUser(name string) bool {
 	if name == ownControllerUser {
 		return true
 	}
+
 	peer, ok := strings.CutPrefix(name, "peering:peer:")
+
 	return ok && strings.HasSuffix(peer, ":cap:virtualization") && !strings.HasPrefix(peer, ":")
 }
 
@@ -93,12 +101,15 @@ func validateReceiver(r *intvirtv1alpha1.InternalVirtualizationVirtualMachineRec
 	if err != nil {
 		return err
 	}
+
 	if rcv.VirtualMachine.Name != "" && rcv.VirtualMachine.Name != r.Name {
 		return fmt.Errorf("spec.virtualMachineTemplate is named %q, not %q", rcv.VirtualMachine.Name, r.Name)
 	}
+
 	devices := rcv.Instance.Spec.Domain.Devices
 	if len(devices.HostDevices) > 0 || len(devices.GPUs) > 0 {
 		return fmt.Errorf("spec.internalVirtualizationVirtualMachineInstance: devices of the nodes cannot be received")
 	}
+
 	return nil
 }

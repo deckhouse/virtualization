@@ -71,19 +71,23 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 			fmt.Sprintf("Using the `%s` storage type is deprecated. It is recommended to use `%s` instead.",
 				v1alpha2.StorageKubernetes, v1alpha2.StoragePersistentVolumeClaim),
 		}
+
 		return warnings, nil
 	}
 
 	if vi.Spec.Storage == v1alpha2.StorageKubernetes || vi.Spec.Storage == v1alpha2.StoragePersistentVolumeClaim {
 		if vi.Spec.PersistentVolumeClaim.StorageClass != nil && *vi.Spec.PersistentVolumeClaim.StorageClass != "" {
 			scName := *vi.Spec.PersistentVolumeClaim.StorageClass
+
 			sc, err := v.scService.GetStorageClass(ctx, scName)
 			if err != nil {
 				return nil, err
 			}
+
 			if sc == nil {
 				return nil, fmt.Errorf("storage class %q not found", scName)
 			}
+
 			if v.scService.IsStorageClassDeprecated(sc) {
 				return nil, fmt.Errorf(
 					"the provisioner of the %q storage class is deprecated; please use a different one",
@@ -152,13 +156,16 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 		if newVI.Spec.Storage == v1alpha2.StorageKubernetes || newVI.Spec.Storage == v1alpha2.StoragePersistentVolumeClaim {
 			if newVI.Spec.PersistentVolumeClaim.StorageClass != nil && *newVI.Spec.PersistentVolumeClaim.StorageClass != "" {
 				scName := *newVI.Spec.PersistentVolumeClaim.StorageClass
+
 				sc, err := v.scService.GetStorageClass(ctx, scName)
 				if err != nil {
 					return nil, err
 				}
+
 				if sc == nil {
 					return nil, fmt.Errorf("target storage class %q not found", scName)
 				}
+
 				if v.scService.IsStorageClassDeprecated(sc) {
 					return nil, fmt.Errorf(
 						"the provisioner of the %q storage class is deprecated; please use a different one",
@@ -198,6 +205,7 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 func (v *Validator) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
 	err := fmt.Errorf("misconfigured webhook rules: delete operation not implemented")
 	v.logger.Error("Ensure the correctness of ValidatingWebhookConfiguration", "err", err)
+
 	return nil, nil
 }
 
@@ -223,6 +231,7 @@ func (v *Validator) validateSourceStorageClassProvisionerCompatibility(ctx conte
 		determinable      bool
 		err               error
 	)
+
 	switch ref.Kind {
 	case v1alpha2.VirtualImageObjectRefKindVirtualDisk:
 		sourceProvisioner, determinable, err = storageclass.ProvisionerOfVirtualDisk(ctx, v.client, vi.Namespace, ref.Name)
@@ -230,6 +239,7 @@ func (v *Validator) validateSourceStorageClassProvisionerCompatibility(ctx conte
 		sourceProvisioner, determinable, err = storageclass.ProvisionerOfVirtualImage(ctx, v.client, vi.Namespace, ref.Name)
 	case v1alpha2.VirtualImageObjectRefKindVirtualDiskSnapshot:
 		var vs *vsv1.VolumeSnapshot
+
 		vs, err = storageclass.VolumeSnapshotOfVirtualDiskSnapshot(ctx, v.client, vi.Namespace, ref.Name)
 		if err == nil && vs != nil {
 			sourceProvisioner, determinable, err = storageclass.ProvisionerOfVolumeSnapshot(ctx, v.client, vs)
@@ -238,9 +248,11 @@ func (v *Validator) validateSourceStorageClassProvisionerCompatibility(ctx conte
 	default:
 		return nil
 	}
+
 	if err != nil {
 		return err
 	}
+
 	if !determinable {
 		return nil
 	}
@@ -254,6 +266,7 @@ func (v *Validator) validateSourceStorageClassProvisionerCompatibility(ctx conte
 	if err != nil {
 		return err
 	}
+
 	if targetProvisioner == "" {
 		return nil
 	}
@@ -291,6 +304,7 @@ func (v *Validator) resolveTargetStorageClassName(ctx context.Context, vi *v1alp
 		// Cannot determine the target storage class; skip the cross-CSI check.
 		return ""
 	}
+
 	if defaultSC != nil {
 		return defaultSC.Name
 	}
@@ -300,6 +314,7 @@ func (v *Validator) resolveTargetStorageClassName(ctx context.Context, vi *v1alp
 
 func (v *Validator) validateDefaultStorageClass(ctx context.Context) error {
 	var sc *storagev1.StorageClass
+
 	mcDefaultStorageClass, err := v.scService.GetModuleStorageClass(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to fetch a default storage class from module config")

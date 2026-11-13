@@ -110,6 +110,7 @@ func (s CreateBounderPodStep) isWFFC(ctx context.Context) (bool, error) {
 	}
 
 	scKey := types.NamespacedName{Name: *s.pvc.Spec.StorageClassName}
+
 	sc, err := object.FetchObject(ctx, scKey, s.client, &storagev1.StorageClass{})
 	if err != nil {
 		return false, fmt.Errorf("fetch storage class: %w", err)

@@ -35,16 +35,20 @@ import (
 
 func newNetworkObj(kind, name, namespace string, withPool bool) *unstructured.Unstructured {
 	u := &unstructured.Unstructured{}
+
 	switch kind {
 	case "ClusterNetwork":
 		u.SetGroupVersionKind(ClusterNetworkGVK)
 	case "Network":
 		u.SetGroupVersionKind(NetworkGVK)
 	}
+
 	u.SetName(name)
+
 	if namespace != "" {
 		u.SetNamespace(namespace)
 	}
+
 	if withPool {
 		Expect(unstructured.SetNestedField(u.Object, map[string]any{
 			"ipAddressPoolRef": map[string]any{
@@ -53,6 +57,7 @@ func newNetworkObj(kind, name, namespace string, withPool bool) *unstructured.Un
 			},
 		}, "spec", "ipam")).To(Succeed())
 	}
+
 	return u
 }
 
@@ -62,6 +67,7 @@ func newIPAMScheme() *apiruntime.Scheme {
 	_ = virtv1.AddToScheme(scheme)
 	scheme.AddKnownTypeWithName(NetworkGVK, &unstructured.Unstructured{})
 	_ = sdnapi.AddToScheme(scheme)
+
 	return scheme
 }
 
@@ -74,10 +80,12 @@ func newIPAMFakeClient(objs ...client.Object) client.Client {
 func newSDNIPAddressObj(name, vmUID, networkKind, networkName, address string, allocated bool) *sdnapi.IPAddress {
 	condStatus := metav1.ConditionFalse
 	phase := sdnapi.PhasePending
+
 	if allocated {
 		condStatus = metav1.ConditionTrue
 		phase = sdnapi.PhaseAllocated
 	}
+
 	return &sdnapi.IPAddress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,

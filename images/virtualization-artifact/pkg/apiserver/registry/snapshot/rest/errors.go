@@ -36,8 +36,10 @@ import (
 // keys on them (ImportContentNotBound in particular is a retry signal, not a failure). A StatusError from
 // a service is already a considered response, so it is never re-derived here.
 func apiError(resource, name string, err error) error {
-	var statusErr *k8serrors.StatusError
-	var serviceErr *nodeapi.StatusError
+	var (
+		statusErr  *k8serrors.StatusError
+		serviceErr *nodeapi.StatusError
+	)
 
 	switch {
 	case errors.As(err, &serviceErr):

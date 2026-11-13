@@ -80,6 +80,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	if useUnified {
 		// Owned by the unified-snapshotter SDK-based controller, which carries the mirror-image guard
 		// over this same routing.

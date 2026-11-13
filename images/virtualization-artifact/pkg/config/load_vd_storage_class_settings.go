@@ -36,10 +36,12 @@ type VirtualDiskStorageClassSettings struct {
 
 func LoadVirtualDiskStorageClassSettings() (VirtualDiskStorageClassSettings, error) {
 	var allowedStorageClassNames []string
+
 	allowedStorageClassNamesRaw, exists := os.LookupEnv(VirtualDiskAllowedStorageClasses)
 	if exists && allowedStorageClassNamesRaw == "" {
 		return VirtualDiskStorageClassSettings{}, fmt.Errorf("%s is empty. Specify valid StorageClass names or remove the restriction", VirtualDiskAllowedStorageClasses)
 	}
+
 	if allowedStorageClassNamesRaw != "" {
 		allowedStorageClassNames = strings.Split(allowedStorageClassNamesRaw, ",")
 	}

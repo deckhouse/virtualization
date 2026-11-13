@@ -44,15 +44,18 @@ func IsNetworkSpecReady(ctx context.Context, c client.Client, namespace string, 
 	if netSpec.Type == v1alpha2.NetworksTypeMain {
 		return true, nil
 	}
+
 	obj, found, err := getNetworkObject(ctx, c, namespace, netSpec)
 	if err != nil || !found {
 		return false, err
 	}
+
 	if netSpec.Type == v1alpha2.NetworksTypeUnderlayNetwork {
 		// UnderlayNetwork has no Ready condition; InterfacesAvailable reflects
 		// whether the network has usable interfaces on nodes.
 		return isConditionTrue(obj, "InterfacesAvailable")
 	}
+
 	return isReadyTrue(obj)
 }
 
@@ -65,27 +68,34 @@ func isConditionTrue(obj *unstructured.Unstructured, condType string) (bool, err
 	if err != nil {
 		return false, fmt.Errorf("read status.conditions of %s/%s: %w", obj.GetKind(), obj.GetName(), err)
 	}
+
 	if !found {
 		return false, nil
 	}
+
 	for _, c := range conds {
 		condMap, ok := c.(map[string]any)
 		if !ok {
 			continue
 		}
+
 		typ, _, err := unstructured.NestedString(condMap, "type")
 		if err != nil {
 			return false, fmt.Errorf("read condition.type of %s/%s: %w", obj.GetKind(), obj.GetName(), err)
 		}
+
 		if typ != condType {
 			continue
 		}
+
 		status, _, err := unstructured.NestedString(condMap, "status")
 		if err != nil {
 			return false, fmt.Errorf("read %s condition.status of %s/%s: %w", condType, obj.GetKind(), obj.GetName(), err)
 		}
+
 		return status == string(metav1.ConditionTrue), nil
 	}
+
 	return false, nil
 }
 
@@ -96,10 +106,12 @@ func HasIPAM(ctx context.Context, c client.Client, namespace string, netSpec v1a
 	if netSpec.Type == v1alpha2.NetworksTypeMain {
 		return false, nil
 	}
+
 	obj, found, err := getNetworkObject(ctx, c, namespace, netSpec)
 	if err != nil || !found {
 		return false, err
 	}
+
 	return hasIPAddressPoolRef(obj)
 }
 
@@ -108,24 +120,29 @@ func HasIPAM(ctx context.Context, c client.Client, namespace string, netSpec v1a
 // when the network does not exist. The Main network is handled by the caller.
 func getNetworkObject(ctx context.Context, c client.Client, namespace string, netSpec v1alpha2.NetworksSpec) (*unstructured.Unstructured, bool, error) {
 	obj := &unstructured.Unstructured{}
+
 	key := types.NamespacedName{Name: netSpec.Name}
 	switch netSpec.Type {
 	case v1alpha2.NetworksTypeClusterNetwork:
 		obj.SetGroupVersionKind(ClusterNetworkGVK)
 	case v1alpha2.NetworksTypeNetwork:
 		obj.SetGroupVersionKind(NetworkGVK)
+
 		key.Namespace = namespace
 	case v1alpha2.NetworksTypeUnderlayNetwork:
 		obj.SetGroupVersionKind(UnderlayNetworkGVK)
 	default:
 		return nil, false, nil
 	}
+
 	if err := c.Get(ctx, key, obj); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil, false, nil
 		}
+
 		return nil, false, fmt.Errorf("get %s %s: %w", obj.GetKind(), netSpec.Name, err)
 	}
+
 	return obj, true, nil
 }
 
@@ -136,12 +153,15 @@ func hasIPAddressPoolRef(obj *unstructured.Unstructured) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("read spec.ipam.ipAddressPoolRef of %s/%s: %w", obj.GetKind(), obj.GetName(), err)
 	}
+
 	if !found {
 		return false, nil
 	}
+
 	name, _, err := unstructured.NestedString(poolRef, "name")
 	if err != nil {
 		return false, fmt.Errorf("read spec.ipam.ipAddressPoolRef.name of %s/%s: %w", obj.GetKind(), obj.GetName(), err)
 	}
+
 	return name != "", nil
 }

@@ -107,6 +107,7 @@ func (s WaitForPVCImportStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.Provisioning).
 			Message("Waiting for the underlying PersistentVolumeClaim to be created.")
+
 		return &reconcile.Result{}, nil
 	}
 
@@ -121,12 +122,14 @@ func (s WaitForPVCImportStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk
 	if err != nil {
 		return nil, err
 	}
+
 	if waiting {
 		vd.Status.Phase = v1alpha2.DiskWaitForFirstConsumer
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.WaitingForFirstConsumer).
 			Message("Awaiting the scheduling of the VirtualMachine with the attached VirtualDisk.")
+
 		return &reconcile.Result{}, nil
 	}
 
@@ -143,6 +146,7 @@ func (s WaitForPVCImportStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk
 	case corev1.PodFailed:
 		vd.Status.Phase = v1alpha2.DiskFailed
 		s.cb.Status(metav1.ConditionFalse).Reason(vdcondition.ProvisioningFailed).Message(podFailureMessage(pod))
+
 		return &reconcile.Result{}, nil
 	default:
 		// The importer pod runs with RestartPolicy: OnFailure, so it never reaches PodFailed:
@@ -152,6 +156,7 @@ func (s WaitForPVCImportStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk
 		if failure := monitoring.PermanentFailureFromPod(pod); failure != "" {
 			vd.Status.Phase = v1alpha2.DiskFailed
 			s.cb.Status(metav1.ConditionFalse).Reason(vdcondition.ProvisioningFailed).Message(service.CapitalizeFirstLetter(failure))
+
 			return &reconcile.Result{}, nil
 		}
 
@@ -184,6 +189,7 @@ func (s WaitForPVCImportStep) awaitingFirstConsumer(ctx context.Context, vd *v1a
 	if err != nil {
 		return false, err
 	}
+
 	if !wffc {
 		return false, nil
 	}
@@ -192,6 +198,7 @@ func (s WaitForPVCImportStep) awaitingFirstConsumer(ctx context.Context, vd *v1a
 	if err != nil {
 		return false, err
 	}
+
 	return nodePlacement == nil || nodePlacement.Node == "", nil
 }
 
@@ -199,9 +206,11 @@ func (s WaitForPVCImportStep) pvcImportPodPhase(pod *corev1.Pod) corev1.PodPhase
 	if s.pvc.Annotations[annotations.AnnPVCPopulationDone] == "true" {
 		return corev1.PodSucceeded
 	}
+
 	if pod == nil || pod.Status.Phase == "" {
 		return corev1.PodPending
 	}
+
 	return pod.Status.Phase
 }
 
@@ -213,6 +222,7 @@ func podFailureMessage(pod *corev1.Pod) string {
 	if err == nil && report != nil && report.ErrMessage != "" {
 		return service.CapitalizeFirstLetter(report.ErrMessage)
 	}
+
 	return "VirtualDisk importer Pod failed."
 }
 
@@ -228,6 +238,7 @@ func (s WaitForPVCImportStep) refreshProgressFromPod(pod *corev1.Pod, vd *v1alph
 	if s.progressScale != nil {
 		opts = append(opts, s.progressScale)
 	}
+
 	vd.Status.Progress = s.stat.GetProgress(vd.GetUID(), pod, vd.Status.Progress, opts...)
 	vd.Status.Progress = servicestat.CapProgressBelow(vd.Status.Progress, 100)
 }
@@ -237,6 +248,7 @@ func (s WaitForPVCImportStep) fetchPVCImportPod(ctx context.Context, vd *v1alpha
 	if s.pvc.Annotations[annotations.AnnPVCPopulationStrategy] == service.PopulationStrategyHostAssigned {
 		return object.FetchObject(ctx, types.NamespacedName{Name: sup.PVCTargetImporterPod().Name, Namespace: s.pvc.Namespace}, s.client, &corev1.Pod{})
 	}
+
 	return object.FetchObject(ctx, types.NamespacedName{Name: sup.PVCImporterPod().Name, Namespace: s.pvc.Namespace}, s.client, &corev1.Pod{})
 }
 
@@ -260,10 +272,12 @@ func DVCRPodPVCImportSource(pod *corev1.Pod, stat interface {
 		if pod == nil {
 			return nil, nil
 		}
+
 		dvcrImageName := stat.GetDVCRImageName(pod)
 		if dvcrImageName == "" {
 			return nil, nil
 		}
+
 		return BuildDVCRPVCImportSource(vd, dvcrImageName), nil
 	}
 }
@@ -278,14 +292,18 @@ func ClusterVirtualImagePVCImportSource(c client.Client) PVCImportSourceProvider
 		if vd.Spec.DataSource == nil || vd.Spec.DataSource.ObjectRef == nil {
 			return nil, nil
 		}
+
 		key := types.NamespacedName{Name: vd.Spec.DataSource.ObjectRef.Name}
+
 		cviRef, err := object.FetchObject(ctx, key, c, &v1alpha2.ClusterVirtualImage{})
 		if err != nil {
 			return nil, fmt.Errorf("fetch cvi %q: %w", key, err)
 		}
+
 		if cviRef == nil {
 			return nil, nil
 		}
+
 		return BuildClusterVirtualImagePVCImportSource(vd, cviRef), nil
 	}
 }
@@ -300,14 +318,18 @@ func VirtualImagePVCImportSource(c client.Client) PVCImportSourceProvider {
 		if vd.Spec.DataSource == nil || vd.Spec.DataSource.ObjectRef == nil {
 			return nil, nil
 		}
+
 		key := types.NamespacedName{Name: vd.Spec.DataSource.ObjectRef.Name, Namespace: vd.Namespace}
+
 		viRef, err := object.FetchObject(ctx, key, c, &v1alpha2.VirtualImage{})
 		if err != nil {
 			return nil, fmt.Errorf("fetch vi %q: %w", key, err)
 		}
+
 		if viRef == nil {
 			return nil, nil
 		}
+
 		return BuildVirtualImagePVCImportSource(vd, viRef)
 	}
 }

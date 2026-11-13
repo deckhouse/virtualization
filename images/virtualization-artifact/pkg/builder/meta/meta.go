@@ -51,6 +51,7 @@ func WithLabel[T client.Object](key, value string) func(obj T) {
 		if labels == nil {
 			labels = make(map[string]string)
 		}
+
 		labels[key] = value
 		obj.SetLabels(labels)
 	}
@@ -68,6 +69,7 @@ func WithAnnotation[T client.Object](key, value string) func(obj T) {
 		if annotations == nil {
 			annotations = make(map[string]string)
 		}
+
 		annotations[key] = value
 		obj.SetAnnotations(annotations)
 	}

@@ -83,6 +83,7 @@ func GenerateDiskName(kind v1alpha2.BlockDeviceKind, name string) string {
 	case v1alpha2.ClusterImageDevice:
 		return GenerateCVIDiskName(name)
 	}
+
 	return ""
 }
 
@@ -97,6 +98,7 @@ func GenerateVMBDADiskName(ref v1alpha2.VMBDAObjectRef) string {
 	case v1alpha2.VMBDAObjectRefKindClusterVirtualImage:
 		return GenerateCVIDiskName(ref.Name)
 	}
+
 	return ""
 }
 
@@ -133,6 +135,7 @@ func (r *VolumeNameResolver) Resolve(volumeName string) (string, v1alpha2.BlockD
 	if nk, ok := r.byVolumeName[volumeName]; ok {
 		return nk.name, nk.kind
 	}
+
 	return GetOriginalDiskName(volumeName)
 }
 
@@ -159,9 +162,11 @@ func shortenDiskName(name string, budget int) string {
 	if maxReadable := budget - 1 - len(suffix); len(readable) > maxReadable {
 		readable = strings.TrimRight(readable[:maxReadable], "-")
 	}
+
 	if readable == "" {
 		return suffix
 	}
+
 	return readable + "-" + suffix
 }
 
@@ -171,6 +176,7 @@ func shortenDiskName(name string, budget int) string {
 func sanitizeLabel(s string) string {
 	var b strings.Builder
 	b.Grow(len(s))
+
 	for _, r := range s {
 		switch {
 		case r >= 'a' && r <= 'z', r >= '0' && r <= '9', r == '-':
@@ -179,6 +185,7 @@ func sanitizeLabel(s string) string {
 			b.WriteByte('-')
 		}
 	}
+
 	return b.String()
 }
 
@@ -205,6 +212,7 @@ func VirtualDiskSerial(vd *v1alpha2.VirtualDisk) string {
 	if serial := vd.GetAnnotations()[annotations.AnnVDSerial]; serial != "" {
 		return serial
 	}
+
 	return GenerateSerialFromObject(vd)
 }
 
@@ -212,6 +220,7 @@ func GenerateSerial(input string) string {
 	hasher := md5.New()
 	hasher.Write([]byte(input))
 	hashInBytes := hasher.Sum(nil)
+
 	return hex.EncodeToString(hashInBytes)
 }
 
@@ -229,15 +238,19 @@ func ApplyVirtualMachineSpec(
 	if err := kvvm.SetRunPolicy(vm.Spec.RunPolicy); err != nil {
 		return err
 	}
+
 	if err := kvvm.SetOSType(vm.Spec.OsType); err != nil {
 		return err
 	}
+
 	if err := kvvm.SetBootloader(vm.Spec.Bootloader); err != nil {
 		return err
 	}
+
 	if err := kvvm.SetCPUModel(class); err != nil {
 		return err
 	}
+
 	keepRunningCPUFeatures(kvvm, kvvmi)
 
 	kvvm.SetUSBMigrationStrategy()
@@ -257,6 +270,7 @@ func ApplyVirtualMachineSpec(
 	kvvm.SetTerminationGracePeriod(vm.Spec.TerminationGracePeriodSeconds)
 	kvvm.SetTopologySpreadConstraint(vm.Spec.TopologySpreadConstraints)
 	kvvm.SetMemory(vm.Spec.Memory.Size)
+
 	if err := kvvm.SetCPU(vm.Spec.CPU.Cores, vm.Spec.CPU.CoreFraction); err != nil {
 		return err
 	}
@@ -321,6 +335,7 @@ func applyBlockDeviceRefs(
 	isParavirtualizationEnabled := vm.Spec.IsParavirtualizationEnabled() && vm.Spec.OsType != v1alpha2.LegacyOs
 
 	hasExplicitBootOrder := false
+
 	for _, bd := range vm.Spec.BlockDeviceRefs {
 		if bd.BootOrder != nil {
 			hasExplicitBootOrder = true
@@ -332,12 +347,14 @@ func applyBlockDeviceRefs(
 	for _, bd := range vm.Spec.BlockDeviceRefs {
 		specDiskNames[GenerateDiskName(bd.Kind, bd.Name)] = struct{}{}
 	}
+
 	hotpluggableVolumes := make(map[string]struct{}, len(kvvm.Resource.Spec.Template.Spec.Volumes))
 	for _, v := range kvvm.Resource.Spec.Template.Spec.Volumes {
 		if v.ContainerDisk != nil && v.ContainerDisk.Hotpluggable || v.PersistentVolumeClaim != nil && v.PersistentVolumeClaim.Hotpluggable {
 			hotpluggableVolumes[v.Name] = struct{}{}
 		}
 	}
+
 	vmbdaDiskNames := make(map[string]struct{}, len(vmbdaByBlockDeviceRef))
 	for ref := range vmbdaByBlockDeviceRef {
 		diskName := GenerateDiskName(v1alpha2.BlockDeviceKind(ref.Kind), ref.Name)
@@ -358,6 +375,7 @@ func applyBlockDeviceRefs(
 		}
 
 		var kvBootOrder uint
+
 		if hasExplicitBootOrder {
 			if bd.BootOrder != nil {
 				kvBootOrder = *bd.BootOrder
@@ -389,15 +407,18 @@ func applyBlockDeviceRefs(
 // across reconciles.
 func setExtraPVCsAnnotation(kvvm *KVVM) {
 	var names []string
+
 	for _, v := range kvvm.Resource.Spec.Template.Spec.Volumes {
 		if v.PersistentVolumeClaim != nil && v.PersistentVolumeClaim.Hotpluggable {
 			names = append(names, v.PersistentVolumeClaim.ClaimName)
 		}
 	}
+
 	if len(names) == 0 {
 		kvvm.RemoveKVVMIAnnotation(annotations.AnnSchedulerExtraPVCs)
 		return
 	}
+
 	slices.Sort(names)
 	kvvm.SetKVVMIAnnotation(annotations.AnnSchedulerExtraPVCs, strings.Join(slices.Compact(names), ","))
 }
@@ -411,12 +432,15 @@ func detectDiskNameCollisions(vm *v1alpha2.VirtualMachine, vmbdaByBlockDeviceRef
 		if diskName == "" {
 			return nil
 		}
+
 		cur := nameKind{name: name, kind: kind}
 		if prev, ok := owners[diskName]; ok && prev != cur {
 			return fmt.Errorf("%s %q and %s %q resolve to the same internal disk name and cannot be attached to the same virtual machine; recreate one of them with a different name",
 				prev.kind, prev.name, kind, name)
 		}
+
 		owners[diskName] = cur
+
 		return nil
 	}
 
@@ -425,11 +449,13 @@ func detectDiskNameCollisions(vm *v1alpha2.VirtualMachine, vmbdaByBlockDeviceRef
 			return err
 		}
 	}
+
 	for ref := range vmbdaByBlockDeviceRef {
 		if err := check(v1alpha2.BlockDeviceKind(ref.Kind), ref.Name); err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -451,6 +477,7 @@ func cleanupRemovedStaticDisks(kvvm *KVVM, specDiskNames, hotpluggableVolumes, v
 		if !isVmRunning {
 			return kind != "" && !inSpec
 		}
+
 		return kind != "" && !inSpec && !hotpluggable
 	}
 
@@ -493,6 +520,7 @@ func syncAttachedVMBDAHotplugVolumes(
 			if restoring && !allBeingDeleted(vmbdas) {
 				missing[diskName] = struct{}{}
 			}
+
 			continue
 		}
 
@@ -569,11 +597,13 @@ func allBeingDeleted(vmbdas []*v1alpha2.VirtualMachineBlockDeviceAttachment) boo
 	if len(vmbdas) == 0 {
 		return false
 	}
+
 	for _, vmbda := range vmbdas {
 		if vmbda != nil && vmbda.GetDeletionTimestamp() == nil {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -589,11 +619,13 @@ func setBlockDeviceDisk(
 		if !ok || vi == nil {
 			return fmt.Errorf("unexpected error: virtual image %q should exist in the cluster; please recreate it", bd.Name)
 		}
+
 		opts := SetDiskOptions{
 			Serial:       GenerateSerialFromObject(vi),
 			BootOrder:    bootOrder,
 			IsHotplugged: hotpluggable,
 		}
+
 		opts.IsCdrom = imageformat.IsISO(vi.Status.Format)
 		switch vi.Spec.Storage {
 		case v1alpha2.StorageKubernetes, v1alpha2.StoragePersistentVolumeClaim:
@@ -606,6 +638,7 @@ func setBlockDeviceDisk(
 		default:
 			return fmt.Errorf("unexpected storage type %q for vi %s. %w", vi.Spec.Storage, vi.Name, common.ErrUnknownType)
 		}
+
 		return kvvm.SetDisk(GenerateVIDiskName(bd.Name), opts)
 
 	case v1alpha2.ClusterImageDevice:
@@ -613,6 +646,7 @@ func setBlockDeviceDisk(
 		if !ok || cvi == nil {
 			return fmt.Errorf("unexpected error: cluster virtual image %q should exist in the cluster; please recreate it", bd.Name)
 		}
+
 		return kvvm.SetDisk(GenerateCVIDiskName(bd.Name), SetDiskOptions{
 			ContainerDisk: ptr.To(cvi.Status.Target.RegistryURL),
 			IsCdrom:       imageformat.IsISO(cvi.Status.Format),
@@ -626,9 +660,11 @@ func setBlockDeviceDisk(
 		if !ok || vd == nil {
 			return fmt.Errorf("unexpected error: virtual disk %q should exist in the cluster; please recreate it", bd.Name)
 		}
+
 		if vd.Status.Target.PersistentVolumeClaim == "" {
 			return nil
 		}
+
 		return kvvm.SetDisk(GenerateVDDiskName(bd.Name), SetDiskOptions{
 			PersistentVolumeClaim: ptr.To(vd.Status.Target.PersistentVolumeClaim),
 			Serial:                VirtualDiskSerial(vd),
@@ -682,11 +718,13 @@ func setVMBDABlockDeviceDisk(
 		if vi, ok := viByName[ref.Name]; !ok || vi == nil {
 			return nil
 		}
+
 		return setBlockDeviceDisk(kvvm, v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.ImageDevice, Name: ref.Name}, 0, true, vdByName, viByName, cviByName)
 	case v1alpha2.VMBDAObjectRefKindClusterVirtualImage:
 		if cvi, ok := cviByName[ref.Name]; !ok || cvi == nil {
 			return nil
 		}
+
 		return setBlockDeviceDisk(kvvm, v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.ClusterImageDevice, Name: ref.Name}, 0, true, vdByName, viByName, cviByName)
 	default:
 		return fmt.Errorf("unknown VMBDA block device kind %q. %w", ref.Kind, common.ErrUnknownType)
@@ -715,15 +753,19 @@ func shouldUseTargetPVC(vd *v1alpha2.VirtualDisk, vds map[string]*v1alpha2.Virtu
 	if !vdmigration.IsMigrating(vd) {
 		return false
 	}
+
 	if !vd.GetDeletionTimestamp().IsZero() {
 		return vdmigration.IsWaitingForSourceRelease(vd) || !vdmigration.IsRevertedByOtherDisks(vd, vds, now)
 	}
+
 	return !vdmigration.IsWaitingForTargetRelease(vd) || !vdmigration.IsMigrationReverting(vds)
 }
 
 func ApplyMigrationVolumes(kvvm *KVVM, vm *v1alpha2.VirtualMachine, vdsByName map[string]*v1alpha2.VirtualDisk) error {
 	bootOrder := uint(1)
+
 	var updateVolumesStrategy *virtv1.UpdateVolumesStrategy = nil
+
 	now := time.Now()
 
 	for _, bd := range vm.Status.BlockDeviceRefs {
@@ -731,6 +773,7 @@ func ApplyMigrationVolumes(kvvm *KVVM, vm *v1alpha2.VirtualMachine, vdsByName ma
 			if !bd.Hotplugged {
 				bootOrder++
 			}
+
 			continue
 		}
 
@@ -744,11 +787,13 @@ func ApplyMigrationVolumes(kvvm *KVVM, vm *v1alpha2.VirtualMachine, vdsByName ma
 			pvcName = vd.Status.MigrationState.TargetPVC
 			updateVolumesStrategy = ptr.To(virtv1.UpdateVolumesStrategyMigration)
 		}
+
 		if pvcName == "" {
 			continue
 		}
 
 		name := GenerateVDDiskName(bd.Name)
+
 		opts := SetDiskOptions{
 			PersistentVolumeClaim: ptr.To(pvcName),
 			Serial:                VirtualDiskSerial(vd),
@@ -758,6 +803,7 @@ func ApplyMigrationVolumes(kvvm *KVVM, vm *v1alpha2.VirtualMachine, vdsByName ma
 			opts.BootOrder = bootOrder
 			bootOrder++
 		}
+
 		if err := kvvm.SetDisk(name, opts); err != nil {
 			return err
 		}
@@ -773,17 +819,22 @@ func setNetwork(kvvm *KVVM, networkSpec network.InterfaceSpecList, kvvmi *virtv1
 	// host device backed by a DRA resource claim, so they are reconciled separately
 	// and excluded from the interface bookkeeping below.
 	var tapSpec, underlaySpec network.InterfaceSpecList
+
 	for _, n := range networkSpec {
 		if n.Type == v1alpha2.NetworksTypeUnderlayNetwork {
 			underlaySpec = append(underlaySpec, n)
 			continue
 		}
+
 		tapSpec = append(tapSpec, n)
 	}
+
 	kvvm.SetUnderlayNetworkDevices(underlaySpec)
+
 	networkSpec = withoutNetworksAwaitingDetach(tapSpec, kvvmi)
 
 	desiredByName := make(map[string]struct{}, len(networkSpec))
+
 	desiredACPIIndexes := make(map[int]struct{}, len(networkSpec))
 	for _, n := range networkSpec {
 		desiredByName[n.InterfaceName] = struct{}{}
@@ -794,6 +845,7 @@ func setNetwork(kvvm *KVVM, networkSpec network.InterfaceSpecList, kvvmi *virtv1
 		if _, wanted := desiredByName[iface.Name]; wanted {
 			continue
 		}
+
 		if iface.Name == network.NameDefaultInterface {
 			kvvm.RemoveNetworkInterface(iface.Name)
 			continue
@@ -809,6 +861,7 @@ func setNetwork(kvvm *KVVM, networkSpec network.InterfaceSpecList, kvvmi *virtv1
 			kvvm.RemoveNetworkInterface(iface.Name)
 			continue
 		}
+
 		kvvm.SetNetworkInterfaceAbsent(iface.Name)
 	}
 
@@ -837,6 +890,7 @@ func withoutNetworksAwaitingDetach(specs network.InterfaceSpecList, kvvmi *virtv
 	if kvvmi == nil {
 		return specs
 	}
+
 	return slices.DeleteFunc(specs, func(spec network.InterfaceSpec) bool {
 		return spec.ID != 0 && slices.ContainsFunc(kvvmi.Spec.Domain.Devices.Interfaces, func(iface virtv1.Interface) bool {
 			return iface.ACPIIndex == spec.ID && iface.Name != spec.InterfaceName
@@ -870,11 +924,14 @@ func setNetworksAnnotation(kvvm *KVVM, networkSpec network.InterfaceSpecList) er
 	if err != nil {
 		return err
 	}
+
 	for k, v := range annotationsToSet {
 		kvvm.SetKVVMIAnnotation(k, v)
 	}
+
 	for _, k := range annotationsToRemove {
 		kvvm.RemoveKVVMIAnnotation(k)
 	}
+
 	return nil
 }

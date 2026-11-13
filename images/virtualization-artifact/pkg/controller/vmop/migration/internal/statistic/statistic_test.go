@@ -38,6 +38,7 @@ func at(base time.Time, offset time.Duration) metav1.Time {
 func stand(base time.Time) *virtv1.VirtualMachineInstanceMigration {
 	start := at(base, 13*time.Second)
 	end := at(base, 17*time.Second)
+
 	return &virtv1.VirtualMachineInstanceMigration{
 		Status: virtv1.VirtualMachineInstanceMigrationStatus{
 			Phase: virtv1.MigrationSucceeded,
@@ -115,6 +116,7 @@ func TestStagesWaitingIsBothQueues(t *testing.T) {
 		t.Errorf("preparing: expected 4s of getting the target ready, got %s",
 			got[vmmetrics.MigrationStagePreparing])
 	}
+
 	if got[vmmetrics.MigrationStageWaiting] != 50*time.Second {
 		t.Errorf("waiting: expected 10s before the pod plus 40s for a slot, got %s",
 			got[vmmetrics.MigrationStageWaiting])
@@ -129,6 +131,7 @@ func TestStagesWithoutATargetPodFallsBackToThePhase(t *testing.T) {
 		t.Errorf("preparing must be absent without a target pod, got %s",
 			got[vmmetrics.MigrationStagePreparing])
 	}
+
 	if got[vmmetrics.MigrationStageWaiting] != 7*time.Second {
 		t.Errorf("waiting falls back to the queue before Scheduling, expected 7s, got %s",
 			got[vmmetrics.MigrationStageWaiting])
@@ -137,6 +140,7 @@ func TestStagesWithoutATargetPodFallsBackToThePhase(t *testing.T) {
 
 func TestStagesSkipsWhatNeverHappened(t *testing.T) {
 	base := time.Date(2026, 9, 5, 18, 0, 0, 0, time.UTC)
+
 	mig := &virtv1.VirtualMachineInstanceMigration{
 		Status: virtv1.VirtualMachineInstanceMigrationStatus{
 			Phase: virtv1.MigrationFailed,
@@ -154,22 +158,26 @@ func TestStagesSkipsWhatNeverHappened(t *testing.T) {
 func TestObserveMigrationCountsOnlyTheTransitionToFinal(t *testing.T) {
 	base := time.Date(2026, 9, 5, 18, 7, 5, 0, time.UTC)
 	mig := stand(base)
+
 	vmmetrics.MigrationDuration.Reset()
 
 	inProgress := vmopAt(base, v1alpha2.VMOPPhaseInProgress)
 	completed := vmopAt(base, v1alpha2.VMOPPhaseCompleted)
 
 	observeMigration(inProgress, inProgress, mig, nil)
+
 	if got := transfers(t); got != 0 {
 		t.Fatalf("a migration in progress must not be counted, got %d", got)
 	}
 
 	observeMigration(inProgress, completed, mig, nil)
+
 	if got := transfers(t); got != 1 {
 		t.Fatalf("expected the finished migration to be counted once, got %d", got)
 	}
 
 	observeMigration(completed, completed, mig, nil)
+
 	if got := transfers(t); got != 1 {
 		t.Fatalf("expected no second observation, got %d", got)
 	}
@@ -182,13 +190,16 @@ func transfers(t *testing.T) uint64 {
 
 func count(t *testing.T, migrationType, stage, result string) uint64 {
 	t.Helper()
+
 	h, err := vmmetrics.MigrationDuration.GetMetricWithLabelValues(migrationType, stage, result)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	m := &dto.Metric{}
 	if err := h.(prometheus.Metric).Write(m); err != nil {
 		t.Fatal(err)
 	}
+
 	return m.GetHistogram().GetSampleCount()
 }

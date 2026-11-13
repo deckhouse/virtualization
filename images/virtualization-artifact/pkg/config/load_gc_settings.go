@@ -46,22 +46,26 @@ type BaseGcSettings struct {
 
 func LoadGcSettings() (GCSettings, error) {
 	var gcSettings GCSettings
+
 	base, err := GetBaseGCSettingsFromEnv(GcVmopScheduleVar, GcVmopTTLVar)
 	if err != nil {
 		return gcSettings, err
 	}
+
 	gcSettings.VMOP = base
 
 	base, err = GetBaseGCSettingsFromEnv(GcVMIMigrationScheduleVar, GcVMIMigrationTTLVar)
 	if err != nil {
 		return gcSettings, err
 	}
+
 	gcSettings.VMIMigration = base
 
 	base, err = GetBaseGCSettingsFromEnv(GcVMPodScheduleVar, GcVMPodTTLVar)
 	if err != nil {
 		return gcSettings, err
 	}
+
 	gcSettings.VMPod = base
 
 	return gcSettings, nil
@@ -72,16 +76,20 @@ func GetBaseGCSettingsFromEnv(envSchedule, envTTL string) (BaseGcSettings, error
 	if v, ok := os.LookupEnv(envSchedule); ok {
 		base.Schedule = v
 	}
+
 	if v, ok := os.LookupEnv(envTTL); ok {
 		t, err := time.ParseDuration(v)
 		if err != nil {
 			return BaseGcSettings{}, fmt.Errorf("invalid GC settings: %w", err)
 		}
+
 		if t == 0 {
 			return BaseGcSettings{}, fmt.Errorf("invalid GC settings: TTL cannot be 0: %w", err)
 		}
+
 		base.TTL = metav1.Duration{Duration: t}
 	}
+
 	return base, nil
 }
 

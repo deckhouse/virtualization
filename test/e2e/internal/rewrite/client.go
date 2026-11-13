@@ -61,6 +61,7 @@ func makeOptions(opts ...Option) options {
 	for _, opt := range opts {
 		opt(&o)
 	}
+
 	return o
 }
 

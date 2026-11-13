@@ -39,6 +39,7 @@ func NewCommand(load diff.Loader) *cobra.Command {
 			if err != nil {
 				return err
 			}
+
 			return report.Result(validate(info))
 		},
 	}
@@ -59,6 +60,7 @@ func validate(info *diff.DiffInfo) (exitCode int) {
 	}
 
 	msgs := report.NewMessages()
+
 	for _, fileInfo := range info.Files {
 		if !fileInfo.HasContent() {
 			continue
@@ -77,11 +79,13 @@ func validate(info *diff.DiffInfo) (exitCode int) {
 			msgs.Add(report.NewSkip(fileName, ""))
 		}
 	}
+
 	msgs.PrintReport()
 
 	if msgs.CountErrors() > 0 {
 		return 1
 	}
+
 	return 0
 }
 
@@ -125,6 +129,7 @@ RELEASE_NOTES.md is rendered from CHANGELOG/release-notes.yaml during the build.
 	} else {
 		otherFileName = strings.TrimSuffix(fName, ".md") + ".ru.md"
 	}
+
 	return checkRelatedFileExists(fName, otherFileName, diffInfo)
 }
 
@@ -141,6 +146,7 @@ func checkResourceFile(fName string, diffInfo *diff.DiffInfo) report.Message {
 	} else {
 		otherFileName = notDocRuResourceRe.ReplaceAllString(fName, `doc-ru-$1`)
 	}
+
 	return checkRelatedFileExists(fName, otherFileName, diffInfo)
 }
 
@@ -155,6 +161,7 @@ while related language file '%s' is absent.`, otherName))
 			return report.NewOK(origName)
 		}
 	}
+
 	return report.NewError(origName, "related not changed", fmt.Sprintf(`Documentation or resource file is changed
 while related language file '%s' is not changed`, otherName))
 }

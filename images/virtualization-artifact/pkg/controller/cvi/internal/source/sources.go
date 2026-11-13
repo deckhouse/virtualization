@@ -81,6 +81,7 @@ func (s Sources) CleanUp(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage)
 		}
 
 		requeue = requeue || sourceRequeue
+
 		reasons = append(reasons, sourceReason)
 	}
 
@@ -112,6 +113,7 @@ const retryPeriod = 1
 
 func setQuotaExceededPhaseCondition(cb *conditions.ConditionBuilder, phase *v1alpha2.ImagePhase, err error, creationTimestamp metav1.Time) reconcile.Result {
 	*phase = v1alpha2.ImageFailed
+
 	cb.Status(metav1.ConditionFalse).
 		Reason(cvicondition.ProvisioningFailed)
 
@@ -121,11 +123,13 @@ func setQuotaExceededPhaseCondition(cb *conditions.ConditionBuilder, phase *v1al
 	}
 
 	cb.Message(fmt.Sprintf("Quota exceeded: %s; Retry in %d minute.", err, retryPeriod))
+
 	return reconcile.Result{RequeueAfter: retryPeriod * time.Minute}
 }
 
 func setPhaseConditionToFailed(cbReady *conditions.ConditionBuilder, phase *v1alpha2.ImagePhase, err error) {
 	*phase = v1alpha2.ImageFailed
+
 	cbReady.Status(metav1.ConditionFalse).
 		Reason(cvicondition.ProvisioningFailed).
 		Message(service.CapitalizeFirstLetter(err.Error()))
@@ -140,12 +144,14 @@ func setPhaseConditionFromPodError(cb *conditions.ConditionBuilder, cvi *v1alpha
 			Status(metav1.ConditionFalse).
 			Reason(cvicondition.ProvisioningNotStarted).
 			Message(service.CapitalizeFirstLetter(err.Error() + "."))
+
 		return nil
 	case errors.Is(err, servicestat.ErrProvisioningFailed):
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(cvicondition.ProvisioningFailed).
 			Message(service.CapitalizeFirstLetter(err.Error() + "."))
+
 		return nil
 	default:
 		return err

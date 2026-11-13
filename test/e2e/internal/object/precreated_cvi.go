@@ -138,6 +138,7 @@ func FindPrecreatedClusterVirtualImage(name string) *v1alpha2.ClusterVirtualImag
 			return cvi
 		}
 	}
+
 	return nil
 }
 

@@ -54,6 +54,7 @@ func (w *USBDeviceWatcher) Watch(mgr manager.Manager, ctr controller.Controller)
 
 func (w *USBDeviceWatcher) enqueue(ctx context.Context, usbDevice *v1alpha2.USBDevice) []reconcile.Request {
 	var vms v1alpha2.VirtualMachineList
+
 	err := w.client.List(ctx, &vms, &client.ListOptions{
 		Namespace:     usbDevice.Namespace,
 		FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVMByUSBDevice, usbDevice.Name),

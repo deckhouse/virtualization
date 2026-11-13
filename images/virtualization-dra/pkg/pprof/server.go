@@ -55,8 +55,10 @@ func Run(ctx context.Context, addr string) error {
 	}
 
 	errCh := make(chan error, 1)
+
 	go func() {
 		log.Info("pprof server started", slog.String("addr", addr))
+
 		errCh <- srv.ListenAndServe()
 	}()
 
@@ -72,6 +74,7 @@ func Run(ctx context.Context, addr string) error {
 	if err := srv.Shutdown(shutdownCtx); err != nil && !errors.Is(err, context.DeadlineExceeded) {
 		return fmt.Errorf("pprof server shutdown failed: %w", err)
 	}
+
 	log.Info("pprof server stopped")
 
 	return nil

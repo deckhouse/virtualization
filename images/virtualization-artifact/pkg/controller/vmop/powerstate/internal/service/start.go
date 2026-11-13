@@ -41,10 +41,12 @@ type StartOperation struct {
 
 func (o StartOperation) Execute(ctx context.Context) error {
 	kvvm := &virtv1.VirtualMachine{}
+
 	err := o.client.Get(ctx, virtualMachineKeyByVmop(o.vmop), kvvm)
 	if err != nil {
 		return err
 	}
+
 	return kvvmutil.AddStartAnnotation(ctx, o.client, kvvm)
 }
 
@@ -62,6 +64,7 @@ func (o StartOperation) GetInProgressReason() vmopcondition.ReasonCompleted {
 
 func (o StartOperation) IsComplete(ctx context.Context) (bool, string, error) {
 	vm := &v1alpha2.VirtualMachine{}
+
 	err := o.client.Get(ctx, client.ObjectKey{Namespace: o.vmop.Namespace, Name: o.vmop.Spec.VirtualMachine}, vm)
 	if err != nil {
 		return false, "", client.IgnoreNotFound(err)

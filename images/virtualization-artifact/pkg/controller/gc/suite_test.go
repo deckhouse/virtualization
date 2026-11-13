@@ -57,6 +57,7 @@ func spawnFakeObjects(countNamespaces, countPerNamespace int, phase string, clie
 func newFakeQueue() *fakeQueue {
 	limiter := workqueue.DefaultTypedControllerRateLimiter[reconcile.Request]()
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig(limiter, workqueue.TypedRateLimitingQueueConfig[reconcile.Request]{Name: "test"})
+
 	return &fakeQueue{
 		TypedRateLimitingInterface: queue,
 	}
@@ -85,5 +86,6 @@ func newScheme() *apiruntime.Scheme {
 	} {
 		Expect(f(scheme)).To(Succeed())
 	}
+
 	return scheme
 }

@@ -71,6 +71,7 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 	if s.VirtualMachine().IsEmpty() {
 		return reconcile.Result{}, nil
 	}
+
 	current := s.VirtualMachine().Current()
 	changed := s.VirtualMachine().Changed()
 
@@ -86,6 +87,7 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 	}
 
 	bdState := NewBlockDeviceState(s)
+
 	err := bdState.Reload(ctx)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to reload blockdevice state: %w", err)
@@ -111,6 +113,7 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 	}
 
 	var shouldStop bool
+
 	shouldStop, err = h.handleBlockDeviceLimit(ctx, changed)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -171,6 +174,7 @@ func (h *BlockDeviceHandler) handleBlockDeviceConflicts(ctx context.Context, s s
 			Message(conflictWarning).
 			Generation(changed.Generation)
 		conditions.SetCondition(cd, &changed.Status.Conditions)
+
 		return true, nil
 	}
 
@@ -194,6 +198,7 @@ func (h *BlockDeviceHandler) handleBlockDeviceLimit(ctx context.Context, vm *v1a
 				Generation(vm.Generation),
 			&vm.Status.Conditions,
 		)
+
 		return true, nil
 	}
 
@@ -254,6 +259,7 @@ func (h *BlockDeviceHandler) updateFinalizers(ctx context.Context, vm *v1alpha2.
 	if vm == nil {
 		return fmt.Errorf("VM is empty")
 	}
+
 	for _, bd := range vm.Spec.BlockDeviceRefs {
 		switch bd.Kind {
 		case v1alpha2.ImageDevice:
@@ -278,6 +284,7 @@ func (h *BlockDeviceHandler) updateFinalizers(ctx context.Context, vm *v1alpha2.
 			return fmt.Errorf("unexpected block device kind %q. %w", bd.Kind, common.ErrUnknownType)
 		}
 	}
+
 	return nil
 }
 
@@ -306,14 +313,17 @@ func (s *BlockDevicesState) Reload(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
 	ciByName, err := s.s.ClusterVirtualImagesByName(ctx)
 	if err != nil {
 		return err
 	}
+
 	vdByName, err := s.s.VirtualDisksByName(ctx)
 	if err != nil {
 		return err
 	}
+
 	vmbdaByRef, err := s.s.VirtualMachineBlockDeviceAttachments(ctx)
 	if err != nil {
 		return err
@@ -331,16 +341,20 @@ func (s *BlockDevicesState) Reload(ctx context.Context) error {
 		if ref.Kind != v1alpha2.VMBDAObjectRefKindVirtualDisk {
 			continue
 		}
+
 		if _, ok := vdByName[ref.Name]; ok {
 			continue
 		}
+
 		if !anyVMBDAAttached(vmbdas) {
 			continue
 		}
+
 		vd, err := s.s.VirtualDisk(ctx, ref.Name)
 		if err != nil {
 			return err
 		}
+
 		if vd != nil {
 			vdByName[ref.Name] = vd
 		}
@@ -350,6 +364,7 @@ func (s *BlockDevicesState) Reload(ctx context.Context) error {
 	s.CVIByName = ciByName
 	s.VDByName = vdByName
 	s.VMBDAByBlockDeviceRef = vmbdaByRef
+
 	return nil
 }
 
@@ -359,5 +374,6 @@ func anyVMBDAAttached(vmbdas []*v1alpha2.VirtualMachineBlockDeviceAttachment) bo
 			return true
 		}
 	}
+
 	return false
 }

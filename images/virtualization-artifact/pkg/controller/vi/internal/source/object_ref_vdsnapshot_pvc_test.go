@@ -112,6 +112,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot PersistentVolumeClaim", func() 
 				if pvc != nil && pvc.Name != "" {
 					return pvc, nil
 				}
+
 				return nil, nil
 			},
 			GetVolumeAndAccessModesFunc: func(_ context.Context, _ *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {

@@ -93,6 +93,7 @@ func (c *DefaultImageChecker) remoteOptions(ctx context.Context) ([]remote.Optio
 	// Fetch authentication credentials from Secret if configured
 	if c.dvcrSettings.AuthSecret != "" {
 		secret := &corev1.Secret{}
+
 		err := c.client.Get(ctx, types.NamespacedName{
 			Name:      c.dvcrSettings.AuthSecret,
 			Namespace: c.dvcrSettings.AuthSecretNamespace,
@@ -112,8 +113,10 @@ func (c *DefaultImageChecker) remoteOptions(ctx context.Context) ([]remote.Optio
 
 	// Fetch CA certificate from Secret if configured
 	var caCert []byte
+
 	if c.dvcrSettings.CertsSecret != "" {
 		secret := &corev1.Secret{}
+
 		err := c.client.Get(ctx, types.NamespacedName{
 			Name:      c.dvcrSettings.CertsSecret,
 			Namespace: c.dvcrSettings.CertsSecretNamespace,
@@ -124,6 +127,7 @@ func (c *DefaultImageChecker) remoteOptions(ctx context.Context) ([]remote.Optio
 		}
 
 		var ok bool
+
 		caCert, ok = secret.Data["ca.crt"]
 		if !ok {
 			return nil, fmt.Errorf("ca.crt not found in secret %s/%s",
@@ -133,11 +137,13 @@ func (c *DefaultImageChecker) remoteOptions(ctx context.Context) ([]remote.Optio
 
 	// Configure TLS based on CA certificate or insecure flag
 	var tlsConfig *tls.Config
+
 	if len(caCert) > 0 {
 		certPool := x509.NewCertPool()
 		if !certPool.AppendCertsFromPEM(caCert) {
 			return nil, fmt.Errorf("failed to append CA certificate to pool")
 		}
+
 		tlsConfig = &tls.Config{
 			RootCAs: certPool,
 		}

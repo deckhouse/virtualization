@@ -65,17 +65,20 @@ var _ = Describe("LifeCycleHandler Handle", func() {
 		vi := &v1alpha2.VirtualImage{}
 		vi.Name = "bd"
 		vi.Namespace = "default"
+
 		vi.Spec.Storage = storage
 		if storage == v1alpha2.StorageContainerRegistry {
 			vi.Status.Target.RegistryURL = "dvcr.example.com/vi/bd"
 		} else {
 			vi.Status.Target.PersistentVolumeClaim = "pvc"
 		}
+
 		return vi
 	}
 
 	BeforeEach(func() {
 		var err error
+
 		fakeClient, err = testutil.NewFakeClientWithObjects()
 		Expect(err).NotTo(HaveOccurred())
 
@@ -110,6 +113,7 @@ var _ = Describe("LifeCycleHandler Handle", func() {
 				vd.Name = "bd"
 				vd.Namespace = "default"
 				vd.Status.Target.PersistentVolumeClaim = "pvc"
+
 				return vd, nil
 			},
 			GetVirtualImageFunc: func(_ context.Context, _, _ string) (*v1alpha2.VirtualImage, error) {
@@ -119,6 +123,7 @@ var _ = Describe("LifeCycleHandler Handle", func() {
 				cvi := &v1alpha2.ClusterVirtualImage{}
 				cvi.Name = "bd"
 				cvi.Status.Target.RegistryURL = "dvcr.example.com/cvi/bd"
+
 				return cvi, nil
 			},
 			GetPersistentVolumeClaimFunc: func(_ context.Context, _ *service.AttachmentDisk) (*corev1.PersistentVolumeClaim, error) {
@@ -144,6 +149,7 @@ var _ = Describe("LifeCycleHandler Handle", func() {
 
 	It("should wait when the disk was given to another virtual machine right before the attachment request", func() {
 		vmbdaBuilder.ApplyOptions(vmbda, vmbdaBuilder.WithBlockDeviceRef(v1alpha2.VMBDAObjectRefKindVirtualDisk, "bd"))
+
 		attachmentServiceMock.HotPlugDiskFunc = func(_ context.Context, _ *service.AttachmentDisk, _ *v1alpha2.VirtualMachine, _ *virtv1.VirtualMachine) error {
 			return fmt.Errorf("%w: virtual disk %q", service.ErrDiskNotGivenToVM, "bd")
 		}
@@ -169,6 +175,7 @@ var _ = Describe("LifeCycleHandler Handle", func() {
 			old.Finalizers = []string{v1alpha2.FinalizerVMBDACleanup}
 			old.DeletionTimestamp = ptr.To(metav1.Now())
 			old.Status.Phase = v1alpha2.BlockDeviceAttachmentPhaseTerminating
+
 			return old
 		}
 
@@ -187,6 +194,7 @@ var _ = Describe("LifeCycleHandler Handle", func() {
 
 		expectWaiting := func(messagePart string) {
 			GinkgoHelper()
+
 			result, err := NewLifeCycleHandler(&attachmentServiceMock, fakeClient).Handle(context.Background(), vmbda)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(Equal(reconcile.Result{}))
@@ -200,6 +208,7 @@ var _ = Describe("LifeCycleHandler Handle", func() {
 
 		expectAttachmentRequest := func() {
 			GinkgoHelper()
+
 			_, err := NewLifeCycleHandler(&attachmentServiceMock, fakeClient).Handle(context.Background(), vmbda)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(attachmentServiceMock.HotPlugDiskCalls()).To(HaveLen(1))
@@ -208,6 +217,7 @@ var _ = Describe("LifeCycleHandler Handle", func() {
 
 		It("waits while the deleted attachment unplugs the block device", func() {
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(deleted("vm"))
 			Expect(err).NotTo(HaveOccurred())
 
@@ -216,12 +226,15 @@ var _ = Describe("LifeCycleHandler Handle", func() {
 
 		It("does not check an attached attachment again", func() {
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(deleted("vm"))
 			Expect(err).NotTo(HaveOccurred())
+
 			vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhaseAttached
 
 			_, err = NewLifeCycleHandler(&attachmentServiceMock, fakeClient).Handle(context.Background(), vmbda)
 			Expect(err).NotTo(HaveOccurred())
+
 			attached, _ := conditions.GetCondition(vmbdacondition.AttachedType, vmbda.Status.Conditions)
 			Expect(attached.Message).NotTo(ContainSubstring("vmbda-old"))
 			Expect(attachmentServiceMock.IsHotPluggedCalls()).NotTo(BeEmpty())
@@ -229,6 +242,7 @@ var _ = Describe("LifeCycleHandler Handle", func() {
 
 		It("does not wait for a deleted attachment to another virtual machine", func() {
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(deleted("vm-old"))
 			Expect(err).NotTo(HaveOccurred())
 
@@ -251,18 +265,22 @@ var _ = Describe("LifeCycleHandler Handle", func() {
 		DescribeTable("waits for an earlier unplug of an image",
 			func(kind v1alpha2.VMBDAObjectRefKind, staleVolume bool) {
 				vmbdaBuilder.ApplyOptions(vmbda, vmbdaBuilder.WithBlockDeviceRef(kind, "bd"))
+
 				if staleVolume {
 					name := kvbuilder.GenerateVMBDADiskName(vmbda.Spec.BlockDeviceRef)
 					withInstance(&virtv1.VirtualMachineInstance{Status: virtv1.VirtualMachineInstanceStatus{
 						VolumeStatus: []virtv1.VolumeStatus{{Name: name, HotplugVolume: &virtv1.HotplugVolumeStatus{}, Phase: virtv1.VolumeReady}},
 					}})
 					expectWaiting("to finish detaching")
+
 					return
 				}
 
 				old := deleted("vm")
 				vmbdaBuilder.ApplyOptions(old, vmbdaBuilder.WithBlockDeviceRef(kind, "bd"))
+
 				var err error
+
 				fakeClient, err = testutil.NewFakeClientWithObjects(old)
 				Expect(err).NotTo(HaveOccurred())
 				expectWaiting(`VirtualMachineBlockDeviceAttachment "vmbda-old"`)
@@ -275,6 +293,7 @@ var _ = Describe("LifeCycleHandler Handle", func() {
 
 		It("does not take the volume of its own attachment request for an unplug", func() {
 			withInstance(staleStatus(virtv1.HotplugVolumeAttachedToNode))
+
 			attachmentServiceMock.GetKVVMFunc = func(_ context.Context, _ *v1alpha2.VirtualMachine) (*virtv1.VirtualMachine, error) {
 				return &virtv1.VirtualMachine{Status: virtv1.VirtualMachineStatus{
 					VolumeRequests: []virtv1.VirtualMachineVolumeRequest{{AddVolumeOptions: &virtv1.AddVolumeOptions{Name: volumeName}}},
@@ -298,6 +317,7 @@ var _ = Describe("LifeCycleHandler Handle", func() {
 			a := vmbda.DeepCopy()
 			a.Name = name
 			a.Spec.VirtualMachineName = vmName
+
 			return a
 		}
 		alpha := newAttachment("vmbda-a", "vm-a")
@@ -306,17 +326,21 @@ var _ = Describe("LifeCycleHandler Handle", func() {
 		// handle runs the handler on a copy of the attachment with the conflict check reading the given cache.
 		handle := func(a *v1alpha2.VirtualMachineBlockDeviceAttachment, cache ...*v1alpha2.VirtualMachineBlockDeviceAttachment) *v1alpha2.VirtualMachineBlockDeviceAttachment {
 			GinkgoHelper()
+
 			objs := []client.Object{a.DeepCopy()}
 			for _, c := range cache {
 				objs = append(objs, c.DeepCopy())
 			}
+
 			cacheClient, err := testutil.NewFakeClientWithObjects(objs...)
 			Expect(err).NotTo(HaveOccurred())
+
 			attachmentServiceMock.IsConflictedAttachmentFunc = service.NewAttachmentService(cacheClient, nil, "").IsConflictedAttachment
 
 			a = a.DeepCopy()
 			_, err = NewLifeCycleHandler(&attachmentServiceMock, fakeClient).Handle(context.Background(), a)
 			Expect(err).NotTo(HaveOccurred())
+
 			return a
 		}
 
@@ -338,6 +362,7 @@ var _ = Describe("LifeCycleHandler Handle", func() {
 
 	DescribeTable("should not send an attachment request while the virtual machine has the Migrating condition", func(kind v1alpha2.VMBDAObjectRefKind, storage v1alpha2.StorageType, status metav1.ConditionStatus, reason vmcondition.MigratingReason) {
 		vmbdaBuilder.ApplyOptions(vmbda, vmbdaBuilder.WithBlockDeviceRef(kind, "bd"))
+
 		attachmentServiceMock.GetVirtualImageFunc = func(_ context.Context, _, _ string) (*v1alpha2.VirtualImage, error) {
 			return newVirtualImage(storage), nil
 		}
@@ -391,6 +416,7 @@ var _ = Describe("LifeCycleHandler Handle", func() {
 		}
 
 		var err error
+
 		fakeClient, err = testutil.NewFakeClientWithObjects(vmop)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -430,6 +456,7 @@ var _ = Describe("LifeCycleHandler Handle", func() {
 		}
 
 		var err error
+
 		fakeClient, err = testutil.NewFakeClientWithObjects(vmop)
 		Expect(err).NotTo(HaveOccurred())
 

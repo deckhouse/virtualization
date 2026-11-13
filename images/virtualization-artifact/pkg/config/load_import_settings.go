@@ -40,8 +40,11 @@ type ImportSettings struct {
 }
 
 func LoadImportSettingsFromEnv() (ImportSettings, error) {
-	var settings ImportSettings
-	var err error
+	var (
+		settings ImportSettings
+		err      error
+	)
+
 	settings.ImporterImage, err = GetRequiredEnvVar(common.ImporterPodImageNameVar)
 	if err != nil {
 		return ImportSettings{}, err
@@ -69,6 +72,7 @@ func LoadImportSettingsFromEnv() (ImportSettings, error) {
 			return ImportSettings{}, err
 		}
 	}
+
 	requests := os.Getenv(ProvisioningPodRequestsVar)
 	if requests != "" {
 		err = json.Unmarshal([]byte(requests), &settings.Requirements.Requests)
@@ -85,5 +89,6 @@ func GetRequiredEnvVar(name string) (string, error) {
 	if val == "" {
 		return "", fmt.Errorf("environment variable %q undefined", name)
 	}
+
 	return val, nil
 }

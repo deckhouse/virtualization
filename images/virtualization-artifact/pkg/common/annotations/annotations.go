@@ -520,11 +520,13 @@ func IsExcludedAnnotationKey(key string) bool {
 	if isKubevirtOwnedKey(key) || strings.Contains(key, "velero.io") {
 		return true
 	}
+
 	for _, p := range ExcludedAnnotationPrefixes {
 		if strings.HasPrefix(key, p) {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -534,11 +536,13 @@ func IsExcludedLabelKey(key string) bool {
 	if isKubevirtOwnedKey(key) {
 		return true
 	}
+
 	for _, p := range ExcludedLabelPrefixes {
 		if strings.HasPrefix(key, p) {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -558,8 +562,10 @@ func filterExcluded(m map[string]string, isExcluded func(string) bool) map[strin
 		if isExcluded(k) {
 			continue
 		}
+
 		res[k] = v
 	}
+
 	return res
 }
 
@@ -568,6 +574,7 @@ func AddAnnotation(obj metav1.Object, key, value string) {
 	if obj.GetAnnotations() == nil {
 		obj.SetAnnotations(make(map[string]string))
 	}
+
 	obj.GetAnnotations()[key] = value
 }
 
@@ -576,6 +583,7 @@ func AddLabel(obj metav1.Object, key, value string) {
 	if obj.GetLabels() == nil {
 		obj.SetLabels(make(map[string]string))
 	}
+
 	obj.GetLabels()[key] = value
 }
 
@@ -598,6 +606,7 @@ func MatchLabels(labels, matchLabels map[string]string) bool {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -622,6 +631,7 @@ func MatchExpressions(labels map[string]string, expressions []metav1.LabelSelect
 			}
 		}
 	}
+
 	return true
 }
 

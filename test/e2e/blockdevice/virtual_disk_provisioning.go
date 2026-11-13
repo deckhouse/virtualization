@@ -42,6 +42,7 @@ var _ = Describe("VirtualDiskProvisioning", Label(label.SIGStorage, precheck.NoP
 		f   *framework.Framework
 		ctx context.Context
 	)
+
 	BeforeEach(func() {
 		ctx = context.Background()
 		f = framework.NewFramework("virtual-disk-provisioning")
@@ -61,6 +62,7 @@ var _ = Describe("VirtualDiskProvisioning", Label(label.SIGStorage, precheck.NoP
 	// only needs to boot (its agent auto-starts) to consume the disk.
 	runVMConsumingDisk := func(vd *v1alpha2.VirtualDisk, vdObs vdobs.Observer) {
 		GinkgoHelper()
+
 		vmOpts := []vmbuilder.Option{
 			vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
 				Kind: v1alpha2.VirtualDiskKind,
@@ -77,6 +79,7 @@ var _ = Describe("VirtualDiskProvisioning", Label(label.SIGStorage, precheck.NoP
 				hostnameNodeSelectorKey: node,
 			}))
 		}
+
 		vm := object.NewMinimalVM("vm-", f.Namespace().Name, vmOpts...)
 		Expect(f.CreateWithDeferredDeletion(ctx, vm)).To(Succeed())
 

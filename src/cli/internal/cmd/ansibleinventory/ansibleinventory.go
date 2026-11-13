@@ -110,6 +110,7 @@ Network access:
 
 	AddCommandlineArgs(cmd.Flags(), &c.options)
 	cmd.SetUsageTemplate(templates.UsageTemplate())
+
 	return cmd
 }
 
@@ -167,7 +168,9 @@ func (a *AnsibleInventory) Run(cmd *cobra.Command, args []string) error {
 			cmd.Print("{}")
 			return nil
 		}
+
 		cmd.Print(hostInfo)
+
 		return nil
 	}
 
@@ -175,12 +178,15 @@ func (a *AnsibleInventory) Run(cmd *cobra.Command, args []string) error {
 		if namespace == "" {
 			return fmt.Errorf("no default namespace in context, no --namespace arg: inventory for all VirtualMachines is not implemented yet, specify namespace")
 		}
+
 		vmList, err := client.VirtualMachines(namespace).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to list virtual machines: %w", err)
 		}
+
 		inventory := a.generateInventory(vmList.Items)
 		cmd.Print(inventory)
+
 		return nil
 	}
 
@@ -208,11 +214,14 @@ func (a *AnsibleInventory) generateInventoryINI(vms []v1alpha2.VirtualMachine) s
 	var builder strings.Builder
 
 	builder.WriteString("[all]\n")
+
 	for hostName, hostVars := range data.hostVars {
 		builder.WriteString(hostName)
+
 		for varName, value := range hostVars {
 			fmt.Fprintf(&builder, " %s=%s", varName, value)
 		}
+
 		builder.WriteString("\n")
 	}
 
@@ -221,6 +230,7 @@ func (a *AnsibleInventory) generateInventoryINI(vms []v1alpha2.VirtualMachine) s
 
 	for group, hosts := range data.groups {
 		fmt.Fprintf(&builder, "\n[%s]\n", group)
+
 		for _, host := range hosts {
 			fmt.Fprintf(&builder, "%s\n", host)
 		}
@@ -279,10 +289,12 @@ func (a *AnsibleInventory) collectInventoryData(vms []v1alpha2.VirtualMachine) i
 		}
 
 		hostName := a.getHostName(vm)
+
 		hostVars := a.getHostVars(vm)
 		if hostVars == nil {
 			hostVars = make(map[string]string)
 		}
+
 		data.hostVars[hostName] = hostVars
 
 		groups := a.getVMGroups(vm)
@@ -379,6 +391,7 @@ func (a *AnsibleInventory) getHostVars(vm v1alpha2.VirtualMachine) map[string]st
 		if !strings.HasPrefix(key, varsAnnotationPrefix) {
 			continue
 		}
+
 		varName := strings.TrimPrefix(key, varsAnnotationPrefix)
 		if varName != "" {
 			hostVars[varName] = value
@@ -399,6 +412,7 @@ func (a *AnsibleInventory) getVMGroups(vm v1alpha2.VirtualMachine) []string {
 	}
 
 	groups := strings.Split(groupsValue, ",")
+
 	result := make([]string, 0, len(groups))
 	for _, group := range groups {
 		group = strings.TrimSpace(group)
@@ -426,13 +440,17 @@ func (a *AnsibleInventory) parseHost(hostOpt string) (string, string) {
 func (a *AnsibleInventory) generateHostInfo(vm *v1alpha2.VirtualMachine) string {
 	hostVars := a.getHostVars(*vm)
 
-	var output []byte
-	var err error
+	var (
+		output []byte
+		err    error
+	)
+
 	switch strings.ToLower(a.options.Output) {
 	case "yaml":
 		output, err = yaml.Marshal(hostVars)
 	case "ini":
 		var builder bytes.Buffer
+
 		first := true
 		for varName, value := range hostVars {
 			if first {
@@ -440,13 +458,16 @@ func (a *AnsibleInventory) generateHostInfo(vm *v1alpha2.VirtualMachine) string 
 			} else {
 				builder.WriteString(" ")
 			}
+
 			fmt.Fprintf(&builder, "%s=%s", varName, value)
 		}
+
 		builder.WriteString("\n")
 		output = builder.Bytes()
 	default:
 		output, err = json.MarshalIndent(hostVars, "", "  ")
 	}
+
 	if err != nil {
 		return ""
 	}

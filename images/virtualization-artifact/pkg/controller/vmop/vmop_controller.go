@@ -104,5 +104,6 @@ func SetupController(
 	vmopcollector.SetupCollector(mgr.GetCache(), metrics.Registry, log)
 
 	log.Info("Initialized VirtualMachineOperation controller")
+
 	return nil
 }

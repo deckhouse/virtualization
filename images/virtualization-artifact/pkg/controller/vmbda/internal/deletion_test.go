@@ -67,6 +67,7 @@ var _ = Describe("DeletionHandler", func() {
 
 		client, err := testutil.NewFakeClientWithObjects(vm, kvvm)
 		Expect(err).NotTo(HaveOccurred())
+
 		handler := NewDeletionHandler(vmbdaUnplug{
 			isAttached: func(*v1alpha2.VirtualMachine, *virtv1.VirtualMachine, *v1alpha2.VirtualMachineBlockDeviceAttachment) bool {
 				return true
@@ -101,11 +102,13 @@ var _ = Describe("DeletionHandler", func() {
 			}
 			vm := &v1alpha2.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: "vm", Namespace: "default"}}
 			vd := &v1alpha2.VirtualDisk{ObjectMeta: metav1.ObjectMeta{Name: "vd", Namespace: "default"}}
+
 			vd.Status.MigrationState = v1alpha2.VirtualDiskMigrationState{SourcePVC: "source", TargetPVC: "target", StartTimestamp: now}
 			if vdDeleted {
 				vd.DeletionTimestamp = &now
 				vd.Finalizers = []string{v1alpha2.FinalizerVDProtection}
 			}
+
 			kvvm := &virtv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{Name: "vm", Namespace: "default"},
 				Spec: virtv1.VirtualMachineSpec{Template: &virtv1.VirtualMachineInstanceTemplateSpec{Spec: virtv1.VirtualMachineInstanceSpec{
@@ -120,6 +123,7 @@ var _ = Describe("DeletionHandler", func() {
 
 			client, err := testutil.NewFakeClientWithObjects(vm, vd, kvvm)
 			Expect(err).NotTo(HaveOccurred())
+
 			unplugCalled := false
 			handler := NewDeletionHandler(vmbdaUnplug{
 				isAttached: func(*v1alpha2.VirtualMachine, *virtv1.VirtualMachine, *v1alpha2.VirtualMachineBlockDeviceAttachment) bool {
@@ -186,6 +190,7 @@ var _ = Describe("DeletionHandler", func() {
 
 		client, err := testutil.NewFakeClientWithObjects(vm, kvvm)
 		Expect(err).NotTo(HaveOccurred())
+
 		unplugCalled := false
 		handler := NewDeletionHandler(vmbdaUnplug{
 			isAttached: func(*v1alpha2.VirtualMachine, *virtv1.VirtualMachine, *v1alpha2.VirtualMachineBlockDeviceAttachment) bool {
@@ -260,6 +265,7 @@ var _ = Describe("DeletionHandler", func() {
 
 		client, err := testutil.NewFakeClientWithObjects(vm, kvvm, vmop)
 		Expect(err).NotTo(HaveOccurred())
+
 		unplugCalled := false
 		handler := NewDeletionHandler(vmbdaUnplug{
 			isAttached: func(*v1alpha2.VirtualMachine, *virtv1.VirtualMachine, *v1alpha2.VirtualMachineBlockDeviceAttachment) bool {
@@ -277,6 +283,7 @@ var _ = Describe("DeletionHandler", func() {
 
 		cond, ok := conditions.GetCondition(vmbdacondition.TerminatingType, vmbda.Status.Conditions)
 		Expect(ok).To(BeTrue())
+
 		if expectBlocked {
 			Expect(cond.Reason).To(Equal(vmbdacondition.TerminatingBlockedByMigration.String()))
 		} else {
@@ -362,13 +369,16 @@ var _ = Describe("DeletionHandler", func() {
 			},
 		}
 
-		var gotVM *v1alpha2.VirtualMachine
-		var gotKVVM *virtv1.VirtualMachine
+		var (
+			gotVM   *v1alpha2.VirtualMachine
+			gotKVVM *virtv1.VirtualMachine
+		)
 
 		// No VM and no internal VirtualMachine exist in the cluster: FetchObject returns nil
 		// for both, and IsAttached is still consulted with those nils.
 		client, err := testutil.NewFakeClientWithObjects()
 		Expect(err).NotTo(HaveOccurred())
+
 		handler := NewDeletionHandler(vmbdaUnplug{
 			isAttached: func(vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine, _ *v1alpha2.VirtualMachineBlockDeviceAttachment) bool {
 				gotVM, gotKVVM = vm, kvvm

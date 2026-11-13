@@ -45,7 +45,9 @@ func (d *DiffInfo) Dump() string {
 	for _, info := range d.Files {
 		res += fmt.Sprintf("%s -> %s, lines: %d\n", info.OldFileName, info.NewFileName, len(info.Lines))
 	}
+
 	res += fmt.Sprintf("files: %d\n", len(d.Files))
+
 	return res
 }
 
@@ -73,11 +75,13 @@ func (d *DiffFileInfo) HasContent() bool {
 
 func (d *DiffFileInfo) NewLines() []string {
 	res := make([]string, 0)
+
 	for _, l := range d.Lines {
 		if strings.HasPrefix(l, "+") {
 			res = append(res, strings.TrimPrefix(l, "+"))
 		}
 	}
+
 	return res
 }
 
@@ -92,15 +96,18 @@ func Load(patchFile string) (*DiffInfo, error) {
 		if err != nil {
 			return nil, err
 		}
+
 		return ParseDiffOutput(bytes.NewReader(content))
 	}
 
 	diffRange := resolveDiffRange(os.Getenv)
 	fmt.Printf("Run git diff %s ...\n", diffRange)
+
 	out, err := exec.Command("git", "diff", diffRange, "-w", "--ignore-blank-lines").Output()
 	if err != nil {
 		return nil, err
 	}
+
 	return ParseDiffOutput(bytes.NewReader(out))
 }
 
@@ -121,9 +128,11 @@ func resolveDiffRange(getenv func(string) string) string {
 	if target := getenv("CI_MERGE_REQUEST_TARGET_BRANCH_NAME"); target != "" {
 		return "origin/" + target + "..."
 	}
+
 	if before := getenv("CI_COMMIT_BEFORE_SHA"); before != "" && before != zeroSHA {
 		return before + "..HEAD"
 	}
+
 	return "origin/main..."
 }
 
@@ -140,6 +149,7 @@ func ParseDiffOutput(r io.Reader) (*DiffInfo, error) {
 	firstLine := true
 	scanner := bufio.NewScanner(r)
 	metadataBlock := false
+
 	for scanner.Scan() {
 		text := scanner.Text()
 
@@ -151,7 +161,9 @@ func ParseDiffOutput(r io.Reader) (*DiffInfo, error) {
 				res.Files = append(res.Files, tmp)
 				tmp = NewDiffFileInfo()
 			}
+
 			metadataBlock = true
+
 			continue
 		}
 
@@ -162,6 +174,7 @@ func ParseDiffOutput(r io.Reader) (*DiffInfo, error) {
 			} else {
 				tmp.NewFileName = matches[2]
 			}
+
 			continue
 		}
 
@@ -172,6 +185,7 @@ func ParseDiffOutput(r io.Reader) (*DiffInfo, error) {
 			} else {
 				tmp.OldFileName = matches[2]
 			}
+
 			continue
 		}
 
@@ -180,6 +194,7 @@ func ParseDiffOutput(r io.Reader) (*DiffInfo, error) {
 			if len(matches) > 1 {
 				tmp.Lines = append(tmp.Lines, matches[1])
 				metadataBlock = false
+
 				continue
 			}
 		}

@@ -31,6 +31,7 @@ var snnniaGVK = schema.GroupVersionKind{
 func snnniaSeed() client.Object {
 	u := &unstructured.Unstructured{}
 	u.SetGroupVersionKind(snnniaGVK)
+
 	return u
 }
 
@@ -40,10 +41,12 @@ func snnniaIndexer(path ...string) client.IndexerFunc {
 		if !ok || u == nil {
 			return nil
 		}
+
 		v, _, _ := unstructured.NestedString(u.Object, path...)
 		if v == "" {
 			return nil
 		}
+
 		return []string{v}
 	}
 }

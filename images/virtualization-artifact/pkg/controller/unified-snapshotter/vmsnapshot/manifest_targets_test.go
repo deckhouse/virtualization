@@ -40,6 +40,7 @@ const testNamespace = "ns"
 
 func newTestScheme(t *testing.T) *apiruntime.Scheme {
 	t.Helper()
+
 	scheme := apiruntime.NewScheme()
 	for _, f := range []func(*apiruntime.Scheme) error{
 		clientgoscheme.AddToScheme,
@@ -54,12 +55,14 @@ func newTestScheme(t *testing.T) *apiruntime.Scheme {
 			t.Fatal(err)
 		}
 	}
+
 	return scheme
 }
 
 func newTestReconciler(t *testing.T, objs ...client.Object) *Reconciler {
 	t.Helper()
 	c := fake.NewClientBuilder().WithScheme(newTestScheme(t)).WithObjects(objs...).Build()
+
 	return &Reconciler{Client: c, APIReader: c}
 }
 
@@ -72,6 +75,7 @@ func TestPlanManifestTargetsAlwaysIncludesVM(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if len(targets) != 1 || targets[0].Kind != v1alpha2.VirtualMachineKind || targets[0].Name != "vm1" {
 		t.Fatalf("expected only the VM target, got %+v", targets)
 	}
@@ -98,6 +102,7 @@ func TestPlanVMIPTarget(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "vmip1", Namespace: testNamespace},
 				Spec:       v1alpha2.VirtualMachineIPAddressSpec{Type: tc.vmipType},
 			}
+
 			vm := &v1alpha2.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{Name: "vm1", Namespace: testNamespace},
 				Status:     v1alpha2.VirtualMachineStatus{VirtualMachineIPAddress: "vmip1"},
@@ -105,6 +110,7 @@ func TestPlanVMIPTarget(t *testing.T) {
 			if tc.namedInSpec {
 				vm.Spec.VirtualMachineIPAddress = "vmip1"
 			}
+
 			vms := &v1alpha2.VirtualMachineSnapshot{Spec: v1alpha2.VirtualMachineSnapshotSpec{KeepIPAddress: tc.keep}}
 			r := newTestReconciler(t, vmip)
 
@@ -112,9 +118,11 @@ func TestPlanVMIPTarget(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			if tc.wantIncluded && target == nil {
 				t.Fatal("expected VMIP target, got nil")
 			}
+
 			if !tc.wantIncluded && target != nil {
 				t.Fatalf("expected no VMIP target, got %+v", target)
 			}
@@ -173,6 +181,7 @@ func TestPlanMainIPAddressTarget(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "vm1-main", Namespace: testNamespace},
 				Spec:       sdnapi.IPAddressSpec{Type: tc.ipaType},
 			}
+
 			vm := &v1alpha2.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{Name: "vm1", Namespace: testNamespace},
 				Status: v1alpha2.VirtualMachineStatus{
@@ -182,12 +191,15 @@ func TestPlanMainIPAddressTarget(t *testing.T) {
 			if tc.namedInSpec {
 				vm.Spec.Networks = []v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain, IPAddressName: "vm1-main"}}
 			}
+
 			if tc.usesVMIP {
 				vm.Status.VirtualMachineIPAddress = "vmip1"
 			}
+
 			if tc.mainNetworkRemoved {
 				vm.Spec.Networks = []v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "corp-net"}}
 			}
+
 			vms := &v1alpha2.VirtualMachineSnapshot{Spec: v1alpha2.VirtualMachineSnapshotSpec{KeepIPAddress: tc.keep}}
 			r := newTestReconciler(t, ipa)
 
@@ -195,9 +207,11 @@ func TestPlanMainIPAddressTarget(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			if tc.wantIncluded && (target == nil || target.Kind != sdnapi.IPAddressKind || target.Name != "vm1-main") {
 				t.Fatalf("expected the IPAddress target, got %+v", target)
 			}
+
 			if !tc.wantIncluded && target != nil {
 				t.Fatalf("expected no IPAddress target, got %+v", target)
 			}
@@ -222,6 +236,7 @@ func TestPlanVMMACTargetsSkipsMainNetwork(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if len(targets) != 1 || targets[0].Name != "mac1" || targets[0].Kind != v1alpha2.VirtualMachineMACAddressKind {
 		t.Fatalf("expected exactly the secondary-network MAC, got %+v", targets)
 	}
@@ -261,6 +276,7 @@ func TestPlanProvisionerSecretTarget(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		if target == nil || target.Name != "cloud-init" || target.Kind != "Secret" {
 			t.Fatalf("expected the provisioner Secret target, got %+v", target)
 		}
@@ -280,6 +296,7 @@ func TestPlanProvisionerSecretTarget(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		if target == nil || target.Name != "cloud-init" {
 			t.Fatalf("expected the provisioner Secret target, got %+v", target)
 		}
@@ -360,6 +377,7 @@ func TestPlanVMBDATargetsOnlyHotplugged(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if len(targets) != 1 || targets[0].Name != "vmbda1" || targets[0].Kind != v1alpha2.VirtualMachineBlockDeviceAttachmentKind {
 		t.Fatalf("expected exactly the hotplugged VMBDA, got %+v", targets)
 	}
@@ -425,6 +443,7 @@ func TestPlanManifestTargetsCombinesEverything(t *testing.T) {
 	if len(targets) != len(want) {
 		t.Fatalf("expected %d targets, got %d: %+v", len(want), len(targets), targets)
 	}
+
 	for _, tgt := range targets {
 		if want[tgt.Name] != tgt.Kind {
 			t.Fatalf("unexpected target %+v", tgt)

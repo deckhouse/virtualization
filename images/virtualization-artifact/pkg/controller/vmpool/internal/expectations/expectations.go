@@ -85,6 +85,7 @@ func (e *Expectations) getOrCreate(key string) *item {
 		it = &item{deletions: make(map[types.UID]struct{})}
 		e.items[key] = it
 	}
+
 	return it
 }
 
@@ -95,8 +96,10 @@ func (e *Expectations) ExpectCreations(key string, n int) {
 	if n <= 0 {
 		return
 	}
+
 	e.mu.Lock()
 	defer e.mu.Unlock()
+
 	it := e.getOrCreate(key)
 	it.creations += n
 	it.timestamp = e.now()
@@ -109,12 +112,15 @@ func (e *Expectations) ExpectDeletions(key string, uids ...types.UID) {
 	if len(uids) == 0 {
 		return
 	}
+
 	e.mu.Lock()
 	defer e.mu.Unlock()
+
 	it := e.getOrCreate(key)
 	for _, uid := range uids {
 		it.deletions[uid] = struct{}{}
 	}
+
 	it.timestamp = e.now()
 }
 
@@ -124,10 +130,12 @@ func (e *Expectations) ExpectDeletions(key string, uids ...types.UID) {
 func (e *Expectations) CreationObserved(key string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+
 	it, ok := e.items[key]
 	if !ok {
 		return
 	}
+
 	if it.creations > 0 {
 		it.creations--
 	}
@@ -139,10 +147,12 @@ func (e *Expectations) CreationObserved(key string) {
 func (e *Expectations) DeletionObserved(key string, uid types.UID) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+
 	it, ok := e.items[key]
 	if !ok {
 		return
 	}
+
 	delete(it.deletions, uid)
 }
 
@@ -153,13 +163,16 @@ func (e *Expectations) DeletionObserved(key string, uid types.UID) {
 func (e *Expectations) Satisfied(key string) bool {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+
 	it, ok := e.items[key]
 	if !ok {
 		return true
 	}
+
 	if it.creations <= 0 && len(it.deletions) == 0 {
 		return true
 	}
+
 	return e.now().Sub(it.timestamp) >= e.ttl
 }
 
@@ -168,5 +181,6 @@ func (e *Expectations) Satisfied(key string) bool {
 func (e *Expectations) Forget(key string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+
 	delete(e.items, key)
 }

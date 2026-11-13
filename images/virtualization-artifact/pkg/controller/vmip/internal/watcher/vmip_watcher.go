@@ -41,5 +41,6 @@ func (w VirtualMachineIPAddressWatcher) Watch(mgr manager.Manager, ctr controlle
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualMachineIPAddress: %w", err)
 	}
+
 	return nil
 }

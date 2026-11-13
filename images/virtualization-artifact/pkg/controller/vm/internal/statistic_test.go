@@ -50,12 +50,14 @@ func launchHistogram(stage string) *dto.Histogram {
 	for metric := range ch {
 		m := &dto.Metric{}
 		Expect(metric.Write(m)).To(Succeed())
+
 		for _, label := range m.GetLabel() {
 			if label.GetName() == "stage" && label.GetValue() == stage {
 				return m.GetHistogram()
 			}
 		}
 	}
+
 	return &dto.Histogram{}
 }
 
@@ -107,6 +109,7 @@ var _ = Describe("TestStatisticHandler", func() {
 			NodeName:   nodeName,
 			Phase:      virtv1.Running,
 		}
+
 		return kvvmi
 	}
 
@@ -150,6 +153,7 @@ var _ = Describe("TestStatisticHandler", func() {
 				Sockets: uint32(cores),
 			},
 		}
+
 		return kvvmi
 	}
 
@@ -160,6 +164,7 @@ var _ = Describe("TestStatisticHandler", func() {
 			Cores:   uint32(sockets),
 			Sockets: uint32(cores),
 		}
+
 		return kvvmi
 	}
 
@@ -169,6 +174,7 @@ var _ = Describe("TestStatisticHandler", func() {
 		kvvmi.Status.Memory = &virtv1.MemoryStatus{
 			GuestCurrent: ptr.To(resource.MustParse(memory)),
 		}
+
 		return kvvmi
 	}
 
@@ -193,6 +199,7 @@ var _ = Describe("TestStatisticHandler", func() {
 				},
 			},
 		}
+
 		return pod
 	}
 
@@ -233,6 +240,7 @@ var _ = Describe("TestStatisticHandler", func() {
 	DescribeTable("Check Generated .status.resources",
 		func(vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, pod *corev1.Pod, expect expectedValues) {
 			fakeClient, vmResource, vmState = setupEnvironment(vm, kvvmi, pod)
+
 			reconcile()
 
 			newVM := &v1alpha2.VirtualMachine{}
@@ -522,6 +530,7 @@ var _ = Describe("StatisticHandler syncStats", func() {
 				Stats: &v1alpha2.VirtualMachineStats{PhasesTransitions: pts},
 			},
 		}
+
 		return current, current.DeepCopy()
 	}
 

@@ -124,6 +124,7 @@ func (t *coreFractionTest) applyExplicitCoreFractionChange(cores int, initial, c
 	t.generateResources("vm-core-fraction", cores, initial)
 	err := t.Framework.CreateWithDeferredDeletion(ctx, t.VD, t.VM)
 	Expect(err).NotTo(HaveOccurred())
+
 	vmObs := vmobs.StartObserver(ctx, t.Framework, t.VM)
 
 	By("Waiting for VM agent to be ready")
@@ -136,6 +137,7 @@ func (t *coreFractionTest) applyExplicitCoreFractionChange(cores int, initial, c
 	t.untilPodCPURequest(ctx, expectedCPURequestMilli(cores, initial), framework.ShortTimeout)
 
 	By("Changing coreFraction")
+
 	patch, err := json.Marshal([]map[string]interface{}{{
 		"op":    "replace",
 		"path":  "/spec/cpu/coreFraction",
@@ -146,6 +148,7 @@ func (t *coreFractionTest) applyExplicitCoreFractionChange(cores int, initial, c
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Waiting until the change is applied in-place without a restart")
+
 	err = vmObs.WaitFor(haveAppliedCoreFraction(changed), framework.MiddleTimeout)
 	Expect(err).NotTo(HaveOccurred())
 	util.ExpectNoVMOperationsForVirtualMachine(ctx, t.Framework, t.VM)
@@ -162,14 +165,17 @@ func (t *coreFractionTest) autoscaleCoreFractionViaRecommendation(cores int) {
 	t.generateResources("vm-core-fraction-auto", cores, v1alpha2.CoreFractionAuto)
 	err := t.Framework.CreateWithDeferredDeletion(ctx, t.VD, t.VM)
 	Expect(err).NotTo(HaveOccurred())
+
 	vmObs := vmobs.StartObserver(ctx, t.Framework, t.VM)
 
 	By("Waiting for VM agent to be ready")
 	util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(t.VM), framework.LongTimeout)
 
 	By("Reading the seeded coreFraction")
+
 	err = t.Framework.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VM), t.VM)
 	Expect(err).NotTo(HaveOccurred())
+
 	initialFraction := sizingpolicy.RecommendedCoreFraction(t.VM)
 	Expect(initialFraction).NotTo(BeEmpty(), "autoscaler should seed status.recommendedResources.cpu.coreFraction")
 
@@ -189,6 +195,7 @@ func (t *coreFractionTest) autoscaleCoreFractionViaRecommendation(cores int) {
 	// satisfied it, so the pod check below uses the same coreFraction the wait
 	// saw.
 	var applied string
+
 	err = vmObs.WaitFor(haveRaisedAndAppliedCoreFraction(initialFraction, &applied), framework.MiddleTimeout)
 	Expect(err).NotTo(HaveOccurred(), "recommended coreFraction should grow from the pinned recommendation and be applied")
 
@@ -235,6 +242,7 @@ func (t *coreFractionTest) migrateAutoscalerSteps(cores int) {
 	t.generateResources("vm-core-fraction-auto-migration", cores, v1alpha2.CoreFractionAuto)
 	err := t.Framework.CreateWithDeferredDeletion(ctx, t.VD, t.VM)
 	Expect(err).NotTo(HaveOccurred())
+
 	vmObs := vmobs.StartObserver(ctx, t.Framework, t.VM)
 
 	By("Waiting for VM agent to be ready")
@@ -242,8 +250,10 @@ func (t *coreFractionTest) migrateAutoscalerSteps(cores int) {
 	skipIfDisksAreNotLiveMigratable(ctx, t.Framework, t.VD)
 
 	By("Reading the seeded coreFraction")
+
 	err = t.Framework.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VM), t.VM)
 	Expect(err).NotTo(HaveOccurred())
+
 	seeded := sizingpolicy.RecommendedCoreFraction(t.VM)
 	Expect(seeded).NotTo(BeEmpty(), "autoscaler should seed status.recommendedResources.cpu.coreFraction")
 
@@ -260,6 +270,7 @@ func (t *coreFractionTest) migrateAutoscalerSteps(cores int) {
 	t.patchKVVMRecommendationOverride(ctx, recommendationOverrideCPU(next, next))
 
 	var first string
+
 	err = vmObs.WaitFor(haveRecommendedAbove(seeded, &first), framework.MiddleTimeout)
 	Expect(err).NotTo(HaveOccurred(), "the autoscaler should select the step above %s", seeded)
 
@@ -271,13 +282,16 @@ func (t *coreFractionTest) migrateAutoscalerSteps(cores int) {
 	t.patchKVVMRecommendationOverride(ctx, recommendationOverrideCPU("20000m", "20000m"))
 
 	var second string
+
 	err = vmObs.WaitFor(haveRecommendedAbove(first, &second), framework.MiddleTimeout)
 	if err != nil {
 		Expect(t.Framework.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VM), t.VM)).To(Succeed())
+
 		if sizingpolicy.RecommendedCoreFraction(t.VM) == first {
 			Skip(fmt.Sprintf("the sizing policy leaves no step above %s", first))
 		}
 	}
+
 	Expect(err).NotTo(HaveOccurred(), "the autoscaler should select a step above %s", first)
 
 	By("Waiting until the second step is applied by live migration too")
@@ -292,6 +306,7 @@ func (t *coreFractionTest) autoscaleNonMigratable(cores int) {
 	t.generateResources("vm-core-fraction-auto-pinned", cores, v1alpha2.CoreFractionAuto)
 	err := t.Framework.CreateWithDeferredDeletion(ctx, t.VD, t.VM)
 	Expect(err).NotTo(HaveOccurred())
+
 	vmObs := vmobs.StartObserver(ctx, t.Framework, t.VM)
 
 	By("Waiting for VM agent to be ready")
@@ -301,6 +316,7 @@ func (t *coreFractionTest) autoscaleNonMigratable(cores int) {
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Pinning the VM to its node so that it cannot be migrated")
+
 	patch, err := json.Marshal([]map[string]interface{}{{
 		"op":    "add",
 		"path":  "/spec/nodeSelector",
@@ -313,8 +329,10 @@ func (t *coreFractionTest) autoscaleNonMigratable(cores int) {
 	Expect(err).NotTo(HaveOccurred(), "a VM pinned to its node should become non-migratable")
 
 	By("Reading the seeded coreFraction")
+
 	err = t.Framework.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VM), t.VM)
 	Expect(err).NotTo(HaveOccurred())
+
 	seeded := sizingpolicy.RecommendedCoreFraction(t.VM)
 	Expect(seeded).NotTo(BeEmpty(), "autoscaler should seed status.recommendedResources.cpu.coreFraction")
 
@@ -325,7 +343,9 @@ func (t *coreFractionTest) autoscaleNonMigratable(cores int) {
 	t.patchKVVMRecommendationOverride(ctx, recommendationOverrideCPU("20000m", "20000m"))
 
 	By("Waiting until the step is applied in place")
+
 	var applied string
+
 	err = vmObs.WaitFor(haveRaisedAndAppliedCoreFraction(seeded, &applied), framework.MiddleTimeout)
 	Expect(err).NotTo(HaveOccurred(), "the autoscaler step above %s should be applied", seeded)
 	t.untilPodCPURequest(ctx, expectedCPURequestMilli(cores, applied), framework.MiddleTimeout)
@@ -444,12 +464,15 @@ func (t *coreFractionTest) untilHotplugMigrationsCreated(ctx context.Context, n 
 	Eventually(func(g Gomega) {
 		vmops := &v1alpha2.VirtualMachineOperationList{}
 		g.Expect(t.Framework.GenericClient().List(ctx, vmops, crclient.InNamespace(t.VM.Namespace))).To(Succeed())
+
 		created := 0
+
 		for _, vmop := range vmops.Items {
 			if vmop.Spec.VirtualMachine == t.VM.Name && strings.HasPrefix(vmop.Name, commonvmop.HotplugResourcesPrefix) {
 				created++
 			}
 		}
+
 		g.Expect(created).To(BeNumerically(">=", n))
 	}).WithTimeout(timeout).WithPolling(2*time.Second).Should(Succeed(),
 		"%d live migrations should be created for the CPU changes of VM %s/%s", n, t.VM.Namespace, t.VM.Name)
@@ -467,6 +490,7 @@ func (t *coreFractionTest) untilCPUChangeApplied(ctx context.Context, timeout ti
 		g.Expect(t.Framework.ControllerSAClient().Get(ctx, crclient.ObjectKeyFromObject(t.VM), kvvmi)).To(Succeed())
 		conds, _, err := unstructured.NestedSlice(kvvmi.Object, "status", "conditions")
 		g.Expect(err).NotTo(HaveOccurred())
+
 		for _, c := range conds {
 			cond, _ := c.(map[string]any)
 			g.Expect(cond["type"] == string(virtv1.VirtualMachineInstanceVCPUChange) && cond["status"] == string(corev1.ConditionTrue)).
@@ -490,14 +514,18 @@ func (t *coreFractionTest) untilHotplugMigrationsCompleted(ctx context.Context, 
 	GinkgoHelper()
 
 	deadline := time.Now().Add(timeout)
+
 	for {
 		vmops := &v1alpha2.VirtualMachineOperationList{}
 		Expect(t.Framework.GenericClient().List(ctx, vmops, crclient.InNamespace(t.VM.Namespace))).To(Succeed())
+
 		completed := 0
+
 		for _, vmop := range vmops.Items {
 			if vmop.Spec.VirtualMachine != t.VM.Name || !strings.HasPrefix(vmop.Name, commonvmop.HotplugResourcesPrefix) {
 				continue
 			}
+
 			switch vmop.Status.Phase {
 			case v1alpha2.VMOPPhaseFailed:
 				util.SkipIfKnownMigrationFailureWithContext(ctx, t.VM)
@@ -506,13 +534,16 @@ func (t *coreFractionTest) untilHotplugMigrationsCompleted(ctx context.Context, 
 				completed++
 			}
 		}
+
 		if completed >= n {
 			Expect(completed).To(Equal(n), "no extra live migration should be created for VM %s/%s", t.VM.Namespace, t.VM.Name)
 			return
 		}
+
 		if time.Now().After(deadline) {
 			Fail(fmt.Sprintf("%d live migrations should apply the CPU changes of VM %s/%s, %d completed", n, t.VM.Namespace, t.VM.Name, completed))
 		}
+
 		time.Sleep(5 * time.Second)
 	}
 }
@@ -525,18 +556,23 @@ func haveRecommendedAbove(previous string, recommended *string) vmobs.Predicate 
 		if current == "" {
 			return false, nil
 		}
+
 		currentPct, err := strconv.Atoi(strings.TrimSuffix(current, "%"))
 		if err != nil {
 			return false, fmt.Errorf("malformed recommended coreFraction %q: %w", current, err)
 		}
+
 		previousPct, err := strconv.Atoi(strings.TrimSuffix(previous, "%"))
 		if err != nil {
 			return false, fmt.Errorf("malformed coreFraction %q: %w", previous, err)
 		}
+
 		if currentPct <= previousPct {
 			return false, nil
 		}
+
 		*recommended = current
+
 		return true, nil
 	}
 }
@@ -625,6 +661,7 @@ func (t *coreFractionTest) untilPodCPURequest(ctx context.Context, expectedMilli
 	Eventually(func(g Gomega) {
 		_, pod, err := util.GetVirtualMachineAndActivePod(ctx, t.Framework, t.VM)
 		g.Expect(err).NotTo(HaveOccurred())
+
 		req, ok := computeContainerCPURequest(pod)
 		g.Expect(ok).To(BeTrue())
 		g.Expect(req.MilliValue()).To(Equal(expectedMilli))
@@ -639,9 +676,12 @@ func computeContainerCPURequest(pod *corev1.Pod) (resource.Quantity, bool) {
 		if !strings.HasSuffix(c.Name, "compute") {
 			continue
 		}
+
 		req, ok := c.Resources.Requests[corev1.ResourceCPU]
+
 		return req, ok
 	}
+
 	return resource.Quantity{}, false
 }
 
@@ -653,8 +693,10 @@ func expectedCPURequestMilli(cores int, coreFraction string) int64 {
 
 func percent(coreFraction string) int {
 	GinkgoHelper()
+
 	v, err := strconv.Atoi(strings.TrimSuffix(coreFraction, "%"))
 	Expect(err).NotTo(HaveOccurred())
+
 	return v
 }
 
@@ -675,18 +717,23 @@ func haveRaisedAndAppliedCoreFraction(initial string, applied *string) vmobs.Pre
 		if recommended == "" || vm.Status.Resources.CPU.CoreFraction != recommended {
 			return false, nil
 		}
+
 		recommendedPct, err := strconv.Atoi(strings.TrimSuffix(recommended, "%"))
 		if err != nil {
 			return false, fmt.Errorf("malformed recommended coreFraction %q: %w", recommended, err)
 		}
+
 		initialPct, err := strconv.Atoi(strings.TrimSuffix(initial, "%"))
 		if err != nil {
 			return false, fmt.Errorf("malformed initial coreFraction %q: %w", initial, err)
 		}
+
 		if recommendedPct <= initialPct {
 			return false, nil
 		}
+
 		*applied = vm.Status.Resources.CPU.CoreFraction
+
 		return true, nil
 	}
 }

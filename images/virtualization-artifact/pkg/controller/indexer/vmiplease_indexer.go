@@ -30,6 +30,7 @@ func IndexVMIPLeaseByVMIP() (obj client.Object, field string, extractValue clien
 		if !ok || lease == nil {
 			return nil
 		}
+
 		vmipRef := lease.Spec.VirtualMachineIPAddressRef
 		if vmipRef == nil || vmipRef.Name == "" {
 			return nil

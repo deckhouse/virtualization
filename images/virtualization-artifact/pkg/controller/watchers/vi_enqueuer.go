@@ -53,6 +53,7 @@ func (w VirtualImageRequestEnqueuer) GetEnqueueFrom() client.Object {
 
 func (w VirtualImageRequestEnqueuer) EnqueueRequests(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
 	var vis v1alpha2.VirtualImageList
+
 	err := w.client.List(ctx, &vis)
 	if err != nil {
 		w.logger.Error(fmt.Sprintf("failed to list vi: %s", err))

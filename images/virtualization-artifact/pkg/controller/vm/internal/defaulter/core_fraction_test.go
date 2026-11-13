@@ -40,8 +40,10 @@ var _ = Describe("CoreFractionDefaulter", func() {
 	BeforeEach(func() {
 		setupCoreDefaulter = func(objs ...client.Object) {
 			GinkgoHelper()
+
 			fakeClient, err := testutil.NewFakeClientWithObjects(objs...)
 			Expect(err).NotTo(HaveOccurred())
+
 			coreDefaulter = defaulter.NewCoreFractionDefaulter(fakeClient)
 		}
 

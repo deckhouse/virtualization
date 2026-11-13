@@ -40,14 +40,17 @@ func NewAPIServerCommand() *cobra.Command {
 			if err := runCommand(c.Context(), opts); err != nil {
 				return err
 			}
+
 			return nil
 		},
 	}
 	fs := cmd.Flags()
+
 	nfs := opts.Flags()
 	for _, f := range nfs.FlagSets {
 		fs.AddFlagSet(f)
 	}
+
 	local := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 	logs.AddGoFlags(local)
 	nfs.FlagSet("logging").AddGoFlagSet(local)
@@ -59,7 +62,9 @@ func NewAPIServerCommand() *cobra.Command {
 		if err != nil {
 			return err
 		}
+
 		cliflag.PrintSections(cmd.OutOrStderr(), nfs, cols)
+
 		return nil
 	})
 	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
@@ -67,9 +72,11 @@ func NewAPIServerCommand() *cobra.Command {
 		if err != nil {
 			panic(err)
 		}
+
 		cliflag.PrintSections(cmd.OutOrStdout(), nfs, cols)
 	})
 	fs.AddGoFlagSet(local)
+
 	return cmd
 }
 

@@ -244,11 +244,13 @@ var _ = Describe("LifecycleHandler", func() {
 			if !args.shoildNilVMSSecret {
 				Expect(fakeClient.Create(ctx, secret)).To(Succeed())
 			}
+
 			if !args.shouldNilVMS {
 				Expect(fakeClient.Create(ctx, vms)).To(Succeed())
 			}
 
 			h := NewLifecycleHandler(fakeClient, createOperation, recorderMock)
+
 			_, err := h.Handle(ctx, srv.Changed())
 			if args.shouldFail {
 				Expect(err).To(HaveOccurred())

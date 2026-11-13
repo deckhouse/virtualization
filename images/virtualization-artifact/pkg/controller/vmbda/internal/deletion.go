@@ -101,6 +101,7 @@ func (h *DeletionHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 		if err != nil {
 			return reconcile.Result{}, err
 		}
+
 		if delayDetach {
 			h.setTerminatingCondition(vmbda, vmbdacondition.TerminatingBlockedByMigration, diskMigrationBlockedMessage(vmbda))
 			return reconcile.Result{}, nil
@@ -109,17 +110,21 @@ func (h *DeletionHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 		h.setTerminatingCondition(vmbda, vmbdacondition.DetachPending, detachPendingMessage(vmbda))
 
 		var res reconcile.Result
+
 		res, err = h.detach(ctx, kvvm, vmbda)
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("failed to detach: %w", err)
 		}
+
 		return res, nil
 	}
 
 	log := logger.FromContext(ctx).With(logger.SlogHandler(deletionHandlerName))
+
 	conditions.RemoveCondition(vmbdacondition.TerminatingType, &vmbda.Status.Conditions)
 	log.Info("Deletion observed: remove cleanup finalizer from VirtualMachineBlockDeviceAttachment")
 	controllerutil.RemoveFinalizer(vmbda, v1alpha2.FinalizerVMBDACleanup)
+
 	return reconcile.Result{}, nil
 }
 
@@ -188,6 +193,7 @@ func (h *DeletionHandler) detach(ctx context.Context, kvvm *virtv1.VirtualMachin
 
 	log := logger.FromContext(ctx).With(logger.SlogHandler(deletionHandlerName))
 	log.Info("Unplug block device", slog.String("blockDeviceName", blockDeviceName), slog.String("vm", kvvm.Name))
+
 	err := h.unplug.UnplugDisk(ctx, kvvm, blockDeviceName)
 	if err != nil {
 		switch {

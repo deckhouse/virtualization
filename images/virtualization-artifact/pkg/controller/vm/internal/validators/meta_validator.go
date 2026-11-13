@@ -72,12 +72,15 @@ func (v *MetaValidator) validateVIOMMUAnnotation(oldVM, newVM *v1alpha2.VirtualM
 	if newVM.Annotations[annotations.AnnEnableVIOMMU] != "true" {
 		return nil
 	}
+
 	if oldVM != nil && oldVM.Annotations[annotations.AnnEnableVIOMMU] == "true" {
 		return nil
 	}
+
 	if v.featureGate.Enabled(featuregates.VIOMMU) {
 		return nil
 	}
+
 	return fmt.Errorf("the %s annotation requires the VIOMMU feature gate to be enabled in the virtualization module settings", annotations.AnnEnableVIOMMU)
 }
 

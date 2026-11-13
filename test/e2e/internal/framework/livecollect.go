@@ -100,6 +100,7 @@ func liveCollectBaseDir() string {
 	if dir := os.Getenv(liveCollectDirEnv); dir != "" {
 		return dir
 	}
+
 	return defaultLiveCollectDir
 }
 
@@ -142,8 +143,10 @@ func (c *liveCollector) collectLauncherLogs(ctx context.Context) {
 				return
 			case <-time.After(liveRetryDelay):
 			}
+
 			continue
 		}
+
 		for event := range w.ResultChan() {
 			if pod, ok := event.Object.(*corev1.Pod); ok {
 				c.followPod(ctx, pod)
@@ -161,16 +164,19 @@ func (c *liveCollector) followPod(ctx context.Context, pod *corev1.Pod) {
 		if !strings.HasPrefix(container.Name, d8vContainerPrefix) {
 			continue
 		}
+
 		key := string(pod.UID) + "/" + container.Name
 
 		c.mu.Lock()
 		if c.streaming == nil {
 			c.streaming = map[string]bool{}
 		}
+
 		if c.streaming[key] {
 			c.mu.Unlock()
 			continue
 		}
+
 		c.streaming[key] = true
 		c.mu.Unlock()
 
@@ -186,6 +192,7 @@ func (c *liveCollector) followContainerLogs(ctx context.Context, podName, contai
 	defer GinkgoRecover()
 
 	fileName := filepath.Join(c.dir, fmt.Sprintf("pod_%s__%s.log", podName, containerName))
+
 	file, err := os.OpenFile(fileName, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {
 		GinkgoWriter.Printf("Live collect: failed to open %s: %v\n", fileName, err)
@@ -201,16 +208,19 @@ func (c *liveCollector) followContainerLogs(ctx context.Context, podName, contai
 			Timestamps: true,
 			SinceTime:  sinceTime,
 		})
+
 		stream, err := req.Stream(ctx)
 		if err != nil {
 			if c.isPodGone(ctx, podName) {
 				return
 			}
+
 			select {
 			case <-ctx.Done():
 				return
 			case <-time.After(liveRetryDelay):
 			}
+
 			continue
 		}
 
@@ -219,16 +229,20 @@ func (c *liveCollector) followContainerLogs(ctx context.Context, podName, contai
 			n, err := stream.Read(buf)
 			if n > 0 {
 				sinceTime = ptr.To(metav1.Now())
+
 				if _, err := file.Write(buf[:n]); err != nil {
 					GinkgoWriter.Printf("Live collect: failed to write %s: %v\n", fileName, err)
 					stream.Close()
+
 					return
 				}
 			}
+
 			if err != nil {
 				break
 			}
 		}
+
 		stream.Close()
 
 		// The followed container terminated or the stream broke: without this
@@ -237,6 +251,7 @@ func (c *liveCollector) followContainerLogs(ctx context.Context, podName, contai
 		if c.isPodGone(ctx, podName) {
 			return
 		}
+
 		select {
 		case <-ctx.Done():
 			return
@@ -267,13 +282,16 @@ func (c *liveCollector) collectKVVMITransitions(ctx context.Context) {
 				return
 			case <-time.After(liveRetryDelay):
 			}
+
 			continue
 		}
+
 		for event := range w.ResultChan() {
 			kvvmi, ok := event.Object.(*unstructured.Unstructured)
 			if !ok {
 				continue
 			}
+
 			c.writeKVVMITransition(string(event.Type), kvvmi)
 		}
 	}
@@ -284,6 +302,7 @@ func (c *liveCollector) collectKVVMITransitions(ctx context.Context) {
 // failures whose shape is unknown in advance.
 func (c *liveCollector) writeKVVMITransition(eventType string, kvvmi *unstructured.Unstructured) {
 	status, _, _ := unstructured.NestedMap(kvvmi.Object, "status")
+
 	line, err := json.Marshal(map[string]any{
 		"time":              time.Now().Format(time.RFC3339Nano),
 		"event":             eventType,
@@ -297,6 +316,7 @@ func (c *liveCollector) writeKVVMITransition(eventType string, kvvmi *unstructur
 	}
 
 	fileName := filepath.Join(c.dir, fmt.Sprintf("kvvmi_%s.jsonl", kvvmi.GetName()))
+
 	file, err := os.OpenFile(fileName, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {
 		GinkgoWriter.Printf("Live collect: failed to open %s: %v\n", fileName, err)

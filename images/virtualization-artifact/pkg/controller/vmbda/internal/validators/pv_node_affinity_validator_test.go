@@ -60,6 +60,7 @@ var _ = Describe("PVNodeAffinityValidator (VMBDA)", func() {
 				},
 			}
 		}
+
 		return pv
 	}
 
@@ -109,7 +110,9 @@ var _ = Describe("PVNodeAffinityValidator (VMBDA)", func() {
 	makeValidator := func(objs ...client.Object) *validators.PVNodeAffinityValidator {
 		fakeClient, err := testutil.NewFakeClientWithObjects(objs...)
 		Expect(err).NotTo(HaveOccurred())
+
 		attacher := service.NewAttachmentService(fakeClient, nil, "")
+
 		return validators.NewPVNodeAffinityValidator(fakeClient, attacher)
 	}
 

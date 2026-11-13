@@ -123,24 +123,30 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	if err := r.Client.Get(ctx, req.NamespacedName, vds); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
+
 	if vds.DeletionTimestamp != nil {
 		return ctrl.Result{}, nil
 	}
+
 	driven, err := annotation.DrivenByUnifiedVirtualDiskSnapshot(ctx, r.APIReader, vds)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+
 	if !driven {
 		return ctrl.Result{}, nil
 	}
+
 	if vds.IsImport() {
 		return r.reconcileImport(ctx, vds)
 	}
+
 	if vds.Status.Phase == "" {
 		vds.Status.Phase = v1alpha2.VirtualDiskSnapshotPhasePending
 		if err := r.patchStatus(ctx, vds); err != nil {
 			return ctrl.Result{}, err
 		}
+
 		return ctrl.Result{RequeueAfter: time.Second}, nil
 	}
 
@@ -181,8 +187,10 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 				Apply(ctx); perr != nil {
 				return ctrl.Result{}, perr
 			}
+
 			return ctrl.Result{RequeueAfter: requeueAfter}, nil
 		}
+
 		return ctrl.Result{}, err
 	}
 
@@ -194,6 +202,7 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			Apply(ctx); perr != nil {
 			return ctrl.Result{}, perr
 		}
+
 		return ctrl.Result{RequeueAfter: requeueAfter}, nil
 	}
 	// APIReader (uncached, direct): r.Client is the manager's cached client, and Get() on a GVK it
@@ -208,10 +217,13 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 				Apply(ctx); perr != nil {
 				return ctrl.Result{}, perr
 			}
+
 			return ctrl.Result{RequeueAfter: requeueAfter}, nil
 		}
+
 		return ctrl.Result{}, err
 	}
+
 	if pvc.Status.Phase != corev1.ClaimBound {
 		if err := sdk.DomainCaptureStatus(a).
 			Phase(snapshotsdk.PhasePlanning).
@@ -219,6 +231,7 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			Apply(ctx); err != nil {
 			return ctrl.Result{}, err
 		}
+
 		return ctrl.Result{RequeueAfter: requeueAfter}, nil
 	}
 
@@ -227,6 +240,7 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	var mirrored bool
+
 	if sc := pvc.Spec.StorageClassName; sc != nil && *sc != "" && vds.Status.StorageClassName != *sc {
 		vds.Status.StorageClassName = *sc
 		mirrored = true
@@ -238,6 +252,7 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		vds.Status.PersistentVolumeClaimSize = requestedSize
 		mirrored = true
 	}
+
 	if mirrored {
 		// Persist right away so it's not silently dropped
 		if err := r.patchStatus(ctx, vds); err != nil {
@@ -275,8 +290,10 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 				if err := r.patchStatus(ctx, vds); err != nil {
 					return ctrl.Result{}, err
 				}
+
 				break
 			}
+
 			if vds.Spec.RequiredConsistency {
 				// The field this verdict rests on is not a latch: it has been observed going frozen ->
 				// empty -> frozen within seconds while the parent still held the freeze. Ask the parent
@@ -286,23 +303,29 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 				if parentErr != nil {
 					log.Error("failed to read the parent snapshot's freeze record, will retry",
 						logger.SlogErr(parentErr))
+
 					return ctrl.Result{}, parentErr
 				}
+
 				if held {
 					log.Info("the freeze state reads empty but the parent snapshot holds a confirmed freeze; capturing as consistent",
 						freezelog.State(observed)...)
+
 					vds.Status.Consistent = ptr.To(true)
 					if err := r.patchStatus(ctx, vds); err != nil {
 						return ctrl.Result{}, err
 					}
+
 					break
 				}
 
 				log.Error("the guest filesystem is not frozen; failing the capture", freezelog.State(observed)...)
+
 				return r.failCapture(ctx, a, vds, string(vdscondition.PotentiallyInconsistent), fmt.Sprintf(
 					"cannot take a consistent snapshot of virtual disk %q: the virtual machine it is attached to is running and its filesystem is not frozen",
 					vds.SourceVirtualDiskName()))
 			}
+
 			log.Info("the guest filesystem is not frozen; capturing anyway, no consistency was required",
 				freezelog.State(observed)...)
 		case errors.Is(err, errMultipleAttachedVirtualMachines):
@@ -310,6 +333,7 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			// mandate cannot be honored.
 			log.Error("the disk is attached to several machines, so no single freeze covers it",
 				logger.SlogErr(err), slog.Bool("requiredConsistency", vds.Spec.RequiredConsistency))
+
 			if vds.Spec.RequiredConsistency {
 				return r.failCapture(ctx, a, vds, string(vdscondition.PotentiallyInconsistent), fmt.Sprintf(
 					"cannot take a consistent snapshot: %s", err))
@@ -317,6 +341,7 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		case errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition):
 			log.Debug("a freeze request is still in flight; waiting before deciding consistency",
 				freezelog.State(observed)...)
+
 			return ctrl.Result{RequeueAfter: requeueAfter}, nil
 		default:
 			return ctrl.Result{}, err
@@ -334,6 +359,7 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}); err != nil {
 		return ctrl.Result{}, err
 	}
+
 	if err := sdk.EnsureManifestCapture(ctx, a, snapshotsdk.ManifestCaptureSpec{
 		Targets: []snapshotsdk.ManifestTarget{{
 			APIVersion: v1alpha2.SchemeGroupVersion.String(),
@@ -351,9 +377,11 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+
 	if isTerminalError {
 		return r.failCapture(ctx, a, vds, retryReason, retryMessage)
 	}
+
 	if err := sdk.DomainCaptureStatus(a).
 		Phase(snapshotsdk.PhasePlanned).
 		Reason(snapshotsdk.Reason(retryReason)).
@@ -391,9 +419,11 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		// lands — requeue explicitly instead of settling into Ready without a data binding to restore from.
 		return ctrl.Result{RequeueAfter: requeueAfter}, nil
 	}
+
 	if err := sdk.DomainCaptureStatus(a).Phase(snapshotsdk.PhaseFinished).Apply(ctx); err != nil {
 		return ctrl.Result{}, err
 	}
+
 	return r.finishAsReady(ctx, vds)
 }
 
@@ -436,6 +466,7 @@ func snapshotsNotSupportedMessage(vds *v1alpha2.VirtualDiskSnapshot) string {
 	if sc := vds.Status.StorageClassName; sc != "" {
 		storageClass = fmt.Sprintf("the StorageClass %q", sc)
 	}
+
 	return fmt.Sprintf(
 		"The storage driver of %s does not support snapshots, so the snapshot of the VirtualDisk %q cannot be taken. "+
 			"Use a VirtualDisk with the StorageClass that supports snapshots.",
@@ -465,6 +496,7 @@ func settleConsistency(vds *v1alpha2.VirtualDiskSnapshot) {
 // own size and storage class.
 func (r *Reconciler) reconcileImport(ctx context.Context, vds *v1alpha2.VirtualDiskSnapshot) (ctrl.Result, error) {
 	phase := v1alpha2.VirtualDiskSnapshotPhasePending
+
 	switch {
 	case meta.IsStatusConditionTrue(vds.Status.Conditions, v1alpha2.UnifiedSnapshotterConditionReady):
 		phase = v1alpha2.VirtualDiskSnapshotPhaseReady
@@ -477,6 +509,7 @@ func (r *Reconciler) reconcileImport(ctx context.Context, vds *v1alpha2.VirtualD
 	}
 
 	vds.Status.Phase = phase
+
 	return ctrl.Result{}, r.patchStatus(ctx, vds)
 }
 
@@ -486,6 +519,7 @@ func (r *Reconciler) finishAsReady(ctx context.Context, vds *v1alpha2.VirtualDis
 
 	logger.FromContext(ctx).Info("patch VDS phase to VirtualDiskSnapshotPhaseReady",
 		slog.Bool("consistent", vds.Status.Consistent != nil && *vds.Status.Consistent))
+
 	return ctrl.Result{}, r.patchStatus(ctx, vds)
 }
 
@@ -494,6 +528,7 @@ func (r *Reconciler) finishAsFailed(ctx context.Context, vds *v1alpha2.VirtualDi
 	vds.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseFailed
 
 	logger.FromContext(ctx).Info("patch VDS phase to VirtualDiskSnapshotPhaseFailed")
+
 	return ctrl.Result{}, r.patchStatus(ctx, vds)
 }
 
@@ -525,6 +560,7 @@ func (r *Reconciler) observedFreezeState(ctx context.Context, vd *v1alpha2.Virtu
 	if err != nil {
 		return nil
 	}
+
 	return kvvmi
 }
 
@@ -541,6 +577,7 @@ func (r *Reconciler) parentHoldsConfirmedFreeze(ctx context.Context, vds *v1alph
 		}
 
 		parent := &v1alpha2.VirtualMachineSnapshot{}
+
 		err := r.Client.Get(ctx, types.NamespacedName{Namespace: vds.Namespace, Name: ref.Name}, parent)
 		switch {
 		case apierrors.IsNotFound(err):
@@ -554,7 +591,9 @@ func (r *Reconciler) parentHoldsConfirmedFreeze(ctx context.Context, vds *v1alph
 		if _, thawed := anns[annotations.AnnFSUnfreezeRequestedAt]; thawed {
 			return false, nil
 		}
+
 		_, confirmed := anns[annotations.AnnFSFrozenConfirmedAt]
+
 		return confirmed, nil
 	}
 
@@ -576,6 +615,7 @@ func (r *Reconciler) isConsistent(ctx context.Context, vd *v1alpha2.VirtualDisk)
 	if err != nil {
 		return false, err
 	}
+
 	if kvvmi == nil || kvvmi.Status.Phase != virtv1.Running {
 		return true, nil
 	}
@@ -608,14 +648,17 @@ func (r *Reconciler) getAttachedVirtualMachine(ctx context.Context, vd *v1alpha2
 		for _, vm := range attached {
 			names = append(names, vm.Name)
 		}
+
 		return nil, fmt.Errorf("the virtual disk %q is %w: %s", vd.Name, errMultipleAttachedVirtualMachines, strings.Join(names, ", "))
 	}
 
 	vm := &v1alpha2.VirtualMachine{}
+
 	err := r.Client.Get(ctx, types.NamespacedName{Namespace: vd.Namespace, Name: attached[0].Name}, vm)
 	if apierrors.IsNotFound(err) {
 		return nil, nil
 	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -629,8 +672,10 @@ func (r *Reconciler) getKVVMI(ctx context.Context, vm *v1alpha2.VirtualMachine) 
 		if apierrors.IsNotFound(err) {
 			return nil, nil
 		}
+
 		return nil, err
 	}
+
 	return kvvmi, nil
 }
 
@@ -655,5 +700,6 @@ func (r *Reconciler) patchStatus(ctx context.Context, vds *v1alpha2.VirtualDiskS
 	if err != nil {
 		return err
 	}
+
 	return r.Client.Status().Patch(ctx, vds, patch)
 }

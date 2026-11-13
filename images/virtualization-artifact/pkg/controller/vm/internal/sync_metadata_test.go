@@ -141,6 +141,7 @@ var _ = Describe("SyncMetadataHandler", func() {
 				HaveKeyWithValue(annotations.QuotaDiscountCPU, vm.Status.Resources.CPU.RuntimeOverhead.String()),
 			))
 		}
+
 		if !vm.Status.Resources.Memory.RuntimeOverhead.IsZero() {
 			Expect(obj.GetLabels()).To(HaveKeyWithValue(annotations.QuotaDiscountMemory, vm.Status.Resources.Memory.RuntimeOverhead.String()))
 		}
@@ -229,6 +230,7 @@ var _ = Describe("SyncMetadataHandler", func() {
 				if migratable != nil {
 					vm.Status.Conditions = []metav1.Condition{*migratable}
 				}
+
 				kvvm := newKVVM(vm)
 				kvvmi := newEmptyKVVMI(name, namespace)
 				pod := newEmptyPOD(name, vm.Name)
@@ -241,6 +243,7 @@ var _ = Describe("SyncMetadataHandler", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(fakeClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: vm.Name}, pod)).To(Succeed())
+
 				if expected {
 					Expect(pod.GetLabels()).To(HaveKeyWithValue(annotations.LiveMigratableLabel, "true"))
 				} else {
@@ -304,6 +307,7 @@ var _ = Describe("SyncMetadataHandler", func() {
 				pod.Spec.NodeName = node
 				pod.Status.Phase = corev1.PodRunning
 				pod.Labels[annotations.InhibitNodeShutdownLabel] = ""
+
 				return pod
 			}
 
@@ -450,6 +454,7 @@ var _ = Describe("MigrationNodeAffinityTerms", func() {
 				},
 			}
 		}
+
 		return vm
 	}
 
@@ -512,6 +517,7 @@ var _ = Describe("PropagateVMMetadata reserved-key filtering", func() {
 		md := &metav1.ObjectMeta{}
 		_, err := PropagateVMMetadata(vm, kvvm, pod, md)
 		Expect(err).NotTo(HaveOccurred())
+
 		return md
 	}
 

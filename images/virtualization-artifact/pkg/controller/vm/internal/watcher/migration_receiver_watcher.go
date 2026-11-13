@@ -45,5 +45,6 @@ func (w *MigrationReceiverWatcher) Watch(mgr manager.Manager, ctr controller.Con
 	); err != nil {
 		return fmt.Errorf("error setting watch on InternalVirtualizationVirtualMachineReceiver: %w", err)
 	}
+
 	return nil
 }

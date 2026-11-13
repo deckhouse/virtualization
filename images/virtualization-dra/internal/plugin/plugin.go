@@ -65,5 +65,6 @@ func initPluginDir(driverName string) error {
 	if err := os.MkdirAll(pluginDir, 0o700); err != nil {
 		return fmt.Errorf("failed to create directory %s: %w", pluginDir, err)
 	}
+
 	return nil
 }

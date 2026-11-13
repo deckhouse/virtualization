@@ -134,6 +134,7 @@ var _ = Describe("MacAddressPool", func() {
 		pinned := func(name, address string) *v1alpha2.VirtualMachineMACAddress {
 			vmmac := newVMMAC(address)
 			vmmac.Name = name
+
 			return vmmac
 		}
 		vm := &v1alpha2.VirtualMachine{

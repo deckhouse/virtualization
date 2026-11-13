@@ -104,10 +104,13 @@ func (s *AllocationStore) startRescan(ctx context.Context, interval time.Duratio
 			s.log.Error("failed to sync pci state", slog.Any("err", err))
 		}
 	}
+
 	go func() {
 		syncFunc()
+
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -279,6 +282,7 @@ func (s *AllocationStore) Unprepare(_ context.Context, claimUID types.UID) error
 	}
 
 	s.log.Info("Deleting CDI claim spec file", slog.String("claimUID", string(claimUID)))
+
 	if err := s.cdi.DeleteClaimSpecFile(string(claimUID)); err != nil {
 		return fmt.Errorf("unable to delete CDI spec file for claim: %w", err)
 	}
@@ -294,6 +298,7 @@ func (s *AllocationStore) groupInUse(group int) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -313,6 +318,7 @@ func (s *AllocationStore) Synchronize(_ context.Context, pods []*api.PodSandbox,
 				s.log.Error("failed to parse dra env", slog.String("name", pod.Name), slog.String("namespace", pod.Namespace), slog.Any("err", err))
 				continue
 			}
+
 			for claimUID, deviceNames := range claimUIDDeviceNames {
 				s.resourceClaimAllocations[claimUID] = append(s.resourceClaimAllocations[claimUID], deviceNames...)
 				for _, deviceName := range deviceNames {

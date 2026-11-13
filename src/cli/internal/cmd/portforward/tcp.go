@@ -52,12 +52,15 @@ func (p *portForwarder) waitForConnection(listener net.Listener, port forwardedP
 			klog.Errorln("error accepting connection:", err)
 			return
 		}
+
 		klog.Infof("opening new tcp tunnel to %d", port.remote)
+
 		stream, err := p.resource.PortForward(p.name, subv1alpha2.VirtualMachinePortForward{Port: port.remote, Protocol: port.protocol})
 		if err != nil {
 			klog.Errorf("can't access vm/%s.%s: %v", p.name, p.namespace, err)
 			return
 		}
+
 		go p.handleConnection(conn, stream.AsConn(), port)
 	}
 }
@@ -66,7 +69,9 @@ func (p *portForwarder) waitForConnection(listener net.Listener, port forwardedP
 // the remote server.
 func (p *portForwarder) handleConnection(local, remote net.Conn, port forwardedPort) {
 	klog.Infof("handling tcp connection for %d", port.local)
+
 	errs := make(chan error)
+
 	go func() {
 		_, err := io.Copy(remote, local)
 		errs <- err

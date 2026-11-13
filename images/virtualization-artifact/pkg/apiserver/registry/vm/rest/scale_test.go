@@ -38,6 +38,7 @@ func newScaleREST(objs ...*v1alpha2.VirtualMachine) *ScaleREST {
 	for _, obj := range objs {
 		Expect(indexer.Add(obj)).To(Succeed())
 	}
+
 	return NewScaleREST(virtlisters.NewVirtualMachineLister(indexer))
 }
 
@@ -46,6 +47,7 @@ var _ = Describe("ScaleREST", func() {
 		ns     = "ci"
 		vmName = "web"
 	)
+
 	ctx := genericapirequest.WithNamespace(context.Background(), ns)
 
 	It("returns a Scale whose selector matches the VM's virt-launcher pod", func() {

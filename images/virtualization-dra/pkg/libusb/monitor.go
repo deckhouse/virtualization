@@ -54,6 +54,7 @@ func (m *MonitorType) Set(s string) error {
 	default:
 		return fmt.Errorf("invalid monitor type: %s", s)
 	}
+
 	return nil
 }
 
@@ -105,12 +106,15 @@ func (c *MonitorConfig) makeUdevOpts() []UdevMonitorOption {
 	if c.ResyncPeriod > 0 {
 		opts = append(opts, UdevWithResyncPeriod(c.ResyncPeriod))
 	}
+
 	if c.Logger != nil {
 		opts = append(opts, UdevWithLogger(c.Logger))
 	}
+
 	if c.DebounceDuration > 0 {
 		opts = append(opts, UdevWithDebounceDuration(c.DebounceDuration))
 	}
+
 	if c.HostNetNs {
 		opts = append(opts, UdevWithHostNetNS())
 	}

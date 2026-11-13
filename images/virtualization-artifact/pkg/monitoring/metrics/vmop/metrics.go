@@ -46,6 +46,7 @@ func WithBaseLabelsByMetric(m *dataMetric, labels ...string) []string {
 			m.VirtualMachine,
 		}
 	}
+
 	return append(base, labels...)
 }
 

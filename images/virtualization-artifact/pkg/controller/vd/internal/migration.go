@@ -197,6 +197,7 @@ func (h MigrationHandler) getAction(ctx context.Context, vd *v1alpha2.VirtualDis
 		if err != nil {
 			return none, err
 		}
+
 		if completed {
 			log.Info("The volume migration has been completed. Will be completed.")
 			return complete, nil
@@ -210,6 +211,7 @@ func (h MigrationHandler) getAction(ctx context.Context, vd *v1alpha2.VirtualDis
 			log.Info("VirtualDisk is not attached to any VirtualMachine anymore, but is migrating. Will be reverted.")
 			return revert, nil
 		}
+
 		return none, nil
 	}
 
@@ -219,11 +221,14 @@ func (h MigrationHandler) getAction(ctx context.Context, vd *v1alpha2.VirtualDis
 			log.Info("VirtualDisk is not attached to any VirtualMachine anymore, but is migrating. Will be reverted.")
 			return revert, nil
 		}
+
 		log.Info("VirtualDisk is not attached to any VirtualMachine. Skip...")
+
 		return none, nil
 	}
 
 	vm := &v1alpha2.VirtualMachine{}
+
 	err := h.client.Get(ctx, types.NamespacedName{Name: currentlyMountedVM, Namespace: vd.Namespace}, vm)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -232,6 +237,7 @@ func (h MigrationHandler) getAction(ctx context.Context, vd *v1alpha2.VirtualDis
 				return revert, nil
 			}
 		}
+
 		return none, err
 	}
 
@@ -260,10 +266,13 @@ func (h MigrationHandler) getAction(ctx context.Context, vd *v1alpha2.VirtualDis
 			if err != nil {
 				return none, err
 			}
+
 			if unfinalized {
 				return delayNewRound, nil
 			}
+
 			log.Info("StorageClass Changed. VirtualDisk should be migrated.")
+
 			return migratePrepareTarget, nil
 		}
 
@@ -280,13 +289,16 @@ func (h MigrationHandler) getAction(ctx context.Context, vd *v1alpha2.VirtualDis
 				log.Info("Operation is not waiting for disks to migrate, skip starting a new volume migration.")
 				return none, nil
 			}
+
 			unfinalized, err := h.isPreviousMigrationUnfinalized(ctx, vd, vm, vmop, log)
 			if err != nil {
 				return none, err
 			}
+
 			if unfinalized {
 				return delayNewRound, nil
 			}
+
 			return h.getActionIfDisksShouldBeMigrating(ctx, vd, log)
 		}
 	}
@@ -339,6 +351,7 @@ func (h MigrationHandler) getActionIfMigrationInProgress(ctx context.Context, vd
 	if err != nil {
 		return none, err
 	}
+
 	if switched {
 		log.Info("The guest already runs on the target PersistentVolumeClaim. Will be completed.", slog.String("vm.name", vm.Name), slog.String("vm.namespace", vm.Namespace))
 		return complete, nil
@@ -356,6 +369,7 @@ func (h MigrationHandler) getActionIfMigrationInProgress(ctx context.Context, vd
 	if err != nil {
 		return none, err
 	}
+
 	if vmop == nil {
 		log.Info("VirtualMachine is not migrating. Will be reverted.", slog.String("vm.name", vm.Name), slog.String("vm.namespace", vm.Namespace))
 		return revert, nil
@@ -385,6 +399,7 @@ func (h MigrationHandler) isGuestSwitchedToTargetPVC(ctx context.Context, vd *v1
 	if migState == nil || !migState.Completed || migState.Failed {
 		return false, nil
 	}
+
 	if migState.EndTimestamp == nil || !migState.EndTimestamp.After(vd.Status.MigrationState.StartTimestamp.Time) {
 		return false, nil
 	}
@@ -394,6 +409,7 @@ func (h MigrationHandler) isGuestSwitchedToTargetPVC(ctx context.Context, vd *v1
 		if v.Name != volumeName {
 			continue
 		}
+
 		return v.PersistentVolumeClaim != nil && v.PersistentVolumeClaim.ClaimName == targetPVC, nil
 	}
 
@@ -417,6 +433,7 @@ func (h MigrationHandler) isKVVMIHasUnfinalizedVolumeMigration(ctx context.Conte
 	}
 
 	volumesChange, _ := conditions.GetKVVMICondition(virtv1.VirtualMachineInstanceVolumesChange, kvvmi.Status.Conditions)
+
 	return volumesChange.Status == corev1.ConditionTrue, nil
 }
 
@@ -426,6 +443,7 @@ func (h MigrationHandler) isPreviousMigrationUnfinalized(ctx context.Context, vd
 	if err != nil {
 		return false, err
 	}
+
 	if unfinalized {
 		log.Info("The KVVMI still carries the previous volume migration state, delay the new one.")
 		return true, nil
@@ -435,11 +453,13 @@ func (h MigrationHandler) isPreviousMigrationUnfinalized(ctx context.Context, vd
 	if err != nil {
 		return false, err
 	}
+
 	for i := range disks {
 		other := &disks[i]
 		if !commonvd.IsMigrating(other) {
 			continue
 		}
+
 		startedBefore := vmop != nil && other.Status.MigrationState.StartTimestamp.Before(&vmop.CreationTimestamp)
 		if startedBefore || vdmigration.IsWaitingForSourceRelease(other) || vdmigration.IsWaitingForTargetRelease(other) {
 			log.Info("Another VirtualDisk is still finalizing the previous volume migration, delay the new one.", slog.String("vd.name", other.Name))
@@ -452,6 +472,7 @@ func (h MigrationHandler) isPreviousMigrationUnfinalized(ctx context.Context, vd
 
 func (h MigrationHandler) getActionIfDisksShouldBeMigrating(ctx context.Context, vd *v1alpha2.VirtualDisk, log *slog.Logger) (action, error) {
 	pvc := &corev1.PersistentVolumeClaim{}
+
 	err := h.client.Get(ctx, types.NamespacedName{Name: vd.Status.Target.PersistentVolumeClaim, Namespace: vd.Namespace}, pvc)
 	if err != nil {
 		return none, client.IgnoreNotFound(err)
@@ -463,6 +484,7 @@ func (h MigrationHandler) getActionIfDisksShouldBeMigrating(ctx context.Context,
 	}
 
 	log.Info("VirtualDisk should be migrated.")
+
 	return migratePrepareTarget, nil
 }
 
@@ -496,6 +518,7 @@ func (h MigrationHandler) handleMigratePrepareTarget(ctx context.Context, vd *v1
 			Reason(vdcondition.ResizingInProgressReason).
 			Message("Migration is not allowed while the disk is being resized.")
 		conditions.SetCondition(cb, &vd.Status.Conditions)
+
 		return nil
 	}
 
@@ -508,6 +531,7 @@ func (h MigrationHandler) handleMigratePrepareTarget(ctx context.Context, vd *v1
 			Reason(vdcondition.SnapshottingInProgressReason).
 			Message("Migration is not allowed while the disk is being snapshotted.")
 		conditions.SetCondition(cb, &vd.Status.Conditions)
+
 		return nil
 	}
 
@@ -515,8 +539,10 @@ func (h MigrationHandler) handleMigratePrepareTarget(ctx context.Context, vd *v1
 	targetPVCName := vd.Status.MigrationState.TargetPVC
 	vd.Status.MigrationState = v1alpha2.VirtualDiskMigrationState{}
 
-	var targetStorageClass *storagev1.StorageClass
-	var err error
+	var (
+		targetStorageClass *storagev1.StorageClass
+		err                error
+	)
 
 	storageClassName := ""
 	if vd.Spec.PersistentVolumeClaim.StorageClass != nil {
@@ -529,6 +555,7 @@ func (h MigrationHandler) handleMigratePrepareTarget(ctx context.Context, vd *v1
 		if err != nil {
 			return err
 		}
+
 		if targetStorageClass != nil {
 			if !h.scValidator.IsStorageClassAllowed(targetStorageClass.Name) {
 				log.Debug("StorageClass is not allowed for use. Skip...", slog.String("storageClass", targetStorageClass.Name))
@@ -538,8 +565,10 @@ func (h MigrationHandler) handleMigratePrepareTarget(ctx context.Context, vd *v1
 					StartTimestamp: metav1.Now(),
 					EndTimestamp:   metav1.Now(),
 				}
+
 				return nil
 			}
+
 			if h.scValidator.IsStorageClassDeprecated(targetStorageClass) {
 				log.Debug("StorageClass is deprecated, please use a different one. Skip...", slog.String("storageClass", targetStorageClass.Name))
 				vd.Status.MigrationState = v1alpha2.VirtualDiskMigrationState{
@@ -548,6 +577,7 @@ func (h MigrationHandler) handleMigratePrepareTarget(ctx context.Context, vd *v1
 					StartTimestamp: metav1.Now(),
 					EndTimestamp:   metav1.Now(),
 				}
+
 				return nil
 			}
 		}
@@ -564,6 +594,7 @@ func (h MigrationHandler) handleMigratePrepareTarget(ctx context.Context, vd *v1
 			Reason(vdcondition.StorageClassNotFoundReason).
 			Message("StorageClass not found, waiting for creation.")
 		conditions.SetCondition(cb, &vd.Status.Conditions)
+
 		return nil
 	}
 
@@ -581,26 +612,31 @@ func (h MigrationHandler) handleMigratePrepareTarget(ctx context.Context, vd *v1
 	if err != nil {
 		return err
 	}
+
 	if actualPvc == nil {
 		log.Info("Actual PersistentVolumeClaim is not found. Skip...")
+
 		vd.Status.MigrationState = v1alpha2.VirtualDiskMigrationState{
 			Result:         v1alpha2.VirtualDiskMigrationResultFailed,
 			Message:        "Actual PersistentVolumeClaim is not found.",
 			StartTimestamp: metav1.Now(),
 			EndTimestamp:   metav1.Now(),
 		}
+
 		return nil
 	}
 
 	size := actualPvc.Status.Capacity[corev1.ResourceStorage]
 	if size.IsZero() {
 		log.Error("Failed to found capacity. Zero value. Skip...", slog.String("capacity", size.String()))
+
 		vd.Status.MigrationState = v1alpha2.VirtualDiskMigrationState{
 			Result:         v1alpha2.VirtualDiskMigrationResultFailed,
 			Message:        fmt.Sprintf("Failed to parse capacity %q: zero value", vd.Status.Capacity),
 			StartTimestamp: metav1.Now(),
 			EndTimestamp:   metav1.Now(),
 		}
+
 		return nil
 	}
 
@@ -613,13 +649,16 @@ func (h MigrationHandler) handleMigratePrepareTarget(ctx context.Context, vd *v1
 	if err != nil {
 		return fmt.Errorf("get provisioned capacity: %w", err)
 	}
+
 	size = calculateTargetSize(ctx, size, provisionedCapacity)
 
 	log.Info("Start creating target PersistentVolumeClaim", slog.String("storageClass", targetStorageClass.Name), slog.String("capacity", size.String()))
+
 	pvc, err := h.createTargetPersistentVolumeClaim(ctx, vd, targetStorageClass, size, targetPVCName, vd.Status.Target.PersistentVolumeClaim, volumeMode, accessMode)
 	if err != nil {
 		return err
 	}
+
 	if pvc == nil {
 		log.Debug("Target PersistentVolumeClaim is not ready for migration preparation; skip")
 		return nil
@@ -635,6 +674,7 @@ func (h MigrationHandler) handleMigratePrepareTarget(ctx context.Context, vd *v1
 		log.Debug("Target PersistentVolumeClaim name matches source PersistentVolumeClaim after selection; skip",
 			slog.String("pvc", pvc.Name),
 		)
+
 		return nil
 	}
 
@@ -663,6 +703,7 @@ func (h MigrationHandler) getProvisionedCapacity(ctx context.Context, vd *v1alph
 	}
 
 	kvvmi := &virtv1.VirtualMachineInstance{}
+
 	err := h.client.Get(ctx, types.NamespacedName{Name: currentlyMountedVM, Namespace: vd.Namespace}, kvvmi)
 	if err != nil {
 		return resource.Quantity{}, fmt.Errorf("get KVVMI: %w", err)
@@ -689,6 +730,7 @@ func calculateTargetSize(ctx context.Context, size, realSize resource.Quantity) 
 	if size.Cmp(realSize) == 1 {
 		return size
 	}
+
 	return realSize
 }
 
@@ -706,12 +748,14 @@ func (h MigrationHandler) handleMigrateSync(ctx context.Context, vd *v1alpha2.Vi
 	if pvc == nil {
 		cb.Message("The target PersistentVolumeClaim is not found.")
 		conditions.SetCondition(cb, &vd.Status.Conditions)
+
 		return nil
 	}
 
 	if pvc.Status.Phase == corev1.ClaimBound {
 		cb.Status(metav1.ConditionTrue).Reason(vdcondition.MigratingInProgressReason).Message("The target PersistentVolumeClaim is Bound.")
 		conditions.SetCondition(cb, &vd.Status.Conditions)
+
 		return nil
 	}
 
@@ -720,20 +764,25 @@ func (h MigrationHandler) handleMigrateSync(ctx context.Context, vd *v1alpha2.Vi
 		if sc := pvc.Spec.StorageClassName; sc != nil && *sc != "" {
 			storageClassName = *sc
 		}
+
 		if storageClassName == "" {
 			cb.Message("The target PersistentVolumeClaim is pending.")
 			conditions.SetCondition(cb, &vd.Status.Conditions)
+
 			return nil
 		}
 
 		sc := &storagev1.StorageClass{}
+
 		err = h.client.Get(ctx, types.NamespacedName{Name: storageClassName}, sc)
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
 				cb.Message("The target PersistentVolumeClaim is pending; the StorageClass is not found.")
 				conditions.SetCondition(cb, &vd.Status.Conditions)
+
 				return nil
 			}
+
 			return err
 		}
 
@@ -741,12 +790,14 @@ func (h MigrationHandler) handleMigrateSync(ctx context.Context, vd *v1alpha2.Vi
 		if isWaitForFistConsumer {
 			cb.Status(metav1.ConditionTrue).Reason(vdcondition.MigratingInProgressReason).Message("The target PersistentVolumeClaim is waiting for the first consumer.")
 			conditions.SetCondition(cb, &vd.Status.Conditions)
+
 			return nil
 		}
 	}
 
 	cb.Message("Waiting for the target PersistentVolumeClaim to be provisioned.")
 	conditions.SetCondition(cb, &vd.Status.Conditions)
+
 	return nil
 }
 
@@ -767,6 +818,7 @@ func (h MigrationHandler) handleRevert(ctx context.Context, vd *v1alpha2.Virtual
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	if sourcePVC == nil || !sourcePVC.GetDeletionTimestamp().IsZero() {
 		log.Error("The source PersistentVolumeClaim is already deleted, cannot revert. Complete the migration on the target PersistentVolumeClaim instead.",
 			slog.String("pvc.name", vd.Status.MigrationState.SourcePVC),
@@ -783,6 +835,7 @@ func (h MigrationHandler) handleRevert(ctx context.Context, vd *v1alpha2.Virtual
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	if !canFinalize {
 		log.Info("Cannot revert the migration yet, waiting for the target PersistentVolumeClaim to be released", slog.String("reason", reason))
 
@@ -790,6 +843,7 @@ func (h MigrationHandler) handleRevert(ctx context.Context, vd *v1alpha2.Virtual
 		if reason != "" {
 			msg = msg + " " + reason
 		}
+
 		cb := conditions.NewConditionBuilder(vdcondition.MigratingType).
 			Generation(vd.GetGeneration()).
 			Status(metav1.ConditionTrue).
@@ -805,10 +859,13 @@ func (h MigrationHandler) handleRevert(ctx context.Context, vd *v1alpha2.Virtual
 		if errors.Is(err, errWouldDeleteLastPersistentVolumeClaim) {
 			h.finalizeOnSurvivingPersistentVolumeClaim(ctx, vd, vd.Status.MigrationState.TargetPVC,
 				"Migration failed: the source PersistentVolumeClaim is deleted, the target PersistentVolumeClaim is kept.")
+
 			return reconcile.Result{}, nil
 		}
+
 		return reconcile.Result{}, err
 	}
+
 	log.Debug("Target PersistentVolumeClaim was deleted", slog.String("pvc.name", vd.Status.MigrationState.TargetPVC), slog.String("pvc.namespace", vd.Namespace))
 
 	vd.Status.MigrationState.EndTimestamp = metav1.Now()
@@ -820,6 +877,7 @@ func (h MigrationHandler) handleRevert(ctx context.Context, vd *v1alpha2.Virtual
 		vd.Status.Target.PersistentVolumeClaim)
 
 	conditions.RemoveCondition(vdcondition.MigratingType, &vd.Status.Conditions)
+
 	return reconcile.Result{}, nil
 }
 
@@ -846,6 +904,7 @@ func (h MigrationHandler) handleComplete(ctx context.Context, vd *v1alpha2.Virtu
 
 		vdsupplements.SetPVCName(vd, vd.Status.MigrationState.SourcePVC)
 		conditions.RemoveCondition(vdcondition.MigratingType, &vd.Status.Conditions)
+
 		return reconcile.Result{}, nil
 	}
 
@@ -859,10 +918,13 @@ func (h MigrationHandler) handleComplete(ctx context.Context, vd *v1alpha2.Virtu
 			if errors.Is(err, errWouldDeleteLastPersistentVolumeClaim) {
 				h.finalizeOnSurvivingPersistentVolumeClaim(ctx, vd, vd.Status.MigrationState.TargetPVC,
 					"Migration failed: the target PersistentVolumeClaim is not bound, but the source PersistentVolumeClaim is already deleted, so the target PersistentVolumeClaim is kept.")
+
 				return reconcile.Result{}, nil
 			}
+
 			return reconcile.Result{}, err
 		}
+
 		log.Debug("Target PersistentVolumeClaim was deleted", slog.String("pvc.name", vd.Status.MigrationState.TargetPVC), slog.String("pvc.namespace", vd.Namespace))
 
 		vd.Status.MigrationState.EndTimestamp = metav1.Now()
@@ -875,6 +937,7 @@ func (h MigrationHandler) handleComplete(ctx context.Context, vd *v1alpha2.Virtu
 
 		vdsupplements.SetPVCName(vd, vd.Status.MigrationState.SourcePVC)
 		conditions.RemoveCondition(vdcondition.MigratingType, &vd.Status.Conditions)
+
 		return reconcile.Result{}, nil
 	}
 
@@ -882,6 +945,7 @@ func (h MigrationHandler) handleComplete(ctx context.Context, vd *v1alpha2.Virtu
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	if !canFinalize {
 		log.Info("Cannot complete the migration yet, waiting for the source PersistentVolumeClaim to be released", slog.String("reason", reason))
 
@@ -889,6 +953,7 @@ func (h MigrationHandler) handleComplete(ctx context.Context, vd *v1alpha2.Virtu
 		if reason != "" {
 			msg = msg + " " + reason
 		}
+
 		cb := conditions.NewConditionBuilder(vdcondition.MigratingType).
 			Generation(vd.GetGeneration()).
 			Status(metav1.ConditionTrue).
@@ -903,6 +968,7 @@ func (h MigrationHandler) handleComplete(ctx context.Context, vd *v1alpha2.Virtu
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	if waiting {
 		return reconcile.Result{RequeueAfter: finalizeMigrationRequeueAfter}, nil
 	}
@@ -914,15 +980,19 @@ func (h MigrationHandler) handleComplete(ctx context.Context, vd *v1alpha2.Virtu
 		if errors.Is(err, errWouldDeleteLastPersistentVolumeClaim) {
 			h.finalizeOnSurvivingPersistentVolumeClaim(ctx, vd, vd.Status.MigrationState.SourcePVC,
 				"Migration failed: the target PersistentVolumeClaim is deleted, the source PersistentVolumeClaim is kept.")
+
 			return reconcile.Result{}, nil
 		}
+
 		return reconcile.Result{}, err
 	}
+
 	log.Debug("Source PersistentVolumeClaim was deleted", slog.String("pvc.name", vd.Status.MigrationState.SourcePVC), slog.String("pvc.namespace", vd.Namespace))
 
 	if sc := vd.Spec.PersistentVolumeClaim.StorageClass; sc != nil && *sc != "" {
 		vd.Status.StorageClassName = *sc
 	}
+
 	vd.Status.MigrationState.EndTimestamp = metav1.Now()
 	vd.Status.MigrationState.Result = v1alpha2.VirtualDiskMigrationResultSucceeded
 	vd.Status.MigrationState.Message = "Migration completed."
@@ -934,6 +1004,7 @@ func (h MigrationHandler) handleComplete(ctx context.Context, vd *v1alpha2.Virtu
 	vdsupplements.SetPVCName(vd, vd.Status.MigrationState.TargetPVC)
 
 	conditions.RemoveCondition(vdcondition.MigratingType, &vd.Status.Conditions)
+
 	return reconcile.Result{}, nil
 }
 
@@ -950,9 +1021,11 @@ func (h MigrationHandler) removeQuotaOverrideLabel(ctx context.Context, vd *v1al
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	if pvc == nil {
 		return reconcile.Result{}, nil
 	}
+
 	if _, found := pvc.Labels[annotations.QuotaExcludeLabel]; !found {
 		return reconcile.Result{}, nil
 	}
@@ -967,6 +1040,7 @@ func (h MigrationHandler) removeQuotaOverrideLabel(ctx context.Context, vd *v1al
 			slog.String("pvc.name", pvc.Name),
 			slog.String("pvc.namespace", pvc.Namespace),
 		)
+
 		return reconcile.Result{RequeueAfter: quotaOverrideRequeueAfter}, nil
 	default:
 		return reconcile.Result{}, fmt.Errorf("remove quota override label from the PersistentVolumeClaim %q: %w", pvc.Name, err)
@@ -975,6 +1049,7 @@ func (h MigrationHandler) removeQuotaOverrideLabel(ctx context.Context, vd *v1al
 
 func (h MigrationHandler) getInProgressMigratingVMOP(ctx context.Context, vm *v1alpha2.VirtualMachine) (*v1alpha2.VirtualMachineOperation, error) {
 	vmops := &v1alpha2.VirtualMachineOperationList{}
+
 	err := h.client.List(ctx, vmops, client.InNamespace(vm.Namespace))
 	if err != nil {
 		return nil, err
@@ -986,12 +1061,15 @@ func (h MigrationHandler) getInProgressMigratingVMOP(ctx context.Context, vm *v1
 		if vmop.Spec.VirtualMachine != vm.Name {
 			continue
 		}
+
 		if !commonvmop.IsMigration(&vmop) {
 			continue
 		}
+
 		if !commonvmop.IsInProgressOrPending(&vmop) {
 			continue
 		}
+
 		if candidate == nil || isOlderVMOP(&vmop, candidate) {
 			candidate = &vmop
 		}
@@ -1050,8 +1128,10 @@ func (h MigrationHandler) createTargetPersistentVolumeClaim(ctx context.Context,
 				slog.String("sourcePVC", sourcePVCName),
 				slog.String("ownedPVC", pvcs[0].Name),
 			)
+
 			return nil, nil
 		}
+
 		if targetPVCName != "" {
 			logger.FromContext(ctx).Debug("Target PersistentVolumeClaim was not found; ignoring stale target name",
 				slog.String("targetPVC", targetPVCName),
@@ -1059,38 +1139,47 @@ func (h MigrationHandler) createTargetPersistentVolumeClaim(ctx context.Context,
 		}
 	case 2:
 		sourcePVCExists := false
+
 		var targetPVC, fallbackTargetPVC *corev1.PersistentVolumeClaim
+
 		for _, pvc := range pvcs {
 			if pvc.Name == sourcePVCName {
 				sourcePVCExists = true
 				continue
 			}
+
 			fallbackTargetPVC = &pvc
 			if targetPVCName == "" || pvc.Name == targetPVCName {
 				targetPVC = &pvc
 				break
 			}
 		}
+
 		if !sourcePVCExists {
 			logger.FromContext(ctx).Debug("Source PersistentVolumeClaim was not found among owned PersistentVolumeClaims; skip migration preparation",
 				slog.String("sourcePVC", sourcePVCName),
 			)
+
 			return nil, nil
 		}
+
 		if targetPVC != nil {
 			return targetPVC, nil
 		}
+
 		if fallbackTargetPVC != nil {
 			logger.FromContext(ctx).Debug("Target PersistentVolumeClaim was not found; using the only non-source PersistentVolumeClaim",
 				slog.String("targetPVC", targetPVCName),
 				slog.String("fallbackPVC", fallbackTargetPVC.Name),
 			)
+
 			return fallbackTargetPVC, nil
 		}
 	default:
 		logger.FromContext(ctx).Debug("Unexpected number of owned PersistentVolumeClaims; skip migration preparation",
 			slog.Int("count", len(pvcs)),
 		)
+
 		return nil, nil
 	}
 
@@ -1112,6 +1201,7 @@ func (h MigrationHandler) createTargetPersistentVolumeClaim(ctx context.Context,
 	}
 
 	err = h.client.Create(ctx, pvc)
+
 	return pvc, err
 }
 
@@ -1133,6 +1223,7 @@ func (h MigrationHandler) deleteTargetPersistentVolumeClaim(ctx context.Context,
 	if err != nil {
 		return err
 	}
+
 	if sourcePVC == nil || !sourcePVC.GetDeletionTimestamp().IsZero() {
 		return errWouldDeleteLastPersistentVolumeClaim
 	}
@@ -1150,6 +1241,7 @@ func (h MigrationHandler) deleteSourcePersistentVolumeClaim(ctx context.Context,
 	if err != nil {
 		return err
 	}
+
 	if targetPVC == nil || !targetPVC.GetDeletionTimestamp().IsZero() {
 		return errWouldDeleteLastPersistentVolumeClaim
 	}
@@ -1182,8 +1274,11 @@ func deletePersistentVolumeClaim(ctx context.Context, pvc *corev1.PersistentVolu
 		}
 	}
 
-	var newFinalizers []string
-	var shouldPatch bool
+	var (
+		newFinalizers []string
+		shouldPatch   bool
+	)
+
 	for _, finalizer := range pvc.Finalizers {
 		switch finalizer {
 		case v1alpha2.FinalizerVDProtection: // remove
@@ -1198,6 +1293,7 @@ func deletePersistentVolumeClaim(ctx context.Context, pvc *corev1.PersistentVolu
 		if err != nil {
 			return err
 		}
+
 		return client.IgnoreNotFound(c.Patch(ctx, pvc, patch))
 	}
 
@@ -1206,12 +1302,14 @@ func deletePersistentVolumeClaim(ctx context.Context, pvc *corev1.PersistentVolu
 
 func listPersistentVolumeClaims(ctx context.Context, vd *v1alpha2.VirtualDisk, c client.Client) ([]corev1.PersistentVolumeClaim, error) {
 	pvcList := &corev1.PersistentVolumeClaimList{}
+
 	err := c.List(ctx, pvcList, client.InNamespace(vd.Namespace))
 	if err != nil {
 		return nil, err
 	}
 
 	var pvcs []corev1.PersistentVolumeClaim
+
 	for _, pvc := range pvcList.Items {
 		for _, ownerRef := range pvc.OwnerReferences {
 			if ownerRef.UID == vd.UID {
@@ -1255,6 +1353,7 @@ func (h MigrationHandler) isVolumeMigrationCompleted(ctx context.Context, vd *v1
 		if err != nil {
 			return false, err
 		}
+
 		if other != nil && vdmigration.IsSwitchedToTarget(other) {
 			return true, nil
 		}
@@ -1277,6 +1376,7 @@ func (h MigrationHandler) waitForDisksInSameMigration(ctx context.Context, vd *v
 			return false, err
 		}
 	}
+
 	if len(pending) == 0 {
 		return false, nil
 	}
@@ -1301,11 +1401,13 @@ func (h MigrationHandler) getDiskNamesNotCompleting(ctx context.Context, reader 
 	}
 
 	var pending []string
+
 	for i := range disks {
 		if commonvd.IsMigrating(&disks[i]) && !vdmigration.IsWaitingForSourceRelease(&disks[i]) {
 			pending = append(pending, disks[i].Name)
 		}
 	}
+
 	slices.Sort(pending)
 
 	return pending, nil
@@ -1317,6 +1419,7 @@ func (h MigrationHandler) getDisksInSameMigration(ctx context.Context, reader cl
 	if err != nil || kvvm == nil {
 		return nil, err
 	}
+
 	vm, err := object.FetchObject(ctx, object.NamespacedName(kvvm), h.client, &v1alpha2.VirtualMachine{})
 	if err != nil || vm == nil {
 		return nil, err
@@ -1328,6 +1431,7 @@ func (h MigrationHandler) getDisksInSameMigration(ctx context.Context, reader cl
 	}
 
 	now := time.Now()
+
 	return slices.DeleteFunc(disks, func(other v1alpha2.VirtualDisk) bool {
 		return !vdmigration.InSameMigration(vd, &other, now) || !vdmigration.IsTargetInKVVM(&other, kvvm)
 	}), nil
@@ -1337,6 +1441,7 @@ func (h MigrationHandler) getDisksInSameMigration(ctx context.Context, reader cl
 // mass migration. Disks being deleted are never finalized and would hold the migration forever.
 func (h MigrationHandler) getOtherVirtualMachineDisks(ctx context.Context, reader client.Reader, vd *v1alpha2.VirtualDisk, vm *v1alpha2.VirtualMachine) ([]v1alpha2.VirtualDisk, error) {
 	var disks []v1alpha2.VirtualDisk
+
 	for _, bd := range vm.Status.BlockDeviceRefs {
 		if bd.Kind != v1alpha2.DiskDevice || bd.Name == vd.Name {
 			continue
@@ -1346,9 +1451,11 @@ func (h MigrationHandler) getOtherVirtualMachineDisks(ctx context.Context, reade
 		if err != nil {
 			return nil, fmt.Errorf("fetch virtual disk %q: %w", bd.Name, err)
 		}
+
 		if other == nil || !other.GetDeletionTimestamp().IsZero() {
 			continue
 		}
+
 		disks = append(disks, *other)
 	}
 
@@ -1363,10 +1470,12 @@ func (h MigrationHandler) getMigrationKVVM(ctx context.Context, vd *v1alpha2.Vir
 		if err != nil {
 			return nil, err
 		}
+
 		if vdmigration.IsTargetInKVVM(vd, kvvm) {
 			return kvvm, nil
 		}
 	}
+
 	return nil, nil
 }
 
@@ -1401,6 +1510,7 @@ func (h MigrationHandler) canDeletePersistentVolumeClaim(ctx context.Context, vd
 	}
 
 	vmKey := types.NamespacedName{Name: currentlyMountedVM, Namespace: vd.Namespace}
+
 	vm, kvvm, kvvmi, err := h.getVirtualMachines(ctx, vmKey)
 	if err != nil {
 		return false, "", err
@@ -1423,6 +1533,7 @@ func (h MigrationHandler) canDeletePersistentVolumeClaim(ctx context.Context, vd
 		if podHasPVC(pod, pvcName) {
 			logger.FromContext(ctx).Debug("The PersistentVolumeClaim is still in use by a pod",
 				slog.String("pvc.name", pvcName), slog.String("pod.name", pod.Name))
+
 			return false, fmt.Sprintf("The %s PersistentVolumeClaim %q is still in use by the running VirtualMachine %q.", role, pvcName, currentlyMountedVM), nil
 		}
 	}
@@ -1471,6 +1582,7 @@ func kvvmiSpecHasPVC(spec virtv1.VirtualMachineInstanceSpec, pvcName string) boo
 
 func (h MigrationHandler) getActivePods(ctx context.Context, vm *v1alpha2.VirtualMachine) ([]*corev1.Pod, error) {
 	podList := corev1.PodList{}
+
 	err := h.client.List(ctx, &podList, &client.ListOptions{
 		Namespace:     vm.GetNamespace(),
 		LabelSelector: labels.SelectorFromSet(map[string]string{virtv1.VirtualMachineNameLabel: vm.GetName()}),
@@ -1480,6 +1592,7 @@ func (h MigrationHandler) getActivePods(ctx context.Context, vm *v1alpha2.Virtua
 	}
 
 	var result []*corev1.Pod
+
 	for _, pod := range podList.Items {
 		if pod.Status.Phase == corev1.PodFailed || pod.Status.Phase == corev1.PodSucceeded {
 			continue

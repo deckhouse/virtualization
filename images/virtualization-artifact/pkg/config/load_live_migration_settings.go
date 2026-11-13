@@ -38,10 +38,12 @@ func LoadSharedMigrationLimitFromEnv() (enabled bool, limit int) {
 	if raw == "" {
 		return false, 0
 	}
+
 	parsed, err := strconv.Atoi(raw)
 	if err != nil || parsed < 1 {
 		return false, 0
 	}
+
 	return true, parsed
 }
 
@@ -53,7 +55,9 @@ func SetSystemMigrationPolicyOverride(rawPolicy string) bool {
 		systemMigrationPolicyOverride = ""
 		return false
 	}
+
 	systemMigrationPolicyOverride = policy
+
 	return true
 }
 
@@ -61,6 +65,7 @@ func GetSystemMigrationPolicyOverride() (v1alpha2.LiveMigrationPolicy, bool) {
 	if systemMigrationPolicyOverride == "" {
 		return "", false
 	}
+
 	return systemMigrationPolicyOverride, true
 }
 

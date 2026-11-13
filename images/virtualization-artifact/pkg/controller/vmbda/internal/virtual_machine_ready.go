@@ -41,6 +41,7 @@ func NewVirtualMachineReadyHandler(attachment AttachmentService) *VirtualMachine
 
 func (h VirtualMachineReadyHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment) (reconcile.Result, error) {
 	cb := conditions.NewConditionBuilder(vmbdacondition.VirtualMachineReadyType)
+
 	defer func() { conditions.SetCondition(cb.Generation(vmbda.Generation), &vmbda.Status.Conditions) }()
 
 	if !conditions.HasCondition(cb.GetType(), vmbda.Status.Conditions) {
@@ -67,6 +68,7 @@ func (h VirtualMachineReadyHandler) Handle(ctx context.Context, vmbda *v1alpha2.
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.VirtualMachineNotReady).
 			Message(fmt.Sprintf("VirtualMachine %q not found.", vmKey.String()))
+
 		return reconcile.Result{}, nil
 	}
 
@@ -79,12 +81,14 @@ func (h VirtualMachineReadyHandler) Handle(ctx context.Context, vmbda *v1alpha2.
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.NotAttached).
 			Message(fmt.Sprintf("VirtualMachine %q is %s: waiting for the VirtualMachine to be Running.", vm.Name, vm.Status.Phase))
+
 		return reconcile.Result{}, nil
 	default:
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.VirtualMachineNotReady).
 			Message(fmt.Sprintf("Waiting for the VirtualMachine %q to be Running.", vmKey.String()))
+
 		return reconcile.Result{}, nil
 	}
 
@@ -98,6 +102,7 @@ func (h VirtualMachineReadyHandler) Handle(ctx context.Context, vmbda *v1alpha2.
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.VirtualMachineNotReady).
 			Message(fmt.Sprintf("VirtualMachine %q is Running, but its underlying virtualization instance is not ready yet.", vmKey.String()))
+
 		return reconcile.Result{}, nil
 	}
 
@@ -111,6 +116,7 @@ func (h VirtualMachineReadyHandler) Handle(ctx context.Context, vmbda *v1alpha2.
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.VirtualMachineNotReady).
 			Message(fmt.Sprintf("VirtualMachine %q is Running, but its underlying virtualization instance is not ready yet.", vmKey.String()))
+
 		return reconcile.Result{}, nil
 	}
 

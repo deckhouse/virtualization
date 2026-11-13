@@ -61,15 +61,18 @@ func supersedeVMOPSuperseded() vmopobs.Predicate {
 		if op.Status.Phase != v1alpha2.VMOPPhaseSuperseded {
 			return false, nil
 		}
+
 		for _, c := range op.Status.Conditions {
 			if c.Type == vmopcondition.TypeCompleted.String() {
 				if c.Reason == vmopcondition.ReasonSuperseded.String() {
 					return true, nil
 				}
+
 				return false, fmt.Errorf("vmop %s/%s is Superseded but the Completed condition reason is %q, expected %q",
 					op.Namespace, op.Name, c.Reason, vmopcondition.ReasonSuperseded)
 			}
 		}
+
 		return false, nil
 	}
 }
@@ -100,13 +103,16 @@ var _ = Describe("VirtualMachineSupersede", Label(label.SIGCompute, precheck.NoP
 		)
 
 		By("Environment preparation")
+
 		err := f.CreateWithDeferredDeletion(ctx, vdRoot, vm)
 		Expect(err).NotTo(HaveOccurred())
+
 		vmObs := vmobs.StartObserver(ctx, f, vm)
 		err = vmObs.WaitFor(vmobs.BeStopped(), framework.LongTimeout)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Start the VM: its launcher pod is unschedulable, so the Start VMOP stays InProgress")
+
 		startVMOP := vmopbuilder.New(
 			vmopbuilder.WithName("vmop-start"),
 			vmopbuilder.WithNamespace(vm.Namespace),
@@ -120,6 +126,7 @@ var _ = Describe("VirtualMachineSupersede", Label(label.SIGCompute, precheck.NoP
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Supersede the Start with a Stop")
+
 		stopVMOP := vmopbuilder.New(
 			vmopbuilder.WithName("vmop-stop"),
 			vmopbuilder.WithNamespace(vm.Namespace),
@@ -130,6 +137,7 @@ var _ = Describe("VirtualMachineSupersede", Label(label.SIGCompute, precheck.NoP
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Ensure the Start VMOP is Superseded")
+
 		err = startVMOPObs.WaitFor(supersedeVMOPSuperseded(), framework.MiddleTimeout)
 		Expect(err).NotTo(HaveOccurred())
 	})
@@ -160,11 +168,14 @@ var _ = Describe("VirtualMachineSupersede", Label(label.SIGCompute, precheck.NoP
 		)
 
 		By("Environment preparation: start the VM and wait until it is running")
+
 		err := f.CreateWithDeferredDeletion(ctx, vdRoot, vm)
 		Expect(err).NotTo(HaveOccurred())
+
 		vmObs := vmobs.StartObserver(ctx, f, vm)
 		err = vmObs.WaitFor(vmobs.BeStopped(), framework.LongTimeout)
 		Expect(err).NotTo(HaveOccurred())
+
 		startVMOP := util.StartVirtualMachine(ctx, f, vm)
 		startVMOPObs := vmopobs.StartObserver(ctx, startVMOP)
 		err = vmObs.WaitFor(vmobs.BeRunning(), framework.LongTimeout)
@@ -176,6 +187,7 @@ var _ = Describe("VirtualMachineSupersede", Label(label.SIGCompute, precheck.NoP
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Migrate the VM to a non-existent node: the target pod is unschedulable, so the Migrate VMOP stays InProgress")
+
 		migrateVMOP := vmopbuilder.New(
 			vmopbuilder.WithName("vmop-migrate"),
 			vmopbuilder.WithNamespace(vm.Namespace),
@@ -202,6 +214,7 @@ var _ = Describe("VirtualMachineSupersede", Label(label.SIGCompute, precheck.NoP
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Ensure the Migrate VMOP is Superseded")
+
 		err = migrateVMOPObs.WaitFor(supersedeVMOPSuperseded(), framework.MiddleTimeout)
 		Expect(err).NotTo(HaveOccurred())
 	},
@@ -233,11 +246,14 @@ var _ = Describe("VirtualMachineSupersede", Label(label.SIGCompute, precheck.NoP
 		)
 
 		By("Environment preparation: start the VM and wait until it is running")
+
 		err := f.CreateWithDeferredDeletion(ctx, vdRoot, vm)
 		Expect(err).NotTo(HaveOccurred())
+
 		vmObs := vmobs.StartObserver(ctx, f, vm)
 		err = vmObs.WaitFor(vmobs.BeStopped(), framework.LongTimeout)
 		Expect(err).NotTo(HaveOccurred())
+
 		startVMOP := util.StartVirtualMachine(ctx, f, vm)
 		startVMOPObs := vmopobs.StartObserver(ctx, startVMOP)
 		err = vmObs.WaitFor(vmobs.BeRunning(), framework.LongTimeout)
@@ -258,6 +274,7 @@ var _ = Describe("VirtualMachineSupersede", Label(label.SIGCompute, precheck.NoP
 		// keeps the running VM at the custom-image sizing (50m) until the doomed
 		// restart, whose pod is never scheduled and never consumes those cores.
 		const unschedulableCPUCores = 240
+
 		patch, err := json.Marshal([]map[string]interface{}{{
 			"op":    "replace",
 			"path":  "/spec/cpu/cores",
@@ -272,6 +289,7 @@ var _ = Describe("VirtualMachineSupersede", Label(label.SIGCompute, precheck.NoP
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Restart the VM: the restarted pod is unschedulable, so the Restart VMOP stays InProgress")
+
 		restartVMOP := vmopbuilder.New(
 			vmopbuilder.WithName("vmop-restart"),
 			vmopbuilder.WithNamespace(vm.Namespace),
@@ -296,6 +314,7 @@ var _ = Describe("VirtualMachineSupersede", Label(label.SIGCompute, precheck.NoP
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Ensure the Restart VMOP is Superseded")
+
 		err = restartVMOPObs.WaitFor(supersedeVMOPSuperseded(), framework.MiddleTimeout)
 		Expect(err).NotTo(HaveOccurred())
 	},

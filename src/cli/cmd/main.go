@@ -32,6 +32,7 @@ func main() {
 	if err := virtCmd.Execute(); err != nil {
 		red := color.New(color.FgRed)
 		_, _ = red.Fprintf(os.Stderr, "Error: %v\n", err)
+
 		os.Exit(1)
 	}
 }

@@ -47,6 +47,7 @@ var _ = Describe("RestartApprovalHandler", func() {
 
 	newVM := func(reason vmcondition.EvictionRequiredReason) *v1alpha2.VirtualMachine {
 		vm := vmbuilder.NewEmpty("vm", namespace)
+
 		vm.Status.Node = nodeName
 		if reason != "" {
 			vm.Status.Conditions = append(vm.Status.Conditions, metav1.Condition{
@@ -55,6 +56,7 @@ var _ = Describe("RestartApprovalHandler", func() {
 				Reason: reason.String(),
 			})
 		}
+
 		return vm
 	}
 
@@ -67,6 +69,7 @@ var _ = Describe("RestartApprovalHandler", func() {
 
 		updated := &corev1.Node{}
 		Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(node), updated)).To(Succeed())
+
 		return updated
 	}
 

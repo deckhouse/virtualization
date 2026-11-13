@@ -42,6 +42,7 @@ func isNodeUnresponsive(ctx context.Context, c client.Client, nodeName string) (
 	}
 
 	node := &corev1.Node{}
+
 	err := c.Get(ctx, types.NamespacedName{Name: nodeName}, node)
 	switch {
 	case err == nil:
@@ -55,9 +56,11 @@ func isNodeUnresponsive(ctx context.Context, c client.Client, nodeName string) (
 		if c.Type != corev1.NodeReady {
 			continue
 		}
+
 		if c.Status == corev1.ConditionTrue {
 			return false, "", nil
 		}
+
 		return true, fmt.Sprintf("Node %q stopped reporting readiness at %s, the actual state of the virtual machine is unknown.",
 			nodeName, c.LastTransitionTime.UTC().Format("2006-01-02 15:04:05 UTC")), nil
 	}

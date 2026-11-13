@@ -51,7 +51,9 @@ type wrapWatcher struct {
 func (w *wrapWatcher) receive(ctx context.Context) {
 	defer close(w.result)
 	defer close(w.done)
+
 	resultChan := w.watcher.ResultChan()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -60,6 +62,7 @@ func (w *wrapWatcher) receive(ctx context.Context) {
 			if !ok {
 				return
 			}
+
 			if w.match == nil || w.match(event) {
 				select {
 				case <-ctx.Done():
@@ -82,5 +85,6 @@ func (w *wrapWatcher) Stop() {
 		w.watcher.Stop()
 		w.cancel()
 	}
+
 	<-w.done
 }

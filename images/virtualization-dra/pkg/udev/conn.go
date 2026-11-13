@@ -66,6 +66,7 @@ func NewConn(opts ...ConnOption) *Conn {
 	for _, opt := range opts {
 		opt(c)
 	}
+
 	return c
 }
 
@@ -74,11 +75,13 @@ func (c *Conn) Connect(mode Mode) error {
 	if c.netNS != "" {
 		return c.connectInNetNS(mode)
 	}
+
 	return c.connect(mode)
 }
 
 func (c *Conn) connect(mode Mode) error {
 	var err error
+
 	c.fd, err = syscall.Socket(syscall.AF_NETLINK, syscall.SOCK_RAW, syscall.NETLINK_KOBJECT_UEVENT)
 	if err != nil {
 		return fmt.Errorf("failed to create netlink socket: %w", err)
@@ -107,6 +110,7 @@ func (c *Conn) connectInNetNS(mode Mode) error {
 	// This is critical because Go scheduler can migrate goroutines between OS threads,
 	// and namespace is a per-thread property.
 	runtime.LockOSThread()
+
 	defer runtime.UnlockOSThread()
 
 	// Save current network namespace
@@ -153,6 +157,7 @@ func (c *Conn) Close() error {
 	if c.fd != 0 {
 		return syscall.Close(c.fd)
 	}
+
 	return nil
 }
 
@@ -169,6 +174,7 @@ func (c *Conn) ReadMsg() ([]byte, error) {
 	// If message is larger than buffer, resize
 	for n >= len(buf) {
 		buf = make([]byte, len(buf)+os.Getpagesize())
+
 		n, _, err = syscall.Recvfrom(c.fd, buf, syscall.MSG_PEEK)
 		if err != nil {
 			return nil, err
@@ -190,6 +196,7 @@ func (c *Conn) ReadUEvent() (*UEvent, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return ParseUEvent(msg)
 }
 

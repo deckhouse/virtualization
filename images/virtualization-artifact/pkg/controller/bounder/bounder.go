@@ -70,10 +70,12 @@ func (imp *Bounder) GetOrCreatePod(ctx context.Context, c client.Client) (*corev
 	if err == nil {
 		return pod, nil
 	}
+
 	if k8serrors.IsAlreadyExists(err) {
 		err = c.Get(ctx, client.ObjectKeyFromObject(pod), pod)
 		return pod, err
 	}
+
 	return nil, err
 }
 

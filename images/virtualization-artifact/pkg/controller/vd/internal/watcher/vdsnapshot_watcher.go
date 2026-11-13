@@ -63,6 +63,7 @@ func (w VirtualDiskSnapshotWatcher) Watch(mgr manager.Manager, ctr controller.Co
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualDiskSnapshot: %w", err)
 	}
+
 	return nil
 }
 
@@ -90,6 +91,7 @@ func (w VirtualDiskSnapshotWatcher) enqueueRequests(ctx context.Context, vdSnaps
 
 	// Need to reconcile the virtual disk with the snapshot data source.
 	var vds v1alpha2.VirtualDiskList
+
 	err = w.client.List(ctx, &vds, &client.ListOptions{
 		Namespace:     vdSnapshot.Namespace,
 		FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVDByVDSnapshot, vdSnapshot.Name),

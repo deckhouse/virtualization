@@ -54,6 +54,7 @@ func (c *TTLCache) Start(ctx context.Context) {
 		c.mu.Unlock()
 		return
 	}
+
 	c.running = true
 	c.mu.Unlock()
 
@@ -112,5 +113,6 @@ func (c *TTLCache) Get(key string) (any, bool) {
 	if !exists || time.Now().After(entry.expiry) {
 		return nil, false
 	}
+
 	return entry.entry, true
 }

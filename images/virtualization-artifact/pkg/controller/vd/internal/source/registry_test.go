@@ -155,6 +155,7 @@ var _ = Describe("RegistryDataSource", func() {
 				if prev == "" {
 					return "10%"
 				}
+
 				return prev
 			},
 			CheckPodFunc: func(_ *corev1.Pod) error { return nil },
@@ -194,7 +195,9 @@ var _ = Describe("RegistryDataSource", func() {
 			disk.GetPersistentVolumeClaimFunc = func(_ context.Context, _ supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
 				return nil, nil
 			}
+
 			var started bool
+
 			importerSvc.StartFunc = func(_ context.Context, _ *importer.Settings, _ client.Object, _ supplements.Generator, _ *datasource.CABundle, _ ...service.Option) error {
 				started = true
 				return nil
@@ -266,9 +269,12 @@ var _ = Describe("RegistryDataSource", func() {
 
 		It("kicks off the PVC import using a registry source", func() {
 			var started bool
+
 			pvcSvc.CreateTargetFromDVCRFunc = func(_ context.Context, _ types.NamespacedName, _ string, _ *resource.Quantity, _ client.Object, source *service.PVCImportSourceRegistry, _ service.VolumeAndAccessModesGetter, _ *provisioner.NodePlacement) (corev1.PersistentVolumeClaim, error) {
 				started = true
+
 				Expect(source).ToNot(BeNil())
+
 				return corev1.PersistentVolumeClaim{}, nil
 			}
 
@@ -366,17 +372,21 @@ var _ = Describe("RegistryDataSource", func() {
 
 		It("waits for populator when the target PVC already exists", func() {
 			var imported bool
+
 			pvcSvc.ImportFunc = func(_ context.Context, target *corev1.PersistentVolumeClaim, source *service.PVCImportSource, _ client.Object, _ supplements.Generator, _ *provisioner.NodePlacement) error {
 				imported = true
+
 				Expect(target.Name).To(Equal(pvc.Name))
 				Expect(source).ToNot(BeNil())
 				Expect(source.Registry).ToNot(BeNil())
+
 				return nil
 			}
 			pvcSvc.WaitForImportFunc = func(_ context.Context, _ *corev1.PersistentVolumeClaim, source *service.PVCImportSource, _ client.Object, _ supplements.Generator, _ *provisioner.NodePlacement) (corev1.PodPhase, error) {
 				Expect(imported).To(BeTrue())
 				Expect(source).ToNot(BeNil())
 				Expect(source.Registry).ToNot(BeNil())
+
 				return corev1.PodPending, nil
 			}
 
@@ -394,6 +404,7 @@ var _ = Describe("RegistryDataSource", func() {
 	Context("CleanUp", func() {
 		It("delegates to both importer and disk services", func() {
 			var importerCleaned, diskCleaned bool
+
 			importerSvc.CleanUpFunc = func(_ context.Context, _ supplements.Generator) (bool, string, error) {
 				importerCleaned = true
 				return false, "", nil

@@ -25,6 +25,7 @@ import (
 func New(options ...Option) *v1alpha2.VirtualMachineIPAddress {
 	vmip := NewEmpty("", "")
 	ApplyOptions(vmip, options)
+
 	return vmip
 }
 
@@ -32,6 +33,7 @@ func ApplyOptions(vmip *v1alpha2.VirtualMachineIPAddress, opts []Option) {
 	if vmip == nil {
 		return
 	}
+
 	for _, opt := range opts {
 		opt(vmip)
 	}

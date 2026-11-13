@@ -52,11 +52,13 @@ import (
 // replicated disks stay in place.
 func migratableVDs(vds []*v1alpha2.VirtualDisk) []*v1alpha2.VirtualDisk {
 	var out []*v1alpha2.VirtualDisk
+
 	for _, vd := range vds {
 		if vd.Annotations[annotations.AnnVirtualDiskAccessMode] == "ReadWriteOnce" {
 			out = append(out, vd)
 		}
 	}
+
 	return out
 }
 
@@ -74,6 +76,7 @@ var _ = Describe("RWOVirtualDiskMigration", Label(label.SIGCompute, precheck.NoP
 
 		ctx = context.Background()
 		f = framework.NewFramework("rwo-virtual-disk-migration")
+
 		storageClass = framework.GetConfig().StorageClass.DefaultStorageClass
 		if storageClass == nil {
 			Skip("DefaultStorageClass is not set.")
@@ -135,6 +138,7 @@ var _ = Describe("RWOVirtualDiskMigration", Label(label.SIGCompute, precheck.NoP
 		}
 
 		By("Wait until VM agent is ready")
+
 		vmObs := vmobs.StartObserver(ctx, f, vm)
 		err = vmObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)
 		Expect(err).NotTo(HaveOccurred())
@@ -146,6 +150,7 @@ var _ = Describe("RWOVirtualDiskMigration", Label(label.SIGCompute, precheck.NoP
 		vdObservers := startVDObservers(ctx, f, migratable...)
 
 		By("Starting migrations for virtual machines")
+
 		vmop := util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName))
 
 		util.UntilVMOPMigrationSucceeded(ctx, vmop, framework.MaxTimeout)
@@ -182,6 +187,7 @@ var _ = Describe("RWOVirtualDiskMigration", Label(label.SIGCompute, precheck.NoP
 		}
 
 		By("Wait until VM agent is ready")
+
 		vmObs := vmobs.StartObserver(ctx, f, vm)
 		err = vmObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)
 		Expect(err).NotTo(HaveOccurred())
@@ -222,6 +228,7 @@ var _ = Describe("RWOVirtualDiskMigration", Label(label.SIGCompute, precheck.NoP
 		}
 
 		By("Wait until VM agent is ready")
+
 		vmObs := vmobs.StartObserver(ctx, f, vm)
 		err = vmObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)
 		Expect(err).NotTo(HaveOccurred())
@@ -235,6 +242,7 @@ var _ = Describe("RWOVirtualDiskMigration", Label(label.SIGCompute, precheck.NoP
 			vdObservers := startVDObservers(ctx, f, migratable...)
 
 			By("Starting migrations for virtual machines")
+
 			vmop := util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName))
 
 			util.UntilVMOPMigrationSucceeded(ctx, vmop, framework.MaxTimeout)
@@ -264,6 +272,7 @@ var _ = Describe("RWOVirtualDiskMigration", Label(label.SIGCompute, precheck.NoP
 		}
 
 		By("Wait until VM agent is ready")
+
 		vmObs := vmobs.StartObserver(ctx, f, vm)
 		err = vmObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)
 		Expect(err).NotTo(HaveOccurred())
@@ -271,12 +280,14 @@ var _ = Describe("RWOVirtualDiskMigration", Label(label.SIGCompute, precheck.NoP
 		migratable := migratableVDs(vds)
 
 		By("Migrating the whole set once so the disks move off their base PVCs")
+
 		firstObservers := startVDObservers(ctx, f, migratable...)
 		firstVMOP := util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName("many-disks-migration-1"))
 		util.UntilVMOPMigrationSucceeded(ctx, firstVMOP, framework.MaxTimeout)
 		expectVDsMigrationSucceeded(ctx, f, firstObservers, migratable...)
 
 		By("Starting a second migration of the whole volume set")
+
 		secondObservers := startVDObservers(ctx, f, migratable...)
 		vmop := util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName("many-disks-migration-2"))
 
@@ -287,6 +298,7 @@ var _ = Describe("RWOVirtualDiskMigration", Label(label.SIGCompute, precheck.NoP
 		// inconsistent. On copy-based storage the patch lands mid-migration; on instant
 		// (replicated) storage it lands right after — both must finalize cleanly.
 		By("Requesting a restart around the migration")
+
 		patchBytes, err := patch.NewJSONPatch(patch.WithAdd("/spec/terminationGracePeriodSeconds", int64(11))).Bytes()
 		Expect(err).NotTo(HaveOccurred())
 		_, err = f.VirtClient().VirtualMachines(ns).Patch(ctx, vm.GetName(), types.JSONPatchType, patchBytes, metav1.PatchOptions{})
@@ -323,11 +335,13 @@ var _ = Describe("RWOVirtualDiskMigration", Label(label.SIGCompute, precheck.NoP
 		}
 
 		By("Wait until VM agent is ready")
+
 		vmObs := vmobs.StartObserver(ctx, f, vm)
 		err = vmObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Applying a change that requires a restart")
+
 		patchBytes, err := patch.NewJSONPatch(patch.WithAdd("/spec/terminationGracePeriodSeconds", int64(11))).Bytes()
 		Expect(err).NotTo(HaveOccurred())
 		vm, err = f.VirtClient().VirtualMachines(ns).Patch(ctx, vm.GetName(), types.JSONPatchType, patchBytes, metav1.PatchOptions{})
@@ -340,6 +354,7 @@ var _ = Describe("RWOVirtualDiskMigration", Label(label.SIGCompute, precheck.NoP
 		vdObservers := startVDObservers(ctx, f, migratable...)
 
 		By("Starting migration while the restart is still pending")
+
 		vmop := util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName))
 
 		util.UntilVMOPMigrationSucceeded(ctx, vmop, framework.MaxTimeout)
@@ -373,6 +388,7 @@ var _ = Describe("RWOVirtualDiskMigration", Label(label.SIGCompute, precheck.NoP
 		}
 
 		By("Wait until VM agent is ready")
+
 		vmObs := vmobs.StartObserver(ctx, f, vm)
 		err = vmObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)
 		Expect(err).NotTo(HaveOccurred())
@@ -382,6 +398,7 @@ var _ = Describe("RWOVirtualDiskMigration", Label(label.SIGCompute, precheck.NoP
 		migratable := migratableVDs(vds)
 
 		By("The first failed migration")
+
 		const vmopName1 = "local-disks-migration-1"
 
 		failedObservers := startVDObservers(ctx, f, migratable...)
@@ -394,11 +411,13 @@ var _ = Describe("RWOVirtualDiskMigration", Label(label.SIGCompute, precheck.NoP
 		expectVDsMigrationFailed(ctx, f, failedObservers, migratable...)
 
 		By("The second completed migration")
+
 		const vmopName2 = "local-disks-migration-2"
 
 		succeededObservers := startVDObservers(ctx, f, migratable...)
 
 		By("Starting migrations for virtual machines")
+
 		vmop := util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName2))
 
 		util.UntilVMOPMigrationSucceeded(ctx, vmop, framework.MaxTimeout)
@@ -429,6 +448,7 @@ var _ = Describe("RWOVirtualDiskMigration", Label(label.SIGCompute, precheck.NoP
 		}
 
 		By("Wait until VM agent is ready")
+
 		vmObs := vmobs.StartObserver(ctx, f, vm)
 		err = vmObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)
 		Expect(err).NotTo(HaveOccurred())
@@ -444,6 +464,7 @@ var _ = Describe("RWOVirtualDiskMigration", Label(label.SIGCompute, precheck.NoP
 		util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName))
 
 		By("Interrupting the virtual machine as soon as the migration starts")
+
 		err = vmObs.WaitFor(vmobs.HaveMigrationStarted(), framework.MaxTimeout)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(slap(vm)).To(Succeed())
@@ -524,6 +545,7 @@ var _ = Describe("RWOVirtualDiskMigration", Label(label.SIGCompute, precheck.NoP
 			}
 
 			By("Wait until VM agent is ready")
+
 			vmObs := vmobs.StartObserver(ctx, f, vm)
 			err = vmObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)
 			Expect(err).NotTo(HaveOccurred())
@@ -563,10 +585,13 @@ var _ = Describe("RWOVirtualDiskMigration", Label(label.SIGCompute, precheck.NoP
 					if pod.Labels["kubevirt.internal.virtualization.deckhouse.io"] != "virt-launcher" {
 						return false
 					}
+
 					if pod.Status.Phase != corev1.PodPending {
 						return false
 					}
+
 					scheduled, _ := conditions.GetPodCondition(corev1.PodScheduled, pod.Status.Conditions)
+
 					return scheduled.Status == corev1.ConditionFalse && scheduled.Reason == corev1.PodReasonUnschedulable
 				})
 			Expect(waitErr).NotTo(HaveOccurred(), "the target virt-launcher pod should park in Pending/Unschedulable")
@@ -596,11 +621,13 @@ var _ = Describe("RWOVirtualDiskMigration", Label(label.SIGCompute, precheck.NoP
 		vm, vds := localMigrationRootAndAdditionalBuild()
 
 		By("Creating VM")
+
 		vm, err := f.VirtClient().VirtualMachines(ns).Create(ctx, vm, metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		f.DeferDelete(vm)
 
 		By("Creating VDs")
+
 		for _, vd := range vds {
 			_, err := f.VirtClient().VirtualDisks(ns).Create(ctx, vd, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
@@ -608,20 +635,25 @@ var _ = Describe("RWOVirtualDiskMigration", Label(label.SIGCompute, precheck.NoP
 		}
 
 		By("Creating RWO VD for VMBDA")
+
 		const vdVmbdaName = "vd-vmbda-rwo"
+
 		vdVmbda := object.NewBlankVD(vdVmbdaName, ns, &storageClass.Name, ptr.To(resource.MustParse("50Mi")))
 		_, err = f.VirtClient().VirtualDisks(ns).Create(ctx, vdVmbda, metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		f.DeferDelete(vdVmbda)
 
 		By("Creating VMBDA")
+
 		const vmbdaName = "vd-vmbda-rwo"
+
 		vmbda := object.NewVMBDAFromDisk(vmbdaName, vm.Name, vdVmbda)
 		_, err = f.VirtClient().VirtualMachineBlockDeviceAttachments(ns).Create(ctx, vmbda, metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		f.DeferDelete(vmbda)
 
 		By("Wait until VM agent is ready")
+
 		vmObs := vmobs.StartObserver(ctx, f, vm)
 		err = vmObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)
 		Expect(err).NotTo(HaveOccurred())
@@ -629,6 +661,7 @@ var _ = Describe("RWOVirtualDiskMigration", Label(label.SIGCompute, precheck.NoP
 		const vmopName = "local-disks-migration-with-rwo-vmbda"
 
 		By("Starting migrations for virtual machines")
+
 		vmop := util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName))
 		util.UntilVMOPMigrationSucceeded(ctx, vmop, framework.MaxTimeout)
 
@@ -654,6 +687,7 @@ func ExecStressNGInVirtualMachine(f *framework.Framework, vm *v1alpha2.VirtualMa
 	cmd := "nohup stress-ng --vm 1 --vm-bytes 50% --timeout 300s >/dev/null 2>&1 &"
 
 	By(fmt.Sprintf("Exec StressNG command for virtualmachine %s/%s", vm.Namespace, vm.Name))
+
 	opts := append([]framework.SSHCommandOption{framework.WithSSHUser("root")}, options...)
 	_, err := f.SSHCommand(vm.Name, vm.Namespace, cmd, opts...)
 	Expect(err).NotTo(HaveOccurred())

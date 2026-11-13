@@ -105,6 +105,7 @@ func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *v1alpha2.Virt
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ProvisioningNotStarted).
 			Message(fmt.Sprintf("VirtualDiskSnapshot %q not found.", vd.Spec.DataSource.ObjectRef.Name))
+
 		return &reconcile.Result{}, nil
 	}
 
@@ -126,6 +127,7 @@ func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *v1alpha2.Virt
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ProvisioningNotStarted).
 			Message(fmt.Sprintf("VirtualDiskSnapshot %q is not ready to use.", vdSnapshot.Name))
+
 		return &reconcile.Result{}, nil
 	}
 
@@ -141,6 +143,7 @@ func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *v1alpha2.Virt
 			v1alpha2.ReasonDataSourceSyncFailed,
 			err.Error(),
 		)
+
 		return &reconcile.Result{}, nil
 	}
 
@@ -148,6 +151,7 @@ func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *v1alpha2.Virt
 	if storageClassName != "" {
 		vd.Status.StorageClassName = storageClassName
 	}
+
 	floors, err := commonvd.RestoreFloorsFrom(vdSnapshot, vs)
 	if err != nil {
 		return nil, err
@@ -167,6 +171,7 @@ func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *v1alpha2.Virt
 				v1alpha2.ReasonDataSourceSyncFailed,
 				err.Error(),
 			)
+
 			return &reconcile.Result{}, nil
 		}
 
@@ -174,6 +179,7 @@ func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *v1alpha2.Virt
 	}
 
 	key := vdsupplements.NewGenerator(vd).PersistentVolumeClaim()
+
 	pvc, err := s.pvcSvc.CreateTargetFromVS(ctx, key, storageClassName, size, vd, vs, s.disk, nil)
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return nil, fmt.Errorf("create pvc: %w", err)
@@ -242,6 +248,7 @@ func (s CreatePVCFromVDSnapshotStep) takeFromUnifiedSnapshot(ctx context.Context
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ProvisioningNotStarted).
 			Message(fmt.Sprintf("VirtualDiskSnapshot %q is not ready to use (phase %s).", vdSnapshot.Name, vdSnapshot.Status.Phase))
+
 		return &reconcile.Result{}, nil
 	}
 
@@ -257,6 +264,7 @@ func (s CreatePVCFromVDSnapshotStep) takeFromUnifiedSnapshot(ctx context.Context
 			v1alpha2.ReasonDataSourceSyncFailed,
 			err.Error(),
 		)
+
 		return &reconcile.Result{}, nil
 	}
 
@@ -279,6 +287,7 @@ func (s CreatePVCFromVDSnapshotStep) takeFromUnifiedSnapshot(ctx context.Context
 			vd.Name, vdSnapshot.Name,
 		)
 	}
+
 	if err != nil {
 		vd.Status.Phase = v1alpha2.DiskFailed
 		s.cb.
@@ -291,6 +300,7 @@ func (s CreatePVCFromVDSnapshotStep) takeFromUnifiedSnapshot(ctx context.Context
 			v1alpha2.ReasonDataSourceSyncFailed,
 			err.Error(),
 		)
+
 		return &reconcile.Result{}, nil
 	}
 
@@ -299,6 +309,7 @@ func (s CreatePVCFromVDSnapshotStep) takeFromUnifiedSnapshot(ctx context.Context
 	}
 
 	key := vdsupplements.NewGenerator(vd).PersistentVolumeClaim()
+
 	sourceRef := storagefoundationv1alpha1.ObjectReference{
 		APIVersion: vdSnapshot.Status.Data.ArtifactRef.APIVersion,
 		Kind:       vdSnapshot.Status.Data.ArtifactRef.Kind,
@@ -320,6 +331,7 @@ func (s CreatePVCFromVDSnapshotStep) takeFromUnifiedSnapshot(ctx context.Context
 			Reason(vdcondition.ProvisioningFailed).
 			Message(failure)
 		s.recorder.Event(vd, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceSyncFailed, failure)
+
 		return &reconcile.Result{}, nil
 	}
 
@@ -347,6 +359,7 @@ func (s CreatePVCFromVDSnapshotStep) unifiedRestoreFailure(ctx context.Context, 
 	if err != nil {
 		return "", fmt.Errorf("fetch volume restore request: %w", err)
 	}
+
 	if vrr == nil {
 		return "", nil
 	}
@@ -389,6 +402,7 @@ func (s CreatePVCFromVDSnapshotStep) validateUnifiedStorageClassCompatibility(ct
 	}
 
 	targetSCName := *vd.Spec.PersistentVolumeClaim.StorageClass
+
 	capturedSCName := vdSnapshot.CapturedStorageClassName()
 	if capturedSCName == "" || capturedSCName == targetSCName {
 		return nil
@@ -407,6 +421,7 @@ func (s CreatePVCFromVDSnapshotStep) validateUnifiedStorageClassCompatibility(ct
 			log.With("storageClass.name", capturedSCName).Debug("Captured storage class does not exist, skipping storage class compatibility validation")
 			return nil
 		}
+
 		return fmt.Errorf("cannot fetch captured storage class %q: %w", capturedSCName, err)
 	}
 
@@ -426,6 +441,7 @@ func (s CreatePVCFromVDSnapshotStep) storageClassName(vd *v1alpha2.VirtualDisk, 
 	if vd.Spec.PersistentVolumeClaim.StorageClass != nil && *vd.Spec.PersistentVolumeClaim.StorageClass != "" {
 		return *vd.Spec.PersistentVolumeClaim.StorageClass
 	}
+
 	return storageclass.CapturedStorageClassName(vs)
 }
 
@@ -437,6 +453,7 @@ func (s CreatePVCFromVDSnapshotStep) validateStorageClassCompatibility(ctx conte
 	targetSCName := *vd.Spec.PersistentVolumeClaim.StorageClass
 
 	var targetSC storagev1.StorageClass
+
 	err := s.client.Get(ctx, types.NamespacedName{Name: targetSCName}, &targetSC)
 	if err != nil {
 		return fmt.Errorf("cannot fetch target storage class %q: %w", targetSCName, err)
@@ -451,12 +468,14 @@ func (s CreatePVCFromVDSnapshotStep) validateStorageClassCompatibility(ctx conte
 	pvcName := *vs.Spec.Source.PersistentVolumeClaimName
 
 	var originalPVC corev1.PersistentVolumeClaim
+
 	err = s.client.Get(ctx, types.NamespacedName{Name: pvcName, Namespace: vdSnapshot.Namespace}, &originalPVC)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			log.With("pvc.name", pvcName).Debug("Original PVC does not exist, skipping storage class compatibility validation")
 			return nil
 		}
+
 		return fmt.Errorf("cannot fetch original PVC %q: %w", pvcName, err)
 	}
 

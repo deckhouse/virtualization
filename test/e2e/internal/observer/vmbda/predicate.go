@@ -37,6 +37,7 @@ func BeFailed() Predicate {
 		if vmbda.Status.Phase == v1alpha2.BlockDeviceAttachmentPhaseFailed {
 			return true, fmt.Errorf("VirtualMachineBlockDeviceAttachment entered Failed phase")
 		}
+
 		return false, nil
 	}
 }

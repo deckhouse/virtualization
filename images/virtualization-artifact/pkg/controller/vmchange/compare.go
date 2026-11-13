@@ -36,6 +36,7 @@ func (v *vmSpecFieldsComparatorWithFn) Compare(prev, next *v1alpha2.VirtualMachi
 	if v.fn == nil {
 		return nil
 	}
+
 	return v.fn(prev, next)
 }
 

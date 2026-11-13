@@ -39,6 +39,7 @@ func parsePorts(args []string) ([]forwardedPort, error) {
 		if err != nil {
 			return ports, err
 		}
+
 		ports[i] = forwardedPort
 	}
 
@@ -76,6 +77,7 @@ func parsePort(arg string) (forwardedPort, error) {
 	if err != nil {
 		return port, err
 	}
+
 	port.remote = port.local
 
 	if len(ports) > 1 {

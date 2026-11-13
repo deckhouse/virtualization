@@ -57,6 +57,7 @@ var _ = Describe("VirtualMachineSPICE", Label(label.SIGCompute, precheck.NoPrech
 
 	It("attaches the SPICE devices when enabled and detaches them when disabled", func() {
 		By("Environment preparation")
+
 		vd := object.NewVDFromCVI("vd-vm-spice", f.Namespace().Name, object.PrecreatedCVICustomBIOS)
 		testVM := object.NewMinimalVM("", f.Namespace().Name,
 			vmbuilder.WithName("vm-spice"),
@@ -71,6 +72,7 @@ var _ = Describe("VirtualMachineSPICE", Label(label.SIGCompute, precheck.NoPrech
 		)
 		err := f.CreateWithDeferredDeletion(ctx, vd, testVM)
 		Expect(err).NotTo(HaveOccurred())
+
 		vmObs := vmobs.StartObserver(ctx, f, testVM)
 		vmObs.Never(vmobs.BeFailed())
 		Expect(vmObs.WaitFor(vmobs.BeRunning(), framework.LongTimeout)).To(Succeed())
@@ -87,6 +89,7 @@ var _ = Describe("VirtualMachineSPICE", Label(label.SIGCompute, precheck.NoPrech
 		}).WithTimeout(framework.MiddleTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
 
 		By("Disabling SPICE")
+
 		patch, err := json.Marshal([]map[string]interface{}{{
 			"op":    "replace",
 			"path":  "/spec/spice/enabled",

@@ -49,6 +49,7 @@ type EventHandler[R Resource] func(eventType watch.EventType, r R) (bool, error)
 // In this case, since the disk remains in the Ready phase once it gets there, it’s preferable to use Eventually.
 func WaitFor[R Resource](ctx context.Context, w Watcher, h EventHandler[R], opts metav1.ListOptions) (R, error) {
 	var zero R
+
 	wi, err := w.Watch(ctx, opts)
 	if err != nil {
 		return zero, err

@@ -60,6 +60,7 @@ func newKVVMWithVMBDAVolume(pvcName string) *KVVM {
 	kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks = []virtv1.Disk{
 		{Name: GenerateVDDiskName(diskName)},
 	}
+
 	return kvvm
 }
 
@@ -216,6 +217,7 @@ func newKVVMWithVMBDAImageVolume(volName string) *KVVM {
 	kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks = []virtv1.Disk{
 		{Name: volName},
 	}
+
 	return kvvm
 }
 
@@ -257,6 +259,7 @@ func hotpluggedDiskNamed(name string) hotplugCase {
 
 func hotpluggedImageOnPVC() hotplugCase {
 	const name = "image-on-pvc"
+
 	vi := &v1alpha2.VirtualImage{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: hotplugNamespace, UID: "vi-pvc-uid"},
 		Spec:       v1alpha2.VirtualImageSpec{Storage: v1alpha2.StorageKubernetes},
@@ -275,6 +278,7 @@ func hotpluggedImageOnPVC() hotplugCase {
 
 func hotpluggedImageInRegistry() hotplugCase {
 	const name = "image-in-registry"
+
 	vi := &v1alpha2.VirtualImage{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: hotplugNamespace, UID: "vi-registry-uid"},
 		Spec:       v1alpha2.VirtualImageSpec{Storage: v1alpha2.StorageContainerRegistry},
@@ -292,6 +296,7 @@ func hotpluggedImageInRegistry() hotplugCase {
 
 func hotpluggedClusterImage() hotplugCase {
 	const name = "cluster-image"
+
 	cvi := &v1alpha2.ClusterVirtualImage{
 		ObjectMeta: metav1.ObjectMeta{Name: name, UID: "cvi-uid"},
 		Status: v1alpha2.ClusterVirtualImageStatus{
@@ -368,16 +373,19 @@ func diskNames(disks []virtv1.Disk) []string {
 	for _, disk := range disks {
 		names = append(names, disk.Name)
 	}
+
 	return names
 }
 
 func newHotplugKVVM(volumes ...virtv1.Volume) *KVVM {
 	kvvm := NewEmptyKVVM(namespacedName("test-vm", hotplugNamespace), KVVMOptions{})
+
 	kvvm.Resource.Spec.Template.Spec.Volumes = volumes
 	for _, v := range volumes {
 		kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks = append(
 			kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks, virtv1.Disk{Name: v.Name})
 	}
+
 	return kvvm
 }
 
@@ -460,6 +468,7 @@ var _ = Describe("syncAttachedVMBDAHotplugVolumes: hotplug volume dropped from t
 			func(_ *KVVM, hotplug hotplugCase) (*virtv1.VirtualMachineInstance, []*v1alpha2.VirtualMachineBlockDeviceAttachment) {
 				kvvmi := runningInstance(hotplug.volume)
 				kvvmi.Status.Phase = virtv1.Succeeded
+
 				return kvvmi, nil
 			}),
 		Entry("while the volume is being unplugged",
@@ -467,6 +476,7 @@ var _ = Describe("syncAttachedVMBDAHotplugVolumes: hotplug volume dropped from t
 				kvvm.Resource.Status.VolumeRequests = []virtv1.VirtualMachineVolumeRequest{{
 					RemoveVolumeOptions: &virtv1.RemoveVolumeOptions{Name: hotplug.volume.Name},
 				}}
+
 				return runningInstance(hotplug.volume), nil
 			}),
 		// kubevirt attaches to the instance first and writes the template last, so a volume
@@ -476,6 +486,7 @@ var _ = Describe("syncAttachedVMBDAHotplugVolumes: hotplug volume dropped from t
 				kvvm.Resource.Status.VolumeRequests = []virtv1.VirtualMachineVolumeRequest{{
 					AddVolumeOptions: &virtv1.AddVolumeOptions{Name: hotplug.volume.Name},
 				}}
+
 				return runningInstance(hotplug.volume), nil
 			}),
 		// Any request in flight means the template is still catching up, so the position of
@@ -485,6 +496,7 @@ var _ = Describe("syncAttachedVMBDAHotplugVolumes: hotplug volume dropped from t
 				kvvm.Resource.Status.VolumeRequests = []virtv1.VirtualMachineVolumeRequest{{
 					AddVolumeOptions: &virtv1.AddVolumeOptions{Name: "vd-other-disk"},
 				}}
+
 				return runningInstance(hotplug.volume), nil
 			}),
 		Entry("when every VMBDA of the block device is being deleted",
@@ -549,11 +561,13 @@ var _ = Describe("syncAttachedVMBDAHotplugVolumes: hotplug volume dropped from t
 		// DeepEqual and demands a restart.
 		cases := make([]hotplugCase, 0, 8)
 		volumes := make([]virtv1.Volume, 0, 8)
+
 		for i := range 8 {
 			c := hotpluggedDiskNamed(fmt.Sprintf("disk-%d", i))
 			cases = append(cases, c)
 			volumes = append(volumes, c.volume)
 		}
+
 		kvvmi := runningInstance(volumes...)
 		// Only the last volume is still in the KVVM.
 		kvvm := newHotplugKVVM(volumes[len(volumes)-1])
@@ -600,6 +614,7 @@ var _ = Describe("ApplyMigrationVolumes", func() {
 	)
 
 	revert := vdcondition.MigratingWaitForTargetVolumeReleaseReason.String()
+
 	const reverted = "reverted"
 
 	It("should switch hotplugged VMBDA disk to migration target PVC", func() {
@@ -729,6 +744,7 @@ var _ = Describe("ApplyMigrationVolumes", func() {
 					},
 				},
 			}
+
 			vds := map[string]*v1alpha2.VirtualDisk{
 				diskName:     newDisk(diskName, diskReason),
 				"other-disk": newDisk("other-disk", otherReason),
@@ -736,9 +752,11 @@ var _ = Describe("ApplyMigrationVolumes", func() {
 			if diskDeleted {
 				vds[diskName].DeletionTimestamp = ptr.To(metav1.Now())
 			}
+
 			if otherDeleted {
 				vds["other-disk"].DeletionTimestamp = ptr.To(metav1.Now())
 			}
+
 			if otherReason == reverted {
 				vds["other-disk"].Status.Conditions = nil
 				vds["other-disk"].Status.MigrationState.EndTimestamp = metav1.NewTime(time.Now().Add(-time.Second))
@@ -754,6 +772,7 @@ var _ = Describe("ApplyMigrationVolumes", func() {
 					return
 				}
 			}
+
 			Fail("the volume of the disk is not found")
 		},
 		Entry("another disk is still migrating",
@@ -923,6 +942,7 @@ var _ = Describe("setBlockDeviceDisk", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
 		Expect(kvvm.Resource.Spec.Template.Spec.Volumes).To(HaveLen(1))
+
 		return kvvm
 	}
 
@@ -1023,16 +1043,19 @@ var _ = Describe("applyBlockDeviceRefs", func() {
 				Target: v1alpha2.DiskTarget{PersistentVolumeClaim: vdPVC},
 			},
 		}
+
 		var kvvmi *virtv1.VirtualMachineInstance
 		if isVmRunning {
 			kvvmi = &virtv1.VirtualMachineInstance{
 				Status: virtv1.VirtualMachineInstanceStatus{Phase: virtv1.Running},
 			}
 		}
+
 		Expect(applyBlockDeviceRefs(
 			kvvm, vm, kvvmi,
 			map[string]*v1alpha2.VirtualDisk{vdName: vd}, nil, nil, nil,
 		)).To(Succeed())
+
 		return kvvm
 	}
 
@@ -1040,6 +1063,7 @@ var _ = Describe("applyBlockDeviceRefs", func() {
 		Expect(kvvm.Resource.Spec.Template.Spec.Volumes).To(HaveLen(1))
 		pvc := kvvm.Resource.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim
 		Expect(pvc).NotTo(BeNil())
+
 		return pvc.Hotpluggable
 	}
 
@@ -1047,6 +1071,7 @@ var _ = Describe("applyBlockDeviceRefs", func() {
 		Expect(kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
 		disk := kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks[0].Disk
 		Expect(disk).NotTo(BeNil())
+
 		return disk.Bus
 	}
 
@@ -1081,6 +1106,7 @@ var _ = Describe("setExtraPVCsAnnotation", func() {
 	newKVVM := func(volumes ...virtv1.Volume) *KVVM {
 		kvvm := NewEmptyKVVM(namespacedName("vm", "vm-ns"), KVVMOptions{})
 		kvvm.Resource.Spec.Template.Spec.Volumes = volumes
+
 		return kvvm
 	}
 

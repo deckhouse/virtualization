@@ -39,8 +39,10 @@ func FetchObject[T client.Object](ctx context.Context, key types.NamespacedName,
 		if k8serrors.IsNotFound(err) {
 			return empty, nil
 		}
+
 		return empty, err
 	}
+
 	return obj, nil
 }
 
@@ -49,10 +51,12 @@ func DeleteObject[T client.Object](ctx context.Context, client client.Client, ob
 	if reflect.DeepEqual(empty, obj) || obj.GetDeletionTimestamp() != nil {
 		return nil
 	}
+
 	err := client.Delete(ctx, obj, opts...)
 	if err != nil && k8serrors.IsNotFound(err) {
 		return nil
 	}
+
 	return err
 }
 
@@ -71,6 +75,7 @@ func CleanupObject(ctx context.Context, client client.Client, obj client.Object)
 			if k8serrors.IsNotFound(err) {
 				return nil
 			}
+
 			return fmt.Errorf("remove finalizers for %s during cleanup: %w", key, err)
 		}
 	}
@@ -97,6 +102,7 @@ func PurgeObject(ctx context.Context, client client.Client, obj client.Object) (
 			if k8serrors.IsNotFound(err) {
 				return false, nil
 			}
+
 			return false, fmt.Errorf("remove finalizers for %s during cleanup: %w", key, err)
 		}
 	}
@@ -120,6 +126,7 @@ func CleanupByName(ctx context.Context, client client.Client, key client.ObjectK
 		if k8serrors.IsNotFound(err) {
 			return nil
 		}
+
 		return fmt.Errorf("get object %s during cleanup: %w", key, err)
 	}
 
@@ -160,13 +167,17 @@ func NamespacedName(obj client.Object) types.NamespacedName {
 
 func EnsureAnnotation(ctx context.Context, cl client.Client, obj client.Object, annoKey, annoValue string) error {
 	op := patch.PatchAddOp
+
 	if value, exists := obj.GetAnnotations()[annoKey]; exists {
 		if value == annoValue {
 			return nil
 		}
+
 		op = patch.PatchReplaceOp
 	}
+
 	jsonOp := patch.NewJSONPatchOperation(op, fmt.Sprintf("/metadata/annotations/%s", patch.EscapeJSONPointer(annoKey)), annoValue)
+
 	bytes, err := patch.NewJSONPatch(jsonOp).Bytes()
 	if err != nil {
 		return err
@@ -179,11 +190,14 @@ func RemoveAnnotation(ctx context.Context, cl client.Client, obj client.Object, 
 	if _, exist := obj.GetAnnotations()[annoKey]; !exist {
 		return nil
 	}
+
 	jsonOp := patch.WithRemove(fmt.Sprintf("/metadata/annotations/%s", patch.EscapeJSONPointer(annoKey)))
+
 	bytes, err := patch.NewJSONPatch(jsonOp).Bytes()
 	if err != nil {
 		return err
 	}
+
 	return cl.Patch(ctx, obj, client.RawPatch(types.JSONPatchType, bytes))
 }
 
@@ -191,11 +205,14 @@ func RemoveLabel(ctx context.Context, cl client.Client, obj client.Object, label
 	if _, exist := obj.GetLabels()[labelKey]; !exist {
 		return nil
 	}
+
 	jsonOp := patch.WithRemove(fmt.Sprintf("/metadata/labels/%s", patch.EscapeJSONPointer(labelKey)))
+
 	bytes, err := patch.NewJSONPatch(jsonOp).Bytes()
 	if err != nil {
 		return err
 	}
+
 	return cl.Patch(ctx, obj, client.RawPatch(types.JSONPatchType, bytes))
 }
 

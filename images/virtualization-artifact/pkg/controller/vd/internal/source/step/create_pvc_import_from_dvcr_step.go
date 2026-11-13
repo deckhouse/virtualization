@@ -98,6 +98,7 @@ func (s StartImportFromDVCRStep) Take(ctx context.Context, vd *v1alpha2.VirtualD
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ProvisioningFailed).
 			Message(service.CapitalizeFirstLetter(err.Error()) + ".")
+
 		return &reconcile.Result{}, nil
 	}
 
@@ -110,6 +111,7 @@ func (s StartImportFromDVCRStep) Take(ctx context.Context, vd *v1alpha2.VirtualD
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ProvisioningFailed).
 			Message(service.CapitalizeFirstLetter(ErrISOSourceNotSupported.Error()) + ".")
+
 		return &reconcile.Result{}, nil
 	}
 
@@ -121,6 +123,7 @@ func (s StartImportFromDVCRStep) Take(ctx context.Context, vd *v1alpha2.VirtualD
 				Status(metav1.ConditionFalse).
 				Reason(vdcondition.ProvisioningFailed).
 				Message(service.CapitalizeFirstLetter(err.Error()) + ".")
+
 			return &reconcile.Result{}, nil
 		}
 

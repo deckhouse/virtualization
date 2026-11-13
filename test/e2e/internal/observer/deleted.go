@@ -56,6 +56,7 @@ func WaitForDeleted(
 		if err != nil {
 			return fmt.Errorf("observer: check deletion of %s/%s: %w", namespace, name, err)
 		}
+
 		if gone {
 			return nil
 		}
@@ -81,23 +82,29 @@ func WaitForDeleted(
 				// mask the actual timeout.
 				lastCtx, lastCancel := context.WithTimeout(context.WithoutCancel(ctx), deletedLastLookTimeout)
 				gone, err := isDeleted(lastCtx)
+
 				lastCancel()
+
 				if err != nil {
 					return fmt.Errorf("observer: check deletion of %s/%s: %w", namespace, name, err)
 				}
+
 				if gone {
 					return nil
 				}
 			}
+
 			return fmt.Errorf("observer: wait for deletion of %s/%s timed out after %s: %w", namespace, name, timeout, ctx.Err())
 		case <-poll.C:
 			if isDeleted == nil {
 				continue
 			}
+
 			gone, err := isDeleted(ctx)
 			if err != nil {
 				return fmt.Errorf("observer: check deletion of %s/%s: %w", namespace, name, err)
 			}
+
 			if gone {
 				return nil
 			}
@@ -108,19 +115,24 @@ func WaitForDeleted(
 					if err != nil {
 						return fmt.Errorf("observer: check deletion of %s/%s: %w", namespace, name, err)
 					}
+
 					if gone {
 						return nil
 					}
 				}
+
 				return fmt.Errorf("observer: watch closed before %s/%s was deleted", namespace, name)
 			}
+
 			if event.Type != watch.Deleted {
 				continue
 			}
+
 			obj, ok := event.Object.(metav1.Object)
 			if !ok {
 				continue
 			}
+
 			if obj.GetName() == name && obj.GetNamespace() == namespace {
 				return nil
 			}
@@ -147,5 +159,6 @@ func (d *dynamicResourceWatcher) Watch(ctx context.Context, opts metav1.ListOpti
 	if d.namespace != "" {
 		return d.client.Resource(d.gvr).Namespace(d.namespace).Watch(ctx, opts)
 	}
+
 	return d.client.Resource(d.gvr).Watch(ctx, opts)
 }

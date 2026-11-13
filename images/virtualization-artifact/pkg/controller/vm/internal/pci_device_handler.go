@@ -72,16 +72,21 @@ func (h *PCIDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to get KVVMI: %w", err)
 	}
+
 	attachedByName := attachedHostDevicesByName(kvvmi)
 
 	nextStatusRefs := make([]v1alpha2.PCIDeviceStatusRef, 0, len(vm.Spec.PCIDevices))
+
 	var notReady []string
+
 	for _, ref := range vm.Spec.PCIDevices {
 		_, attached := attachedByName[ref.Name]
+
 		ready := isPCIDeviceReady(pciDevicesByName[ref.Name])
 		if !ready {
 			notReady = append(notReady, describeNotReadyPCIDevice(ref.Name, pciDevicesByName[ref.Name]))
 		}
+
 		nextStatusRefs = append(nextStatusRefs, v1alpha2.PCIDeviceStatusRef{
 			Name:     ref.Name,
 			Attached: attached,
@@ -97,6 +102,7 @@ func (h *PCIDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 	} else {
 		cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonPCIDevicesNotReady).Message(strings.Join(notReady, " "))
 	}
+
 	conditions.SetCondition(cb, &changed.Status.Conditions)
 
 	return reconcile.Result{}, nil
@@ -115,6 +121,7 @@ func describeNotReadyPCIDevice(name string, pciDevice *v1alpha2.PCIDevice) strin
 		if found && readyCondition.Message != "" {
 			return fmt.Sprintf("PCIDevice %q is not ready: %s", name, readyCondition.Message)
 		}
+
 		return fmt.Sprintf("PCIDevice %q is not ready yet.", name)
 	}
 }
@@ -123,10 +130,13 @@ func isPCIDeviceReady(pciDevice *v1alpha2.PCIDevice) bool {
 	if pciDevice == nil || !pciDevice.GetDeletionTimestamp().IsZero() {
 		return false
 	}
+
 	if pciDevice.Status.Attributes.PCIAddress == "" || pciDevice.Status.NodeName == "" {
 		return false
 	}
+
 	readyCondition, found := conditions.GetCondition(pcidevicecondition.ReadyType, pciDevice.Status.Conditions)
+
 	return found && readyCondition.Status == metav1.ConditionTrue
 }
 
@@ -135,13 +145,16 @@ func attachedHostDevicesByName(kvvmi *virtv1.VirtualMachineInstance) map[string]
 	if kvvmi == nil || kvvmi.Status.DeviceStatus == nil {
 		return attachedByName
 	}
+
 	for _, hostDeviceStatus := range kvvmi.Status.DeviceStatus.HostDeviceStatuses {
 		if hostDeviceStatus.Name == "" {
 			continue
 		}
+
 		if hostDeviceStatus.Phase == virtv1.DeviceReady {
 			attachedByName[hostDeviceStatus.Name] = struct{}{}
 		}
 	}
+
 	return attachedByName
 }

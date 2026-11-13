@@ -66,6 +66,7 @@ func (h *ReadyHandler) Handle(ctx context.Context, s state.NodePCIDeviceState) (
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	if found {
 		readyReason = nodepcidevicecondition.Ready
 		readyStatus = metav1.ConditionTrue

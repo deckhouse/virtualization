@@ -38,11 +38,13 @@ import (
 )
 
 var _ = Describe("LifeCycle handler", func() {
-	var snapshotter *LifeCycleSnapshotterMock
-	var pvc *corev1.PersistentVolumeClaim
-	var vd *v1alpha2.VirtualDisk
-	var vs *vsv1.VolumeSnapshot
-	var vdSnapshot *v1alpha2.VirtualDiskSnapshot
+	var (
+		snapshotter *LifeCycleSnapshotterMock
+		pvc         *corev1.PersistentVolumeClaim
+		vd          *v1alpha2.VirtualDisk
+		vs          *vsv1.VolumeSnapshot
+		vdSnapshot  *v1alpha2.VirtualDiskSnapshot
+	)
 
 	BeforeEach(func() {
 		pvc = &corev1.PersistentVolumeClaim{
@@ -125,6 +127,7 @@ var _ = Describe("LifeCycle handler", func() {
 					size := resource.MustParse(vdSize)
 					vd.Spec.PersistentVolumeClaim.Size = &size
 				}
+
 				if pvcSize != "" {
 					pvc.Spec.Resources.Requests = corev1.ResourceList{
 						corev1.ResourceStorage: resource.MustParse(pvcSize),
@@ -180,6 +183,7 @@ var _ = Describe("LifeCycle handler", func() {
 						Message: ptr.To("error"),
 					},
 				}
+
 				return vs, nil
 			}
 
@@ -215,6 +219,7 @@ var _ = Describe("LifeCycle handler", func() {
 				vs.Status = &vsv1.VolumeSnapshotStatus{
 					ReadyToUse: ptr.To(true),
 				}
+
 				return vs, nil
 			}
 			snapshotter.CanUnfreezeWithVirtualDiskSnapshotFunc = func(_ context.Context, _ string, _ *v1alpha2.VirtualMachine, _ *virtv1.VirtualMachineInstance) (bool, error) {
@@ -378,6 +383,7 @@ var _ = Describe("LifeCycle handler", func() {
 				vs.Status = &vsv1.VolumeSnapshotStatus{
 					ReadyToUse: ptr.To(true),
 				}
+
 				return vs, nil
 			}
 			h := NewLifeCycleHandler(snapshotter, true)
@@ -406,6 +412,7 @@ var _ = Describe("LifeCycle handler", func() {
 				vs.Status = &vsv1.VolumeSnapshotStatus{
 					ReadyToUse: ptr.To(true),
 				}
+
 				return vs, nil
 			}
 			snapshotter.UnfreezeFunc = func(_ context.Context, _ *virtv1.VirtualMachineInstance) error {
@@ -450,6 +457,7 @@ var _ = Describe("LifeCycle handler", func() {
 			vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseReady
 
 			_, err := NewLifeCycleHandler(snapshotter, true).Handle(testContext(), vdSnapshot)
+
 			return err
 		}
 

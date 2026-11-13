@@ -44,6 +44,7 @@ func SetupValidationWebhook(mgr manager.Manager, log *log.Logger, virtualMachine
 	if !featuregates.Default().Enabled(featuregates.VirtualMachinePool) {
 		return nil
 	}
+
 	return builder.WebhookManagedBy(mgr).
 		For(&v1alpha2.VirtualMachinePool{}).
 		WithValidator(&poolValidator{
@@ -78,8 +79,10 @@ func (v *poolValidator) validate(ctx context.Context, pool *v1alpha2.VirtualMach
 		if err != nil {
 			return nil, err
 		}
+
 		warnings = append(warnings, warn...)
 	}
+
 	return warnings, nil
 }
 
@@ -88,6 +91,7 @@ func (v *poolValidator) ValidateCreate(ctx context.Context, obj runtime.Object) 
 	if !ok {
 		return nil, fmt.Errorf("expected a VirtualMachinePool but got a %T", obj)
 	}
+
 	return v.validate(ctx, pool)
 }
 
@@ -96,6 +100,7 @@ func (v *poolValidator) ValidateUpdate(ctx context.Context, _, newObj runtime.Ob
 	if !ok {
 		return nil, fmt.Errorf("expected a VirtualMachinePool but got a %T", newObj)
 	}
+
 	return v.validate(ctx, pool)
 }
 
@@ -107,6 +112,7 @@ func (v *poolValidator) ValidateDelete(_ context.Context, _ runtime.Object) (adm
 // validators see the same spec a real replica would carry.
 func vmFromTemplate(pool *v1alpha2.VirtualMachinePool) *v1alpha2.VirtualMachine {
 	tmpl := pool.Spec.VirtualMachineTemplate
+
 	return &v1alpha2.VirtualMachine{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:    pool.GetNamespace(),

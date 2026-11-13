@@ -34,5 +34,6 @@ func NewMigrateCommand() *cobra.Command {
 	AddCommandLineArgs(cmd.Flags(), &lifecycle.opts)
 	AddCommandLineMigrationArgs(cmd.Flags(), &lifecycle.migrationOpts)
 	cmd.SetUsageTemplate(templates.UsageTemplate())
+
 	return cmd
 }

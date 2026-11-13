@@ -35,13 +35,16 @@ var forwardedFlags = []string{"context", "server", "kubeconfig"}
 // cmd. Each value goes through quote, so the caller picks the escaping its embedding needs.
 func ForwardedFlags(cmd *cobra.Command, quote func(string) string) []string {
 	var out []string
+
 	for _, name := range forwardedFlags {
 		f := cmd.Flag(name)
 		if f == nil || !f.Changed {
 			continue
 		}
+
 		out = append(out, fmt.Sprintf("--%s=%s", name, quote(f.Value.String())))
 	}
+
 	return out
 }
 
@@ -64,15 +67,19 @@ const shellSafeChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123
 // the run afterwards.
 func ShellEscape(s string) string {
 	var b strings.Builder
+
 	for _, r := range s {
 		if r == '\'' {
 			b.WriteString(`\'\''`)
 			continue
 		}
+
 		if r < 0x80 && !strings.ContainsRune(shellSafeChars, r) {
 			b.WriteRune('\\')
 		}
+
 		b.WriteRune(r)
 	}
+
 	return b.String()
 }

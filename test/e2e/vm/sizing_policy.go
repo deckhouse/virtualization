@@ -49,6 +49,7 @@ import (
 // client; both address the same cluster-scoped resource.
 func startVMClassObserver(ctx context.Context, f *framework.Framework, name string) vmclassobs.Observer {
 	GinkgoHelper()
+
 	return vmclassobs.StartObserver(ctx, f, &v1alpha2.VirtualMachineClass{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
 	})
@@ -63,6 +64,7 @@ func sizingPolicyMatchedReason(reason vmcondition.SizingPolicyMatchedReason) vmo
 				return c.Reason == reason.String(), nil
 			}
 		}
+
 		return false, nil
 	}
 }
@@ -85,6 +87,7 @@ var _ = Describe("SizingPolicy", Label(label.SIGCompute, precheck.NoPrecheck), f
 
 	It("should start VM normally with existing VMClass", func() {
 		By("Environment preparation")
+
 		vmClassName := fmt.Sprintf("%s-vmclass", f.Namespace().Name)
 		t.GenerateSizingPolicyResources(vmClassName, vmClassName)
 
@@ -97,6 +100,7 @@ var _ = Describe("SizingPolicy", Label(label.SIGCompute, precheck.NoPrecheck), f
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Waiting for VM agent to be ready")
+
 		vmObs := vmobs.StartObserver(ctx, f, t.VM)
 		vmObs.Never(vmobs.BeFailed())
 		err = vmObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)
@@ -108,14 +112,17 @@ var _ = Describe("SizingPolicy", Label(label.SIGCompute, precheck.NoPrecheck), f
 
 	It("should start VM after creating VMClass", func() {
 		By("Environment preparation")
+
 		vmClassName := fmt.Sprintf("%s-existing-vmclass", f.Namespace().Name)
 		t.GenerateSizingPolicyResources(vmClassName, vmClassName)
 
 		err := f.CreateWithDeferredDeletion(ctx, t.VD, t.VM)
 		Expect(err).NotTo(HaveOccurred())
+
 		vmObs := vmobs.StartObserver(ctx, f, t.VM)
 
 		By("Waiting for SizingPolicyMatched condition reason to be VirtualMachineClassNotExists")
+
 		err = vmObs.WaitFor(
 			sizingPolicyMatchedReason(vmcondition.ReasonVirtualMachineClassNotFound),
 			framework.LongTimeout,
@@ -123,10 +130,12 @@ var _ = Describe("SizingPolicy", Label(label.SIGCompute, precheck.NoPrecheck), f
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Creating VMClass")
+
 		err = f.CreateWithDeferredDeletion(ctx, t.VMClass)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Waiting for VM to be ready")
+
 		err = vmObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -136,15 +145,18 @@ var _ = Describe("SizingPolicy", Label(label.SIGCompute, precheck.NoPrecheck), f
 
 	It("should start VM after changing VMClass", func() {
 		By("Environment preparation")
+
 		vmClassName := fmt.Sprintf("%s-actual-vmclass", f.Namespace().Name)
 		vmClassNameInVM := fmt.Sprintf("%s-fake-vmclass", f.Namespace().Name)
 		t.GenerateSizingPolicyResources(vmClassName, vmClassNameInVM)
 
 		err := f.CreateWithDeferredDeletion(ctx, t.VMClass, t.VD, t.VM)
 		Expect(err).NotTo(HaveOccurred())
+
 		vmObs := vmobs.StartObserver(ctx, f, t.VM)
 
 		By("Waiting for SizingPolicyMatched condition reason to be VirtualMachineClassNotExists")
+
 		err = vmObs.WaitFor(
 			sizingPolicyMatchedReason(vmcondition.ReasonVirtualMachineClassNotFound),
 			framework.LongTimeout,
@@ -152,6 +164,7 @@ var _ = Describe("SizingPolicy", Label(label.SIGCompute, precheck.NoPrecheck), f
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Changing VMClass")
+
 		patch, err := json.Marshal([]map[string]interface{}{{
 			"op":    "replace",
 			"path":  "/spec/virtualMachineClassName",
@@ -162,6 +175,7 @@ var _ = Describe("SizingPolicy", Label(label.SIGCompute, precheck.NoPrecheck), f
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Waiting for VM to be ready")
+
 		err = vmObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -266,6 +280,7 @@ func (t *sizingPolicyTest) GenerateSizingPolicyResources(vmClassName, vmClassNam
 
 func (t *sizingPolicyTest) ValidateVirtualMachineByClass(virtualMachineClass *v1alpha3.VirtualMachineClass, virtualMachine *v1alpha2.VirtualMachine) {
 	var sizingPolicy v1alpha3.SizingPolicy
+
 	for _, p := range virtualMachineClass.Spec.SizingPolicies {
 		if virtualMachine.Spec.CPU.Cores >= p.Cores.Min && virtualMachine.Spec.CPU.Cores <= p.Cores.Max {
 			sizingPolicy = *p.DeepCopy()

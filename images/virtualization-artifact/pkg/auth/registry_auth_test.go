@@ -82,5 +82,6 @@ func mustEncodeDockerConfigJSON(username, password, registryAddress string) []by
 		},
 	}
 	authBytes, _ := json.Marshal(auth)
+
 	return authBytes
 }

@@ -55,6 +55,7 @@ func (h *CancelHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (r
 	}
 
 	vmName := commonvd.GetCurrentlyMountedVMName(vd)
+
 	vmop, err := h.getActiveVolumeMigration(ctx, types.NamespacedName{Name: vmName, Namespace: vd.Namespace})
 	if err != nil {
 		return reconcile.Result{}, err
@@ -73,6 +74,7 @@ func (h *CancelHandler) Name() string {
 
 func (h *CancelHandler) getActiveVolumeMigration(ctx context.Context, vmKey types.NamespacedName) (*v1alpha2.VirtualMachineOperation, error) {
 	vmops := &v1alpha2.VirtualMachineOperationList{}
+
 	err := h.client.List(ctx, vmops, client.InNamespace(vmKey.Namespace))
 	if err != nil {
 		return nil, err

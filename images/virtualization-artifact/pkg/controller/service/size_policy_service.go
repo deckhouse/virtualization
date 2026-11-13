@@ -81,6 +81,7 @@ func newSizePolicyValidationError(className string, errs []error) error {
 
 	var b strings.Builder
 	fmt.Fprintf(&b, "does not match the sizing policy of VirtualMachineClass %q for several reasons:", className)
+
 	for _, err := range errs {
 		fmt.Fprintf(&b, "\n  - %s", err.Error())
 	}
@@ -94,12 +95,15 @@ func getVMSizePolicy(vm *v1alpha2.VirtualMachine, vmClass *v1alpha2.VirtualMachi
 
 func collectCoreRanges(vmClass *v1alpha2.VirtualMachineClass) []CoreRange {
 	var ranges []CoreRange
+
 	for _, sp := range vmClass.Spec.SizingPolicies {
 		if sp.Cores == nil {
 			continue
 		}
+
 		ranges = append(ranges, CoreRange{Min: sp.Cores.Min, Max: sp.Cores.Max})
 	}
+
 	return ranges
 }
 
@@ -116,6 +120,7 @@ func validateCoreFraction(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy
 	}
 
 	fractionStr, _ := strings.CutSuffix(vm.Spec.CPU.CoreFraction, "%")
+
 	fraction, err := strconv.Atoi(fractionStr)
 	if err != nil {
 		return fmt.Errorf("unable to parse the CPU core fraction %q", vm.Spec.CPU.CoreFraction)
@@ -128,6 +133,7 @@ func validateCoreFraction(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy
 	}
 
 	formattedCoreFractions := sizingpolicy.FormatCoreFractionValues(sp.CoreFractions)
+
 	return fmt.Errorf(
 		"the CPU core fraction %q is not allowed; set the core fraction (spec.cpu.coreFraction) to one of: %s",
 		vm.Spec.CPU.CoreFraction,
@@ -191,6 +197,7 @@ func validateMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy) erro
 		if minSet {
 			minVal = *min
 		}
+
 		if lower, upper, ok := validateIsQuantized(size, minVal, *max, *sp.Memory.Step); !ok {
 			return fmt.Errorf(
 				"the memory size (%s) does not match the sizing policy step; set the memory size (spec.memory.size) to %s or %s",
@@ -218,6 +225,7 @@ func validatePerCoreMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolic
 	perCoreMin := sp.Memory.PerCore.Min
 	perCoreMax := sp.Memory.PerCore.Max
 	minSet := perCoreMin != nil && !perCoreMin.IsZero()
+
 	maxSet := perCoreMax != nil && !perCoreMax.IsZero()
 	if !minSet && !maxSet {
 		return nil
@@ -240,9 +248,11 @@ func validatePerCoreMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolic
 		if minSet {
 			minVal = *perCoreMin
 		}
+
 		if lower, upper, ok := validateIsQuantized(*perCoreMemory, minVal, *perCoreMax, *sp.Memory.Step); !ok {
 			lowerTotal := scaleQuantity(lower, cores)
 			upperTotal := scaleQuantity(upper, cores)
+
 			return fmt.Errorf(
 				"the memory size (%s) does not match the per-core sizing policy step for %d CPU core(s); set the memory size (spec.memory.size) to %s or %s, or change the number of cores (spec.cpu.cores)",
 				size.String(), vm.Spec.CPU.Cores, lowerTotal.String(), upperTotal.String(),
@@ -262,10 +272,12 @@ func memoryOutOfRangeError(size resource.Quantity, min, max *resource.Quantity) 
 
 func perCoreMemoryOutOfRangeError(size resource.Quantity, perCoreMin, perCoreMax *resource.Quantity, cores int) error {
 	var minTotal, maxTotal *resource.Quantity
+
 	if perCoreMin != nil {
 		q := scaleQuantity(*perCoreMin, int64(cores))
 		minTotal = &q
 	}
+
 	if perCoreMax != nil {
 		q := scaleQuantity(*perCoreMax, int64(cores))
 		maxTotal = &q

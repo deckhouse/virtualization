@@ -49,6 +49,7 @@ func (l *LogChecker) Start() error {
 	l.wg = &sync.WaitGroup{}
 
 	kubeClient := framework.GetClients().KubeClient()
+
 	pods, err := kubeClient.CoreV1().Pods(VirtualizationNamespace).List(l.ctx, metav1.ListOptions{
 		LabelSelector: labels.SelectorFromSet(map[string]string{"app": VirtualizationController}).String(),
 	})
@@ -61,6 +62,7 @@ func (l *LogChecker) Start() error {
 			Container: VirtualizationController,
 			Follow:    true,
 		})
+
 		readCloser, err := req.Stream(l.ctx)
 		if err != nil {
 			return fmt.Errorf("failed to stream the `Virtualization-controller` logs: %w", err)
@@ -69,6 +71,7 @@ func (l *LogChecker) Start() error {
 		l.closers = append(l.closers, readCloser)
 
 		l.wg.Add(1)
+
 		go func() {
 			defer l.wg.Done()
 
@@ -77,8 +80,10 @@ func (l *LogChecker) Start() error {
 			excludeRegexpPatterns := c.RegexpLogFilter
 			logStreamer := NewErrStreamer(excludePatterns, excludeRegexpPatterns)
 			n, err := logStreamer.Stream(readCloser, ginkgo.GinkgoWriter)
+
 			l.mu.Lock()
 			defer l.mu.Unlock()
+
 			if err != nil && !errors.Is(err, context.Canceled) {
 				// TODO: Find an alternative way to store Virtualization Controller errors without streaming.
 				// `http2.GoAwayError` likely appears when the context is canceled and readers are closed.
@@ -89,15 +94,18 @@ func (l *LogChecker) Start() error {
 					l.resultErr = errors.Join(l.resultErr, err)
 				}
 			}
+
 			l.resultNum += n
 		}()
 	}
+
 	return nil
 }
 
 func (l *LogChecker) Stop() error {
 	l.cancel()
 	l.wg.Wait()
+
 	for _, c := range l.closers {
 		_ = c.Close()
 	}
@@ -105,6 +113,7 @@ func (l *LogChecker) Stop() error {
 	if l.resultErr != nil {
 		return l.resultErr
 	}
+
 	if l.resultNum > 0 {
 		return fmt.Errorf("errors have appeared in the `Virtualization-controller` logs")
 	}

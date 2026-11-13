@@ -80,6 +80,7 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, cvi *v1alpha2.C
 	log, ctx := logger.GetDataSourceContext(ctx, "objectref")
 
 	supgen := supplements.NewGenerator(annotations.CVIShortName, cvi.Name, vdSnapshotRef.Namespace, cvi.UID)
+
 	pod, err := ds.importerService.GetPod(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -133,16 +134,19 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, cvi *v1alpha2.C
 		pvcKey := supplements.NewGenerator(annotations.CVIShortName, cvi.Name, cvi.Spec.DataSource.ObjectRef.Namespace, cvi.UID).PersistentVolumeClaim()
 
 		storageClassName := storageclass.CapturedStorageClassName(vs)
+
 		volumeMode := vs.Annotations[annotations.AnnVolumeMode]
 		if volumeMode == "" {
 			volumeMode = vs.Annotations[annotations.AnnVolumeModeDeprecated]
 		}
+
 		accessModesRaw := vs.Annotations[annotations.AnnAccessModes]
 		if accessModesRaw == "" {
 			accessModesRaw = vs.Annotations[annotations.AnnAccessModesDeprecated]
 		}
 
 		accessModesStr := strings.Split(accessModesRaw, ",")
+
 		accessModes := make([]corev1.PersistentVolumeAccessMode, 0, len(accessModesStr))
 		for _, accessModeStr := range accessModesStr {
 			accessModes = append(accessModes, corev1.PersistentVolumeAccessMode(accessModeStr))
@@ -208,6 +212,7 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, cvi *v1alpha2.C
 
 		ownerRef := metav1.NewControllerRef(cvi, cvi.GroupVersionKind())
 		podSettings := ds.importerService.GetPodSettingsWithPVC(ownerRef, supgen, pvc.Name, pvc.Namespace)
+
 		err = ds.importerService.StartWithPodSetting(ctx, envSettings, supgen, datasource.NewCABundleForCVMI(cvi.Spec.DataSource), podSettings, service.WithSystemNodeToleration())
 		switch {
 		case err == nil:
@@ -265,6 +270,7 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, cvi *v1alpha2.C
 			}
 
 			recordProvisioningFailedEvent(ds.recorder, cvi, err)
+
 			return reconcile.Result{}, setPhaseConditionFromPodError(cb, cvi, err)
 		}
 

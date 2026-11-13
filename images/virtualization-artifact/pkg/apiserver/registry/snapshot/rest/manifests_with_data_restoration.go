@@ -75,6 +75,7 @@ func (r *ManifestsWithDataRestorationREST) Connect(ctx context.Context, name str
 	if err != nil {
 		return nil, apiError(r.resource, name, err)
 	}
+
 	if objs == nil {
 		// Never emit "null": the core unmarshals the body into a slice.
 		objs = []unstructured.Unstructured{}
@@ -93,7 +94,9 @@ func rejectForeignTargetNamespace(requested []string, snapshotNamespace string) 
 		if ns == "" || ns == snapshotNamespace {
 			continue
 		}
+
 		return fmt.Errorf("restoring into another namespace is not supported: snapshot namespace %q, requested %q", snapshotNamespace, ns)
 	}
+
 	return nil
 }

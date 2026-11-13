@@ -271,6 +271,7 @@ func Test_hashComment(t *testing.T) {
 	for _, line := range strings.Split(out, "\n") {
 		require.Equal(t, strings.TrimRight(line, " \t"), line, "trailing whitespace in %q", line)
 	}
+
 	require.Contains(t, out, "\n#\n")
 	require.True(t, strings.HasPrefix(out, "# Copyright "))
 }
@@ -293,14 +294,17 @@ func Test_parseLicenseFlag(t *testing.T) {
 			require.Error(t, err)
 			continue
 		}
+
 		require.NoError(t, err)
 		require.False(t, forceEE)
 	}
+
 	for _, value := range []string{"ee", "EE"} {
 		forceEE, err := parseLicenseFlag(value)
 		require.NoError(t, err)
 		require.True(t, forceEE)
 	}
+
 	_, err := parseLicenseFlag("apache")
 	require.Error(t, err)
 }
@@ -328,6 +332,7 @@ func Test_writeWithLicense(t *testing.T) {
 
 			out, err := os.ReadFile(path)
 			require.NoError(t, err)
+
 			got := string(out)
 
 			require.Equal(t, c.wantFirst, strings.SplitN(got, "\n", 2)[0])

@@ -68,5 +68,6 @@ func SetupController(
 	}
 
 	log.Info("Initialized evacuation controller")
+
 	return nil
 }

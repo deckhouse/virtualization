@@ -88,6 +88,7 @@ var _ = Describe("VirtualMachineMigrationWithManyHotplugs", Label(label.SIGCompu
 		vds := make([]*v1alpha2.VirtualDisk, 0, manyHotplugsDiskCount)
 		vmbdas := make([]*v1alpha2.VirtualMachineBlockDeviceAttachment, 0, manyHotplugsDiskCount)
 		vdNames := make([]string, 0, manyHotplugsDiskCount)
+
 		vmbdaNames := make([]string, 0, manyHotplugsDiskCount)
 		for i := range manyHotplugsDiskCount {
 			vd := object.NewBlankVD(fmt.Sprintf("vd-hotplug-%02d", i), ns, nil, ptr.To(resource.MustParse(vdCustomImageSize)))
@@ -106,6 +107,7 @@ var _ = Describe("VirtualMachineMigrationWithManyHotplugs", Label(label.SIGCompu
 		// Arm the observers before creating anything so no transition is missed.
 		vmObs := vmobs.StartObserver(ctx, f, vm)
 		vmObs.Never(vmobs.BeFailed())
+
 		vmbdaObservers := make([]vmbdaobs.Observer, 0, len(vmbdas))
 		for _, vmbda := range vmbdas {
 			obs := vmbdaobs.StartObserver(ctx, f, vmbda)
@@ -114,6 +116,7 @@ var _ = Describe("VirtualMachineMigrationWithManyHotplugs", Label(label.SIGCompu
 		}
 
 		var initialDiskCount int
+
 		By("Creating the virtual machine with its root disk", func() {
 			Expect(f.CreateWithDeferredDeletion(ctx, vdRoot, vm)).To(Succeed())
 
@@ -121,6 +124,7 @@ var _ = Describe("VirtualMachineMigrationWithManyHotplugs", Label(label.SIGCompu
 			eventually.SSHReadyAsRoot(f, vm, framework.LongTimeout)
 
 			var err error
+
 			initialDiskCount, err = util.GetDiskCountAsRoot(f, vm.Name, vm.Namespace)
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -139,6 +143,7 @@ var _ = Describe("VirtualMachineMigrationWithManyHotplugs", Label(label.SIGCompu
 				Expect(obs.WaitFor(vmbdaobs.BeAttached(), framework.LongTimeout)).To(Succeed(),
 					"VMBDA %s should become Attached", vmbdas[i].Name)
 			}
+
 			Expect(vmObs.WaitFor(vmobs.HaveBlockDevicesAttached(vdNames...), framework.LongTimeout)).To(Succeed())
 
 			eventually.UntilDiskCountAsRoot(f, vm.Name, vm.Namespace,
@@ -158,7 +163,9 @@ var _ = Describe("VirtualMachineMigrationWithManyHotplugs", Label(label.SIGCompu
 				// migration: a VMBDA leaving Attached fails the spec.
 				watchCtx, cancelWatch := context.WithCancel(ctx)
 				defer cancelWatch()
+
 				vmbdaWatchErrCh := make(chan error, 1)
+
 				go func() {
 					vmbdaWatchErrCh <- ensureVMBDAsStayAttached(watchCtx,
 						f.VirtClient().VirtualMachineBlockDeviceAttachments(ns),

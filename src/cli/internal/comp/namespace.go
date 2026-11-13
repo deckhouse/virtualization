@@ -39,6 +39,7 @@ func NamespaceFlagCompletionFunc(cmd *cobra.Command, _ []string, toComplete stri
 	}
 
 	var comps []string
+
 	for _, namespace := range namespaces.Items {
 		if strings.HasPrefix(namespace.Name, toComplete) {
 			comps = append(comps, namespace.Name)

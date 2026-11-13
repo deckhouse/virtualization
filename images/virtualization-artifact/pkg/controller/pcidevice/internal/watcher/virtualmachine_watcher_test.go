@@ -40,12 +40,14 @@ func TestShouldProcessVirtualMachineUpdate(t *testing.T) {
 	}
 
 	changedSpec := oldObj.DeepCopy()
+
 	changedSpec.Spec.PCIDevices = []v1alpha2.PCIDeviceSpecRef{{Name: "pci-b"}}
 	if !shouldProcessVirtualMachineUpdate(oldObj, changedSpec) {
 		t.Fatal("expected VM spec PCI devices update to be processed")
 	}
 
 	changedStatus := oldObj.DeepCopy()
+
 	changedStatus.Status.PCIDevices[0].Attached = true
 	if !shouldProcessVirtualMachineUpdate(oldObj, changedStatus) {
 		t.Fatal("expected VM status PCI devices update to be processed")
@@ -53,6 +55,7 @@ func TestShouldProcessVirtualMachineUpdate(t *testing.T) {
 
 	now := metav1.Now()
 	changedDeletion := oldObj.DeepCopy()
+
 	changedDeletion.DeletionTimestamp = &now
 	if !shouldProcessVirtualMachineUpdate(oldObj, changedDeletion) {
 		t.Fatal("expected VM deletion timestamp update to be processed")
@@ -61,6 +64,7 @@ func TestShouldProcessVirtualMachineUpdate(t *testing.T) {
 	if shouldProcessVirtualMachineUpdate(nil, changedStatus) {
 		t.Fatal("expected nil old object to be ignored")
 	}
+
 	if shouldProcessVirtualMachineUpdate(oldObj, nil) {
 		t.Fatal("expected nil new object to be ignored")
 	}

@@ -140,12 +140,14 @@ func (b *DebugBundle) collectBlockDevices(ctx context.Context, client kubeclient
 				if err := b.outputResource("VirtualMachineBlockDeviceAttachment", vmbda.Name, vm.Namespace, &vmbda); err != nil {
 					return fmt.Errorf("failed to output VirtualMachineBlockDeviceAttachment: %w", err)
 				}
+
 				b.collectEvents(ctx, client, vm.Namespace, "VirtualMachineBlockDeviceAttachment", vmbda.Name)
 
 				// Get associated block device
 				if vmbda.Spec.BlockDeviceRef.Kind != "" && vmbda.Spec.BlockDeviceRef.Name != "" {
 					// Convert VMBDAObjectRefKind to BlockDeviceKind
 					var bdKind v1alpha2.BlockDeviceKind
+
 					switch vmbda.Spec.BlockDeviceRef.Kind {
 					case v1alpha2.VMBDAObjectRefKindVirtualDisk:
 						bdKind = v1alpha2.VirtualDiskKind
@@ -156,6 +158,7 @@ func (b *DebugBundle) collectBlockDevices(ctx context.Context, client kubeclient
 					default:
 						continue
 					}
+
 					key := bdKey(bdKind, vmbda.Spec.BlockDeviceRef.Name)
 					if !collectedBlockDevices[key] {
 						if err := b.collectBlockDevice(ctx, client, vm.Namespace, bdKind, vmbda.Spec.BlockDeviceRef.Name); err != nil {
@@ -183,9 +186,11 @@ func (b *DebugBundle) collectBlockDevice(ctx context.Context, client kubeclient.
 		if err != nil {
 			return err
 		}
+
 		if err := b.outputResource("VirtualDisk", name, namespace, vd); err != nil {
 			return fmt.Errorf("failed to output VirtualDisk: %w", err)
 		}
+
 		b.collectEvents(ctx, client, namespace, "VirtualDisk", name)
 
 		// Get PVC
@@ -195,6 +200,7 @@ func (b *DebugBundle) collectBlockDevice(ctx context.Context, client kubeclient.
 				if err := b.outputResource("PersistentVolumeClaim", pvc.Name, namespace, pvc); err != nil {
 					return fmt.Errorf("failed to output PersistentVolumeClaim: %w", err)
 				}
+
 				b.collectEvents(ctx, client, namespace, "PersistentVolumeClaim", pvc.Name)
 
 				// Get PV
@@ -218,9 +224,11 @@ func (b *DebugBundle) collectBlockDevice(ctx context.Context, client kubeclient.
 		if err != nil {
 			return err
 		}
+
 		if err := b.outputResource("VirtualImage", name, namespace, vi); err != nil {
 			return fmt.Errorf("failed to output VirtualImage: %w", err)
 		}
+
 		b.collectEvents(ctx, client, namespace, "VirtualImage", name)
 
 	case v1alpha2.ClusterVirtualImageKind:
@@ -228,6 +236,7 @@ func (b *DebugBundle) collectBlockDevice(ctx context.Context, client kubeclient.
 		if err != nil {
 			return err
 		}
+
 		if err := b.outputResource("ClusterVirtualImage", name, "", cvi); err != nil {
 			return fmt.Errorf("failed to output ClusterVirtualImage: %w", err)
 		}
@@ -247,6 +256,7 @@ func (b *DebugBundle) collectPods(ctx context.Context, client kubeclient.Client,
 		if b.skipError("Pod", "", err) {
 			return nil
 		}
+
 		return err
 	}
 
@@ -257,6 +267,7 @@ func (b *DebugBundle) collectPods(ctx context.Context, client kubeclient.Client,
 		if err := b.outputResource("Pod", pod.Name, namespace, &pod); err != nil {
 			return fmt.Errorf("failed to output Pod: %w", err)
 		}
+
 		b.collectEvents(ctx, client, namespace, "Pod", pod.Name)
 		b.collectSinglePodLogs(ctx, client, namespace, pod.Name)
 		// Collect vlctl domain XML for running virt-launcher pods
@@ -285,8 +296,10 @@ func (b *DebugBundle) collectPods(ctx context.Context, client kubeclient.Client,
 						if err := b.outputResource("Pod", pod.Name, namespace, &pod); err != nil {
 							return fmt.Errorf("failed to output Pod: %w", err)
 						}
+
 						b.collectEvents(ctx, client, namespace, "Pod", pod.Name)
 						b.collectSinglePodLogs(ctx, client, namespace, pod.Name)
+
 						break
 					}
 				}
@@ -307,6 +320,7 @@ func (b *DebugBundle) collectEvents(ctx context.Context, client kubeclient.Clien
 		if b.skipError("Event", resourceName, err) {
 			return
 		}
+
 		return
 	}
 
@@ -339,14 +353,17 @@ func (b *DebugBundle) collectSinglePodLogs(ctx context.Context, client kubeclien
 	req := client.CoreV1().Pods(namespace).GetLogs(podName, &corev1.PodLogOptions{
 		TailLines: &tailLines,
 	})
+
 	logStream, err := req.Stream(logCtx)
 	if err == nil && logStream != nil {
 		stream := logStream // Capture in closure
+
 		defer func() {
 			if stream != nil {
 				_ = stream.Close()
 			}
 		}()
+
 		logContent, err := b.readLogsWithTimeout(logCtx, logStream)
 		if err == nil && len(logContent) > 0 {
 			fileName := fmt.Sprintf("pod-log-%s.log", strings.ToLower(podName))
@@ -366,14 +383,17 @@ func (b *DebugBundle) collectSinglePodLogs(ctx context.Context, client kubeclien
 		Previous:  true,
 		TailLines: &tailLines,
 	})
+
 	logStream, err = req.Stream(logCtx)
 	if err == nil && logStream != nil {
 		stream := logStream // Capture in closure
+
 		defer func() {
 			if stream != nil {
 				_ = stream.Close()
 			}
 		}()
+
 		logContent, err := b.readLogsWithTimeout(logCtx, logStream)
 		if err == nil && len(logContent) > 0 {
 			fileName := fmt.Sprintf("pod-log-%s-previous.log", strings.ToLower(podName))
@@ -392,6 +412,7 @@ func (b *DebugBundle) readLogsWithTimeout(ctx context.Context, stream io.ReadClo
 		data []byte
 		err  error
 	}
+
 	resultChan := make(chan result, 1)
 
 	go func() {
@@ -417,6 +438,7 @@ func (b *DebugBundle) isVirtLauncherPod(pod *corev1.Pod) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -425,17 +447,20 @@ func (b *DebugBundle) collectVlctlDomainXML(ctx context.Context, client kubeclie
 	// Find the compute container
 	containerName := "compute"
 	containerFound := false
+
 	for _, container := range pod.Spec.Containers {
 		if container.Name == containerName {
 			containerFound = true
 			break
 		}
 	}
+
 	if !containerFound {
 		// If compute container not found, try first container
 		if len(pod.Spec.Containers) == 0 {
 			return
 		}
+
 		containerName = pod.Spec.Containers[0].Name
 	}
 
@@ -468,6 +493,7 @@ func (b *DebugBundle) collectVlctlDomainXML(ctx context.Context, client kubeclie
 
 	// Capture output
 	var stdoutBuf, stderrBuf bytes.Buffer
+
 	err = executor.StreamWithContext(ctx, remotecommand.StreamOptions{
 		Stdout: &stdoutBuf,
 		Stderr: &stderrBuf,
@@ -502,6 +528,7 @@ func (b *DebugBundle) getInternalResource(ctx context.Context, resource, namespa
 	if err != nil {
 		return nil, err
 	}
+
 	return obj, nil
 }
 
@@ -519,6 +546,7 @@ func (b *DebugBundle) getInternalResourceList(ctx context.Context, resource, nam
 	for i := range list.Items {
 		result[i] = &list.Items[i]
 	}
+
 	return result, nil
 }
 
@@ -557,12 +585,14 @@ func (b *DebugBundle) outputResource(kind, name, namespace string, obj runtime.O
 
 	// Create filename: <resource-name>-<name>.yaml (all lowercase)
 	resourceName := strings.ToLower(kind)
+
 	fileName := fmt.Sprintf("%s-%s.yaml", resourceName, strings.ToLower(name))
 	if err := b.writeToArchive(fileName, yamlBytes); err != nil {
 		return fmt.Errorf("failed to write %s to archive: %w", fileName, err)
 	}
 
 	b.fileCount++
+
 	return nil
 }
 
@@ -575,8 +605,10 @@ func (b *DebugBundle) writeToArchive(fileName string, content []byte) error {
 	if err := b.tarWriter.WriteHeader(header); err != nil {
 		return fmt.Errorf("failed to write tar header for %s: %w", fileName, err)
 	}
+
 	if _, err := b.tarWriter.Write(content); err != nil {
 		return fmt.Errorf("failed to write content for %s: %w", fileName, err)
 	}
+
 	return nil
 }

@@ -131,6 +131,7 @@ func Load(ctx context.Context, reader client.Reader, resource, namespace, name s
 		if err := reader.Get(ctx, key, obj); err != nil {
 			return Node{}, fmt.Errorf("get VirtualMachineSnapshot %s/%s: %w", namespace, name, err)
 		}
+
 		return Node{
 			APIVersion:    v1alpha2.SchemeGroupVersion.String(),
 			Kind:          v1alpha2.VirtualMachineSnapshotKind,
@@ -149,6 +150,7 @@ func Load(ctx context.Context, reader client.Reader, resource, namespace, name s
 		if err := reader.Get(ctx, key, obj); err != nil {
 			return Node{}, fmt.Errorf("get VirtualDiskSnapshot %s/%s: %w", namespace, name, err)
 		}
+
 		return Node{
 			APIVersion:  v1alpha2.SchemeGroupVersion.String(),
 			Kind:        v1alpha2.VirtualDiskSnapshotKind,

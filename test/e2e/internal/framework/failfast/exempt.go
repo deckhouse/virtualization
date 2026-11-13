@@ -48,6 +48,7 @@ func (e *Exemptions) Add(objs ...metav1.Object) {
 		e.names = make(map[string]struct{})
 		e.uids = make(map[types.UID]struct{})
 	}
+
 	for _, obj := range objs {
 		e.names[obj.GetNamespace()+"/"+obj.GetName()] = struct{}{}
 		if uid := obj.GetUID(); uid != "" {
@@ -72,11 +73,13 @@ func (e *Exemptions) IsExempted(obj metav1.Object) bool {
 	if e.isExemptedLocked(obj.GetNamespace(), obj.GetName(), obj.GetUID()) {
 		return true
 	}
+
 	for _, ref := range obj.GetOwnerReferences() {
 		if e.isExemptedLocked(obj.GetNamespace(), ref.Name, ref.UID) {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -84,6 +87,8 @@ func (e *Exemptions) isExemptedLocked(namespace, name string, uid types.UID) boo
 	if _, ok := e.names[namespace+"/"+name]; ok {
 		return true
 	}
+
 	_, ok := e.uids[uid]
+
 	return ok
 }

@@ -146,8 +146,11 @@ var _ = Describe("VMSOPCreateVirtualMachine", Label(label.SIGCompute, precheck.P
 			// The clone is created by the VMSOP asynchronously, so its observers
 			// are armed before the VMSOP is created: this way no transition (nor
 			// an already-settled state) is missed by the waits below.
-			var clonedVMObs vmobs.Observer
-			var clonedVMBDAObs vmbdaobs.Observer
+			var (
+				clonedVMObs    vmobs.Observer
+				clonedVMBDAObs vmbdaobs.Observer
+			)
+
 			if mode != v1alpha2.SnapshotOperationModeDryRun {
 				clonedVM := &v1alpha2.VirtualMachine{ObjectMeta: metav1.ObjectMeta{
 					Name: clonedName(vm.Name), Namespace: f.Namespace().Name,
@@ -240,9 +243,11 @@ var _ = Describe("VMSOPCreateVirtualMachine", Label(label.SIGCompute, precheck.P
 // problem, not a virtualization one. Any other failure fails the spec.
 func waitVMSnapshotReady(obs vmsnapshotobs.Observer, timeout time.Duration) {
 	GinkgoHelper()
+
 	err := obs.WaitFor(vmsnapshotobs.BeReady(), timeout)
 	if err != nil && util.IsCSIVolumeSnapshotError(err.Error()) {
 		Skip(fmt.Sprintf("VirtualMachineSnapshot failed on the CSI side, skipping: %s", err))
 	}
+
 	Expect(err).NotTo(HaveOccurred())
 }

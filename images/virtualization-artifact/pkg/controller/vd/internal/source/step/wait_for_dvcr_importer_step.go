@@ -106,6 +106,7 @@ func (s WaitForDVCRImporterStep) Take(ctx context.Context, vd *v1alpha2.VirtualD
 
 func (s WaitForDVCRImporterStep) deleteSupplements(ctx context.Context, supgen supplements.Generator) error {
 	authSecretKey := supgen.DVCRAuthSecret()
+
 	authSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{Name: authSecretKey.Name, Namespace: authSecretKey.Namespace},
 	}
@@ -114,6 +115,7 @@ func (s WaitForDVCRImporterStep) deleteSupplements(ctx context.Context, supgen s
 	}
 
 	caBundleKey := supgen.CABundleConfigMap()
+
 	caBundle := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{Name: caBundleKey.Name, Namespace: caBundleKey.Namespace},
 	}
@@ -132,6 +134,7 @@ func (s WaitForDVCRImporterStep) handlePodError(ctx context.Context, vd *v1alpha
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ProvisioningNotStarted).
 			Message(service.CapitalizeFirstLetter(podErr.Error()) + ".")
+
 		return &reconcile.Result{}, nil
 	case errors.Is(podErr, servicestat.ErrNotScheduled):
 		vd.Status.Phase = v1alpha2.DiskPending
@@ -186,6 +189,7 @@ func (s WaitForDVCRImporterStep) handlePodError(ctx context.Context, vd *v1alpha
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ProvisioningFailed).
 			Message(service.CapitalizeFirstLetter(podErr.Error()) + ".")
+
 		return &reconcile.Result{}, nil
 	default:
 		vd.Status.Phase = v1alpha2.DiskFailed
@@ -193,6 +197,7 @@ func (s WaitForDVCRImporterStep) handlePodError(ctx context.Context, vd *v1alpha
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ProvisioningFailed).
 			Message(service.CapitalizeFirstLetter(fmt.Errorf("unexpected error: %w", podErr).Error()) + ".")
+
 		return nil, podErr
 	}
 }

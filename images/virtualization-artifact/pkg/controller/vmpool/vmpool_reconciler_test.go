@@ -62,8 +62,10 @@ var _ = Describe("Reconciler", func() {
 					if quotaLeft == 0 {
 						return apierrors.NewForbidden(schema.GroupResource{Resource: "virtualmachines"}, "", errors.New("exceeded quota: vms"))
 					}
+
 					quotaLeft--
 				}
+
 				return cl.Create(ctx, obj, opts...)
 			},
 		}, pool)
@@ -82,24 +84,30 @@ var _ = Describe("Reconciler", func() {
 		progressing := func() *metav1.Condition {
 			var got v1alpha2.VirtualMachinePool
 			Expect(c.Get(ctx, key, &got)).To(Succeed())
+
 			return meta.FindStatusCondition(got.Status.Conditions, vmpoolcondition.TypeProgressing.String())
 		}
 
 		By("one replica is created, two are rejected by the quota")
+
 		_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: key})
 		Expect(err).To(HaveOccurred())
+
 		cond := progressing()
 		Expect(cond).NotTo(BeNil())
 		Expect(cond.Reason).To(Equal(vmpoolcondition.ReasonReplicaCreationFailed.String()))
 		Expect(cond.Message).To(HavePrefix("Scaling up: 1 of 3 replicas are created. Cannot create a VirtualMachine from the template: the namespace ResourceQuota is exceeded."))
 
 		By("the created replica is not observed yet, so nothing is tried and the failure stays")
+
 		_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: key})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(progressing().Reason).To(Equal(vmpoolcondition.ReasonReplicaCreationFailed.String()))
 
 		By("the quota is raised and the replica is observed: the pool converges")
+
 		quotaLeft = 2
+
 		exp.CreationObserved(key.String())
 		_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: key})
 		Expect(err).NotTo(HaveOccurred())

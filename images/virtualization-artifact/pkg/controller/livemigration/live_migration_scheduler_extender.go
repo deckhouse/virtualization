@@ -58,6 +58,7 @@ func schedulerExtenderHandler[T any](verb func(context.Context, extender.Args) T
 		}
 
 		w.Header().Set("Content-Type", "application/json")
+
 		if err := json.NewEncoder(w).Encode(verb(r.Context(), args)); err != nil {
 			log.Error("Failed to write the scheduler extender response", logger.SlogErr(err))
 		}

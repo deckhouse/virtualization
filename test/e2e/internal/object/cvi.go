@@ -27,5 +27,6 @@ func NewGenerateContainerImageCVI(prefix string, opts ...cvi.Option) *v1alpha2.C
 		cvi.WithDataSourceContainerImage(ImageURLContainerImage, v1alpha2.ImagePullSecret{}, nil),
 	}
 	baseOpts = append(baseOpts, opts...)
+
 	return cvi.New(baseOpts...)
 }

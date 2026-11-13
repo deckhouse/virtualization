@@ -45,6 +45,7 @@ func (s TerminatingStep) Take(ctx context.Context, _ *v1alpha2.VirtualImage) (*r
 	if object.IsTerminating(s.pvc) {
 		log, _ := logger.GetDataSourceContext(ctx, "objectref")
 		log.Info("The PVC is terminating during an unfinished import process.")
+
 		return &reconcile.Result{Requeue: true}, nil
 	}
 

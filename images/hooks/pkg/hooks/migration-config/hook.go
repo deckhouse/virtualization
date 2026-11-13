@@ -132,12 +132,14 @@ func (p migrationParam) resolve(annos map[string]string) (any, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse %q annotation: %w", p.annotation, err)
 		}
+
 		return v, nil
 	case int:
 		v, err := strconv.Atoi(val)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse %q annotation: %w", p.annotation, err)
 		}
+
 		return v, nil
 	case string:
 		return val, nil
@@ -198,6 +200,7 @@ func reconcile(_ context.Context, input *pkg.HookInput) error {
 		if err != nil {
 			return err
 		}
+
 		if current := param.getCurrent(input); current != value {
 			input.Values.Set(param.valuesPath, value)
 		}
@@ -207,17 +210,21 @@ func reconcile(_ context.Context, input *pkg.HookInput) error {
 	if err != nil {
 		return err
 	}
+
 	if _, err := limitAnnotation(annos, 0, maxActiveMigrationsPerClusterAnnotation); err != nil {
 		return err
 	}
+
 	if slots.shared > 0 && slots.separateSet {
 		input.Logger.Warn("The " + maxActiveMigrationsPerNodeAnnotation + " annotation is set; the separate outbound and inbound migration limits are ignored.")
 	}
+
 	for _, name := range removedMigrationAnnotations {
 		if _, ok := annos[name]; ok {
 			input.Logger.Warn("The " + name + " annotation is no longer read; set the max-active-* migration annotations instead.")
 		}
 	}
+
 	for path, value := range map[string]int{
 		parallelOutboundMigrationsPerNodeValuesPath:  slots.outboundWindow(),
 		maxActiveOutboundMigrationsPerNodeValuesPath: slots.activeOutbound,
@@ -280,10 +287,12 @@ func resolveMigrationSlots(annos map[string]string) (migrationSlots, error) {
 	if err != nil {
 		return migrationSlots{}, err
 	}
+
 	activeInbound, err := limitAnnotation(annos, defaultMaxActiveInboundMigrationsPerNode, maxActiveInboundMigrationsPerNodeAnnotation)
 	if err != nil {
 		return migrationSlots{}, err
 	}
+
 	preactiveOutbound, err := intAnnotation(annos, defaultMaxPreactiveOutboundMigrationsPerNode, 0, maxPreactiveOutboundMigrationsPerNodeAnnotation)
 	if err != nil {
 		return migrationSlots{}, err
@@ -295,6 +304,7 @@ func resolveMigrationSlots(annos map[string]string) (migrationSlots, error) {
 	}
 
 	slots := migrationSlots{activeOutbound: activeOutbound, activeInbound: activeInbound, preactiveOutbound: preactiveOutbound, shared: shared}
+
 	for _, name := range []string{maxActiveOutboundMigrationsPerNodeAnnotation, maxActiveInboundMigrationsPerNodeAnnotation} {
 		if _, ok := annos[name]; ok {
 			slots.separateSet = true
@@ -309,10 +319,12 @@ func limitAnnotation(annos map[string]string, defaultValue int, name string) (in
 	if annos[name] == disabledLimit {
 		return 0, nil
 	}
+
 	value, err := intAnnotation(annos, defaultValue, 1, name)
 	if err != nil {
 		return 0, fmt.Errorf("%w; set a number or %q", err, disabledLimit)
 	}
+
 	return value, nil
 }
 
@@ -322,13 +334,16 @@ func intAnnotation(annos map[string]string, defaultValue, minValue int, name str
 	if !ok {
 		return defaultValue, nil
 	}
+
 	value, err := strconv.Atoi(raw)
 	if err != nil {
 		return 0, fmt.Errorf("failed to parse %q annotation: %w", name, err)
 	}
+
 	if value < minValue {
 		return 0, fmt.Errorf("the %q annotation must be at least %d, got %d", name, minValue, value)
 	}
+
 	return value, nil
 }
 
@@ -339,6 +354,7 @@ func annotationsFromSnapshot(input *pkg.HookInput) (map[string]string, error) {
 	}
 
 	var annos map[string]string
+
 	err := snap[0].UnmarshalTo(&annos)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal moduleConfig annotations: %w", err)

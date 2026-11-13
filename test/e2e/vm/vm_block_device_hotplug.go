@@ -55,6 +55,7 @@ func requireNoRestart() vmobs.Predicate {
 		if needRestart.Status == metav1.ConditionTrue || m.Status.RestartAwaitingChanges != nil {
 			return true, fmt.Errorf("the VM awaits a restart to apply configuration: %s", needRestart.Message)
 		}
+
 		return false, nil
 	}
 }
@@ -86,6 +87,7 @@ func volumeNames(volumes []virtv1.Volume) []string {
 	for _, volume := range volumes {
 		names = append(names, volume.Name)
 	}
+
 	return names
 }
 
@@ -107,6 +109,7 @@ var _ = Describe("VirtualMachineBlockDeviceHotplugAttach", Label(label.SIGComput
 
 	It("should hotplug a disk without restart", func() {
 		By("Adding blank disk to spec.blockDeviceRefs")
+
 		err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vm), vm)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -123,6 +126,7 @@ var _ = Describe("VirtualMachineBlockDeviceHotplugAttach", Label(label.SIGComput
 		vmObs.Never(requireNoRestart())
 
 		By("Waiting for disk to be attached")
+
 		err = vmObs.WaitFor(vmobs.HaveBlockDevicesAttached(vdBlank.Name), framework.LongTimeout)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -156,6 +160,7 @@ var _ = Describe("VirtualMachineBlockDeviceHotplugDetach", Label(label.SIGComput
 
 	It("should unplug a disk without restart", func() {
 		By("Removing blank disk from spec.blockDeviceRefs")
+
 		err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vm), vm)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -174,6 +179,7 @@ var _ = Describe("VirtualMachineBlockDeviceHotplugDetach", Label(label.SIGComput
 		vmObs.Never(requireNoRestart())
 
 		By("Waiting for disk to be detached")
+
 		err = vmObs.WaitFor(vmobs.HaveBlockDeviceDetached(vdBlank.Name), framework.LongTimeout)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -244,7 +250,9 @@ func setupVM(f *framework.Framework, withBlank bool) (
 	// cloud-init to install it is needed.
 
 	By("Recording initial disk count")
+
 	initialDiskCount, err = util.GetDiskCountAsRoot(f, vm.Name, vm.Namespace)
 	Expect(err).NotTo(HaveOccurred())
+
 	return vm, vdRoot, vdBlank, vmObs, initialDiskCount
 }

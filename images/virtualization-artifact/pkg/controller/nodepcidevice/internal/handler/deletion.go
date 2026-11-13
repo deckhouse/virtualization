@@ -69,6 +69,7 @@ func (h *DeletionHandler) Handle(ctx context.Context, s state.NodePCIDeviceState
 			if err := h.client.Delete(ctx, current); err != nil && !apierrors.IsNotFound(err) {
 				return reconcile.Result{}, fmt.Errorf("failed to delete NodePCIDevice: %w", err)
 			}
+
 			return reconcile.Result{}, reconciler.ErrStopHandlerChain
 		}
 
@@ -79,9 +80,11 @@ func (h *DeletionHandler) Handle(ctx context.Context, s state.NodePCIDeviceState
 		if err != nil {
 			return reconcile.Result{}, err
 		}
+
 		if remaining > 0 {
 			return reconcile.Result{RequeueAfter: time.Second}, nil
 		}
+
 		controllerutil.RemoveFinalizer(changed, v1alpha2.FinalizerNodePCIDeviceCleanup)
 	}
 
@@ -98,22 +101,28 @@ func (h *DeletionHandler) cleanupOwnedPCIDevices(ctx context.Context, owner *v1a
 	}
 
 	remaining := 0
+
 	for i := range pciDeviceList.Items {
 		pciDevice := &pciDeviceList.Items[i]
 		if !metav1.IsControlledBy(pciDevice, owner) {
 			continue
 		}
+
 		remaining++
+
 		if !pciDevice.GetDeletionTimestamp().IsZero() {
 			continue
 		}
+
 		if err := h.client.Delete(ctx, pciDevice); err != nil {
 			if apierrors.IsNotFound(err) {
 				remaining--
 				continue
 			}
+
 			return 0, fmt.Errorf("failed to delete PCIDevice %s/%s: %w", pciDevice.Namespace, pciDevice.Name, err)
 		}
+
 		if len(pciDevice.GetFinalizers()) == 0 {
 			remaining--
 		}

@@ -54,6 +54,7 @@ func (w *PCIDeviceWatcher) Watch(mgr manager.Manager, ctr controller.Controller)
 
 func (w *PCIDeviceWatcher) enqueue(ctx context.Context, pciDevice *v1alpha2.PCIDevice) []reconcile.Request {
 	var vms v1alpha2.VirtualMachineList
+
 	err := w.client.List(ctx, &vms, &client.ListOptions{
 		Namespace:     pciDevice.Namespace,
 		FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVMByPCIDevice, pciDevice.Name),
@@ -71,5 +72,6 @@ func (w *PCIDeviceWatcher) enqueue(ctx context.Context, pciDevice *v1alpha2.PCID
 			},
 		})
 	}
+
 	return result
 }

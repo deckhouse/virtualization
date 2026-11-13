@@ -48,6 +48,7 @@ func (s sysfs) bindGroupToVFIO(group int) error {
 			return fmt.Errorf("failed to bind device %s of IOMMU group %d to %s: %w", address, group, vfioDriverName, err)
 		}
 	}
+
 	return nil
 }
 
@@ -56,6 +57,7 @@ func (s sysfs) bindDeviceToVFIO(address string) error {
 	if err != nil {
 		return err
 	}
+
 	if driver == vfioDriverName {
 		return nil
 	}
@@ -63,9 +65,11 @@ func (s sysfs) bindDeviceToVFIO(address string) error {
 	if err := s.setDriverOverride(address, vfioDriverName); err != nil {
 		return err
 	}
+
 	if err := s.unbind(address); err != nil {
 		return err
 	}
+
 	if err := s.probe(address); err != nil {
 		return err
 	}
@@ -74,9 +78,11 @@ func (s sysfs) bindDeviceToVFIO(address string) error {
 	if err != nil {
 		return err
 	}
+
 	if driver != vfioDriverName {
 		return fmt.Errorf("device is bound to %q after probe, expected %q", driver, vfioDriverName)
 	}
+
 	return nil
 }
 
@@ -91,11 +97,13 @@ func (s sysfs) restoreGroupDrivers(group int) error {
 	}
 
 	var errs []error
+
 	for _, address := range endpoints {
 		if err := s.restoreDeviceDriver(address); err != nil {
 			errs = append(errs, fmt.Errorf("failed to restore driver for device %s of IOMMU group %d: %w", address, group, err))
 		}
 	}
+
 	return errors.Join(errs...)
 }
 
@@ -104,6 +112,7 @@ func (s sysfs) restoreDeviceDriver(address string) error {
 	if err != nil {
 		return err
 	}
+
 	if driver != vfioDriverName {
 		return nil
 	}
@@ -111,9 +120,11 @@ func (s sysfs) restoreDeviceDriver(address string) error {
 	if err := s.setDriverOverride(address, ""); err != nil {
 		return err
 	}
+
 	if err := s.unbind(address); err != nil {
 		return err
 	}
+
 	return s.probe(address)
 }
 
@@ -138,6 +149,7 @@ func vfioGroupDeviceNodes(devRoot string, group int) ([]vfioDeviceNode, error) {
 	}
 
 	groupPath := filepath.Join(devRoot, "vfio", strconv.Itoa(group))
+
 	groupNode, err := waitDeviceNode(groupPath, vfioGroupDeviceWait)
 	if err != nil {
 		return nil, fmt.Errorf("vfio group device %s is not available: %w", groupPath, err)
@@ -148,14 +160,17 @@ func vfioGroupDeviceNodes(devRoot string, group int) ([]vfioDeviceNode, error) {
 
 func waitDeviceNode(path string, timeout time.Duration) (vfioDeviceNode, error) {
 	deadline := time.Now().Add(timeout)
+
 	for {
 		node, err := statDeviceNode(path)
 		if err == nil {
 			return node, nil
 		}
+
 		if !os.IsNotExist(err) || time.Now().After(deadline) {
 			return vfioDeviceNode{}, err
 		}
+
 		time.Sleep(100 * time.Millisecond)
 	}
 }
@@ -165,11 +180,14 @@ func statDeviceNode(path string) (vfioDeviceNode, error) {
 	if err != nil {
 		return vfioDeviceNode{}, err
 	}
+
 	stat, ok := info.Sys().(*syscall.Stat_t)
 	if !ok {
 		return vfioDeviceNode{}, fmt.Errorf("failed to stat device node %s", path)
 	}
+
 	rdev := uint64(stat.Rdev) //nolint:unconvert // Rdev is not uint64 on every platform
+
 	return vfioDeviceNode{
 		Path:  path,
 		Major: int64(unix.Major(rdev)),

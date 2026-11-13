@@ -156,6 +156,7 @@ func setInUseByVirtualMachines(ctx context.Context, cl client.Client, secret *co
 	} else {
 		anno[annotations.AnnInUseByVirtualMachines] = value
 	}
+
 	secret.SetAnnotations(anno)
 
 	if err := cl.Patch(ctx, secret, patch); err != nil {

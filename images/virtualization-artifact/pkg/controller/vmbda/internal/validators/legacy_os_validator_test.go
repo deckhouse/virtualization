@@ -56,6 +56,7 @@ var _ = Describe("LegacyOSValidator (VMBDA)", func() {
 	makeValidator := func(objs ...client.Object) *validators.LegacyOSValidator {
 		fakeClient, err := testutil.NewFakeClientWithObjects(objs...)
 		Expect(err).NotTo(HaveOccurred())
+
 		return validators.NewLegacyOSValidator(service.NewAttachmentService(fakeClient, nil, ""))
 	}
 

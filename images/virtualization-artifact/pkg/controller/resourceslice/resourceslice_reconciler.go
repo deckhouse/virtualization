@@ -70,6 +70,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	resourceSlice := &resourcev1.ResourceSlice{}
+
 	err := r.client.Get(ctx, req.NamespacedName, resourceSlice)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {

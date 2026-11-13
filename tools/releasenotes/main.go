@@ -41,18 +41,23 @@ const defaultSource = "CHANGELOG/release-notes.yaml"
 func main() {
 	var runType string
 	flag.StringVar(&runType, "type", "", "Run type: render or check.")
+
 	var source string
 	flag.StringVar(&source, "source", defaultSource, "Release notes source.")
+
 	var out string
 	flag.StringVar(&out, "out", "", "Directory render writes the published files into.")
+
 	var version string
 	flag.StringVar(&version, "version", "",
 		"For render, the version the build publishes: it fails when it is not the "+
 			"newest release in the source. For print, the release to print.")
+
 	var links bool
 	flag.BoolVar(&links, "links", false,
 		"Render the documentation pages with absolute links (deckhouse.io for en, "+
 			"deckhouse.ru for ru), for pasting outside the documentation.")
+
 	var lang string
 	flag.StringVar(&lang, "lang", "ru", "The language print uses: en or ru.")
 	flag.Parse()
@@ -86,6 +91,7 @@ func main() {
 	case "check":
 		err = runCheck(releases, source)
 	}
+
 	if err != nil {
 		fmt.Printf("release-notes: %v\n", err)
 		os.Exit(1)
@@ -100,6 +106,7 @@ func render(releases []Release, out, version string, links bool) error {
 	if out == "" {
 		return fmt.Errorf("render needs -out <dir>")
 	}
+
 	latest := newest(releases)
 	// The changelog the image carries is the newest release of the source; a build
 	// that publishes a different version would show the notes of a foreign release
@@ -109,14 +116,17 @@ func render(releases []Release, out, version string, links bool) error {
 			"publishes %s: its notes go into the source before the tag is cut",
 			latest.Version, version)
 	}
+
 	if err := os.MkdirAll(filepath.Join(out, "docs"), 0o755); err != nil {
 		return err
 	}
+
 	for _, lang := range []string{"en", "ru"} {
 		page, err := renderMarkdown(releases, lang, links)
 		if err != nil {
 			return err
 		}
+
 		if err := os.WriteFile(filepath.Join(out, "docs", pageName(lang)), []byte(page), 0o644); err != nil {
 			return err
 		}
@@ -126,6 +136,7 @@ func render(releases []Release, out, version string, links bool) error {
 	if err != nil {
 		return err
 	}
+
 	return os.WriteFile(filepath.Join(out, "changelog.yaml"), []byte(changelog), 0o644)
 }
 
@@ -136,19 +147,23 @@ func printRelease(releases []Release, version, lang string, links bool) (string,
 	if lang != "en" && lang != "ru" {
 		return "", fmt.Errorf("the language is en or ru, not %q", lang)
 	}
+
 	release := newest(releases)
 	if version != "" {
 		release = nil
+
 		for i := range releases {
 			if releases[i].Version == version {
 				release = &releases[i]
 				break
 			}
 		}
+
 		if release == nil {
 			return "", fmt.Errorf("no release %s in the source", version)
 		}
 	}
+
 	page, err := renderMarkdown([]Release{*release}, lang, links)
 	if err != nil {
 		return "", err
@@ -158,6 +173,7 @@ func printRelease(releases []Release, version, lang string, links bool) (string,
 	if !found {
 		return "", fmt.Errorf("the rendered page has no front matter to strip")
 	}
+
 	return notes, nil
 }
 
@@ -165,6 +181,7 @@ func pageName(lang string) string {
 	if lang == "ru" {
 		return "RELEASE_NOTES.ru.md"
 	}
+
 	return "RELEASE_NOTES.md"
 }
 
@@ -182,6 +199,7 @@ func runCheck(releases []Release, source string) error {
 				problems = append(problems, err.Error())
 			}
 		}
+
 		if _, err := renderChangelog(newest(releases)); err != nil {
 			problems = append(problems, err.Error())
 		}
@@ -190,6 +208,7 @@ func runCheck(releases []Release, source string) error {
 	for _, problem := range problems {
 		fmt.Printf("release-notes: %s\n", problem)
 	}
+
 	switch len(problems) {
 	case 0:
 		fmt.Printf("ok: %d releases in %s\n", len(releases), source)

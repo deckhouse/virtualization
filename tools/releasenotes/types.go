@@ -42,14 +42,19 @@ func (i *Item) UnmarshalYAML(node *yaml.Node) error {
 	if node.Kind != yaml.MappingNode {
 		return fmt.Errorf("line %d: a note is a mapping of en and ru", node.Line)
 	}
+
 	seen := map[string]bool{}
+
 	for j := 0; j+1 < len(node.Content); j += 2 {
 		key, value := node.Content[j], node.Content[j+1]
 		if seen[key.Value] {
 			return fmt.Errorf("line %d: %q appears twice in one note", key.Line, key.Value)
 		}
+
 		seen[key.Value] = true
+
 		var target *string
+
 		switch key.Value {
 		case "en":
 			target = &i.En
@@ -59,10 +64,12 @@ func (i *Item) UnmarshalYAML(node *yaml.Node) error {
 			return fmt.Errorf("line %d: unknown key %q, a note holds en and ru",
 				key.Line, key.Value)
 		}
+
 		if err := value.Decode(target); err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -86,6 +93,7 @@ func (s *Section) UnmarshalYAML(node *yaml.Node) error {
 					"without groups is a list itself", value.Line, key.Value)
 			}
 		}
+
 		return node.Decode(&s.Groups)
 	default:
 		return fmt.Errorf("line %d: a section is either a list of items or a mapping of groups",
@@ -157,18 +165,23 @@ func (r *Release) bySection() []*Section {
 // they are rendered, plus the keys the section uses but the table does not know.
 func (s *Section) groupsInOrder() (known, unknown []string) {
 	seen := map[string]bool{}
+
 	for _, group := range groups {
 		if len(s.Groups[group.Key]) > 0 {
 			known = append(known, group.Key)
 		}
+
 		seen[group.Key] = true
 	}
+
 	for key := range s.Groups {
 		if !seen[key] {
 			unknown = append(unknown, key)
 		}
 	}
+
 	sort.Strings(unknown)
+
 	return known, unknown
 }
 
@@ -177,11 +190,14 @@ func (s *Section) allItems() []Item {
 	if s == nil {
 		return nil
 	}
+
 	items := make([]Item, 0, len(s.Items))
+
 	items = append(items, s.Items...)
 	for _, group := range s.Groups {
 		items = append(items, group...)
 	}
+
 	return items
 }
 
@@ -211,15 +227,20 @@ func load(path string) ([]Release, error) {
 			return nil, fmt.Errorf("%s: %w (a note that contains \": \" has to be quoted "+
 				"or written as a |- block)", path, err)
 		}
+
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
+
 	if len(releases) == 0 {
 		return nil, fmt.Errorf("%s: no releases", path)
 	}
+
 	if err := rejectDanglingKeys(data, path); err != nil {
 		return nil, err
 	}
+
 	trimItems(releases)
+
 	return releases, nil
 }
 
@@ -231,6 +252,7 @@ func rejectDanglingKeys(data []byte, path string) error {
 	if err := yaml.Unmarshal(data, &doc); err != nil || len(doc.Content) == 0 {
 		return nil // the decoder above has already accepted the document
 	}
+
 	for _, release := range doc.Content[0].Content {
 		for i := 0; i+1 < len(release.Content); i += 2 {
 			key, value := release.Content[i], release.Content[i+1]
@@ -240,6 +262,7 @@ func rejectDanglingKeys(data []byte, path string) error {
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -254,12 +277,15 @@ func trimItems(releases []Release) {
 			items[i].Ru = strings.TrimRight(items[i].Ru, "\n")
 		}
 	}
+
 	for i := range releases {
 		for _, section := range releases[i].bySection() {
 			if section == nil {
 				continue
 			}
+
 			trim(section.Items)
+
 			for _, group := range section.Groups {
 				trim(group)
 			}
@@ -276,5 +302,6 @@ func newest(releases []Release) *Release {
 			latest = &releases[i]
 		}
 	}
+
 	return latest
 }

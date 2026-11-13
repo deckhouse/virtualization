@@ -129,10 +129,12 @@ func LoadDVCRSettingsFromEnvs(controllerNamespace string) (*dvcr.Settings, error
 	if keyPEM == "" {
 		return nil, fmt.Errorf("environment variable %q undefined, specify DVCR settings", DVCRTokenPrivateKeyVar)
 	}
+
 	signer, err := registrytoken.NewSignerFromPEM([]byte(keyPEM))
 	if err != nil {
 		return nil, fmt.Errorf("init DVCR token signer: %w", err)
 	}
+
 	dvcrSettings.TokenSigner = signer
 
 	return dvcrSettings, nil

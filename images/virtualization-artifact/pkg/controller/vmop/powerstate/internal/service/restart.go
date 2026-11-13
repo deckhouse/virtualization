@@ -46,6 +46,7 @@ func (o RestartOperation) Execute(ctx context.Context) error {
 	key := virtualMachineKeyByVmop(o.vmop)
 
 	kvvm := &virtv1.VirtualMachine{}
+
 	err := o.client.Get(ctx, key, kvvm)
 	if err != nil {
 		return err
@@ -53,13 +54,16 @@ func (o RestartOperation) Execute(ctx context.Context) error {
 
 	if o.vmop.Spec.Force != nil && *o.vmop.Spec.Force {
 		kvvmi := &virtv1.VirtualMachineInstance{}
+
 		err = o.client.Get(ctx, key, kvvmi)
 		if apierrors.IsNotFound(err) {
 			return kvvmutil.AddStartAnnotation(ctx, o.client, kvvm)
 		}
+
 		if err != nil {
 			return err
 		}
+
 		return powerstate.RestartVM(ctx, o.client, kvvm, kvvmi, true)
 	}
 

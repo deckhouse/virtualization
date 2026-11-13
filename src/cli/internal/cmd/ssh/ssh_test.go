@@ -92,6 +92,7 @@ var _ = Describe("SSH", func() {
 			cmd.SetErr(captured)
 			setup(cmd)
 			WarnDeprecatedSSHFlags(cmd)
+
 			return captured.String()
 		}
 
@@ -165,6 +166,7 @@ users:
 `)
 			clientConfig, err := clientcmd.NewClientConfigFromBytes(yaml)
 			Expect(err).NotTo(HaveOccurred())
+
 			return clientconfig.NewContext(context.Background(), clientConfig)
 		}
 
@@ -194,6 +196,7 @@ users:
 `)
 			clientConfig, err := clientcmd.NewClientConfigFromBytes(yaml)
 			Expect(err).NotTo(HaveOccurred())
+
 			ctx := clientconfig.NewContext(context.Background(), clientConfig)
 
 			ns, err := clientconfig.NamespaceFromContext(ctx)
@@ -219,8 +222,10 @@ users:
 			root.PersistentFlags().StringP("namespace", "n", "", "")
 			root.PersistentFlags().Bool("insecure-skip-tls-verify", false, "")
 			root.PersistentFlags().String("token", "", "")
+
 			sshCmd = &cobra.Command{Use: "ssh"}
 			root.AddCommand(sshCmd)
+
 			return root, sshCmd
 		}
 

@@ -71,6 +71,7 @@ var _ = Describe("PeeringMigration", Label(label.SIGCompute, precheck.PrecheckPe
 		src = framework.NewFramework("peering-src")
 		DeferCleanup(src.After)
 		src.Before()
+
 		dst = framework.NewFramework("peering-dst")
 		DeferCleanup(dst.After)
 		dst.Before()
@@ -96,6 +97,7 @@ var _ = Describe("PeeringMigration", Label(label.SIGCompute, precheck.PrecheckPe
 
 	move := func() *v1alpha2.VirtualMachineOperation {
 		GinkgoHelper()
+
 		vmop := vmopbuilder.New(
 			vmopbuilder.WithGenerateName(fmt.Sprintf("%s-move-", util.VmopE2ePrefix)),
 			vmopbuilder.WithNamespace(src.Namespace().Name),
@@ -104,11 +106,13 @@ var _ = Describe("PeeringMigration", Label(label.SIGCompute, precheck.PrecheckPe
 		)
 		vmop.Spec.Migrate = &v1alpha2.VirtualMachineOperationMigrateSpec{ProjectPeerName: peer}
 		Expect(src.CreateWithDeferredDeletion(ctx, vmop)).To(Succeed())
+
 		return vmop
 	}
 
 	It("moves a running VM to a peer with a InternalVirtualizationVirtualMachineReceiver", func() {
 		var bootID, serial string
+
 		marker := src.Namespace().Name
 
 		By("Run a VM in the source namespace", runVM)
@@ -144,6 +148,7 @@ var _ = Describe("PeeringMigration", Label(label.SIGCompute, precheck.PrecheckPe
 
 		By("Check the guest kept running with its disk", func() {
 			moved := &v1alpha2.VirtualMachine{}
+
 			Eventually(func(g Gomega) {
 				g.Expect(dst.GenericClient().Get(ctx, client.ObjectKey{Namespace: dst.Namespace().Name, Name: virtualMachine.Name}, moved)).To(Succeed())
 				g.Expect(moved.Status.Phase).To(Equal(v1alpha2.MachineRunning))
@@ -155,6 +160,7 @@ var _ = Describe("PeeringMigration", Label(label.SIGCompute, precheck.PrecheckPe
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Expect(out).To(ContainSubstring(moved.Status.IPAddress+"/"), "the guest took the address of the peer")
 			}).WithTimeout(framework.LongTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
+
 			movedBootID, movedSerial := guestBootIDAndSerial(dst, moved)
 			Expect(movedBootID).To(Equal(bootID), "the guest did not reboot")
 			Expect(movedSerial).To(Equal(serial), "the guest sees the same disk serial")
@@ -176,9 +182,11 @@ var _ = Describe("PeeringMigration", Label(label.SIGCompute, precheck.PrecheckPe
 				g.Expect(k8serrors.IsNotFound(err)).To(BeTrue(), "the VM is deleted in the source")
 				err = src.GenericClient().Get(ctx, client.ObjectKeyFromObject(virtualDisk), &v1alpha2.VirtualDisk{})
 				g.Expect(k8serrors.IsNotFound(err)).To(BeTrue(), "the disk is deleted in the source")
+
 				vmips := &v1alpha2.VirtualMachineIPAddressList{}
 				g.Expect(src.GenericClient().List(ctx, vmips, client.InNamespace(src.Namespace().Name))).To(Succeed())
 				g.Expect(vmips.Items).To(BeEmpty(), "the address is released in the source")
+
 				err = dst.GenericClient().Get(ctx, client.ObjectKey{Namespace: dst.Namespace().Name, Name: virtualMachine.Name}, &intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{})
 				g.Expect(k8serrors.IsNotFound(err)).To(BeTrue(), "the request is deleted in the peer")
 			}).WithTimeout(framework.MiddleTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
@@ -192,6 +200,7 @@ var _ = Describe("PeeringMigration", Label(label.SIGCompute, precheck.PrecheckPe
 		peerUser := "peering:peer:" + peer + ":cap:virtualization"
 		asPeer, err := framework.GetClients().ImpersonatedClient(peerUser, "system:masters")
 		Expect(err).NotTo(HaveOccurred())
+
 		request := &intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{
 			ObjectMeta: metav1.ObjectMeta{Namespace: dst.Namespace().Name, Name: "policy-check"},
 			Spec: intvirtv1alpha1.VirtualMachineReceiverSpec{
@@ -253,6 +262,7 @@ var _ = Describe("PeeringMigration", Label(label.SIGCompute, precheck.PrecheckPe
 
 			err := dst.GenericClient().Get(ctx, client.ObjectKey{Namespace: dst.Namespace().Name, Name: virtualMachine.Name}, &v1alpha2.VirtualMachine{})
 			Expect(k8serrors.IsNotFound(err)).To(BeTrue(), "no VM is created in the peer")
+
 			disk := &v1alpha2.VirtualDisk{}
 			Expect(dst.GenericClient().Get(ctx, client.ObjectKeyFromObject(foreign), disk)).To(Succeed(), "the disk of the peer is kept")
 			Expect(disk.UID).To(Equal(foreign.UID))
@@ -283,11 +293,14 @@ done
 // no udev for lsblk to take it from.
 func guestBootIDAndSerial(f *framework.Framework, vm *v1alpha2.VirtualMachine) (string, string) {
 	GinkgoHelper()
+
 	out, err := f.SSHCommand(vm.Name, vm.Namespace, "cat /proc/sys/kernel/random/boot_id && tail -c +5 /sys/block/sda/device/vpd_pg80",
 		framework.WithSSHUser("root"))
 	Expect(err).NotTo(HaveOccurred())
+
 	fields := strings.Fields(out)
 	Expect(fields).To(HaveLen(2), "boot id and serial of the root disk: %q", out)
+
 	return fields[0], fields[1]
 }
 
@@ -299,10 +312,12 @@ func newSelfPeerSecret(ctx context.Context, f *framework.Framework, peer, from, 
 	if err != nil {
 		return nil, fmt.Errorf("create a token of virtualization-controller: %w", err)
 	}
+
 	rootCA, err := f.KubeClient().CoreV1().ConfigMaps(framework.ModuleNamespace).Get(ctx, "kube-root-ca.crt", metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
+
 	kubeconfig := fmt.Sprintf(`apiVersion: v1
 kind: Config
 clusters: [{name: self, cluster: {server: "https://kubernetes.default.svc", certificate-authority-data: %q}}]
@@ -310,6 +325,7 @@ users: [{name: self, user: {token: %q}}]
 contexts: [{name: self, context: {cluster: self, user: self}}]
 current-context: self
 `, base64.StdEncoding.EncodeToString([]byte(rootCA.Data["ca.crt"])), token.Status.Token)
+
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{Name: "peering-dev-peer-" + peer, Namespace: framework.ModuleNamespace},
 		Data: map[string][]byte{

@@ -51,9 +51,11 @@ func newVMIMGCManager(client client.Client, ttl time.Duration, max int) *vmimGCM
 	if ttl == 0 {
 		ttl = 24 * time.Hour
 	}
+
 	if max == 0 {
 		max = 10
 	}
+
 	return &vmimGCManager{
 		client: client,
 		ttl:    ttl,
@@ -78,11 +80,13 @@ func (m *vmimGCManager) ShouldBeDeleted(obj client.Object) bool {
 	if !ok {
 		return false
 	}
+
 	return vmiMigrationIsFinal(vmim)
 }
 
 func (m *vmimGCManager) ListForDelete(ctx context.Context, now time.Time) ([]client.Object, error) {
 	vmimList := &virtv1.VirtualMachineInstanceMigrationList{}
+
 	err := m.client.List(ctx, vmimList)
 	if err != nil {
 		return nil, err
@@ -103,6 +107,7 @@ func (m *vmimGCManager) getIndex(obj client.Object) string {
 	if !ok {
 		return ""
 	}
+
 	return vmim.Spec.VMIName
 }
 

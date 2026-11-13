@@ -74,6 +74,7 @@ func (s CreateLeaseStep) Take(ctx context.Context, vmmac *v1alpha2.VirtualMachin
 			Reason(vmmaccondition.VirtualMachineMACAddressLeaseLost).
 			Message(fmt.Sprintf("VirtualMachineMACAddress lost its lease: VirtualMachineMACAddressLease %q should exist", mac.AddressToLeaseName(vmmac.Status.Address)))
 		s.recorder.Event(vmmac, corev1.EventTypeWarning, v1alpha2.ReasonFailed, fmt.Sprintf("The VirtualMachineMACAddressLease %q is lost.", mac.AddressToLeaseName(vmmac.Status.Address)))
+
 		return &reconcile.Result{}, nil
 	}
 
@@ -84,6 +85,7 @@ func (s CreateLeaseStep) Take(ctx context.Context, vmmac *v1alpha2.VirtualMachin
 			Status(metav1.ConditionFalse).
 			Reason(vmmaccondition.VirtualMachineMACAddressLeaseNotReady).
 			Message(service.CapitalizeFirstLetter(err.Error()) + ".")
+
 		return nil, err
 	}
 
@@ -99,6 +101,7 @@ func (s CreateLeaseStep) Take(ctx context.Context, vmmac *v1alpha2.VirtualMachin
 				Status(metav1.ConditionFalse).
 				Reason(vmmaccondition.VirtualMachineMACAddressLeaseNotReady).
 				Message(service.CapitalizeFirstLetter(err.Error()) + ".")
+
 			return nil, err
 		}
 	}
@@ -111,6 +114,7 @@ func (s CreateLeaseStep) Take(ctx context.Context, vmmac *v1alpha2.VirtualMachin
 			Reason(vmmaccondition.VirtualMachineMACAddressLeaseAlreadyExists).
 			Message(msg)
 		s.recorder.Event(vmmac, corev1.EventTypeWarning, v1alpha2.ReasonBound, msg)
+
 		return &reconcile.Result{}, nil
 	}
 
@@ -126,6 +130,7 @@ func (s CreateLeaseStep) Take(ctx context.Context, vmmac *v1alpha2.VirtualMachin
 			Reason(vmmaccondition.VirtualMachineMACAddressLeaseNotReady).
 			Message(msg)
 		s.recorder.Event(vmmac, corev1.EventTypeNormal, v1alpha2.ReasonBound, msg)
+
 		return &reconcile.Result{}, nil
 	case k8serrors.IsAlreadyExists(err):
 		// The cache is outdated and not keeping up with the state in the cluster.
@@ -135,6 +140,7 @@ func (s CreateLeaseStep) Take(ctx context.Context, vmmac *v1alpha2.VirtualMachin
 			Status(metav1.ConditionFalse).
 			Reason(vmmaccondition.VirtualMachineMACAddressLeaseNotFound).
 			Message("Waiting for the MAC address to be allocated and a new VirtualMachineMACAddressLease to be created.")
+
 		return &reconcile.Result{RequeueAfter: 2 * time.Second}, nil
 	default:
 		err = fmt.Errorf("failed to create a new VirtualMachineMACAddressLease: %w", err)
@@ -142,6 +148,7 @@ func (s CreateLeaseStep) Take(ctx context.Context, vmmac *v1alpha2.VirtualMachin
 			Status(metav1.ConditionFalse).
 			Reason(vmmaccondition.VirtualMachineMACAddressLeaseNotFound).
 			Message(service.CapitalizeFirstLetter(err.Error()) + ".")
+
 		return nil, err
 	}
 }

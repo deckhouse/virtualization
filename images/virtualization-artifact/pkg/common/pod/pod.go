@@ -31,6 +31,7 @@ import (
 func MakeOwnerReference(pod *corev1.Pod) metav1.OwnerReference {
 	blockOwnerDeletion := true
 	isController := true
+
 	return metav1.OwnerReference{
 		APIVersion:         "v1",
 		Kind:               "Pod",
@@ -130,6 +131,7 @@ func GetLastPodEvent(ctx context.Context, clientObject client.Client, pod *corev
 	}
 
 	eventList := &corev1.EventList{}
+
 	err := clientObject.List(ctx, eventList, &client.ListOptions{
 		Namespace: pod.Namespace,
 		FieldSelector: fields.SelectorFromSet(fields.Set{
@@ -156,14 +158,17 @@ func IsContainerCreating(pod *corev1.Pod) bool {
 	if pod == nil {
 		return false
 	}
+
 	if pod.Status.Phase != corev1.PodPending {
 		return false
 	}
+
 	for _, cs := range pod.Status.ContainerStatuses {
 		if cs.State.Waiting != nil && cs.State.Waiting.Reason == "ContainerCreating" {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -173,12 +178,14 @@ const QemuSubGID = int64(64535)
 // SetRestrictedSecurityContext sets the pod security params to be compatible with restricted PSA
 func SetRestrictedSecurityContext(podSpec *corev1.PodSpec) {
 	hasVolumeMounts := false
+
 	for _, containers := range [][]corev1.Container{podSpec.InitContainers, podSpec.Containers} {
 		for i := range containers {
 			container := &containers[i]
 			if container.SecurityContext == nil {
 				container.SecurityContext = &corev1.SecurityContext{}
 			}
+
 			container.SecurityContext.Capabilities = &corev1.Capabilities{
 				Drop: []corev1.Capability{
 					"ALL",
@@ -189,6 +196,7 @@ func SetRestrictedSecurityContext(podSpec *corev1.PodSpec) {
 			}
 			container.SecurityContext.AllowPrivilegeEscalation = ptr.To(false)
 			container.SecurityContext.RunAsNonRoot = ptr.To(true)
+
 			container.SecurityContext.RunAsUser = ptr.To(QemuSubGID)
 			if len(container.VolumeMounts) > 0 {
 				hasVolumeMounts = true
@@ -200,6 +208,7 @@ func SetRestrictedSecurityContext(podSpec *corev1.PodSpec) {
 		if podSpec.SecurityContext == nil {
 			podSpec.SecurityContext = &corev1.PodSecurityContext{}
 		}
+
 		podSpec.SecurityContext.FSGroup = ptr.To(QemuSubGID)
 	}
 }

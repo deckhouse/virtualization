@@ -65,17 +65,21 @@ func (r SPICEREST) Connect(ctx context.Context, name string, opts runtime.Object
 	if !ok {
 		return nil, fmt.Errorf("invalid options object: %#v", opts)
 	}
+
 	vm, err := r.vmLister.VirtualMachines(request.NamespaceValue(ctx)).Get(name)
 	if err != nil {
 		return nil, err
 	}
+
 	if spiceOpts.Probe {
 		return r.probeSession(vm, subv1alpha2.SPICESession), nil
 	}
+
 	location, transport, err := SPICELocation(ctx, r.vmLister, name, r.kubevirt, r.proxyCertManager)
 	if err != nil {
 		return nil, err
 	}
+
 	handler := newThrottledUpgradeAwareProxyHandler(location, transport, true, responder, r.kubevirt.ServiceAccount)
 	// Every channel of a session is tracked, and they all belong to the same user, so
 	// taking the session over from oneself raises no event. The last channel to connect

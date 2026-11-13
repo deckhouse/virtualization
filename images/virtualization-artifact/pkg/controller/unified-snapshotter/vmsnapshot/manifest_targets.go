@@ -66,6 +66,7 @@ func (r *Reconciler) planManifestTargets(ctx context.Context, vms *v1alpha2.Virt
 	if err != nil {
 		return nil, err
 	}
+
 	if vmipTarget != nil {
 		targets = append(targets, *vmipTarget)
 	}
@@ -74,6 +75,7 @@ func (r *Reconciler) planManifestTargets(ctx context.Context, vms *v1alpha2.Virt
 	if err != nil {
 		return nil, err
 	}
+
 	if mainIPAddressTarget != nil {
 		targets = append(targets, *mainIPAddressTarget)
 	}
@@ -82,12 +84,14 @@ func (r *Reconciler) planManifestTargets(ctx context.Context, vms *v1alpha2.Virt
 	if err != nil {
 		return nil, err
 	}
+
 	targets = append(targets, macTargets...)
 
 	secretTarget, err := r.planProvisionerSecretTarget(ctx, vm)
 	if err != nil {
 		return nil, err
 	}
+
 	if secretTarget != nil {
 		targets = append(targets, *secretTarget)
 	}
@@ -96,6 +100,7 @@ func (r *Reconciler) planManifestTargets(ctx context.Context, vms *v1alpha2.Virt
 	if err != nil {
 		return nil, err
 	}
+
 	targets = append(targets, vmbdaTargets...)
 
 	return targets, nil
@@ -115,6 +120,7 @@ func (r *Reconciler) planVMIPTarget(ctx context.Context, vms *v1alpha2.VirtualMa
 		if apierrors.IsNotFound(err) {
 			return nil, sourceNotReady(v1alpha2.VirtualMachineIPAddressKind, name)
 		}
+
 		return nil, err
 	}
 
@@ -143,6 +149,7 @@ func (r *Reconciler) planMainIPAddressTarget(ctx context.Context, vms *v1alpha2.
 		if apierrors.IsNotFound(err) {
 			return nil, sourceNotReady(sdnapi.IPAddressKind, mainIPAddressName)
 		}
+
 		return nil, err
 	}
 
@@ -161,6 +168,7 @@ func (r *Reconciler) planMainIPAddressTarget(ctx context.Context, vms *v1alpha2.
 // network's MAC is not user/restore-relevant and is skipped, matching the old mechanism).
 func (r *Reconciler) planVMMACTargets(ctx context.Context, vm *v1alpha2.VirtualMachine) ([]snapshotsdk.ManifestTarget, error) {
 	var targets []snapshotsdk.ManifestTarget
+
 	for _, n := range vm.Status.Networks {
 		if n.Type == v1alpha2.NetworksTypeMain || n.VirtualMachineMACAddressName == "" {
 			continue
@@ -171,6 +179,7 @@ func (r *Reconciler) planVMMACTargets(ctx context.Context, vm *v1alpha2.VirtualM
 			if apierrors.IsNotFound(err) {
 				return nil, sourceNotReady(v1alpha2.VirtualMachineMACAddressKind, n.VirtualMachineMACAddressName)
 			}
+
 			return nil, err
 		}
 
@@ -180,6 +189,7 @@ func (r *Reconciler) planVMMACTargets(ctx context.Context, vm *v1alpha2.VirtualM
 			Name:       vmmac.Name,
 		})
 	}
+
 	return targets, nil
 }
 
@@ -192,16 +202,19 @@ func (r *Reconciler) planProvisionerSecretTarget(ctx context.Context, vm *v1alph
 	}
 
 	var secretName string
+
 	switch p.Type {
 	case v1alpha2.ProvisioningTypeUserDataRef:
 		if p.UserDataRef == nil || p.UserDataRef.Kind != v1alpha2.UserDataRefKindSecret {
 			return nil, fmt.Errorf("%w: virtual machine %q: provisioning userDataRef must reference a Secret", errInvalidSourceSpec, vm.Name)
 		}
+
 		secretName = p.UserDataRef.Name
 	case v1alpha2.ProvisioningTypeSysprepRef:
 		if p.SysprepRef == nil || p.SysprepRef.Kind != v1alpha2.SysprepRefKindSecret {
 			return nil, fmt.Errorf("%w: virtual machine %q: provisioning sysprepRef must reference a Secret", errInvalidSourceSpec, vm.Name)
 		}
+
 		secretName = p.SysprepRef.Name
 	default:
 		// ProvisioningTypeUserData: inline data, no backing Secret to capture.
@@ -213,6 +226,7 @@ func (r *Reconciler) planProvisionerSecretTarget(ctx context.Context, vm *v1alph
 		if apierrors.IsNotFound(err) {
 			return nil, sourceNotReady("Secret", secretName)
 		}
+
 		return nil, err
 	}
 
@@ -228,6 +242,7 @@ func (r *Reconciler) planProvisionerSecretTarget(ctx context.Context, vm *v1alph
 // are captured as part of the VirtualMachine manifest itself).
 func (r *Reconciler) planVMBDATargets(ctx context.Context, vm *v1alpha2.VirtualMachine) ([]snapshotsdk.ManifestTarget, error) {
 	var targets []snapshotsdk.ManifestTarget
+
 	for _, bdr := range vm.Status.BlockDeviceRefs {
 		if !bdr.Hotplugged || bdr.VirtualMachineBlockDeviceAttachmentName == "" {
 			continue
@@ -238,6 +253,7 @@ func (r *Reconciler) planVMBDATargets(ctx context.Context, vm *v1alpha2.VirtualM
 			if apierrors.IsNotFound(err) {
 				return nil, sourceNotReady(v1alpha2.VirtualMachineBlockDeviceAttachmentKind, bdr.VirtualMachineBlockDeviceAttachmentName)
 			}
+
 			return nil, err
 		}
 
@@ -247,5 +263,6 @@ func (r *Reconciler) planVMBDATargets(ctx context.Context, vm *v1alpha2.VirtualM
 			Name:       vmbda.Name,
 		})
 	}
+
 	return targets, nil
 }

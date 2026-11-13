@@ -72,6 +72,7 @@ var _ = Describe("DeletionHandler", func() {
 			Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
 
 			now := metav1.Now()
+
 			usb := &v1alpha2.USBDevice{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              "usb-device-1",
@@ -87,15 +88,18 @@ var _ = Describe("DeletionHandler", func() {
 
 			condStatus := metav1.ConditionFalse
 			condReason := string(usbdevicecondition.Available)
+
 			if tc.attached {
 				condStatus = metav1.ConditionTrue
 				condReason = string(usbdevicecondition.AttachedToVirtualMachine)
 			}
+
 			usb.Status.Conditions = []metav1.Condition{{Type: string(usbdevicecondition.AttachedType), Status: condStatus, Reason: condReason}}
 
 			objects := []client.Object{usb}
 
 			vms := make([]client.Object, 0)
+
 			if tc.withVM {
 				vm := &v1alpha2.VirtualMachine{
 					ObjectMeta: metav1.ObjectMeta{Name: "test-vm", Namespace: "default"},
@@ -105,6 +109,7 @@ var _ = Describe("DeletionHandler", func() {
 				if tc.vmNotFound {
 					vm = nil
 				}
+
 				if vm != nil {
 					vms = append(vms, vm)
 				}

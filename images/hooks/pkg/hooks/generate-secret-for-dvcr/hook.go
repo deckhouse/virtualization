@@ -88,6 +88,7 @@ func handlerDVCRSecrets(ctx context.Context, input *pkg.HookInput) error {
 	if err != nil {
 		return err
 	}
+
 	if !canRun {
 		return nil
 	}
@@ -96,16 +97,20 @@ func handlerDVCRSecrets(ctx context.Context, input *pkg.HookInput) error {
 	if err != nil {
 		return err
 	}
+
 	dataFromValues := getDVCRSecretsFromValues(input)
 
 	passwordRW := dataFromSecret.PasswordRW
 	passwordRWBytes, err := base64.StdEncoding.DecodeString(passwordRW)
+
 	passwordRWDecoded := string(passwordRWBytes)
 	if err != nil || passwordRWDecoded == "" {
 		input.Logger.Info("Regenerate PasswordRW")
+
 		passwordRWDecoded = alphaNum(32)
 		passwordRW = base64.StdEncoding.EncodeToString([]byte(passwordRWDecoded))
 	}
+
 	if passwordRW != dataFromValues.PasswordRW {
 		input.Logger.Info("Set PasswordRW to values")
 		input.Values.Set(passwordRWValuePath, passwordRW)
@@ -116,12 +121,15 @@ func handlerDVCRSecrets(ctx context.Context, input *pkg.HookInput) error {
 	// htpasswd entry (nodes fall back to admin only when the backend is htpasswd).
 	passwordRO := dataFromSecret.PasswordRO
 	passwordROBytes, err := base64.StdEncoding.DecodeString(passwordRO)
+
 	passwordRODecoded := string(passwordROBytes)
 	if err != nil || passwordRODecoded == "" {
 		input.Logger.Info("Regenerate PasswordRO")
+
 		passwordRODecoded = alphaNum(32)
 		passwordRO = base64.StdEncoding.EncodeToString([]byte(passwordRODecoded))
 	}
+
 	if passwordRO != dataFromValues.PasswordRO {
 		input.Logger.Info("Set PasswordRO to values")
 		input.Values.Set(passwordROValuePath, passwordRO)
@@ -129,12 +137,15 @@ func handlerDVCRSecrets(ctx context.Context, input *pkg.HookInput) error {
 
 	salt := dataFromSecret.Salt
 	saltBytes, err := base64.StdEncoding.DecodeString(salt)
+
 	saltDecoded := string(saltBytes)
 	if err != nil || saltDecoded == "" {
 		input.Logger.Info("Regenerate Salt")
+
 		saltDecoded = alphaNum(32)
 		salt = base64.StdEncoding.EncodeToString([]byte(saltDecoded))
 	}
+
 	if salt != dataFromValues.Salt {
 		input.Logger.Info("Set Salt to values")
 		input.Values.Set(saltValuePath, salt)
@@ -142,15 +153,19 @@ func handlerDVCRSecrets(ctx context.Context, input *pkg.HookInput) error {
 
 	htpasswd := dataFromSecret.Htpasswd
 	htpasswdBytes, err := base64.StdEncoding.DecodeString(htpasswd)
+
 	htpasswdDecoded := string(htpasswdBytes)
 	if err != nil || htpasswdDecoded == "" || !validateHtpasswd(passwordRWDecoded, htpasswdDecoded) {
 		input.Logger.Info("Regenerate Htpasswd")
+
 		htpasswdDecoded, err = generateHtpasswd(passwordRWDecoded)
 		if err != nil {
 			return fmt.Errorf("generate htpasswd: %w", err)
 		}
+
 		htpasswd = base64.StdEncoding.EncodeToString([]byte(htpasswdDecoded))
 	}
+
 	if htpasswd != dataFromValues.Htpasswd {
 		input.Logger.Info("Set Htpasswd to values")
 		input.Values.Set(htpasswdValuePath, htpasswd)
@@ -162,20 +177,25 @@ func handlerDVCRSecrets(ctx context.Context, input *pkg.HookInput) error {
 	tokenPrivateKey := dataFromSecret.TokenPrivateKey
 	tokenPublicKey := dataFromSecret.TokenPublicKey
 	privBytes, err := base64.StdEncoding.DecodeString(tokenPrivateKey)
+
 	pubBytes, pubErr := base64.StdEncoding.DecodeString(tokenPublicKey)
 	if err != nil || pubErr != nil || !validateECKeypair(privBytes, pubBytes) {
 		input.Logger.Info("Regenerate DVCR token keypair")
+
 		privPEM, pubPEM, genErr := generateECKeypair()
 		if genErr != nil {
 			return fmt.Errorf("generate DVCR token keypair: %w", genErr)
 		}
+
 		tokenPrivateKey = base64.StdEncoding.EncodeToString(privPEM)
 		tokenPublicKey = base64.StdEncoding.EncodeToString(pubPEM)
 	}
+
 	if tokenPrivateKey != dataFromValues.TokenPrivateKey {
 		input.Logger.Info("Set DVCR token private key to values")
 		input.Values.Set(tokenPrivateKeyValuePath, tokenPrivateKey)
 	}
+
 	if tokenPublicKey != dataFromValues.TokenPublicKey {
 		input.Logger.Info("Set DVCR token public key to values")
 		input.Values.Set(tokenPublicKeyValuePath, tokenPublicKey)
@@ -218,16 +238,20 @@ func generateECKeypair() (privPEM, pubPEM []byte, err error) {
 	if err != nil {
 		return nil, nil, err
 	}
+
 	privDER, err := x509.MarshalPKCS8PrivateKey(key)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	pubDER, err := x509.MarshalPKIXPublicKey(&key.PublicKey)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	privPEM = pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: privDER})
 	pubPEM = pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: pubDER})
+
 	return privPEM, pubPEM, nil
 }
 
@@ -239,15 +263,19 @@ func validateECKeypair(privPEM, pubPEM []byte) bool {
 	if priv == nil {
 		return false
 	}
+
 	block, _ := pem.Decode(pubPEM)
 	if block == nil {
 		return false
 	}
+
 	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
 	if err != nil {
 		return false
 	}
+
 	ecPub, ok := pub.(*ecdsa.PublicKey)
+
 	return ok && ecPub.Equal(&priv.PublicKey)
 }
 
@@ -256,16 +284,20 @@ func parseECPrivateKey(pemBytes []byte) *ecdsa.PrivateKey {
 	if block == nil {
 		return nil
 	}
+
 	if k, err := x509.ParsePKCS8PrivateKey(block.Bytes); err == nil {
 		if ec, ok := k.(*ecdsa.PrivateKey); ok {
 			return ec
 		}
+
 		return nil
 	}
+
 	ec, err := x509.ParseECPrivateKey(block.Bytes)
 	if err != nil {
 		return nil
 	}
+
 	return ec
 }
 
@@ -274,6 +306,7 @@ func generateHtpasswd(password string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	return fmt.Sprintf("%s:%s", user, string(hashed)), nil
 }
 
@@ -290,6 +323,7 @@ func validateHtpasswd(password, hashEntry string) bool {
 
 	hash := parts[1]
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+
 	return err == nil
 }
 
@@ -298,13 +332,16 @@ const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456
 //nolint:unparam // we need to pass the length
 func alphaNum(length int) string {
 	max := big.NewInt(int64(len(letterBytes)))
+
 	b := make([]byte, length)
 	for i := range b {
 		n, err := crand.Int(crand.Reader, max)
 		if err != nil {
 			panic(fmt.Sprintf("generate random password: %v", err))
 		}
+
 		b[i] = letterBytes[n.Int64()]
 	}
+
 	return string(b)
 }

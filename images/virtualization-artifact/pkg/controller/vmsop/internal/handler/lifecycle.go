@@ -97,7 +97,9 @@ func (h *LifecycleHandler) Handle(ctx context.Context, vmsop *v1alpha2.VirtualMa
 		if errors.Is(err, common.ErrQueueing) {
 			return reconcile.Result{Requeue: true}, nil
 		}
+
 		h.setFailedCondition(cb, vmsop, vmsopcondition.ReasonNotReadyToBeExecuted, fmt.Sprintf("Failed to access the underlying resources of the VirtualMachineSnapshot %q.", vmsop.Spec.VirtualMachineSnapshotName))
+
 		return reconcile.Result{}, err
 	}
 
@@ -106,6 +108,7 @@ func (h *LifecycleHandler) Handle(ctx context.Context, vmsop *v1alpha2.VirtualMa
 		h.setFailedCondition(cb, vmsop, vmsopcondition.ReasonNotReadyToBeExecuted, "Failed to check for other operations in progress.")
 		return reconcile.Result{}, err
 	}
+
 	if hasInProgress {
 		h.setFailedCondition(cb, vmsop, vmsopcondition.ReasonNotReadyToBeExecuted, "The operation cannot start yet: another operation must finish first.")
 		return reconcile.Result{}, nil
@@ -116,6 +119,7 @@ func (h *LifecycleHandler) Handle(ctx context.Context, vmsop *v1alpha2.VirtualMa
 		if errors.Is(err, common.ErrQueueing) {
 			return reconcile.Result{Requeue: true}, nil
 		}
+
 		h.setFailedCondition(cb, vmsop, vmsopcondition.ReasonOperationFailed, fmt.Errorf("%s is failed: %w", vmsop.Spec.Type, err).Error())
 	} else {
 		msg := "VirtualMachineSnapshotOperation completed"
@@ -135,6 +139,7 @@ func (h *LifecycleHandler) Name() string {
 
 func (h *LifecycleHandler) hasOperationsInProgress(ctx context.Context, vmsop *v1alpha2.VirtualMachineSnapshotOperation) (bool, error) {
 	var vmsopList v1alpha2.VirtualMachineSnapshotOperationList
+
 	err := h.client.List(ctx, &vmsopList, client.InNamespace(vmsop.GetNamespace()))
 	if err != nil {
 		return false, err
@@ -144,12 +149,15 @@ func (h *LifecycleHandler) hasOperationsInProgress(ctx context.Context, vmsop *v
 		if other.Spec.VirtualMachineSnapshotName != vmsop.Spec.VirtualMachineSnapshotName {
 			continue
 		}
+
 		if other.Status.Phase == v1alpha2.VMSOPPhaseFailed || other.Status.Phase == v1alpha2.VMSOPPhaseCompleted {
 			continue
 		}
+
 		if other.GetUID() == vmsop.GetUID() {
 			continue
 		}
+
 		if other.CreationTimestamp.Before(ptr.To(vmsop.CreationTimestamp)) {
 			return true, nil
 		}

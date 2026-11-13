@@ -47,6 +47,7 @@ func (s *scraper) updateMetricVMOPStatusPhase(m *dataMetric) {
 	if phase == "" {
 		phase = v1alpha2.VMOPPhasePending
 	}
+
 	phases := []struct {
 		value bool
 		name  string
@@ -69,6 +70,7 @@ func (s *scraper) updateMetricVMOPCreatedTimestamp(m *dataMetric) {
 	if m.CreatedAt == 0 {
 		return
 	}
+
 	s.defaultUpdate(MetricVMOPCreatedTimestamp,
 		float64(m.CreatedAt), m)
 }
@@ -77,6 +79,7 @@ func (s *scraper) updateMetricVMOPStartedTimestamp(m *dataMetric) {
 	if m.StartedAt == 0 {
 		return
 	}
+
 	s.defaultUpdate(MetricVMOPStartedTimestamp,
 		float64(m.StartedAt), m)
 }
@@ -85,12 +88,14 @@ func (s *scraper) updateMetricVMOPFinishedTimestamp(m *dataMetric) {
 	if m.FinishedAt == 0 {
 		return
 	}
+
 	s.defaultUpdate(MetricVMOPFinishedTimestamp,
 		float64(m.FinishedAt), m)
 }
 
 func (s *scraper) defaultUpdate(descName string, value float64, m *dataMetric, labels ...string) {
 	info := vmopMetrics[descName]
+
 	metric, err := prometheus.NewConstMetric(
 		info.Desc,
 		prometheus.GaugeValue,
@@ -101,5 +106,6 @@ func (s *scraper) defaultUpdate(descName string, value float64, m *dataMetric, l
 		s.log.Warn(fmt.Sprintf("Error creating the new const dataMetric for %s: %s", info.Desc, err))
 		return
 	}
+
 	s.ch <- metric
 }

@@ -64,6 +64,7 @@ var _ = Describe("DeletionHandler", func() {
 		}
 		vmsop.Spec.VirtualMachineSnapshotName = "test-vm"
 		vmsopbuilder.ApplyOptions(vmsop, opts...)
+
 		return vmsop
 	}
 
@@ -71,6 +72,7 @@ var _ = Describe("DeletionHandler", func() {
 		vmsop := newVmsop(phase, vmsopbuilder.WithType(v1alpha2.VMSOPTypeCreateVirtualMachine))
 
 		fakeClient, srv = setupEnvironment(vmsop)
+
 		reconcile()
 
 		newVMSOP := &v1alpha2.VirtualMachineSnapshotOperation{}

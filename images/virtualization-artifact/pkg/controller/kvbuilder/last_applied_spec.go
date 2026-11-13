@@ -40,10 +40,12 @@ func LoadLastAppliedSpec(kvvm *virtv1.VirtualMachine) (*v1alpha2.VirtualMachineS
 	}
 
 	var spec v1alpha2.VirtualMachineSpec
+
 	err := json.Unmarshal([]byte(lastSpecJSON), &spec)
 	if err != nil {
 		return nil, fmt.Errorf("load spec from JSON: %w", err)
 	}
+
 	return &spec, nil
 }
 
@@ -55,6 +57,7 @@ func SetLastAppliedSpec(kvvm *virtv1.VirtualMachine, vm *v1alpha2.VirtualMachine
 	}
 
 	annotations.AddAnnotation(kvvm, annotations.AnnVMLastAppliedSpec, string(lastApplied))
+
 	return nil
 }
 
@@ -71,10 +74,12 @@ func LoadLastAppliedClassSpec(kvvm *virtv1.VirtualMachine) (*v1alpha2.VirtualMac
 	}
 
 	var spec v1alpha2.VirtualMachineClassSpec
+
 	err := json.Unmarshal([]byte(lastSpecJSON), &spec)
 	if err != nil {
 		return nil, fmt.Errorf("load spec from JSON: %w", err)
 	}
+
 	return &spec, nil
 }
 
@@ -86,5 +91,6 @@ func SetLastAppliedClassSpec(kvvm *virtv1.VirtualMachine, class *v1alpha2.Virtua
 	}
 
 	annotations.AddAnnotation(kvvm, annotations.AnnVMClassLastAppliedSpec, string(lastApplied))
+
 	return nil
 }

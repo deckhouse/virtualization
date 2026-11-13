@@ -36,9 +36,11 @@ func TestBuildRecord_NilVMOPAndMigration(t *testing.T) {
 	if !record.StartedAt.Equal(now) {
 		t.Fatalf("expected StartedAt=%v, got %v", now, record.StartedAt)
 	}
+
 	if record.PreviousProgress != SyncRangeMin {
 		t.Fatalf("expected PreviousProgress=%d, got %d", SyncRangeMin, record.PreviousProgress)
 	}
+
 	if record.DataTotalMiB != unknownMetric || record.DataProcessedMiB != unknownMetric || record.DataRemainingMiB != unknownMetric {
 		t.Fatalf("expected unknown metrics, got total=%v processed=%v remaining=%v", record.DataTotalMiB, record.DataProcessedMiB, record.DataRemainingMiB)
 	}
@@ -59,9 +61,11 @@ func TestBuildRecord_UsesVMOPCreationTimestampAndPreviousProgress(t *testing.T) 
 	if record.OperationUID != vmop.UID {
 		t.Fatalf("expected OperationUID=%s, got %s", vmop.UID, record.OperationUID)
 	}
+
 	if !record.StartedAt.Equal(vmop.CreationTimestamp.Time) {
 		t.Fatalf("expected StartedAt=%v, got %v", vmop.CreationTimestamp.Time, record.StartedAt)
 	}
+
 	if record.PreviousProgress != 42 {
 		t.Fatalf("expected PreviousProgress=42, got %d", record.PreviousProgress)
 	}
@@ -97,21 +101,27 @@ func TestBuildRecord_UsesMigrationState(t *testing.T) {
 	if record.Phase != virtv1.MigrationRunning {
 		t.Fatalf("expected Phase=%s, got %s", virtv1.MigrationRunning, record.Phase)
 	}
+
 	if !record.StartedAt.Equal(start.Time) {
 		t.Fatalf("expected StartedAt=%v, got %v", start.Time, record.StartedAt)
 	}
+
 	if record.Mode != virtv1.MigrationPreCopy {
 		t.Fatalf("expected Mode=%s, got %s", virtv1.MigrationPreCopy, record.Mode)
 	}
+
 	if !record.HasIteration || record.Iteration != 10 {
 		t.Fatalf("expected Iteration=10 with flag, got value=%d has=%v", record.Iteration, record.HasIteration)
 	}
+
 	if !record.HasThrottle || record.AutoConvergeThrottle != 50 {
 		t.Fatalf("expected AutoConvergeThrottle=50 with flag, got value=%d has=%v", record.AutoConvergeThrottle, record.HasThrottle)
 	}
+
 	if record.Throttle != 0.5 {
 		t.Fatalf("expected normalized Throttle=0.5, got %v", record.Throttle)
 	}
+
 	if record.DataTotalMiB != 1024 || record.DataProcessedMiB != 512 || record.DataRemainingMiB != 256 {
 		t.Fatalf("expected mapped MiB counters, got total=%v processed=%v remaining=%v", record.DataTotalMiB, record.DataProcessedMiB, record.DataRemainingMiB)
 	}
@@ -238,6 +248,7 @@ func TestMapThrottle(t *testing.T) {
 			if raw != tt.wantRaw || gotSet != tt.wantSet {
 				t.Fatalf("mapThrottle() = (%d,%v), want (%d,%v)", raw, gotSet, tt.wantRaw, tt.wantSet)
 			}
+
 			if got := normalizeThrottle(raw, gotSet); got != tt.wantValue {
 				t.Fatalf("normalizeThrottle() = %v, want %v", got, tt.wantValue)
 			}
@@ -277,6 +288,7 @@ func TestBuildRecord_AutoConverge_False_WhenNotSet(t *testing.T) {
 			MigrationState: &virtv1.VirtualMachineInstanceMigrationState{},
 		},
 	}
+
 	recordNoConfig := BuildRecord(nil, migNoConfig, now)
 	if recordNoConfig.AutoConverge {
 		t.Fatal("expected AutoConverge=false when MigrationConfiguration is nil")
@@ -292,6 +304,7 @@ func TestBuildRecord_AutoConverge_False_WhenNotSet(t *testing.T) {
 			},
 		},
 	}
+
 	recordFalse := BuildRecord(nil, migFalse, now)
 	if recordFalse.AutoConverge {
 		t.Fatal("expected AutoConverge=false when AllowAutoConverge=false")

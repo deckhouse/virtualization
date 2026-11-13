@@ -104,6 +104,7 @@ var _ = Describe("SnapshotResources.Prepare", func() {
 		Expect(resources.Prepare(context.Background())).To(Succeed())
 
 		var restoredVM *v1alpha2.VirtualMachine
+
 		for _, handler := range resources.GetObjectHandlers() {
 			if obj, ok := handler.Object().(*v1alpha2.VirtualMachine); ok {
 				restoredVM = obj
@@ -433,6 +434,7 @@ var _ = Describe("confining a restore to the snapshot's namespace", func() {
 		vmSnapshot := &v1alpha2.VirtualMachineSnapshot{
 			ObjectMeta: metav1.ObjectMeta{Name: "vms", Namespace: restoreInto},
 		}
+
 		return NewSnapshotResources(fakeClient, v1alpha2.VMOPTypeRestore, v1alpha2.SnapshotOperationModeStrict, nil, vmSnapshot, "uuid")
 	}
 
@@ -461,8 +463,10 @@ var _ = Describe("confining a restore to the snapshot's namespace", func() {
 	It("ignores what was not captured", func() {
 		r := newResources()
 
-		var absentSecret *corev1.Secret
-		var absentIP *v1alpha2.VirtualMachineIPAddress
+		var (
+			absentSecret *corev1.Secret
+			absentIP     *v1alpha2.VirtualMachineIPAddress
+		)
 
 		Expect(func() { r.confineToSnapshotNamespace(absentSecret, absentIP) }).NotTo(Panic())
 	})
@@ -555,6 +559,7 @@ var _ = Describe("restoring the Main IPAddress of a machine", func() {
 	toJSON := func(v any) []byte {
 		data, err := json.Marshal(v)
 		Expect(err).NotTo(HaveOccurred())
+
 		return data
 	}
 
@@ -573,6 +578,7 @@ var _ = Describe("restoring the Main IPAddress of a machine", func() {
 	prepareRestore := func(secretData map[string][]byte, objs ...client.Object) SnapshotResources {
 		fakeClient, err := testutil.NewFakeClientWithObjects(objs...)
 		Expect(err).NotTo(HaveOccurred())
+
 		vmSnapshot := &v1alpha2.VirtualMachineSnapshot{
 			ObjectMeta: metav1.ObjectMeta{Name: "snapshot", Namespace: "default"},
 			Spec:       v1alpha2.VirtualMachineSnapshotSpec{VirtualMachineName: "vm"},
@@ -582,6 +588,7 @@ var _ = Describe("restoring the Main IPAddress of a machine", func() {
 			&secretManifestReader{restorer: NewSecretRestorer(fakeClient), secret: &corev1.Secret{Data: secretData}}, vmSnapshot, "restore-uid",
 		)
 		Expect(resources.Prepare(context.Background())).To(Succeed())
+
 		return resources
 	}
 
@@ -599,17 +606,22 @@ var _ = Describe("restoring the Main IPAddress of a machine", func() {
 		}, newMainIPAddress("vm-replacement", labels, anns))
 
 		var vmFound, ipaFound bool
+
 		for _, handler := range resources.GetObjectHandlers() {
 			if restoredVM, ok := handler.Object().(*v1alpha2.VirtualMachine); ok {
 				vmFound = true
+
 				Expect(restoredVM.Spec.Networks).To(ConsistOf(v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeMain, IPAddressName: "vm-replacement"}))
 			}
+
 			if ipaHandler, ok := handler.(*restorer.MainIPAddressHandler); ok {
 				ipaFound = true
+
 				Expect(ipaHandler.Name()).To(Equal("vm-replacement"))
 				Expect(ipaHandler.ValidateRestore(context.Background())).To(Succeed(), "the machine's own IPAddress is not a conflict")
 			}
 		}
+
 		Expect(vmFound).To(BeTrue())
 		Expect(ipaFound).To(BeTrue())
 	},
@@ -639,6 +651,7 @@ var _ = Describe("restoring the Main IPAddress of a machine", func() {
 
 		for _, handler := range resources.GetObjectHandlers() {
 			Expect(handler).NotTo(BeAssignableToTypeOf(&restorer.MainIPAddressHandler{}))
+
 			if restoredVM, ok := handler.Object().(*v1alpha2.VirtualMachine); ok {
 				Expect(restoredVM.Spec.VirtualMachineIPAddress).To(Equal("vmip"))
 				Expect(restoredVM.Spec.Networks).To(ConsistOf(v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeMain}))
@@ -657,13 +670,16 @@ var _ = Describe("restoring the Main IPAddress of a machine", func() {
 		}, newMainIPAddress("someone-else", nil, nil))
 
 		var ipaFound bool
+
 		for _, handler := range resources.GetObjectHandlers() {
 			if ipaHandler, ok := handler.(*restorer.MainIPAddressHandler); ok {
 				ipaFound = true
+
 				Expect(ipaHandler.Name()).To(Equal("vm-captured"))
 				Expect(ipaHandler.ValidateRestore(context.Background())).To(MatchError(common.ErrAlreadyInUse))
 			}
 		}
+
 		Expect(ipaFound).To(BeTrue())
 	})
 })

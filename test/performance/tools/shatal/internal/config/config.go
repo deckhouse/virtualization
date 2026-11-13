@@ -66,6 +66,7 @@ type NothingFeature struct {
 
 func New() (Config, error) {
 	var config Config
+
 	err := cleanenv.ReadConfig("config.yaml", &config)
 	if err != nil {
 		return Config{}, err

@@ -48,6 +48,7 @@ func (w *dynamicWatcher) Watch(ctx context.Context, opts metav1.ListOptions) (wa
 	if err != nil {
 		return nil, err
 	}
+
 	return newConvertingWatch(inner), nil
 }
 
@@ -64,11 +65,13 @@ func newConvertingWatch(inner watch.Interface) watch.Interface {
 		stop:   make(chan struct{}),
 	}
 	go cw.run()
+
 	return cw
 }
 
 func (cw *convertingWatch) run() {
 	defer close(cw.events)
+
 	for {
 		select {
 		case <-cw.stop:
@@ -77,10 +80,12 @@ func (cw *convertingWatch) run() {
 			if !ok {
 				return
 			}
+
 			converted, err := convertProjectEvent(event)
 			if err != nil {
 				continue
 			}
+
 			select {
 			case <-cw.stop:
 				return
@@ -114,6 +119,7 @@ func unstructuredToProject(u *unstructured.Unstructured) (*dv1alpha2.Project, er
 	if err := json.Unmarshal(raw, project); err != nil {
 		return nil, err
 	}
+
 	return project, nil
 }
 
@@ -123,6 +129,7 @@ func (cw *convertingWatch) Stop() {
 	default:
 		close(cw.stop)
 	}
+
 	cw.inner.Stop()
 }
 

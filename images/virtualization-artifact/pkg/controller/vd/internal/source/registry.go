@@ -81,6 +81,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk)
 	supgen := vdsupplements.NewGenerator(vd)
 
 	cb := conditions.NewConditionBuilder(vdcondition.ReadyType).Generation(vd.Generation)
+
 	defer func() { conditions.SetCondition(cb, &vd.Status.Conditions) }()
 
 	pod, err := ds.importerService.GetPod(ctx, supgen)
@@ -92,6 +93,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("fetch pvc: %w", err)
 	}
+
 	if pvc != nil {
 		ctx = logger.ToContext(ctx, log.With("pvc.name", pvc.Name, "pvc.status.phase", pvc.Status.Phase))
 	}
@@ -133,6 +135,7 @@ func (ds RegistryDataSource) Validate(ctx context.Context, vd *v1alpha2.VirtualD
 			Namespace: vd.GetNamespace(),
 			Name:      vd.Spec.DataSource.ContainerImage.ImagePullSecret.Name,
 		}
+
 		secret, err := object.FetchObject[*corev1.Secret](ctx, secretName, ds.client, &corev1.Secret{})
 		if err != nil {
 			return fmt.Errorf("failed to get secret %s: %w", secretName, err)

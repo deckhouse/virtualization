@@ -47,11 +47,13 @@ func loadModule(path string) error {
 		if err != nil {
 			return fmt.Errorf("uncompress module %s: %w", path, err)
 		}
+
 		defer func() {
 			if err := os.Remove(uncompressedPath); err != nil {
 				slog.Error("remove uncompressed module", "path", uncompressedPath, "err", err)
 			}
 		}()
+
 		path = uncompressedPath
 	}
 
@@ -66,6 +68,7 @@ func loadModule(path string) error {
 			slog.Info("Module already loaded", slog.String("path", path))
 			return nil
 		}
+
 		return fmt.Errorf("finit_module %s: %w", path, err)
 	}
 
@@ -76,6 +79,7 @@ func loadModule(path string) error {
 
 func uncompressModuleToTmp(path string) (_ string, err error) {
 	pattern := filepath.Base(path) + "-*"
+
 	uncompress, err := os.CreateTemp("", pattern)
 	if err != nil {
 		return "", err
@@ -97,6 +101,7 @@ func uncompressModuleToTmp(path string) (_ string, err error) {
 	if err != nil {
 		return "", err
 	}
+
 	if closer, ok := decoder.(io.Closer); ok {
 		defer func() { _ = closer.Close() }()
 	}
@@ -134,5 +139,6 @@ func KernelRelease() (string, error) {
 	if err := unix.Uname(&uts); err != nil {
 		return "", fmt.Errorf("uname: %w", err)
 	}
+
 	return unix.ByteSliceToString(uts.Release[:]), nil
 }

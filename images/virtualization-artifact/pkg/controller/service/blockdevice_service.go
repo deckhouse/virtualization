@@ -56,6 +56,7 @@ func (s *BlockDeviceService) CountBlockDevicesAttachedToVM(ctx context.Context, 
 
 func (s *BlockDeviceService) CountBlockDevicesAttachedToVMName(ctx context.Context, vmName, namespace string) (int, error) {
 	count := 0
+
 	var vm v1alpha2.VirtualMachine
 
 	err := s.client.Get(ctx, client.ObjectKey{Name: vmName, Namespace: namespace}, &vm)

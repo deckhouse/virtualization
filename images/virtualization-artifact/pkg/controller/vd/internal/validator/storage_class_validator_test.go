@@ -131,6 +131,7 @@ var _ = Describe("StorageClassValidator", func() {
 				},
 			},
 		}
+
 		_, err := validator.ValidateCreate(context.Background(), vd)
 		if wantErr {
 			Expect(err).To(HaveOccurred())
@@ -174,6 +175,7 @@ var _ = Describe("StorageClassValidator", func() {
 					if oldSC != nil {
 						return *oldSC
 					}
+
 					return ""
 				}(),
 				AttachedToVirtualMachines: []v1alpha2.AttachedVirtualMachine{
@@ -188,6 +190,7 @@ var _ = Describe("StorageClassValidator", func() {
 		_, err := validator.ValidateUpdate(context.Background(), oldVD, newVD)
 		if wantErr {
 			Expect(err).To(HaveOccurred())
+
 			if errSubstring != "" {
 				Expect(err.Error()).To(ContainSubstring(errSubstring))
 			}
@@ -211,6 +214,7 @@ var _ = Describe("StorageClassValidator", func() {
 			if storageClass.Name == scName {
 				return corev1.PersistentVolumeFilesystem, corev1.ReadWriteOnce, nil
 			}
+
 			return corev1.PersistentVolumeBlock, corev1.ReadWriteOnce, nil
 		}
 

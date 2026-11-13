@@ -167,14 +167,17 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	if err := r.Client.Get(ctx, req.NamespacedName, vms); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
+
 	if vms.DeletionTimestamp != nil {
 		return r.reconcileDeletion(ctx, vms)
 	}
+
 	if !annotation.DrivenByUnifiedVirtualMachineSnapshot(vms) {
 		// Defensive: the manager-level predicate already filters this, but Reconcile may be invoked
 		// directly (e.g. by an owned-object watch) so re-check before touching this object.
 		return ctrl.Result{}, nil
 	}
+
 	if vms.IsImport() {
 		return r.reconcileImport(ctx, vms)
 	}
@@ -187,10 +190,13 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	if vms.Status.Phase == "" {
 		vms.Status.Phase = v1alpha2.VirtualMachineSnapshotPhasePending
+
 		logger.FromContext(ctx).Info("patch phase to VirtualMachineSnapshotPhasePending")
+
 		if err := r.patchStatus(ctx, vms); err != nil {
 			return ctrl.Result{}, err
 		}
+
 		return ctrl.Result{RequeueAfter: time.Second}, nil
 	}
 
@@ -214,6 +220,7 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		if err != nil {
 			return ctrl.Result{}, err
 		}
+
 		return r.failCapture(ctx, a, vms, vm, kvvmi, reasonInvalidSource, fmt.Sprintf(
 			"spec.sourceRef must reference a %s %s", v1alpha2.SchemeGroupVersion.String(), v1alpha2.VirtualMachineKind))
 	}
@@ -234,8 +241,10 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 				Apply(ctx); perr != nil {
 				return ctrl.Result{}, perr
 			}
+
 			return ctrl.Result{RequeueAfter: requeueAfter}, nil
 		}
+
 		return ctrl.Result{}, err
 	}
 	// Stamp Planning once, and afterwards only to clean up the "waiting for the VirtualMachine"
@@ -254,6 +263,7 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			return ctrl.Result{}, err
 		}
 	}
+
 	if err := sdk.PublishSnapshotSource(ctx, a, snapshotsdk.SnapshotSource{
 		APIVersion: v1alpha2.SchemeGroupVersion.String(),
 		Kind:       v1alpha2.VirtualMachineKind,
@@ -281,13 +291,16 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	// consistency (requiredConsistency is defaulted to true on it), so one stuck guest would hold a whole
 	// namespace capture. Past freezeConfirmDeadline the answer is settled instead of waited on.
 	var frozen bool
+
 	if kvvmi != nil {
 		what := "sync the guest filesystem freeze request"
+
 		freezeErr := r.Freezer.SyncFSFreezeRequest(ctx, kvvmi)
 		if freezeErr == nil {
 			what = "read the guest filesystem freeze state"
 			frozen, freezeErr = r.Freezer.IsFrozen(kvvmi)
 		}
+
 		freezelog.For(ctx).Debug("read the guest filesystem freeze state",
 			freezelog.Attrs(kvvmi,
 				slog.Bool("frozen", frozen),
@@ -367,6 +380,7 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	domainState := a.GetDomainCaptureState()
+
 	planningNotFrozen := domainState.Phase != snapshotsdk.PhasePlanned &&
 		domainState.Phase != snapshotsdk.PhaseFinished &&
 		domainState.Phase != snapshotsdk.PhaseFailed
@@ -375,6 +389,7 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		if cErr != nil {
 			return ctrl.Result{}, cErr
 		}
+
 		if canFreeze {
 			if err := r.Freezer.Freeze(ctx, kvvmi); err != nil {
 				return ctrl.Result{}, err
@@ -384,12 +399,16 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			if err := r.recordFSRequestedAt(ctx, vms, annFSFreezeRequestedAt); err != nil {
 				return ctrl.Result{}, err
 			}
+
 			freezelog.For(ctx).Info("requested the guest filesystem freeze", freezelog.State(kvvmi)...)
+
 			return ctrl.Result{RequeueAfter: requeueAfter}, nil
 		}
+
 		if kvvmi != nil && kvvmi.Status.Phase == virtv1.Running {
 			freezelog.For(ctx).Error("the running machine cannot be frozen; failing the capture",
 				freezelog.State(kvvmi)...)
+
 			return r.failCapture(ctx, a, vms, vm, kvvmi, string(vmscondition.PotentiallyInconsistent), fmt.Sprintf(
 				"cannot take a consistent snapshot of virtual machine %q: the virtual machine agent is not ready and the virtual machine cannot be frozen", vm.Name))
 		}
@@ -449,6 +468,7 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		default:
 			return ctrl.Result{}, tErr
 		}
+
 		if err := sdk.EnsureManifestCapture(ctx, a, snapshotsdk.ManifestCaptureSpec{Targets: targets}); err != nil {
 			switch {
 			case apierrors.IsConflict(err):
@@ -461,6 +481,7 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			}
 		}
 	}
+
 	if err := sdk.DomainCaptureStatus(a).Phase(snapshotsdk.PhasePlanned).Apply(ctx); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -471,12 +492,17 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		if !r.releaseFreeze(ctx, vms, vm, kvvmi) {
 			return ctrl.Result{RequeueAfter: requeueAfter}, nil
 		}
+
 		vms.Status.Phase = v1alpha2.VirtualMachineSnapshotPhaseFailed
+
 		logger.FromContext(ctx).Info("patch VMS phase to VirtualMachineSnapshotPhaseFailed")
+
 		return ctrl.Result{}, r.patchStatus(ctx, vms)
 	case snapshotsdk.CaptureOutcomeCapturing:
 		vms.Status.Phase = v1alpha2.VirtualMachineSnapshotPhaseInProgress
+
 		logger.FromContext(ctx).Info("patch VMS phase to VirtualMachineSnapshotPhaseInProgress")
+
 		return ctrl.Result{RequeueAfter: requeueAfter}, r.patchStatus(ctx, vms)
 	}
 
@@ -518,7 +544,9 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			)...)
 
 		vms.Status.Phase = v1alpha2.VirtualMachineSnapshotPhaseInProgress
+
 		logger.FromContext(ctx).Info("patch VMS phase to VirtualMachineSnapshotPhaseInProgress, children not settled")
+
 		return ctrl.Result{RequeueAfter: requeueAfter}, r.patchStatus(ctx, vms)
 	}
 
@@ -534,17 +562,21 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		vms.Status.Phase = v1alpha2.VirtualMachineSnapshotPhaseInProgress
 		return ctrl.Result{RequeueAfter: requeueAfter}, r.patchStatus(ctx, vms)
 	}
+
 	if err := sdk.DomainCaptureStatus(a).Phase(snapshotsdk.PhaseFinished).Apply(ctx); err != nil {
 		return ctrl.Result{}, err
 	}
+
 	vms.Status.Phase = v1alpha2.VirtualMachineSnapshotPhaseReady
 
 	if childrenAreConsistent(childSnapshots) {
 		vms.Status.Consistent = ptr.To(true)
 	}
+
 	settleConsistency(vms)
 
 	logger.FromContext(ctx).Info("patch VMS phase to VirtualMachineSnapshotPhaseReady")
+
 	return ctrl.Result{}, r.patchStatus(ctx, vms)
 }
 
@@ -557,19 +589,23 @@ func childrenWaitProgress(vms *v1alpha2.VirtualMachineSnapshot, children []v1alp
 		if !vds.CreationTimestamp.IsZero() && (oldest == nil || vds.CreationTimestamp.Before(oldest)) {
 			oldest = vds.CreationTimestamp.DeepCopy()
 		}
+
 		switch vds.Status.Phase {
 		case v1alpha2.VirtualDiskSnapshotPhaseReady, v1alpha2.VirtualDiskSnapshotPhaseFailed:
 		default:
 			pending = append(pending, vds.Name)
 		}
 	}
+
 	sort.Strings(pending)
+
 	if oldest == nil {
 		// No child carries a creation timestamp — every one of them is a placeholder for a published ref
 		// whose object is gone. Nothing will ever report progress, so fall back to this node's own age
 		// rather than reporting zero, which would hold the guest frozen forever.
 		return time.Since(vms.CreationTimestamp.Time), pending
 	}
+
 	return time.Since(oldest.Time), pending
 }
 
@@ -579,13 +615,16 @@ func childrenWaitProgress(vms *v1alpha2.VirtualMachineSnapshot, children []v1alp
 // and falls back to the core-owned Ready condition.
 func childDetail(vds *v1alpha2.VirtualDiskSnapshot) string {
 	a := &adapter.VirtualDiskSnapshotAdapter{VDS: vds}
+
 	reason, message := a.GetDomainCaptureState().Reason, a.GetDomainCaptureState().Message
 	if message == "" {
 		reason, message = a.ReadyReason(), a.ReadyMessage()
 	}
+
 	if message == "" {
 		return ""
 	}
+
 	return fmt.Sprintf("VirtualDiskSnapshot %q: %s: %s", vds.Name, reason, message)
 }
 
@@ -594,7 +633,9 @@ func joinDetails(details []string) string {
 	if len(details) == 0 {
 		return ""
 	}
+
 	sort.Strings(details)
+
 	return ". " + strings.Join(details, "; ")
 }
 
@@ -602,14 +643,17 @@ func joinDetails(details []string) string {
 // suffix for the timeout message ("" when no child reports a reason).
 func pendingChildrenDetails(children []v1alpha2.VirtualDiskSnapshot) string {
 	var details []string
+
 	for i := range children {
 		if isTerminalChild(&children[i]) {
 			continue
 		}
+
 		if d := childDetail(&children[i]); d != "" {
 			details = append(details, d)
 		}
 	}
+
 	return joinDetails(details)
 }
 
@@ -627,18 +671,23 @@ func failedChildren(children []v1alpha2.VirtualDiskSnapshot) ([]string, string) 
 		names   []string
 		details []string
 	)
+
 	for i := range children {
 		vds := &children[i]
+
 		a := &adapter.VirtualDiskSnapshotAdapter{VDS: vds}
 		if vds.Status.Phase != v1alpha2.VirtualDiskSnapshotPhaseFailed && a.GetDomainCaptureState().Phase != snapshotsdk.PhaseFailed {
 			continue
 		}
+
 		names = append(names, vds.Name)
 		if d := childDetail(vds); d != "" {
 			details = append(details, d)
 		}
 	}
+
 	sort.Strings(names)
+
 	return names, joinDetails(details)
 }
 
@@ -663,7 +712,9 @@ func (r *Reconciler) failCapture(
 	}
 
 	vms.Status.Phase = v1alpha2.VirtualMachineSnapshotPhaseFailed
+
 	logger.FromContext(ctx).Info("patch VMS phase to VirtualMachineSnapshotPhaseFailed", "reason", reason, "message", message)
+
 	return ctrl.Result{}, r.patchStatus(ctx, vms)
 }
 
@@ -713,12 +764,16 @@ func (r *Reconciler) childVirtualDiskSnapshots(ctx context.Context, vms *v1alpha
 					children = append(children, v1alpha2.VirtualDiskSnapshot{
 						ObjectMeta: metav1.ObjectMeta{Name: ref.Name, Namespace: vms.Namespace},
 					})
+
 					continue
 				}
+
 				return nil, err
 			}
+
 			children = append(children, *vds)
 		}
+
 		return children, nil
 	}
 
@@ -726,6 +781,7 @@ func (r *Reconciler) childVirtualDiskSnapshots(ctx context.Context, vms *v1alpha
 	if err := r.APIReader.List(ctx, list, client.InNamespace(vms.Namespace)); err != nil {
 		return nil, err
 	}
+
 	owned := make([]v1alpha2.VirtualDiskSnapshot, 0, len(list.Items))
 	for _, vds := range list.Items {
 		for _, ref := range vds.OwnerReferences {
@@ -735,6 +791,7 @@ func (r *Reconciler) childVirtualDiskSnapshots(ctx context.Context, vms *v1alpha
 			}
 		}
 	}
+
 	return owned, nil
 }
 
@@ -746,6 +803,7 @@ func childrenSettled(children []v1alpha2.VirtualDiskSnapshot, cs snapshotsdk.Cor
 	if len(children) == 0 {
 		return true
 	}
+
 	return cs.ChildrenSettled != nil && *cs.ChildrenSettled
 }
 
@@ -771,12 +829,14 @@ func (r *Reconciler) waitForSource(
 		return r.failCapture(ctx, a, vms, vm, kvvmi, storagev1alpha1.ReasonGraphPlanningFailed, fmt.Sprintf(
 			"giving up after %s: %s", planningDeadline, err))
 	}
+
 	if perr := sdk.DomainCaptureStatus(a).
 		Phase(snapshotsdk.PhasePlanning).
 		Message(fmt.Sprintf("waiting for a resource referenced by the virtual machine: %s", err)).
 		Apply(ctx); perr != nil {
 		return ctrl.Result{}, perr
 	}
+
 	return ctrl.Result{RequeueAfter: requeueAfter}, nil
 }
 
@@ -788,6 +848,7 @@ func planningStartedAt(vms *v1alpha2.VirtualMachineSnapshot, vm *v1alpha2.Virtua
 	if vm != nil && vm.CreationTimestamp.After(started) {
 		started = vm.CreationTimestamp.Time
 	}
+
 	return started
 }
 
@@ -810,6 +871,7 @@ func (r *Reconciler) reconcileImport(ctx context.Context, vms *v1alpha2.VirtualM
 	// core does not fail an import node, it leaves it unready, and the reason lives in the conditions it
 	// owns.
 	phase := v1alpha2.VirtualMachineSnapshotPhasePending
+
 	switch {
 	case meta.IsStatusConditionTrue(vms.Status.Conditions, v1alpha2.UnifiedSnapshotterConditionReady):
 		phase = v1alpha2.VirtualMachineSnapshotPhaseReady
@@ -825,6 +887,7 @@ func (r *Reconciler) reconcileImport(ctx context.Context, vms *v1alpha2.VirtualM
 	}
 
 	vms.Status.Phase = phase
+
 	return ctrl.Result{}, r.patchStatus(ctx, vms)
 }
 
@@ -837,13 +900,17 @@ func (r *Reconciler) reconcileCaptured(ctx context.Context, vms *v1alpha2.Virtua
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+
 	if childrenAreConsistent(childSnapshots) {
 		vms.Status.Consistent = ptr.To(true)
 	}
+
 	settleConsistency(vms)
 
 	vms.Status.Phase = v1alpha2.VirtualMachineSnapshotPhaseReady
+
 	logger.FromContext(ctx).Info("patch VMS phase to VirtualMachineSnapshotPhaseReady, capture already finished")
+
 	return ctrl.Result{}, r.patchStatus(ctx, vms)
 }
 
@@ -856,12 +923,15 @@ func (r *Reconciler) reconcileCaptureFailed(ctx context.Context, vms *v1alpha2.V
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+
 	if !r.releaseFreeze(ctx, vms, vm, kvvmi) {
 		return ctrl.Result{RequeueAfter: requeueAfter}, nil
 	}
 
 	vms.Status.Phase = v1alpha2.VirtualMachineSnapshotPhaseFailed
+
 	logger.FromContext(ctx).Info("patch VMS phase to VirtualMachineSnapshotPhaseFailed, capture already failed")
+
 	return ctrl.Result{}, r.patchStatus(ctx, vms)
 }
 
@@ -875,6 +945,7 @@ func (r *Reconciler) reconcileDeletion(ctx context.Context, vms *v1alpha2.Virtua
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+
 	if !r.releaseFreeze(ctx, vms, vm, kvvmi) {
 		return ctrl.Result{RequeueAfter: requeueAfter}, nil
 	}
@@ -902,6 +973,7 @@ func (r *Reconciler) cleanupSource(ctx context.Context, vms *v1alpha2.VirtualMac
 			name = ref.Name
 		}
 	}
+
 	if name == "" {
 		return nil, nil, nil
 	}
@@ -911,6 +983,7 @@ func (r *Reconciler) cleanupSource(ctx context.Context, vms *v1alpha2.VirtualMac
 		if apierrors.IsNotFound(err) {
 			return nil, nil, nil
 		}
+
 		return nil, nil, err
 	}
 
@@ -918,6 +991,7 @@ func (r *Reconciler) cleanupSource(ctx context.Context, vms *v1alpha2.VirtualMac
 	if err != nil {
 		return nil, nil, err
 	}
+
 	return vm, kvvmi, nil
 }
 
@@ -994,6 +1068,7 @@ func (r *Reconciler) unfreezeWaitedFor(vms *v1alpha2.VirtualMachineSnapshot, kvv
 	if !ok {
 		return 0, false
 	}
+
 	at, err := time.Parse(time.RFC3339, raw)
 	if err != nil {
 		return 0, false
@@ -1029,6 +1104,7 @@ func (r *Reconciler) recordFSRequestedAt(ctx context.Context, vms *v1alpha2.Virt
 	if vms.Annotations == nil {
 		vms.Annotations = make(map[string]string, 1)
 	}
+
 	vms.Annotations[ann] = requestedAt
 
 	return nil
@@ -1081,6 +1157,7 @@ func (r *Reconciler) freezeTrouble(ctx context.Context, vms *v1alpha2.VirtualMac
 	}
 
 	log.Error("failed to "+what+", will retry", "err", err.Error())
+
 	if r.Recorder != nil {
 		r.Recorder.Eventf(vms, corev1.EventTypeWarning, v1alpha2.ReasonVMSnapshottingPending,
 			"Cannot %s of the virtual machine %q. Snapshotting is on hold until the guest agent responds.",
@@ -1107,9 +1184,11 @@ func (r *Reconciler) releaseFreeze(ctx context.Context, vms *v1alpha2.VirtualMac
 			)...)
 
 		r.unfreezeSentAt.Delete(kvvmi.UID)
+
 		if err := r.Freezer.DiscardFSFreezeRequest(ctx, kvvmi); err != nil {
 			log.Debug("failed to retire the abandoned unfreeze request, will retry",
 				freezelog.Attrs(kvvmi, logger.SlogErr(err))...)
+
 			return false
 		}
 
@@ -1124,16 +1203,20 @@ func (r *Reconciler) releaseFreeze(ctx context.Context, vms *v1alpha2.VirtualMac
 
 		log.Debug("failed to sync the guest filesystem freeze request, will retry",
 			freezelog.Attrs(kvvmi, logger.SlogErr(err))...)
+
 		return false
 	}
+
 	r.unfreezeSentAt.Delete(kvvmi.UID)
 
 	frozen, err := r.Freezer.IsFrozen(kvvmi)
 	if err != nil {
 		log.Debug("failed to read the guest filesystem freeze state, will retry",
 			freezelog.Attrs(kvvmi, logger.SlogErr(err))...)
+
 		return false
 	}
+
 	if !frozen && holdsUnreleasedFreeze(vms) {
 		// kvvmi.Status.FSFreezeStatus is not a latch. It has been observed going frozen -> empty ->
 		// frozen within seconds while this controller held the freeze.
@@ -1147,8 +1230,10 @@ func (r *Reconciler) releaseFreeze(ctx context.Context, vms *v1alpha2.VirtualMac
 		if err != nil {
 			log.Error("failed to check whether another snapshot still holds the freeze, will retry",
 				freezelog.Attrs(kvvmi, logger.SlogErr(err))...)
+
 			return false
 		}
+
 		if !sole {
 			// Record the claim as given up before reporting the freeze released. Left unstamped this
 			// snapshot still reads as a holder — holdsUnreleasedFreeze keeps answering true — and the
@@ -1161,18 +1246,22 @@ func (r *Reconciler) releaseFreeze(ctx context.Context, vms *v1alpha2.VirtualMac
 			if err := r.recordFSRequestedAt(ctx, vms, annFSUnfreezeRequestedAt); err != nil {
 				log.Debug("failed to record that the freeze was left to another snapshot, will retry",
 					freezelog.Attrs(kvvmi, logger.SlogErr(err))...)
+
 				return false
 			}
 
 			log.Debug("the freeze state reads empty and another snapshot is still capturing; leaving the freeze in place",
 				freezelog.State(kvvmi)...)
+
 			return true
 		}
 
 		log.Info("the freeze state reads empty but this snapshot never released its freeze; unfreezing anyway",
 			freezelog.State(kvvmi)...)
+
 		return r.requestUnfreeze(ctx, vms, kvvmi, log)
 	}
+
 	if !frozen {
 		// Already thawed — by this snapshot on an earlier pass, or by something outside it. Either way
 		// there is nothing left to release, and any child still capturing has lost the freeze.
@@ -1187,8 +1276,10 @@ func (r *Reconciler) releaseFreeze(ctx context.Context, vms *v1alpha2.VirtualMac
 	case err != nil:
 		log.Error("failed to check whether the guest filesystem freeze may be released, will retry",
 			freezelog.Attrs(kvvmi, logger.SlogErr(err))...)
+
 		return false
 	}
+
 	if !canUnfreeze {
 		// Another in-flight snapshot of the same VirtualMachine still holds the freeze and will release
 		// it itself. Nothing left for this snapshot to wait on.
@@ -1209,6 +1300,7 @@ func holdsRequestedFreeze(vms *v1alpha2.VirtualMachineSnapshot) bool {
 	if vms == nil {
 		return false
 	}
+
 	_, froze := vms.Annotations[annFSFreezeRequestedAt]
 	_, thawed := vms.Annotations[annFSUnfreezeRequestedAt]
 
@@ -1225,6 +1317,7 @@ func holdsUnreleasedFreeze(vms *v1alpha2.VirtualMachineSnapshot) bool {
 	if vms == nil {
 		return false
 	}
+
 	_, confirmed := vms.Annotations[annFSFrozenConfirmedAt]
 	_, thawed := vms.Annotations[annFSUnfreezeRequestedAt]
 
@@ -1248,12 +1341,14 @@ func (r *Reconciler) requestUnfreeze(ctx context.Context, vms *v1alpha2.VirtualM
 	if err := r.recordFSRequestedAt(ctx, vms, annFSUnfreezeRequestedAt); err != nil {
 		log.Debug("failed to record the moment the unfreeze was requested, will retry",
 			freezelog.Attrs(kvvmi, logger.SlogErr(err))...)
+
 		return false
 	}
 
 	if err := r.Freezer.Unfreeze(ctx, kvvmi); err != nil {
 		log.Debug("failed to request guest filesystem unfreeze, will retry",
 			freezelog.Attrs(kvvmi, logger.SlogErr(err))...)
+
 		return false
 	}
 
@@ -1272,15 +1367,18 @@ func (r *Reconciler) repeatUnfreeze(ctx context.Context, kvvmi *virtv1.VirtualMa
 	if v, ok := r.unfreezeSentAt.Load(kvvmi.UID); ok && v.(time.Time).After(last) {
 		last = v.(time.Time)
 	}
+
 	if time.Since(last) < unfreezeRetryInterval {
 		log.Debug("waiting for the guest to confirm the unfreeze", freezelog.State(kvvmi)...)
 		return
 	}
 
 	r.unfreezeSentAt.Store(kvvmi.UID, time.Now())
+
 	if err := r.Freezer.Unfreeze(ctx, kvvmi); err != nil {
 		log.Debug("failed to re-send the guest filesystem unfreeze, will retry",
 			freezelog.Attrs(kvvmi, logger.SlogErr(err))...)
+
 		return
 	}
 
@@ -1321,6 +1419,7 @@ func (r *Reconciler) patchStatus(ctx context.Context, vms *v1alpha2.VirtualMachi
 	if err != nil {
 		return err
 	}
+
 	return r.Client.Status().Patch(ctx, vms, patch)
 }
 
@@ -1331,7 +1430,9 @@ func vdSnapshotNames(refs []v1alpha2.UnifiedSnapshotterChildRef) []string {
 			names = append(names, ref.Name)
 		}
 	}
+
 	sort.Strings(names)
+
 	return names
 }
 
@@ -1353,6 +1454,7 @@ func (r *Reconciler) planChildren(ctx context.Context, vms *v1alpha2.VirtualMach
 		}
 
 		vd := &v1alpha2.VirtualDisk{}
+
 		err := r.APIReader.Get(ctx, types.NamespacedName{Namespace: vms.Namespace, Name: bdr.Name}, vd)
 		switch {
 		case apierrors.IsNotFound(err):
@@ -1360,6 +1462,7 @@ func (r *Reconciler) planChildren(ctx context.Context, vms *v1alpha2.VirtualMach
 		case err != nil:
 			return nil, nil, fmt.Errorf("get VirtualDisk %s/%s: %w", vms.Namespace, bdr.Name, err)
 		}
+
 		candidates = append(candidates, vd)
 	}
 
@@ -1412,7 +1515,9 @@ func (r *Reconciler) getKVVMI(ctx context.Context, vm *v1alpha2.VirtualMachine) 
 		if apierrors.IsNotFound(err) {
 			return nil, nil
 		}
+
 		return nil, err
 	}
+
 	return kvvmi, nil
 }

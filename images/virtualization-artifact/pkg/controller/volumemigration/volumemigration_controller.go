@@ -69,5 +69,6 @@ func SetupController(
 	}
 
 	log.Info("Initialized volume migration controller")
+
 	return nil
 }

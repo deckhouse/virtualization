@@ -71,9 +71,11 @@ func UseUnifiedForVirtualMachineSnapshot(vms *v1alpha2.VirtualMachineSnapshot, u
 	if vms.IsImport() {
 		return true
 	}
+
 	if pinned, ok := pinnedMechanism(vms); ok {
 		return pinned
 	}
+
 	builtIn := vms.Status.VirtualMachineSnapshotSecretName != "" ||
 		phasePastPending(vms.Status.Phase, v1alpha2.VirtualMachineSnapshotPhasePending) ||
 		pendingWithoutUnifiedFinalizer(vms)
@@ -111,9 +113,11 @@ func UseUnifiedForVirtualDiskSnapshot(ctx context.Context, reader client.Reader,
 	if vds.IsImport() {
 		return true, nil
 	}
+
 	if pinned, ok := pinnedMechanism(vds); ok {
 		return pinned, nil
 	}
+
 	builtIn := vds.Status.VolumeSnapshotName != "" ||
 		controllerutil.ContainsFinalizer(vds, v1alpha2.FinalizerVDSnapshotCleanup) ||
 		phasePastPending(vds.Status.Phase, v1alpha2.VirtualDiskSnapshotPhasePending)
@@ -125,6 +129,7 @@ func UseUnifiedForVirtualDiskSnapshot(ctx context.Context, reader client.Reader,
 	if err != nil {
 		return false, err
 	}
+
 	if parent != nil {
 		return parent.Status.CaptureState != nil, nil
 	}
@@ -142,11 +147,13 @@ func parentVirtualMachineSnapshot(ctx context.Context, reader client.Reader, vds
 		}
 
 		parent := &v1alpha2.VirtualMachineSnapshot{}
+
 		key := types.NamespacedName{Namespace: vds.Namespace, Name: ref.Name}
 		if err := reader.Get(ctx, key, parent); err != nil {
 			if apierrors.IsNotFound(err) {
 				return nil, nil
 			}
+
 			return nil, fmt.Errorf("fetch the owning VirtualMachineSnapshot %q: %w", ref.Name, err)
 		}
 
@@ -174,6 +181,7 @@ func pinnedMechanism(obj metav1.Object) (useUnified, pinned bool) {
 	if _, ok := annotations[v1alpha2.AnnUseBuiltInSnapshotter]; ok {
 		return false, true
 	}
+
 	if _, ok := annotations[v1alpha2.AnnUseUnifiedSnapshotter]; ok {
 		return true, true
 	}

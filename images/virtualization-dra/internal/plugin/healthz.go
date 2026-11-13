@@ -67,15 +67,19 @@ func NewHealthCheck(driverName, addr string) *HealthCheck {
 
 func (h *HealthCheck) Start() error {
 	addr := h.server.Addr
+
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
 		return fmt.Errorf("failed to listen for healthcheck service at %s: %w", addr, err)
 	}
 
 	h.wg.Add(1)
+
 	go func() {
 		defer h.wg.Done()
+
 		h.log.Info("starting healthcheck service", slog.String("addr", lis.Addr().String()))
+
 		if err := h.server.Serve(lis); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			h.log.Error("failed to serve healthcheck service", slog.String("addr", addr), slog.Any("err", err))
 		}
@@ -86,9 +90,11 @@ func (h *HealthCheck) Start() error {
 
 func (h *HealthCheck) Stop() {
 	h.log.Info("stopping healthcheck service")
+
 	if err := h.server.Close(); err != nil {
 		h.log.Error("failed to stop healthcheck service", slog.Any("err", err))
 	}
+
 	h.wg.Wait()
 }
 
@@ -96,8 +102,10 @@ func (h *HealthCheck) serveHealthz(w http.ResponseWriter, r *http.Request) {
 	if err := h.check(r.Context()); err != nil {
 		h.log.Error("health check failed", slog.Any("err", err))
 		w.WriteHeader(http.StatusServiceUnavailable)
+
 		return
 	}
+
 	_, _ = w.Write([]byte("ok"))
 }
 
@@ -106,24 +114,28 @@ func (h *HealthCheck) check(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("connect to registration socket: %w", err)
 	}
+
 	defer func() { _ = regConn.Close() }()
 
 	info, err := registerapi.NewRegistrationClient(regConn).GetInfo(ctx, &registerapi.InfoRequest{})
 	if err != nil {
 		return fmt.Errorf("call GetInfo: %w", err)
 	}
+
 	h.log.Debug("Successfully invoked GetInfo", "info", info)
 
 	draConn, err := dialUnix(h.draSockPath)
 	if err != nil {
 		return fmt.Errorf("connect to DRA socket: %w", err)
 	}
+
 	defer func() { _ = draConn.Close() }()
 
 	_, err = drapb.NewDRAPluginClient(draConn).NodePrepareResources(ctx, &drapb.NodePrepareResourcesRequest{})
 	if err != nil {
 		return fmt.Errorf("call NodePrepareResources: %w", err)
 	}
+
 	h.log.Debug("Successfully invoked NodePrepareResources")
 
 	return nil

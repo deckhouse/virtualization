@@ -30,6 +30,7 @@ func importerTokenScope(s *dvcr.Settings, settings *importer.Settings) []registr
 	if settings.Source == importer.SourceDVCR && settings.Endpoint != "" {
 		access = append(access, repoAccess(s.RepoPath(settings.Endpoint), "pull"))
 	}
+
 	return access
 }
 

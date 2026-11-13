@@ -111,6 +111,7 @@ func (v featureGatesValidator) validate(gates []string) error {
 // the offending ModuleConfig can no longer be fixed back.
 func (v featureGatesValidator) validateAvailableInEdition(gates []string) error {
 	var unavailable []string
+
 	for _, gate := range gates {
 		if v.lockedToDisabled(gate) {
 			unavailable = append(unavailable, gate)
@@ -146,6 +147,7 @@ func (v featureGatesValidator) validateMinKubeVersion(gate string, minVersion *k
 
 func addedFeatureGates(current, desired []string) []string {
 	var added []string
+
 	for _, gate := range desired {
 		if !slices.Contains(current, gate) {
 			added = append(added, gate)

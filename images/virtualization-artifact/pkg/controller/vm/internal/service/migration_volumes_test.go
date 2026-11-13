@@ -119,6 +119,7 @@ var _ = Describe("MigrationVolumesService", func() {
 		return func(context.Context, state.VirtualMachineState) (*virtv1.VirtualMachine, error) {
 			built := desired.DeepCopy()
 			built.Spec.UpdateVolumesStrategy = inCluster.Spec.UpdateVolumesStrategy
+
 			return built, nil
 		}
 	}
@@ -179,6 +180,7 @@ var _ = Describe("MigrationVolumesService", func() {
 				},
 			},
 		})
+
 		return kvvm
 	}
 
@@ -394,7 +396,9 @@ var _ = Describe("MigrationVolumesService", func() {
 			for _, name := range names {
 				disks = append(disks, virtv1.Disk{Name: name})
 			}
+
 			kvvm.Spec.Template.Spec.Domain.Devices.Disks = disks
+
 			return kvvm
 		}
 
@@ -534,6 +538,7 @@ var _ = Describe("isStructuralVolumeChange", func() {
 				},
 			})
 		}
+
 		return vols
 	}
 
@@ -574,9 +579,11 @@ var _ = Describe("allDisksMigrating", func() {
 		if started {
 			vd.Status.MigrationState.StartTimestamp = metav1.Now()
 		}
+
 		if ended {
 			vd.Status.MigrationState.EndTimestamp = metav1.Now()
 		}
+
 		return vd
 	}
 
@@ -602,6 +609,7 @@ var _ = Describe("isVolumeMigrating", func() {
 				{Type: virtv1.VirtualMachineInstanceVolumesChange, Status: status},
 			}
 		}
+
 		return vmi
 	}
 
@@ -625,6 +633,7 @@ var _ = Describe("destinationsMatch", func() {
 				VolumeSource: virtv1.VolumeSource{PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{ClaimName: claim}}},
 			})
 		}
+
 		return vols
 	}
 	built := func(nameToClaim map[string]string) *virtv1.VirtualMachine {
@@ -632,6 +641,7 @@ var _ = Describe("destinationsMatch", func() {
 	}
 	kvvmi := func(running, volToDest map[string]string) *virtv1.VirtualMachineInstance {
 		vmi := &virtv1.VirtualMachineInstance{}
+
 		vmi.Spec.Volumes = pvcVolumes(running)
 		for vol, dest := range volToDest {
 			vmi.Status.MigratedVolumes = append(vmi.Status.MigratedVolumes, virtv1.StorageMigratedVolumeInfo{
@@ -639,6 +649,7 @@ var _ = Describe("destinationsMatch", func() {
 				DestinationPVCInfo: &virtv1.PersistentVolumeClaimInfo{ClaimName: dest},
 			})
 		}
+
 		return vmi
 	}
 

@@ -73,6 +73,7 @@ var _ = Describe("ValidateUserData", func() {
 
 	It("says nothing about a gzipped payload, which it cannot read", func() {
 		var buf bytes.Buffer
+
 		w := gzip.NewWriter(&buf)
 		_, err := w.Write([]byte("#cloud-config\nusers: []\n"))
 		Expect(err).NotTo(HaveOccurred())

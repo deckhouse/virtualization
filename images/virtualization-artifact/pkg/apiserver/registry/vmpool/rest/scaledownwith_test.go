@@ -51,6 +51,7 @@ func (c poolClient) VirtualMachinePools(namespace string) virtualizationv1alpha2
 func callCreate(ctx context.Context, c poolClient, targets ...string) (runtime.Object, error) {
 	ctx = genericapirequest.WithNamespace(ctx, ns)
 	body := &subresources.VirtualMachinePoolScaleDownWith{Targets: targets}
+
 	return NewScaleDownWithREST(c).Create(ctx, poolName, body, nil, &metav1.CreateOptions{})
 }
 
@@ -90,6 +91,7 @@ func foreignVM(name string) *v1alpha2.VirtualMachine {
 func getReplicas(ctx context.Context, c poolClient) int32 {
 	p, err := c.VirtualizationV1alpha2().VirtualMachinePools(ns).Get(ctx, poolName, metav1.GetOptions{})
 	Expect(err).NotTo(HaveOccurred())
+
 	return ptr.Deref(p.Spec.Replicas, -1)
 }
 
@@ -100,6 +102,7 @@ func vmExists(ctx context.Context, c poolClient, name string) bool {
 
 var _ = Describe("ScaleDownWith", func() {
 	var ctx context.Context
+
 	BeforeEach(func() { ctx = context.Background() })
 
 	It("deletes the targets and decrements replicas", func() {

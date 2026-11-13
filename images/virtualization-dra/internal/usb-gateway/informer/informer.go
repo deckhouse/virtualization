@@ -73,11 +73,13 @@ func (f *Factory) Run(ctx context.Context) error {
 			slog.Info("SKIPPING informer", slog.String("name", name))
 			continue
 		}
+
 		slog.Info("STARTING informer", slog.String("name", name))
 		group.Go(func() error {
 			informer.Run(ctx.Done())
 			return nil
 		})
+
 		f.startedInformers[name] = struct{}{}
 	}
 
@@ -90,6 +92,7 @@ func (f *Factory) WaitForCacheSync(stopCh <-chan struct{}) {
 	f.mu.Lock()
 	for name, informer := range f.informers {
 		slog.Info("Waiting for cache sync of informer", slog.String("name", name))
+
 		syncs = append(syncs, informer.HasSynced)
 	}
 	f.mu.Unlock()
@@ -100,6 +103,7 @@ func (f *Factory) WaitForCacheSync(stopCh <-chan struct{}) {
 func (f *Factory) ResourceSlice() cache.SharedIndexInformer {
 	return f.getInformer("resourceSliceInformer", func() cache.SharedIndexInformer {
 		lw := cache.NewListWatchFromClient(f.clientSet.ResourceV1().RESTClient(), "resourceslices", corev1.NamespaceAll, fields.Everything())
+
 		return cache.NewSharedIndexInformer(lw, &resourcev1.ResourceSlice{}, f.defaultResync, cache.Indexers{
 			PoolIndex: func(obj interface{}) ([]string, error) {
 				return []string{obj.(*resourcev1.ResourceSlice).Spec.Pool.Name}, nil

@@ -41,15 +41,19 @@ func HasCondition(conditionType Stringer, conditions []metav1.Condition) bool {
 
 func SetCondition(c Conder, conditions *[]metav1.Condition) {
 	newCondition := c.Condition()
+
 	if conditions == nil {
 		return
 	}
+
 	existingCondition := FindStatusCondition(*conditions, newCondition.Type)
 	if existingCondition == nil {
 		if newCondition.LastTransitionTime.IsZero() {
 			newCondition.LastTransitionTime = metav1.NewTime(time.Now())
 		}
+
 		*conditions = append(*conditions, newCondition)
+
 		return
 	}
 
@@ -141,6 +145,7 @@ func (c *ConditionBuilder) Status(status metav1.ConditionStatus) *ConditionBuild
 	if status != "" {
 		c.status = status
 	}
+
 	return c
 }
 
@@ -148,6 +153,7 @@ func (c *ConditionBuilder) Reason(reason Stringer) *ConditionBuilder {
 	if reason.String() != "" {
 		c.reason = reason.String()
 	}
+
 	return c
 }
 
@@ -171,6 +177,7 @@ func TruncateMessage(msg string) string {
 	}
 
 	const ellipsis = "..."
+
 	cut := maxMessageLen - len(ellipsis)
 	for cut > 0 && !utf8.RuneStart(msg[cut]) {
 		cut--
@@ -191,7 +198,9 @@ func (c *ConditionBuilder) LastTransitionTime(lastTransitionTime time.Time) *Con
 
 func (c *ConditionBuilder) Clone() *ConditionBuilder {
 	var out *ConditionBuilder
+
 	*out = *c
+
 	return out
 }
 

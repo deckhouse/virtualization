@@ -221,11 +221,13 @@ func (s *SpecChanges) GetAll() []FieldChange {
 
 func (s *SpecChanges) GetRestartMessages() []string {
 	msgs := make([]string, 0)
+
 	for _, change := range s.changes {
 		if change.RestartMessage != "" {
 			msgs = append(msgs, change.RestartMessage)
 		}
 	}
+
 	return msgs
 }
 
@@ -249,6 +251,7 @@ func (s *SpecChanges) convertPendingChanges(include func(FieldChange) bool) ([]a
 
 		res = append(res, apiextensionsv1.JSON{Raw: b})
 	}
+
 	return res, nil
 }
 
@@ -267,8 +270,10 @@ func (s *SpecChanges) UpgradeHotplugComputeChangesToRestart() {
 
 func (s *SpecChanges) UpgradeHotplugComputeChangesToRestartWithMessage(message string) {
 	messageAssigned := false
+
 	for i := range s.changes {
 		isCPUChange := s.changes[i].Path == cpuPath || strings.HasPrefix(s.changes[i].Path, cpuPath+".")
+
 		isMemoryChange := s.changes[i].Path == memoryPath || strings.HasPrefix(s.changes[i].Path, memoryPath+".")
 		if (isCPUChange || isMemoryChange) && s.changes[i].ActionRequired == ActionApplyImmediate {
 			s.changes[i].ActionRequired = ActionRestart
@@ -284,6 +289,7 @@ func (s *SpecChanges) Add(changes ...FieldChange) {
 	if s.changes == nil {
 		s.changes = make([]FieldChange, 0)
 	}
+
 	s.changes = append(s.changes, changes...)
 }
 
@@ -322,6 +328,7 @@ func (s *SpecChanges) ToJSON() string {
 	})
 
 	b, _ := json.Marshal(s.changes)
+
 	return string(b)
 }
 
@@ -332,5 +339,6 @@ func (s *SpecChanges) ToYAML() string {
 	})
 
 	b, _ := yaml.Marshal(s.changes)
+
 	return string(b)
 }

@@ -127,6 +127,7 @@ func (e *VMEventLog) fillNodeInfo(nodeInformer cache.Store, vm *v1alpha2.Virtual
 	}
 
 	var addresses []string
+
 	for _, addr := range node.Status.Addresses {
 		if addr.Type != corev1.NodeHostName && addr.Address != "" {
 			addresses = append(addresses, addr.Address)

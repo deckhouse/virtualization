@@ -64,6 +64,7 @@ func (s BindStep) Take(_ context.Context, vmmac *v1alpha2.VirtualMachineMACAddre
 			Status(metav1.ConditionFalse).
 			Reason(vmmaccondition.VirtualMachineMACAddressLeaseNotReady).
 			Message(fmt.Sprintf("Waiting for the VirtualMachineMACAddressLease %q to be bound.", s.lease.Name))
+
 		return &reconcile.Result{}, nil
 	}
 
@@ -72,5 +73,6 @@ func (s BindStep) Take(_ context.Context, vmmac *v1alpha2.VirtualMachineMACAddre
 		Status(metav1.ConditionTrue).
 		Reason(vmmaccondition.Bound).
 		Message("")
+
 	return &reconcile.Result{}, nil
 }

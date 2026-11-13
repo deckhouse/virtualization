@@ -55,6 +55,7 @@ var _ = Describe("VirtualMachineEvacuation", Label(label.SIGCompute, precheck.No
 		ctx := context.Background()
 
 		By("Environment preparation")
+
 		vmBIOS, vdRootBIOS, vdBlankBIOS := newEvacuationVM(
 			"vm-evacuation-bios",
 			f.Namespace().Name,
@@ -105,9 +106,11 @@ var _ = Describe("VirtualMachineEvacuation", Label(label.SIGCompute, precheck.No
 					if vmop.Spec.VirtualMachine != vm.Name {
 						return false
 					}
+
 					if _, exists := vmop.Annotations[evacuationAnnotation]; !exists {
 						return false
 					}
+
 					switch vmop.Status.Phase {
 					case v1alpha2.VMOPPhaseFailed, v1alpha2.VMOPPhaseCompleted, v1alpha2.VMOPPhaseSuperseded:
 						return true
@@ -170,6 +173,7 @@ func evacuateVirtualMachines(ctx context.Context, f *framework.Framework, vms ..
 	// status with a small lag, so observe each VM through a watch until its
 	// status reports an active pod, then fetch that pod.
 	var pods []corev1.Pod
+
 	for _, vm := range vms {
 		obs, err := observer.New[*v1alpha2.VirtualMachine](
 			ctx,

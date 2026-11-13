@@ -40,6 +40,7 @@ func SetupWebhookWithManager(mgr manager.Manager, clusterSubnets *appconfig.Clus
 		Complete(); err != nil {
 		return err
 	}
+
 	return nil
 }
 

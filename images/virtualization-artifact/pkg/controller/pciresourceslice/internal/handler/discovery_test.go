@@ -81,6 +81,7 @@ var _ = Describe("DiscoveryHandler", func() {
 
 			created := &v1alpha2.NodePCIDevice{}
 			Expect(cl.Get(context.Background(), types.NamespacedName{Name: "pci-device-1"}, created)).To(Succeed())
+
 			if expectVendor != "" {
 				Expect(created.Status.Attributes.VendorID).To(Equal(expectVendor))
 			}

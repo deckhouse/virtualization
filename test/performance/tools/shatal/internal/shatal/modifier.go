@@ -67,6 +67,7 @@ func (s *Modifier) Do(ctx context.Context, vm v1alpha2.VirtualMachine) {
 		}
 
 		s.logger.Error(err.Error())
+
 		return
 	}
 

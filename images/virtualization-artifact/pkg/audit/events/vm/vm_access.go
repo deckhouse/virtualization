@@ -84,6 +84,7 @@ func (m *VMAccess) Fill() error {
 	m.eventLog.Type = "Access to VM"
 
 	stage := ""
+
 	switch m.event.Stage {
 	case audit.StageResponseComplete:
 		stage = "finished"
@@ -92,6 +93,7 @@ func (m *VMAccess) Fill() error {
 	}
 
 	m.eventLog.Name = fmt.Sprintf("Virtual machine '%s' connection has been %s via %s by '%s'", m.event.ObjectRef.Name, stage, m.event.ObjectRef.Subresource, m.event.User.Username)
+
 	vm, err := util.GetVMFromInformer(m.ttlCache, m.informerList.GetVMInformer(), m.event.ObjectRef.Namespace+"/"+m.event.ObjectRef.Name)
 	if err != nil {
 		log.Debug("fail to get vm from informer", log.Err(err))

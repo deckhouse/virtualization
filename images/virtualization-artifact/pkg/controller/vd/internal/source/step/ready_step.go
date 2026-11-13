@@ -64,6 +64,7 @@ func (s ReadyStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*reconci
 				Status(metav1.ConditionFalse).
 				Reason(vdcondition.Lost).
 				Message(fmt.Sprintf("The PersistentVolumeClaim %q not found.", vd.Status.Target.PersistentVolumeClaim))
+
 			return &reconcile.Result{}, nil
 		}
 
@@ -71,6 +72,7 @@ func (s ReadyStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*reconci
 	}
 
 	vdsupplements.SetPVCName(vd, s.pvc.Name)
+
 	if s.pvc.GetAnnotations()[annotations.AnnPVCPopulationStrategy] != "" &&
 		s.pvc.GetAnnotations()[annotations.AnnPVCPopulationDone] != "true" {
 		return nil, nil

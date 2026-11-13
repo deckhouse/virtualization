@@ -85,6 +85,7 @@ func ApprovalMode(vm *v1alpha2.VirtualMachine) v1alpha2.RestartApprovalMode {
 	if vm.Spec.Disruptions == nil {
 		return v1alpha2.Manual
 	}
+
 	return vm.Spec.Disruptions.RestartApprovalMode
 }
 
@@ -97,11 +98,13 @@ func IsVMActive(ctx context.Context, c client.Client, vm v1alpha2.VirtualMachine
 	if err != nil {
 		return false, fmt.Errorf("error getting kvvms: %w", err)
 	}
+
 	if kvvm != nil && kvvm.Status.StateChangeRequests != nil {
 		return true, nil
 	}
 
 	podList := corev1.PodList{}
+
 	err = c.List(ctx, &podList, &client.ListOptions{
 		Namespace:     vm.GetNamespace(),
 		LabelSelector: labels.SelectorFromSet(map[string]string{virtv1.VirtualMachineNameLabel: vm.GetName()}),
@@ -132,6 +135,7 @@ func BlockDeviceUsage(
 	}
 
 	mounted, err = UsesBlockDevices(ctx, c, vm)
+
 	return true, mounted, err
 }
 
@@ -157,6 +161,7 @@ func MountedVirtualMachineNames(ctx context.Context, c client.Client, kind v1alp
 	}
 
 	var names []string
+
 	for _, vm := range vms.Items {
 		_, mounted, err := BlockDeviceUsage(ctx, c, vm, kind, name)
 		if err != nil {
@@ -175,6 +180,7 @@ func MountedVirtualMachineNames(ctx context.Context, c client.Client, kind v1alp
 	}
 
 	sort.Strings(names)
+
 	return names, nil
 }
 
@@ -190,6 +196,7 @@ func ProvisioningSecretNames(vm *v1alpha2.VirtualMachine) []string {
 	if ref := vm.Spec.Provisioning.UserDataRef; ref != nil && ref.Kind == v1alpha2.UserDataRefKindSecret && ref.Name != "" {
 		names = append(names, ref.Name)
 	}
+
 	if ref := vm.Spec.Provisioning.SysprepRef; ref != nil && ref.Kind == v1alpha2.SysprepRefKindSecret && ref.Name != "" {
 		names = append(names, ref.Name)
 	}
@@ -253,6 +260,7 @@ func RemoveNonPropagatableAnnotations(anno map[string]string) map[string]string 
 
 		res[k] = v
 	}
+
 	return res
 }
 

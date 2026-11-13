@@ -101,6 +101,7 @@ func (s WaitForUserUploadStep) Take(ctx context.Context, vd *v1alpha2.VirtualDis
 		// (e.g. TLS not settled after a secret restore). Treat as not-ready and
 		// keep retrying instead of failing the reconcile with an empty status.
 		logger.FromContext(ctx).Error("Uploader readiness probe failed; treating uploader as not ready", "err", err)
+
 		isUploaderReady = false
 	}
 
@@ -187,6 +188,7 @@ func handleUploaderPodError(vd *v1alpha2.VirtualDisk, podErr error, cb *conditio
 				Status(metav1.ConditionFalse).
 				Reason(vdcondition.Provisioning).
 				Message("Import is in the process of provisioning to DVCR.")
+
 			return &reconcile.Result{RequeueAfter: time.Second}, nil
 		}
 
@@ -195,6 +197,7 @@ func handleUploaderPodError(vd *v1alpha2.VirtualDisk, podErr error, cb *conditio
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.Provisioning).
 			Message(service.CapitalizeFirstLetter(podErr.Error()) + ".")
+
 		return &reconcile.Result{}, nil
 	case errors.Is(podErr, servicestat.ErrProvisioningFailed):
 		// The uploader's terminal verdict (e.g. a checksum mismatch) is
@@ -204,11 +207,13 @@ func handleUploaderPodError(vd *v1alpha2.VirtualDisk, podErr error, cb *conditio
 		if servicestat.IsTerminationMessageError(podErr) {
 			reason = vdcondition.ProvisioningFailedTerminally
 		}
+
 		vd.Status.Phase = v1alpha2.DiskFailed
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(reason).
 			Message(service.CapitalizeFirstLetter(podErr.Error()) + ".")
+
 		return &reconcile.Result{}, nil
 	default:
 		vd.Status.Phase = v1alpha2.DiskFailed
@@ -216,6 +221,7 @@ func handleUploaderPodError(vd *v1alpha2.VirtualDisk, podErr error, cb *conditio
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ProvisioningFailed).
 			Message(service.CapitalizeFirstLetter(fmt.Errorf("unexpected error: %w", podErr).Error()) + ".")
+
 		return nil, podErr
 	}
 }

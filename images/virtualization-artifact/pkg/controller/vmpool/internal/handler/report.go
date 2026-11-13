@@ -50,6 +50,7 @@ func ReportFrom(ctx context.Context) *passReport {
 	if r, ok := ctx.Value(reportKey{}).(*passReport); ok {
 		return r
 	}
+
 	return &passReport{}
 }
 
@@ -76,9 +77,11 @@ func (r *passReport) UpdateFailed(member, msg string) {
 	if r.update == "" {
 		r.update = msg
 	}
+
 	if r.updateFailed == nil {
 		r.updateFailed = map[string]bool{}
 	}
+
 	r.updateFailed[member] = true
 }
 
@@ -104,7 +107,9 @@ func explain(err error, fieldPrefix string) string {
 	if !errors.As(err, &status) {
 		return "unexpected error."
 	}
+
 	st := status.Status()
+
 	denial, denied := denialReason(st.Message)
 	switch {
 	case st.Reason == metav1.StatusReasonInvalid && st.Details != nil && len(st.Details.Causes) > 0 && st.Details.Causes[0].Field != "":
@@ -128,13 +133,16 @@ func explainDeletion(err error) string {
 	if !errors.As(err, &status) {
 		return "unexpected error."
 	}
+
 	st := status.Status()
 	if denial, denied := denialReason(st.Message); denied {
 		return fmt.Sprintf("the deletion is denied: %s.", denial)
 	}
+
 	if st.Reason == metav1.StatusReasonForbidden {
 		return "access is denied. Contact your administrator."
 	}
+
 	return fmt.Sprintf("the request is rejected: %s.", strings.TrimSuffix(st.Message, "."))
 }
 
@@ -149,5 +157,6 @@ func denialReason(msg string) (string, bool) {
 			return strings.TrimSuffix(reason, "."), true
 		}
 	}
+
 	return "", false
 }

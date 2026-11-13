@@ -52,6 +52,7 @@ func newRootVD(f *framework.Framework, root buildOption, vi *v1alpha2.VirtualIma
 	if size == "" {
 		size = "400Mi"
 	}
+
 	disk := object.NewVDFromVI(root.name, f.Namespace().Name, vi)
 	vdbuilder.ApplyOptions(disk,
 		vdbuilder.WithSize(ptr.To(resource.MustParse(size))),
@@ -72,6 +73,7 @@ func newBlankVD(f *framework.Framework, additional buildOption) *v1alpha2.Virtua
 	if size == "" {
 		size = "100Mi"
 	}
+
 	blank := object.NewBlankVD(additional.name, f.Namespace().Name, additional.storageClass, ptr.To(resource.MustParse(size)))
 
 	if additional.rwo {
@@ -93,6 +95,7 @@ func onlyRootBuild(f *framework.Framework, vi *v1alpha2.VirtualImage, root build
 		),
 	)
 	vds := []*v1alpha2.VirtualDisk{newRootVD(f, root, vi)}
+
 	return vm, vds
 }
 
@@ -113,6 +116,7 @@ func rootAndAdditionalBuild(f *framework.Framework, vi *v1alpha2.VirtualImage, r
 		newRootVD(f, root, vi),
 		newBlankVD(f, additional),
 	}
+
 	return vm, vds
 }
 
@@ -121,14 +125,17 @@ func rootAndAdditionalBuild(f *framework.Framework, vi *v1alpha2.VirtualImage, r
 func rootAndManyAdditionalBuild(f *framework.Framework, vi *v1alpha2.VirtualImage, root buildOption, storageClass *string, count int) (*v1alpha2.VirtualMachine, []*v1alpha2.VirtualDisk) {
 	refs := []v1alpha2.BlockDeviceSpecRef{{Kind: v1alpha2.VirtualDiskKind, Name: root.name}}
 	vds := []*v1alpha2.VirtualDisk{newRootVD(f, root, vi)}
+
 	for i := range count {
 		name := fmt.Sprintf("vd-alpine-additional-disk-%d", i)
 		refs = append(refs, v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.VirtualDiskKind, Name: name})
 		vds = append(vds, newBlankVD(f, buildOption{name: name, storageClass: storageClass, rwo: true}))
 	}
+
 	vm := object.NewMinimalVM("volume-migration-many-disks-", f.Namespace().Name,
 		vmbuilder.WithBlockDeviceRefs(refs...),
 	)
+
 	return vm, vds
 }
 
@@ -151,6 +158,7 @@ func onlyAdditionalBuild(f *framework.Framework, vi *v1alpha2.VirtualImage, root
 		newRootVD(f, root, vi),
 		newBlankVD(f, additional),
 	}
+
 	return vm, vds
 }
 
@@ -159,10 +167,12 @@ func onlyAdditionalBuild(f *framework.Framework, vi *v1alpha2.VirtualImage, root
 // migration that finishes quickly) are captured for the expect* waits below.
 func startVDObservers(ctx context.Context, f *framework.Framework, vds ...*v1alpha2.VirtualDisk) []vdobs.Observer {
 	GinkgoHelper()
+
 	observers := make([]vdobs.Observer, 0, len(vds))
 	for _, vd := range vds {
 		observers = append(observers, vdobs.StartObserver(ctx, f, vd))
 	}
+
 	return observers
 }
 
@@ -173,11 +183,13 @@ func expectVDsMigrationSucceeded(ctx context.Context, f *framework.Framework, ob
 	GinkgoHelper()
 
 	By("Wait until VirtualDisks migrations succeeded")
+
 	for i, obs := range observers {
 		err := obs.WaitFor(vdobs.BeMigrationSucceeded(), framework.MaxTimeout)
 		if err != nil {
 			skipIfKnownMigrationFailures(ctx, f)
 		}
+
 		Expect(err).NotTo(HaveOccurred(), "VirtualDisk %s/%s should finish its volume migration successfully", vds[i].Namespace, vds[i].Name)
 	}
 }
@@ -189,12 +201,14 @@ func expectVDsMigrationFailed(ctx context.Context, f *framework.Framework, obser
 	GinkgoHelper()
 
 	By("Wait until VirtualDisks migrations failed")
+
 	for i, obs := range observers {
 		err := obs.WaitFor(vdobs.BeMigrationFailed(), framework.LongTimeout)
 		if err != nil {
 			skipIfVolumeMigrationOutranTheCancel(err, vds[i])
 			skipIfKnownMigrationFailures(ctx, f)
 		}
+
 		Expect(err).NotTo(HaveOccurred(), "VirtualDisk %s/%s volume migration should fail and revert", vds[i].Namespace, vds[i].Name)
 	}
 }
@@ -219,6 +233,7 @@ func skipWithoutInvariantTSC(ctx context.Context, f *framework.Framework) {
 
 	nodes, err := f.KubeClient().CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 	Expect(err).NotTo(HaveOccurred())
+
 	for _, node := range nodes.Items {
 		if _, ok := node.Labels[tscFrequencyNodeLabel]; ok && !node.Spec.Unschedulable {
 			return
@@ -257,6 +272,7 @@ func skipIfKnownMigrationFailures(ctx context.Context, f *framework.Framework) {
 
 	vms, err := f.VirtClient().VirtualMachines(f.Namespace().Name).List(ctx, metav1.ListOptions{})
 	Expect(err).NotTo(HaveOccurred())
+
 	for _, vm := range vms.Items {
 		e2eutil.SkipIfKnownMigrationFailureWithContext(ctx, &vm)
 	}
@@ -300,6 +316,7 @@ func untilVirtualMachinesWillBeStartMigratingAndCancelImmediately(f *framework.F
 		}
 
 		migrationReady := make(map[string]struct{})
+
 		for _, vmop := range vmops.Items {
 			if vm := vmsByName[vmop.Spec.VirtualMachine]; vm != nil {
 				if vm.Status.MigrationState != nil && !vm.Status.MigrationState.StartTimestamp.IsZero() && vm.Status.MigrationState.EndTimestamp.IsZero() {
@@ -324,6 +341,7 @@ func untilVirtualMachinesWillBeStartMigratingAndCancelImmediately(f *framework.F
 				return nil
 			}
 		}
+
 		return fmt.Errorf("retry because not all vmops canceled")
 	},
 		// MaxTimeout: the revert specs run in parallel with the other migration

@@ -48,6 +48,7 @@ func NewDVCRDataSourcesForCVMI(ctx context.Context, ds v1alpha2.ClusterVirtualIm
 	switch ds.ObjectRef.Kind {
 	case v1alpha2.ClusterVirtualImageObjectRefKindVirtualImage:
 		vmiName := ds.ObjectRef.Name
+
 		vmiNS := ds.ObjectRef.Namespace
 		if vmiName != "" && vmiNS != "" {
 			vmi, err := object.FetchObject(ctx, types.NamespacedName{Name: vmiName, Namespace: vmiNS}, client, &v1alpha2.VirtualImage{})
@@ -96,6 +97,7 @@ func NewDVCRDataSourcesForVMI(ctx context.Context, ds v1alpha2.VirtualImageDataS
 	switch ds.ObjectRef.Kind {
 	case v1alpha2.VirtualImageObjectRefKindVirtualImage:
 		vmiName := ds.ObjectRef.Name
+
 		vmiNS := obj.GetNamespace()
 		if vmiName != "" && vmiNS != "" {
 			vmi, err := object.FetchObject(ctx, types.NamespacedName{Name: vmiName, Namespace: vmiNS}, client, &v1alpha2.VirtualImage{})
@@ -148,6 +150,7 @@ func NewDVCRDataSourcesForVMD(ctx context.Context, ds *v1alpha2.VirtualDiskDataS
 	switch ds.ObjectRef.Kind {
 	case v1alpha2.VirtualDiskObjectRefKindVirtualImage:
 		vmiName := ds.ObjectRef.Name
+
 		vmiNS := obj.GetNamespace()
 		if vmiName != "" && vmiNS != "" {
 			vmi, err := object.FetchObject(ctx, types.NamespacedName{Name: vmiName, Namespace: vmiNS}, client, &v1alpha2.VirtualImage{})

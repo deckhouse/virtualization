@@ -76,6 +76,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Label(label.SIGCompute, 
 		f = framework.NewFramework("vm-affinity-and-toleration")
 		DeferCleanup(f.After)
 		f.Before()
+
 		ctx = context.Background()
 	})
 
@@ -157,6 +158,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Label(label.SIGCompute, 
 		})
 
 		var nodeA string
+
 		By("Verifying initial placement via status.nodeName", func() {
 			vmA = getVirtualMachine(ctx, f, vmA.Name)
 			vmB = getVirtualMachine(ctx, f, vmB.Name)
@@ -203,6 +205,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Label(label.SIGCompute, 
 		})
 
 		var migratedNodeC string
+
 		By("Verifying vm-c moved away from vm-a node", func() {
 			vmC = getVirtualMachine(ctx, f, vmC.Name)
 			migratedNodeC = vmC.Status.Node
@@ -248,7 +251,9 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Label(label.SIGCompute, 
 		})
 
 		vmNodeSelector := newPlacementVM("vm-node-selector", f.Namespace().Name, nil)
+
 		var vmNodeSelectorObs vmobs.Observer
+
 		By("Creating the virtual machine", func() {
 			err := f.CreateWithDeferredDeletion(
 				ctx,
@@ -270,6 +275,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Label(label.SIGCompute, 
 		})
 
 		var sourceNode string
+
 		By("Setting spec.nodeSelector to the current node and verifying that no migration happens", func() {
 			vmNodeSelector = getVirtualMachine(ctx, f, vmNodeSelector.Name)
 			sourceNode = vmNodeSelector.Status.Node
@@ -283,13 +289,16 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Label(label.SIGCompute, 
 		})
 
 		var targetNode string
+
 		By("Setting spec.nodeSelector to another worker node and verifying migration", func() {
 			var err error
+
 			targetNode, err = defineReadyTargetNode(ctx, f, sourceNode, map[string]string{kvmEnabledLabelKey: "true", masterLabelKey: "worker"})
 			Expect(err).NotTo(HaveOccurred())
 
 			vmNodeSelector = getVirtualMachine(ctx, f, vmNodeSelector.Name)
 			startedAt := time.Now().UTC()
+
 			updateVMSpec(ctx, f, vmNodeSelector.Name, func(vm *v1alpha2.VirtualMachine) {
 				vm.Spec.NodeSelector = map[string]string{affinityHostnameLabelKey: targetNode}
 			})
@@ -331,7 +340,9 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Label(label.SIGCompute, 
 		})
 
 		vmNodeAffinity := newPlacementVM("vm-node-affinity", f.Namespace().Name, nil)
+
 		var vmNodeAffinityObs vmobs.Observer
+
 		By("Creating the virtual machine", func() {
 			err := f.CreateWithDeferredDeletion(
 				ctx,
@@ -353,6 +364,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Label(label.SIGCompute, 
 		})
 
 		var sourceNode string
+
 		By("Setting spec.affinity.nodeAffinity to the current node and verifying that no migration happens", func() {
 			vmNodeAffinity = getVirtualMachine(ctx, f, vmNodeAffinity.Name)
 			sourceNode = vmNodeAffinity.Status.Node
@@ -366,13 +378,16 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Label(label.SIGCompute, 
 		})
 
 		var targetNode string
+
 		By("Setting spec.affinity.nodeAffinity to another worker node and verifying migration", func() {
 			var err error
+
 			targetNode, err = defineReadyTargetNode(ctx, f, sourceNode, map[string]string{kvmEnabledLabelKey: "true", masterLabelKey: "worker"})
 			Expect(err).NotTo(HaveOccurred())
 
 			vmNodeAffinity = getVirtualMachine(ctx, f, vmNodeAffinity.Name)
 			startedAt := time.Now().UTC()
+
 			updateVMSpec(ctx, f, vmNodeAffinity.Name, func(vm *v1alpha2.VirtualMachine) {
 				vm.Spec.Affinity = nodeAffinityForNode(targetNode)
 			})
@@ -420,6 +435,7 @@ func newPlacementVM(name, namespace string, affinity *v1alpha2.VMAffinity) *v1al
 		}}),
 	)
 	vm.Spec.Affinity = affinity
+
 	return vm
 }
 
@@ -499,6 +515,7 @@ func migratableConditionReason(status metav1.ConditionStatus, reason vmcondition
 				return c.Status == status && c.Reason == reason.String(), nil
 			}
 		}
+
 		return false, nil
 	}
 }
@@ -511,6 +528,7 @@ func migratableConditionTrue() vmobs.Predicate {
 				return c.Status == metav1.ConditionTrue, nil
 			}
 		}
+
 		return false, nil
 	}
 }
@@ -524,12 +542,15 @@ func freshMigrationSucceededAfter(notBefore time.Time) vmobs.Predicate {
 		if state == nil || state.StartTimestamp == nil || state.StartTimestamp.UTC().Before(notBefore) {
 			return false, nil
 		}
+
 		if state.EndTimestamp.IsZero() {
 			return false, nil
 		}
+
 		if state.Result == v1alpha2.MigrationResultFailed {
 			return false, fmt.Errorf("migration failed for vm %s/%s: %s", m.Namespace, m.Name, migrationFailureDetails(m))
 		}
+
 		if state.Result != v1alpha2.MigrationResultSucceeded {
 			return false, nil
 		}
@@ -556,6 +577,7 @@ func waitForStabilizedVMMigration(
 	if err != nil {
 		util.SkipIfKnownMigrationFailureWithContext(ctx, getVirtualMachine(ctx, f, key.Name))
 	}
+
 	Expect(err).NotTo(HaveOccurred())
 
 	vm := getVirtualMachine(ctx, f, key.Name)
@@ -620,6 +642,7 @@ func getVirtualMachine(ctx context.Context, f *framework.Framework, name string)
 
 	vm, err := f.VirtClient().VirtualMachines(f.Namespace().Name).Get(ctx, name, metav1.GetOptions{})
 	Expect(err).NotTo(HaveOccurred())
+
 	return vm
 }
 
@@ -634,7 +657,9 @@ func updateVMSpec(ctx context.Context, f *framework.Framework, name string, muta
 		if err != nil {
 			return err
 		}
+
 		mutate(vm)
+
 		return f.GenericClient().Update(ctx, vm)
 	})
 	Expect(err).NotTo(HaveOccurred())
@@ -646,11 +671,13 @@ func getNode(ctx context.Context, f *framework.Framework, name string) *corev1.N
 	node := &corev1.Node{}
 	err := f.GenericClient().Get(ctx, crclient.ObjectKey{Name: name}, node)
 	Expect(err).NotTo(HaveOccurred())
+
 	return node
 }
 
 func listReadyNodes(ctx context.Context, f *framework.Framework, labels map[string]string) ([]corev1.Node, error) {
 	nodes := &corev1.NodeList{}
+
 	err := f.GenericClient().List(ctx, nodes, crclient.MatchingLabels(labels))
 	if err != nil {
 		return nil, err

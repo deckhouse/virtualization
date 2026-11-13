@@ -58,6 +58,7 @@ func (w *VMMACWatcher) Watch(mgr manager.Manager, ctr controller.Controller) err
 				if name == "" {
 					return nil
 				}
+
 				return []reconcile.Request{
 					{
 						NamespacedName: types.NamespacedName{
@@ -83,5 +84,6 @@ func (w *VMMACWatcher) Watch(mgr manager.Manager, ctr controller.Controller) err
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualMachineMACAddress: %w", err)
 	}
+
 	return nil
 }

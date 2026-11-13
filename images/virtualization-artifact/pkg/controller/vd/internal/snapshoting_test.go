@@ -34,6 +34,7 @@ import (
 var _ = DescribeTable("Test Handle cases", func(args snapshottingHandlerTestHandlerArgs) {
 	fakeClient, err := testutil.NewFakeClientWithObjects(&args.Snapshot)
 	Expect(err).NotTo(HaveOccurred(), "failed to create fake client: %s", err)
+
 	diskService := service.NewDiskService(fakeClient, nil, nil, "test")
 	snapshottingHandler := NewSnapshottingHandler(diskService)
 
@@ -54,8 +55,10 @@ var _ = DescribeTable("Test Handle cases", func(args snapshottingHandlerTestHand
 	result, err := snapshottingHandler.Handle(context.Background(), &vd)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(result).To(Equal(reconcile.Result{}))
+
 	snapshottingCondition, ok := conditions.GetCondition(vdcondition.SnapshottingType, vd.Status.Conditions)
 	Expect(ok).Should(Equal(args.IsExpectCondition))
+
 	if args.IsExpectCondition {
 		Expect(snapshottingCondition.Status).Should(Equal(args.ExpectConditionStatus))
 	}

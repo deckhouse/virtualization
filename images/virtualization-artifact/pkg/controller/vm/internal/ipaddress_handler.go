@@ -72,6 +72,7 @@ func (h *IPAddressHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 	if s.VirtualMachine().IsEmpty() {
 		return reconcile.Result{}, nil
 	}
+
 	vm := s.VirtualMachine().Changed()
 
 	if isDeletion(vm) {
@@ -97,6 +98,7 @@ func (h *IPAddressHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 			log.Debug("The IPAddress kind is not registered, nothing to ensure")
 			return reconcile.Result{RequeueAfter: ipAddressKindRetryInterval}, nil
 		}
+
 		return reconcile.Result{}, err
 	}
 
@@ -114,12 +116,14 @@ func (h *IPAddressHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 	// The result for the Main network is returned after the additional networks, so a
 	// wait for the Main address does not delay them.
 	var mainResult reconcile.Result
+
 	switch {
 	case onMirrorOfVMIP:
 		mainResult, err = h.labelMirrorOfVMIP(ctx, s, vm)
 	case !usesVMIP:
 		mainResult, err = h.ensureMainIPAddress(ctx, vm, ipAddresses, log)
 	}
+
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -139,6 +143,7 @@ func (h *IPAddressHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("check IPAM for %s: %w", commonnetwork.SpecKey(netSpec), err)
 		}
+
 		if !hasPool {
 			continue
 		}
@@ -149,13 +154,17 @@ func (h *IPAddressHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 			if errors.Is(err, commonnetwork.ErrIPAddressTerminating) {
 				log.Debug("The IPAddress of the additional network is still terminating, waiting",
 					"network", commonnetwork.SpecKey(netSpec))
+
 				return reconcile.Result{RequeueAfter: ipAddressTerminatingRetry}, nil
 			}
+
 			if apierrors.IsServerTimeout(err) || apierrors.IsTooManyRequests(err) || apierrors.IsConflict(err) || apierrors.IsServiceUnavailable(err) {
 				return reconcile.Result{}, err
 			}
+
 			return reconcile.Result{}, fmt.Errorf("ensure SDN IPAddress for %s: %w", commonnetwork.SpecKey(netSpec), err)
 		}
+
 		log.Debug("Ensured SDN IPAddress for additional network", "network", commonnetwork.SpecKey(netSpec), "ipAddress", name)
 	}
 
@@ -167,6 +176,7 @@ func (h *IPAddressHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 			return reconcile.Result{}, err
 		}
 	}
+
 	if err := h.cleanupOrphanedIPAddresses(ctx, vm, ipAddresses, mainInterfaceSpecEnabled); err != nil {
 		return reconcile.Result{}, fmt.Errorf("cleanup orphaned SDN IPAddress: %w", err)
 	}
@@ -184,6 +194,7 @@ func (h *IPAddressHandler) labelMirrorOfVMIP(ctx context.Context, s state.Virtua
 	if err != nil || vmip == nil || vmip.Status.Address == "" {
 		return reconcile.Result{}, err
 	}
+
 	ipa, err := commonnetwork.GetIPAddressTakingVMIPAddress(ctx, h.client, vmip)
 	if err != nil || ipa == nil || ipa.GetDeletionTimestamp() != nil || !commonnetwork.IPAddressAllocated(ipa) {
 		return reconcile.Result{}, err
@@ -201,8 +212,10 @@ func (h *IPAddressHandler) labelMirrorOfVMIP(ctx context.Context, s state.Virtua
 		h.recorder.Eventf(vm, corev1.EventTypeWarning, v1alpha2.ReasonMainIPAMMigrationBlocked,
 			"The address %s of the virtual machine cannot be moved to the sdn module: the IPAddress %q, not created for the VirtualMachineIPAddress %q, already uses it. Delete that IPAddress, or reference it in spec.networks[].ipAddressName of the Main network and restart the virtual machine.",
 			vmip.Status.Address, ipa.GetName(), vmip.Name)
+
 		return reconcile.Result{RequeueAfter: addressInUseRetry}, nil
 	}
+
 	return reconcile.Result{}, commonnetwork.ReleaseMirrorsOfPreviousVMIPs(ctx, h.client, vm, vmip)
 }
 
@@ -213,22 +226,28 @@ func (h *IPAddressHandler) ensureMainIPAddress(ctx context.Context, vm *v1alpha2
 	if mainSpec == nil || mainSpec.IPAddressName != "" {
 		return reconcile.Result{}, nil
 	}
+
 	address := vm.Status.IPAddress
+
 	receiver, err := loadMigrationReceiver(ctx, h.client, vm)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	if source := peering.ReceiverIPAddress(receiver); isReceiving(receiver) && source != "" {
 		// A VM received from another cluster keeps its address: one this cluster cannot give fails the move.
 		address = source
+
 		msg, err := receivedAddressProblem(ctx, h.client, source, ipAddresses)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
+
 		if msg != "" {
 			return reconcile.Result{}, peering.SetReceiverFailed(ctx, h.client, receiver, peering.ReceiverReasonIPAddressNotAvailable, msg)
 		}
 	}
+
 	name, err := commonnetwork.EnsureMainSDNIPAddress(ctx, h.client, vm, address, ipAddresses)
 	switch {
 	case errors.Is(err, commonnetwork.ErrIPAddressTerminating):
@@ -237,7 +256,9 @@ func (h *IPAddressHandler) ensureMainIPAddress(ctx context.Context, vm *v1alpha2
 	case err != nil:
 		return reconcile.Result{}, fmt.Errorf("ensure SDN IPAddress for the Main network: %w", err)
 	}
+
 	log.Debug("Ensured SDN IPAddress for the Main network", "ipAddress", name)
+
 	return reconcile.Result{}, nil
 }
 
@@ -253,19 +274,24 @@ func receivedAddressProblem(ctx context.Context, c client.Client, address string
 		if !commonnetwork.IsMainNetworkIPAddress(ipa) {
 			continue
 		}
+
 		cond := apimeta.FindStatusCondition(ipa.Status.Conditions, sdnapi.ConditionAllocated)
 		if cond != nil && cond.Status == metav1.ConditionFalse && time.Since(cond.LastTransitionTime.Time) > receivedAddressAllocationWait {
 			return fmt.Sprintf("the IP address %s is not available in this cluster: %s", address, cond.Message), nil
 		}
+
 		return "", nil
 	}
+
 	held, err := commonnetwork.MainSDNIPAddressesByAddress(ctx, c)
 	if err != nil {
 		return "", err
 	}
+
 	if _, ok := held[address]; ok {
 		return fmt.Sprintf("the IP address %s is used in this cluster", address), nil
 	}
+
 	return "", nil
 }
 
@@ -276,11 +302,13 @@ func (h *IPAddressHandler) cleanupOrphanedIPAddresses(ctx context.Context, vm *v
 	// Networks are keyed by the networkRef (not SpecKey) so the Main network maps to
 	// the same ClusterNetwork/main its IPAddress carries.
 	wanted := make(map[sdnapi.NetworkRef]struct{})
+
 	if mainInterfaceSpecEnabled {
 		if mainSpec := commonnetwork.MainNetworkSpec(vm.Spec.Networks); mainSpec != nil && mainSpec.IPAddressName == "" {
 			wanted[commonnetwork.SDNNetworkRef(*mainSpec)] = struct{}{}
 		}
 	}
+
 	for _, netSpec := range vm.Spec.Networks {
 		if netSpec.Type == v1alpha2.NetworksTypeMain {
 			continue
@@ -289,12 +317,14 @@ func (h *IPAddressHandler) cleanupOrphanedIPAddresses(ctx context.Context, vm *v
 		if netSpec.IPAddressName != "" {
 			continue
 		}
+
 		wanted[commonnetwork.SDNNetworkRef(netSpec)] = struct{}{}
 	}
 
 	// Names referenced by the spec (static mode) are user-managed regardless of
 	// labels and must never be garbage-collected.
 	referenced := make(map[string]struct{})
+
 	for _, netSpec := range commonnetwork.WithEffectiveMain(vm.Spec.Networks) {
 		if netSpec.IPAddressName != "" {
 			referenced[netSpec.IPAddressName] = struct{}{}
@@ -302,15 +332,18 @@ func (h *IPAddressHandler) cleanupOrphanedIPAddresses(ctx context.Context, vm *v
 	}
 
 	byNetwork := make(map[sdnapi.NetworkRef][]sdnapi.IPAddress)
+
 	for i := range ipAddresses {
 		key := ipAddresses[i].Spec.NetworkRef
 		byNetwork[key] = append(byNetwork[key], ipAddresses[i])
 	}
+
 	for i := range ipAddresses {
 		ipa := &ipAddresses[i]
 		if _, ok := referenced[ipa.Name]; ok {
 			continue
 		}
+
 		if commonnetwork.IsMainNetworkIPAddress(ipa) {
 			// Without the Main interface spec the address comes from a vmip, and the
 			// IPAddresses of the Main network are not this handler's to collect.
@@ -338,9 +371,11 @@ func (h *IPAddressHandler) cleanupOrphanedIPAddresses(ctx context.Context, vm *v
 				continue
 			}
 		}
+
 		if err := commonnetwork.DeleteSDNIPAddressByName(ctx, h.client, vm.Namespace, ipa.Name); err != nil {
 			return fmt.Errorf("delete orphaned SDN IPAddress %s: %w", ipa.Name, err)
 		}
 	}
+
 	return nil
 }

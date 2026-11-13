@@ -46,6 +46,7 @@ func newSysfs(root string) sysfs {
 	if root == "" {
 		root = defaultSysfsRoot
 	}
+
 	return sysfs{root: root, proc: defaultProcRoot, stat: os.Stat}
 }
 
@@ -62,6 +63,7 @@ func (s sysfs) readDeviceFile(address, name string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	return strings.TrimSpace(string(data)), nil
 }
 
@@ -71,6 +73,7 @@ func (s sysfs) readDeviceHex(address, name string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	return strings.ToLower(strings.TrimPrefix(value, "0x")), nil
 }
 
@@ -81,8 +84,10 @@ func (s sysfs) driver(address string) (string, error) {
 		if os.IsNotExist(err) {
 			return "", nil
 		}
+
 		return "", err
 	}
+
 	return filepath.Base(target), nil
 }
 
@@ -94,12 +99,15 @@ func (s sysfs) iommuGroup(address string) (int, error) {
 		if os.IsNotExist(err) {
 			return -1, nil
 		}
+
 		return -1, err
 	}
+
 	group, err := strconv.Atoi(filepath.Base(target))
 	if err != nil {
 		return -1, fmt.Errorf("unexpected iommu_group link %q for device %s: %w", target, address, err)
 	}
+
 	return group, nil
 }
 
@@ -115,10 +123,12 @@ func (s sysfs) numaNode(address string) int64 {
 	if err != nil {
 		return -1
 	}
+
 	node, err := strconv.ParseInt(value, 10, 64)
 	if err != nil {
 		return -1
 	}
+
 	return node
 }
 
@@ -128,10 +138,12 @@ func (s sysfs) iommuGroupDevices(group int) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	addresses := make([]string, 0, len(entries))
 	for _, entry := range entries {
 		addresses = append(addresses, entry.Name())
 	}
+
 	return addresses, nil
 }
 
@@ -150,27 +162,34 @@ func (s sysfs) hasActiveNetInterface(address string) (bool, error) {
 		if os.IsNotExist(err) {
 			return false, nil
 		}
+
 		return false, err
 	}
+
 	for _, entry := range entries {
 		netDir := filepath.Join(s.root, "class", "net", entry.Name())
+
 		realPath, err := filepath.EvalSymlinks(netDir)
 		if err != nil || !strings.HasPrefix(realPath, deviceDir+string(filepath.Separator)) {
 			continue
 		}
+
 		data, err := os.ReadFile(filepath.Join(netDir, "flags"))
 		if err != nil {
 			continue
 		}
+
 		flags, err := strconv.ParseInt(strings.TrimPrefix(strings.TrimSpace(string(data)), "0x"), 16, 64)
 		if err != nil {
 			continue
 		}
+
 		const iffUp = 0x1
 		if flags&iffUp != 0 {
 			return true, nil
 		}
 	}
+
 	return false, nil
 }
 
@@ -189,19 +208,23 @@ func (s sysfs) blockDevices(address string) ([]string, error) {
 		if os.IsNotExist(err) {
 			return nil, nil
 		}
+
 		return nil, err
 	}
 
 	var names []string
+
 	for _, entry := range entries {
 		realPath, err := filepath.EvalSymlinks(filepath.Join(s.root, "class", "block", entry.Name()))
 		if err != nil {
 			continue
 		}
+
 		if strings.HasPrefix(realPath, deviceDir+string(filepath.Separator)) {
 			names = append(names, entry.Name())
 		}
 	}
+
 	return names, nil
 }
 
@@ -214,6 +237,7 @@ func (s sysfs) hasBusyBlockDevice(address string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+
 	if len(names) == 0 {
 		return false, nil
 	}
@@ -223,6 +247,7 @@ func (s sysfs) hasBusyBlockDevice(address string) (bool, error) {
 		if err != nil && !os.IsNotExist(err) {
 			return false, err
 		}
+
 		if len(holders) > 0 {
 			return true, nil
 		}
@@ -232,6 +257,7 @@ func (s sysfs) hasBusyBlockDevice(address string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+
 	for _, name := range names {
 		if _, busy := used["/dev/"+name]; busy {
 			return true, nil
@@ -242,15 +268,18 @@ func (s sysfs) hasBusyBlockDevice(address string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+
 	for _, name := range names {
 		number, err := s.blockDeviceNumber(name)
 		if err != nil {
 			return false, err
 		}
+
 		if _, busy := opened[number]; busy {
 			return true, nil
 		}
 	}
+
 	return false, nil
 }
 
@@ -260,6 +289,7 @@ func (s sysfs) blockDeviceNumber(name string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	return strings.TrimSpace(string(data)), nil
 }
 
@@ -273,29 +303,37 @@ func (s sysfs) openedBlockDevices() (map[string]struct{}, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	opened := make(map[string]struct{})
+
 	for _, entry := range entries {
 		if _, err := strconv.Atoi(entry.Name()); err != nil {
 			continue
 		}
+
 		fdDir := filepath.Join(s.proc, entry.Name(), "fd")
+
 		fds, err := os.ReadDir(fdDir)
 		if err != nil {
 			continue
 		}
+
 		for _, fd := range fds {
 			info, err := s.stat(filepath.Join(fdDir, fd.Name()))
 			if err != nil || info.Mode()&os.ModeDevice == 0 || info.Mode()&os.ModeCharDevice != 0 {
 				continue
 			}
+
 			stat, ok := info.Sys().(*syscall.Stat_t)
 			if !ok {
 				continue
 			}
+
 			rdev := uint64(stat.Rdev) //nolint:unconvert // Rdev is not uint64 on every platform
 			opened[fmt.Sprintf("%d:%d", unix.Major(rdev), unix.Minor(rdev))] = struct{}{}
 		}
 	}
+
 	return opened, nil
 }
 
@@ -309,8 +347,10 @@ func (s sysfs) usedBlockDeviceSources() (map[string]struct{}, error) {
 			if os.IsNotExist(err) {
 				continue
 			}
+
 			return nil, err
 		}
+
 		for _, line := range strings.Split(string(data), "\n") {
 			fields := strings.Fields(line)
 			if len(fields) > 0 && strings.HasPrefix(fields[0], "/dev/") {
@@ -318,6 +358,7 @@ func (s sysfs) usedBlockDeviceSources() (map[string]struct{}, error) {
 			}
 		}
 	}
+
 	return used, nil
 }
 
@@ -331,6 +372,7 @@ func (s sysfs) writeFile(path, value string) error {
 	if _, err := f.WriteString(value); err != nil {
 		return fmt.Errorf("failed to write %q to %s: %w", value, path, err)
 	}
+
 	return nil
 }
 
@@ -338,6 +380,7 @@ func (s sysfs) setDriverOverride(address, driver string) error {
 	if driver == "" {
 		driver = "\n"
 	}
+
 	return s.writeFile(filepath.Join(s.deviceDir(address), "driver_override"), driver)
 }
 
@@ -346,9 +389,11 @@ func (s sysfs) unbind(address string) error {
 	if err != nil {
 		return err
 	}
+
 	if driver == "" {
 		return nil
 	}
+
 	return s.writeFile(filepath.Join(s.deviceDir(address), "driver", "unbind"), address)
 }
 

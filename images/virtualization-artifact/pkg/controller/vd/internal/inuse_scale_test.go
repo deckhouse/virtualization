@@ -36,6 +36,7 @@ import (
 // scaleNamespace returns a namespace of vms running virtual machines unrelated to the disk, and one that owns it.
 func scaleNamespace(vms int) []client.Object {
 	const ns = "default"
+
 	objs := []client.Object{
 		&v1alpha2.VirtualDisk{
 			ObjectMeta: metav1.ObjectMeta{Name: "vd-scale", Namespace: ns},
@@ -50,16 +51,20 @@ func scaleNamespace(vms int) []client.Object {
 		for _, d := range disks {
 			vm.Status.BlockDeviceRefs = append(vm.Status.BlockDeviceRefs, v1alpha2.BlockDeviceStatusRef{Kind: v1alpha2.DiskDevice, Name: d})
 		}
+
 		kvvmi := &virtv1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns}}
 		for _, d := range disks {
 			kvvmi.Status.VolumeStatus = append(kvvmi.Status.VolumeStatus, virtv1.VolumeStatus{Name: "vd-" + d})
 		}
+
 		objs = append(objs, vm, kvvmi, &virtv1.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns}})
 	}
 	running("owner", "vd-scale")
+
 	for i := range vms {
 		running(fmt.Sprintf("vm-%d", i), fmt.Sprintf("vd-other-%d", i))
 	}
+
 	return objs
 }
 
@@ -72,13 +77,16 @@ type fataler interface {
 // internalVMReads counts the reads of the internal virtual machines and their instances one reconcile makes.
 func internalVMReads(tb fataler, vms int) int64 {
 	tb.Helper()
+
 	var reads atomic.Int64
+
 	count := func(obj client.Object) {
 		switch obj.(type) {
 		case *virtv1.VirtualMachine, *virtv1.VirtualMachineInstance:
 			reads.Add(1)
 		}
 	}
+
 	c, err := testutil.NewFakeClientWithInterceptorWithObjects(interceptor.Funcs{
 		Get: func(ctx context.Context, cl client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
 			count(obj)
@@ -89,6 +97,7 @@ func internalVMReads(tb fataler, vms int) int64 {
 			case *virtv1.VirtualMachineList, *virtv1.VirtualMachineInstanceList:
 				reads.Add(1)
 			}
+
 			return cl.List(ctx, list, opts...)
 		},
 	}, scaleNamespace(vms)...)
@@ -100,10 +109,13 @@ func internalVMReads(tb fataler, vms int) int64 {
 	if err := c.Get(context.Background(), client.ObjectKey{Namespace: "default", Name: "vd-scale"}, vd); err != nil {
 		tb.Fatal(err)
 	}
+
 	reads.Store(0)
+
 	if _, err := NewInUseHandler(c).Handle(context.Background(), vd); err != nil {
 		tb.Fatal(err)
 	}
+
 	return reads.Load()
 }
 
@@ -122,18 +134,23 @@ func BenchmarkInUseHandler(b *testing.B) {
 			if err != nil {
 				b.Fatal(err)
 			}
+
 			vd := &v1alpha2.VirtualDisk{}
 			if err := c.Get(context.Background(), client.ObjectKey{Namespace: "default", Name: "vd-scale"}, vd); err != nil {
 				b.Fatal(err)
 			}
+
 			h := NewInUseHandler(c)
+
 			b.ReportAllocs()
 			b.ResetTimer()
+
 			for range b.N {
 				if _, err := h.Handle(context.Background(), vd.DeepCopy()); err != nil {
 					b.Fatal(err)
 				}
 			}
+
 			b.ReportMetric(float64(internalVMReads(b, vms)), "internal-vm-reads/op")
 		})
 	}

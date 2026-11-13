@@ -65,6 +65,7 @@ func dialogueChanged(oldNode, newNode *corev1.Node) bool {
 
 	for _, annotation := range []string{annotations.AnnNodeVMRestartRequired, annotations.AnnNodeVMRestartApproved} {
 		_, oldFound := oldNode.GetAnnotations()[annotation]
+
 		_, newFound := newNode.GetAnnotations()[annotation]
 		if oldFound != newFound {
 			return true

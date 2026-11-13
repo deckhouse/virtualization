@@ -67,6 +67,7 @@ var _ = Describe("DiskAttachmentBus", Label(label.SIGCompute, precheck.NoPrechec
 	BeforeEach(func() {
 		f = framework.NewFramework("disk-attachment-bus")
 		ctx = context.Background()
+
 		DeferCleanup(f.After)
 		f.Before()
 	})
@@ -75,8 +76,10 @@ var _ = Describe("DiskAttachmentBus", Label(label.SIGCompute, precheck.NoPrechec
 	// sits on the scsi bus.
 	expectVMBDAScsi := func(stage string) {
 		GinkgoHelper()
+
 		err := vmbdaObs.WaitFor(vmbdaobs.BeAttached(), framework.LongTimeout)
 		Expect(err).NotTo(HaveOccurred())
+
 		bus, ok := util.GetBlockDeviceBus(ctx, vm, v1alpha2.DiskDevice, vdBlank.Name)
 		Expect(ok).To(BeTrue(), fmt.Sprintf("%s: attached VMBDA disk not found on the VMI", stage))
 		Expect(bus).To(Equal(virtv1.DiskBusSCSI), fmt.Sprintf("%s: hot-plugged disk must stay on the scsi bus", stage))
@@ -86,8 +89,10 @@ var _ = Describe("DiskAttachmentBus", Label(label.SIGCompute, precheck.NoPrechec
 	// (paravirtualization changes require a restart), and waits until it is back.
 	flipParavirtualization := func(enable bool) {
 		GinkgoHelper()
+
 		err := f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vm), vm)
 		Expect(err).NotTo(HaveOccurred())
+
 		runningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, vm.Status.Conditions)
 		previousRunningTime := runningCondition.LastTransitionTime.Time
 
@@ -101,10 +106,12 @@ var _ = Describe("DiskAttachmentBus", Label(label.SIGCompute, precheck.NoPrechec
 		// itself; just wait for the reboot to complete.
 		key := crclient.ObjectKeyFromObject(vm)
 		util.SkipIfGuestPowerActionStuck(ctx, key)
+
 		err = vmObs.WaitFor(vmobs.BeRebootedAfter(previousRunningTime), framework.LongTimeout)
 		if err != nil {
 			util.SkipIfGuestPowerActionStuck(ctx, key)
 		}
+
 		Expect(err).NotTo(HaveOccurred())
 		err = vmObs.WaitFor(vmobs.BeRunning(), framework.MiddleTimeout)
 		Expect(err).NotTo(HaveOccurred())

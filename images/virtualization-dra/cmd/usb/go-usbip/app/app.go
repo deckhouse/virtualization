@@ -89,14 +89,18 @@ func (o *printOptions) PrintObject(cmd *cobra.Command, data interface{}) error {
 		if err != nil {
 			return fmt.Errorf("failed to marshal json: %w", err)
 		}
+
 		cmd.Println(string(b))
+
 		return nil
 	case "yaml":
 		b, err := yaml.Marshal(data)
 		if err != nil {
 			return fmt.Errorf("failed to marshal yaml: %w", err)
 		}
+
 		cmd.Println(string(b))
+
 		return nil
 	default:
 		return fmt.Errorf("unsupported format %q. Supported formats: [json, yaml]", o.output)

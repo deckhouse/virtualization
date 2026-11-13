@@ -80,12 +80,14 @@ var configDVCRGarbageCollection = &pkg.HookConfig{
 
 func handlerDVCRGarbageCollection(_ context.Context, input *pkg.HookInput) error {
 	secretSnaps := input.Snapshots.Get(SecretSnapshotName)
+
 	secrets, err := parseSecretSnapshot(secretSnaps)
 	if err != nil {
 		return err
 	}
 
 	input.Values.Set(dvcrGarbageCollectionModePath, isGarbageCollectionEnabled(secrets))
+
 	return nil
 }
 
@@ -93,6 +95,7 @@ func isGarbageCollectionEnabled(secrets []partialSecret) string {
 	if len(secrets) == 0 {
 		return "false"
 	}
+
 	if _, ok := secrets[0].Metadata.Annotations[dvcrDeploymentSwitchToGarbageCollectionModeAnno]; ok {
 		return "true"
 	}
@@ -118,10 +121,12 @@ func parseSecretSnapshot(snaps []pkg.Snapshot) ([]partialSecret, error) {
 
 	for _, snap := range snaps {
 		var secret partialSecret
+
 		err := snap.UnmarshalTo(&secret)
 		if err != nil {
 			return nil, err
 		}
+
 		secrets = append(secrets, secret)
 	}
 

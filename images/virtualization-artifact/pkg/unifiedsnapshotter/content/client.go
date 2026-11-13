@@ -47,6 +47,7 @@ func NewClient(cfg *rest.Config) (*Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("build state-snapshotter content REST client: %w", err)
 	}
+
 	return &Client{restClient: restClient}, nil
 }
 
@@ -74,6 +75,7 @@ func (c *Client) DownloadManifestsRaw(ctx context.Context, snapshotContentName s
 	if err != nil {
 		return nil, fmt.Errorf("download manifests for SnapshotContent %q: %w", snapshotContentName, err)
 	}
+
 	return data, nil
 }
 
@@ -94,8 +96,10 @@ func (c *Client) DownloadManifests(ctx context.Context, snapshotContentName stri
 		if err := json.Unmarshal(r, &tm); err != nil {
 			return nil, fmt.Errorf("unmarshal manifest TypeMeta for SnapshotContent %q: %w", snapshotContentName, err)
 		}
+
 		manifests = append(manifests, RawManifest{TypeMeta: tm, Raw: r})
 	}
+
 	return manifests, nil
 }
 
@@ -130,9 +134,11 @@ func (c *Client) UploadManifests(ctx context.Context, snapshotContentName string
 
 	var code int
 	result.StatusCode(&code)
+
 	raw, rawErr := result.Raw()
 	if code == 0 {
 		return 0, nil, fmt.Errorf("upload manifests for SnapshotContent %q: %w", snapshotContentName, rawErr)
 	}
+
 	return code, raw, nil
 }

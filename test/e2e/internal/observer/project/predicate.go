@@ -28,6 +28,7 @@ func BeDeployed() Predicate {
 		if p == nil {
 			return false, nil
 		}
+
 		return p.Status.State == dv1alpha2.ProjectStateDeployed, nil
 	}
 }

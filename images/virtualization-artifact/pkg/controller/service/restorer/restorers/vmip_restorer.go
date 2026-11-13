@@ -45,6 +45,7 @@ func NewVirtualMachineIPAddressHandler(client client.Client, vmipTmpl *v1alpha2.
 		vmipTmpl.Annotations = make(map[string]string)
 		vmipTmpl.Annotations[annotations.AnnVMOPRestore] = vmRestoreUID
 	}
+
 	return &VirtualMachineIPHandler{
 		vmip: &v1alpha2.VirtualMachineIPAddress{
 			TypeMeta: metav1.TypeMeta{
@@ -75,6 +76,7 @@ func (v *VirtualMachineIPHandler) Customize(prefix, suffix string) {
 
 func (v *VirtualMachineIPHandler) ValidateRestore(ctx context.Context) error {
 	vmipKey := types.NamespacedName{Namespace: v.vmip.Namespace, Name: v.vmip.Name}
+
 	existed, err := object.FetchObject(ctx, vmipKey, v.client, &v1alpha2.VirtualMachineIPAddress{})
 	if err != nil {
 		return err
@@ -88,6 +90,7 @@ func (v *VirtualMachineIPHandler) ValidateRestore(ctx context.Context) error {
 
 	if v.vmip.Spec.StaticIP != "" {
 		var vmips v1alpha2.VirtualMachineIPAddressList
+
 		err = v.client.List(ctx, &vmips, &client.ListOptions{
 			Namespace:     v.vmip.Namespace,
 			FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVMIPByAddress, v.vmip.Spec.StaticIP),
@@ -124,6 +127,7 @@ func (v *VirtualMachineIPHandler) ProcessRestore(ctx context.Context) error {
 	}
 
 	vmipKey := types.NamespacedName{Namespace: v.vmip.Namespace, Name: v.vmip.Name}
+
 	existed, err := object.FetchObject(ctx, vmipKey, v.client, &v1alpha2.VirtualMachineIPAddress{})
 	if err != nil {
 		return err

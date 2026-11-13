@@ -54,6 +54,7 @@ func TestVirtualDiskStorageClassOverride(t *testing.T) {
 				t.Errorf("%s: StorageClass is not set", name)
 				continue
 			}
+
 			if *sc != "env-sc" {
 				t.Errorf("%s: StorageClass is %q, want %q", name, *sc, "env-sc")
 			}

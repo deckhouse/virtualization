@@ -53,6 +53,7 @@ func (h StatsHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (rec
 	sinceCreation := time.Since(vd.CreationTimestamp.Time).Truncate(time.Second)
 
 	readyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
+
 	var isDatasourceReady bool
 	if source.IsDiskProvisioningFinished(readyCondition) {
 		isDatasourceReady = true
@@ -88,6 +89,7 @@ func (h StatsHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (rec
 		if vd.Status.Stats.CreationDuration.WaitingForDependencies != nil {
 			duration -= vd.Status.Stats.CreationDuration.WaitingForDependencies.Duration
 		}
+
 		if vd.Status.Stats.CreationDuration.WaitingForFirstConsumer != nil {
 			duration -= vd.Status.Stats.CreationDuration.WaitingForFirstConsumer.Duration
 		}
@@ -103,8 +105,10 @@ func (h StatsHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (rec
 
 	supgen := vdsupplements.NewGenerator(vd)
 
-	var pod *corev1.Pod
-	var err error
+	var (
+		pod *corev1.Pod
+		err error
+	)
 
 	switch vd.Spec.DataSource.Type {
 	case v1alpha2.DataSourceTypeUpload:
@@ -137,11 +141,14 @@ func ObserveCreationDuration(current, changed *v1alpha2.VirtualDisk) {
 	if current == nil || changed == nil {
 		return
 	}
+
 	if current.Status.Stats.CreationDuration.TotalProvisioning != nil || changed.Status.Stats.CreationDuration.TotalProvisioning == nil {
 		return
 	}
+
 	d := changed.Status.Stats.CreationDuration
 	datasource := vdmetrics.DataSourceLabel(changed.Spec.DataSource)
+
 	stages := []struct {
 		name  string
 		value *metav1.Duration
@@ -160,6 +167,7 @@ func ObserveCreationDuration(current, changed *v1alpha2.VirtualDisk) {
 		if stage.name == vdmetrics.ProvisioningStageDVCR && stage.value.Duration == 0 {
 			continue
 		}
+
 		vdmetrics.ObserveProvisioningStage(stage.name, datasource, stage.value.Duration)
 	}
 }

@@ -96,6 +96,7 @@ func (o *draOptions) Complete() {
 		if !o.usbipdConfig.ExportEnabled {
 			slog.Warn("USB gateway is enabled but USBIPD export is disabled. Enabling USBIPD export.")
 		}
+
 		o.usbipdConfig.ExportEnabled = true
 	}
 }
@@ -122,6 +123,7 @@ func (o *draOptions) Validate() error {
 	if o.NodeName == "" {
 		return fmt.Errorf("nodeName is required")
 	}
+
 	if o.CDIRoot == "" {
 		return fmt.Errorf("cdiRoot is required")
 	}
@@ -164,6 +166,7 @@ func (o *draOptions) Run(cmd *cobra.Command, _ []string) error {
 	var usbGateway usbgateway.USBGateway
 
 	group, ctx := errgroup.WithContext(ctx)
+
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 

@@ -51,6 +51,7 @@ func TLSBeforeHookCheck(component, secretName string) func(input *pkg.HookInput)
 			input.Logger.Error(fmt.Sprintf("Check module config before %s TLS hook", component), "error", err)
 			return false
 		}
+
 		if !canRun {
 			return false
 		}

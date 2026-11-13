@@ -79,11 +79,13 @@ func (w VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controller
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualDisk: %w", err)
 	}
+
 	return nil
 }
 
 func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, vd *v1alpha2.VirtualDisk) (requests []reconcile.Request) {
 	var vmSnapshots v1alpha2.VirtualMachineSnapshotList
+
 	err := w.client.List(ctx, &vmSnapshots, &client.ListOptions{
 		Namespace: vd.GetNamespace(),
 	})
@@ -115,6 +117,7 @@ func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, vd *v1alpha2.Vi
 						Namespace: vmSnapshot.Namespace,
 					},
 				})
+
 				break
 			}
 		}

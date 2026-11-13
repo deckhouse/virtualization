@@ -61,6 +61,7 @@ func (s *BaseVMOPService) ShouldExecuteOrSupersedeOrSetFailedPhase(ctx context.C
 	if err != nil {
 		return false, err
 	}
+
 	if len(blockers) == 0 {
 		return true, nil
 	}
@@ -78,6 +79,7 @@ func (s *BaseVMOPService) ShouldExecuteOrSupersedeOrSetFailedPhase(ctx context.C
 		if err := s.cleanupSupersededOperation(ctx, oldVMOP); err != nil {
 			return false, err
 		}
+
 		if err := s.markSuperseded(ctx, oldVMOP, vmop); err != nil {
 			return false, err
 		}
@@ -91,6 +93,7 @@ func (s *BaseVMOPService) ShouldExecute(ctx context.Context, vmop *v1alpha2.Virt
 	if err != nil {
 		return false, err
 	}
+
 	return len(blockers) == 0, nil
 }
 
@@ -101,16 +104,20 @@ func (s *BaseVMOPService) findOlderActiveVMOPs(ctx context.Context, vmop *v1alph
 	}
 
 	blockers := make([]v1alpha2.VirtualMachineOperation, 0)
+
 	for _, other := range vmopList.Items {
 		if other.Spec.VirtualMachine != vmop.Spec.VirtualMachine {
 			continue
 		}
+
 		if commonvmop.IsFinished(&other) {
 			continue
 		}
+
 		if other.GetUID() == vmop.GetUID() {
 			continue
 		}
+
 		if isOlderVMOP(&other, vmop) {
 			blockers = append(blockers, other)
 		}
@@ -127,6 +134,7 @@ func isOlderVMOP(a, b *v1alpha2.VirtualMachineOperation) bool {
 	if !a.CreationTimestamp.Equal(&b.CreationTimestamp) {
 		return a.CreationTimestamp.Before(&b.CreationTimestamp)
 	}
+
 	return a.GetName() < b.GetName()
 }
 
@@ -150,21 +158,25 @@ func (s *BaseVMOPService) cleanupSupersededOperation(ctx context.Context, oldVMO
 		if err := s.client.Get(ctx, key, kvvm); err != nil {
 			return client.IgnoreNotFound(err)
 		}
+
 		return kvvmutil.RemoveStartAnnotation(ctx, s.client, kvvm)
 	case v1alpha2.VMOPTypeRestart:
 		kvvm := &virtv1.VirtualMachine{}
 		if err := s.client.Get(ctx, key, kvvm); err != nil {
 			return client.IgnoreNotFound(err)
 		}
+
 		if err := kvvmutil.RemoveRestartAnnotation(ctx, s.client, kvvm); err != nil {
 			return err
 		}
+
 		return kvvmutil.RemoveStartAnnotation(ctx, s.client, kvvm)
 	case v1alpha2.VMOPTypeMigrate, v1alpha2.VMOPTypeEvict:
 		mig := &virtv1.VirtualMachineInstanceMigration{}
 		if err := s.client.Get(ctx, types.NamespacedName{Name: fmt.Sprintf("vmop-%s", oldVMOP.Name), Namespace: oldVMOP.Namespace}, mig); err != nil {
 			return client.IgnoreNotFound(err)
 		}
+
 		return client.IgnoreNotFound(s.client.Delete(ctx, mig))
 	case v1alpha2.VMOPTypeStop:
 		return nil
@@ -179,6 +191,7 @@ func (s *BaseVMOPService) markSuperseded(ctx context.Context, oldVMOP, newVMOP *
 		if err := s.client.Get(ctx, types.NamespacedName{Name: oldVMOP.Name, Namespace: oldVMOP.Namespace}, current); err != nil {
 			return client.IgnoreNotFound(err)
 		}
+
 		if commonvmop.IsFinished(current) {
 			return nil
 		}
@@ -231,8 +244,10 @@ func (s *BaseVMOPService) FetchVirtualMachineOrSetFailedPhase(ctx context.Contex
 				Status(metav1.ConditionFalse).
 				Message("VirtualMachine not found"),
 			&vmop.Status.Conditions)
+
 		return nil, nil
 	}
+
 	annotations.AddLabel(vmop, annotations.LabelVirtualMachineUID, string(vm.GetUID()))
 
 	return vm, nil
@@ -257,6 +272,7 @@ func (s *BaseVMOPService) IsApplicableOrSetFailedPhase(checker ApplicableChecker
 				Status(metav1.ConditionFalse).
 				Message(failMsg),
 			&vmop.Status.Conditions)
+
 		return false
 	}
 
@@ -273,6 +289,7 @@ func (s *BaseVMOPService) IsApplicableOrSetFailedPhase(checker ApplicableChecker
 				Status(metav1.ConditionFalse).
 				Message(failMsg),
 			&vmop.Status.Conditions)
+
 		return false
 	}
 
@@ -282,9 +299,11 @@ func (s *BaseVMOPService) IsApplicableOrSetFailedPhase(checker ApplicableChecker
 func IsAfterSignalSentOrCreation(timestamp time.Time, vmop *v1alpha2.VirtualMachineOperation) bool {
 	// Use vmop creation time or time from SignalSent condition.
 	signalSentTime := vmop.GetCreationTimestamp().Time
+
 	signalSendCond, found := conditions.GetCondition(vmopcondition.TypeSignalSent, vmop.Status.Conditions)
 	if found && signalSendCond.Status == metav1.ConditionTrue && signalSendCond.LastTransitionTime.After(signalSentTime) {
 		signalSentTime = signalSendCond.LastTransitionTime.Time
 	}
+
 	return timestamp.After(signalSentTime)
 }

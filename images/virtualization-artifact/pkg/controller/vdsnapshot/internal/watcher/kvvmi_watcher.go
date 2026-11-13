@@ -58,15 +58,18 @@ func (w KVVMIWatcher) Watch(mgr manager.Manager, ctr controller.Controller) erro
 	); err != nil {
 		return fmt.Errorf("error setting watch on KVVMI: %w", err)
 	}
+
 	return nil
 }
 
 func (w KVVMIWatcher) enqueueRequests(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) (requests []reconcile.Request) {
 	volumeNames := make(map[string]struct{})
+
 	for _, v := range kvvmi.Status.VolumeStatus {
 		if v.PersistentVolumeClaimInfo == nil {
 			continue
 		}
+
 		volumeNames[v.Name] = struct{}{}
 	}
 
@@ -75,6 +78,7 @@ func (w KVVMIWatcher) enqueueRequests(ctx context.Context, kvvmi *virtv1.Virtual
 	}
 
 	var vdSnapshots v1alpha2.VirtualDiskSnapshotList
+
 	err := w.client.List(ctx, &vdSnapshots, &client.ListOptions{
 		Namespace: kvvmi.GetNamespace(),
 	})

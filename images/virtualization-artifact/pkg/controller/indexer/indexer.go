@@ -177,6 +177,7 @@ func IndexALL(ctx context.Context, mgr manager.Manager) error {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -186,6 +187,7 @@ func IndexVMByClass() (obj client.Object, field string, extractValue client.Inde
 		if !ok || vm == nil {
 			return nil
 		}
+
 		return []string{vm.Spec.VirtualMachineClassName}
 	}
 }
@@ -214,6 +216,7 @@ func IndexVMByNode() (obj client.Object, field string, extractValue client.Index
 		if !ok || vm == nil || vm.Status.Node == "" {
 			return nil
 		}
+
 		return []string{vm.Status.Node}
 	}
 }
@@ -235,12 +238,15 @@ func getNetworkNamesByType(obj client.Object, typ string) []string {
 	if !ok || vm == nil {
 		return nil
 	}
+
 	var names []string
+
 	for _, n := range vm.Spec.Networks {
 		if n.Type == typ && n.Name != "" {
 			names = append(names, n.Name)
 		}
 	}
+
 	return names
 }
 
@@ -262,6 +268,7 @@ func getBlockDeviceNamesByKind(obj client.Object, kind v1alpha2.BlockDeviceKind)
 	}
 
 	seen := make(map[string]struct{})
+
 	var result []string
 
 	for _, ref := range vm.Spec.BlockDeviceRefs {
@@ -293,6 +300,7 @@ func IndexVMByUSBDevice() (obj client.Object, field string, extractValue client.
 		}
 
 		seen := make(map[string]struct{})
+
 		var result []string
 
 		for _, ref := range vm.Spec.USBDevices {
@@ -312,6 +320,7 @@ func IndexUSBDeviceByName() (obj client.Object, field string, extractValue clien
 		if !ok || usbDevice == nil {
 			return nil
 		}
+
 		return []string{usbDevice.Name}
 	}
 }
@@ -322,6 +331,7 @@ func IndexNodeUSBDeviceByAssignedNamespace() (obj client.Object, field string, e
 		if !ok || nodeUSBDevice == nil {
 			return nil
 		}
+
 		return []string{nodeUSBDevice.Spec.AssignedNamespace}
 	}
 }
@@ -334,6 +344,7 @@ func IndexVMByPCIDevice() (obj client.Object, field string, extractValue client.
 		}
 
 		seen := make(map[string]struct{})
+
 		var result []string
 
 		for _, ref := range vm.Spec.PCIDevices {
@@ -353,6 +364,7 @@ func IndexPCIDeviceByName() (obj client.Object, field string, extractValue clien
 		if !ok || pciDevice == nil {
 			return nil
 		}
+
 		return []string{pciDevice.Name}
 	}
 }
@@ -363,6 +375,7 @@ func IndexNodePCIDeviceByAssignedNamespace() (obj client.Object, field string, e
 		if !ok || nodePCIDevice == nil {
 			return nil
 		}
+
 		return []string{nodePCIDevice.Spec.AssignedNamespace}
 	}
 }

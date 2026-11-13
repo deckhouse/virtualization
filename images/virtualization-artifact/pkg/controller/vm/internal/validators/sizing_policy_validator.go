@@ -53,7 +53,9 @@ func (v *SizingPolicyValidator) ValidateUpdate(ctx context.Context, _, newVM *v1
 
 func (v *SizingPolicyValidator) validate(ctx context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
 	var warnings admission.Warnings
+
 	vmClass := &v1alpha2.VirtualMachineClass{}
+
 	err := v.client.Get(ctx, types.NamespacedName{
 		Name: vm.Spec.VirtualMachineClassName,
 	}, vmClass)
@@ -63,6 +65,7 @@ func (v *SizingPolicyValidator) validate(ctx context.Context, vm *v1alpha2.Virtu
 				"The VM class %q does not exist; it may not have been created yet. Until it is created, the virtual machine will remain in a pending status.",
 				vm.Spec.VirtualMachineClassName,
 			))
+
 			return warnings, nil
 		} else {
 			log := logger.FromContext(ctx)
@@ -70,6 +73,7 @@ func (v *SizingPolicyValidator) validate(ctx context.Context, vm *v1alpha2.Virtu
 				"An error occurred while retrieving the VM class.",
 				logger.SlogErr(err),
 			)
+
 			return nil, err
 		}
 	}

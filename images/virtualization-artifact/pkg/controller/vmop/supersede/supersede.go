@@ -27,6 +27,7 @@ func CanSupersede(oldVMOP, newVMOP *v1alpha2.VirtualMachineOperation) bool {
 	if oldVMOP == nil || newVMOP == nil {
 		return false
 	}
+
 	if oldVMOP.Spec.VirtualMachine != newVMOP.Spec.VirtualMachine {
 		return false
 	}
@@ -41,6 +42,7 @@ func CanSupersede(oldVMOP, newVMOP *v1alpha2.VirtualMachineOperation) bool {
 		if oldForce {
 			return false
 		}
+
 		return newVMOP.Spec.Type == v1alpha2.VMOPTypeStop && newForce ||
 			newVMOP.Spec.Type == v1alpha2.VMOPTypeRestart && newForce
 	case v1alpha2.VMOPTypeMigrate, v1alpha2.VMOPTypeEvict:
@@ -49,11 +51,13 @@ func CanSupersede(oldVMOP, newVMOP *v1alpha2.VirtualMachineOperation) bool {
 		if commonvmop.PeerName(oldVMOP) != "" {
 			return false
 		}
+
 		return newVMOP.Spec.Type == v1alpha2.VMOPTypeStop || newVMOP.Spec.Type == v1alpha2.VMOPTypeRestart
 	case v1alpha2.VMOPTypeRestart:
 		if oldForce {
 			return false
 		}
+
 		return newVMOP.Spec.Type == v1alpha2.VMOPTypeStop && newForce ||
 			newVMOP.Spec.Type == v1alpha2.VMOPTypeRestart && newForce
 	default:

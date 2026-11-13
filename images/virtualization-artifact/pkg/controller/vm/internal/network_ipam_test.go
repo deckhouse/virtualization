@@ -48,6 +48,7 @@ func newReadyNetworkWithPool(namespace string) *unstructured.Unstructured {
 			"name": "demo-pool",
 		},
 	}, "spec", "ipam")).To(Succeed())
+
 	return u
 }
 
@@ -61,6 +62,7 @@ func newReadyClusterNetworkWithPool(name, poolName string) *unstructured.Unstruc
 			"name": poolName,
 		},
 	}, "spec", "ipam")).To(Succeed())
+
 	return u
 }
 
@@ -75,6 +77,7 @@ func newReadyClusterNetwork(name string) *unstructured.Unstructured {
 			"status": "True",
 		},
 	}, "status", "conditions")).To(Succeed())
+
 	return u
 }
 
@@ -91,17 +94,21 @@ func newSDNIPAddress(name, namespace, vmUID, networkKind, networkName, address s
 	if vmUID != "" {
 		ipa.SetLabels(map[string]string{annotations.LabelVirtualMachineUID: vmUID})
 	}
+
 	condStatus := metav1.ConditionFalse
 	ipa.Status.Phase = sdnapi.PhasePending
+
 	if allocated {
 		condStatus = metav1.ConditionTrue
 		ipa.Status.Phase = sdnapi.PhaseAllocated
 	}
+
 	ipa.Status.Conditions = []metav1.Condition{{
 		Type:   sdnapi.ConditionAllocated,
 		Status: condStatus,
 		Reason: "IPAddressAllocated",
 	}}
+
 	return ipa
 }
 
@@ -236,6 +243,7 @@ var _ = Describe("IPAddressHandler.cleanupOrphanedIPAddresses", func() {
 	listIPAddresses := func(cl client.Client) []sdnapi.IPAddress {
 		list := &sdnapi.IPAddressList{}
 		Expect(cl.List(ctx, list)).To(Succeed())
+
 		return list.Items
 	}
 	cleanup := func(cl client.Client, vm *v1alpha2.VirtualMachine, mainInterfaceSpecEnabled bool) error {
@@ -402,6 +410,7 @@ var _ = Describe("NetworkInterfaceHandler IPAM integration", func() {
 		namespace = "vms"
 		podName   = "test-pod"
 	)
+
 	var (
 		ctx   = testutil.ContextBackgroundWithNoOpLogger()
 		vm    *v1alpha2.VirtualMachine
@@ -435,6 +444,7 @@ var _ = Describe("NetworkInterfaceHandler IPAM integration", func() {
 		gate, _, setFromMap, err := featuregates.New()
 		Expect(err).NotTo(HaveOccurred())
 		Expect(setFromMap(map[string]bool{string(featuregates.SDN): true})).To(Succeed())
+
 		h := NewNetworkInterfaceHandler(gate, nil)
 		_, err = h.Handle(ctx, vmState)
 		Expect(err).NotTo(HaveOccurred())
@@ -442,6 +452,7 @@ var _ = Describe("NetworkInterfaceHandler IPAM integration", func() {
 
 		newVM := &v1alpha2.VirtualMachine{}
 		Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)).To(Succeed())
+
 		return newVM, fakeClient
 	}
 
@@ -455,11 +466,13 @@ var _ = Describe("NetworkInterfaceHandler IPAM integration", func() {
 		newVM, _ := reconcile(newReadyClusterNetworkWithPool("corp-net", "demo-pool"))
 
 		var corpStatus *v1alpha2.NetworksStatus
+
 		for i := range newVM.Status.Networks {
 			if newVM.Status.Networks[i].Name == "corp-net" {
 				corpStatus = &newVM.Status.Networks[i]
 			}
 		}
+
 		Expect(corpStatus).NotTo(BeNil(), "corp-net status entry should exist")
 		Expect(corpStatus.IPAddress).To(Equal("192.168.200.4"))
 	})
@@ -483,11 +496,13 @@ var _ = Describe("NetworkInterfaceHandler IPAM integration", func() {
 		newVM, _ := reconcile(kvvm, newReadyClusterNetwork("corp-net"), mainIP)
 
 		var mainStatus *v1alpha2.NetworksStatus
+
 		for i := range newVM.Status.Networks {
 			if newVM.Status.Networks[i].Type == v1alpha2.NetworksTypeMain {
 				mainStatus = &newVM.Status.Networks[i]
 			}
 		}
+
 		Expect(mainStatus).NotTo(BeNil(), "the Main status entry should exist")
 		Expect(mainStatus.IPAddressName).To(Equal("vm-main"))
 		Expect(mainStatus.IPAddress).To(Equal("10.66.10.14"))

@@ -54,6 +54,7 @@ func NewReconciler(client client.Client, handlers ...Handler) *Reconciler {
 
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	deploy := reconciler.NewResource(dvcrtypes.DVCRDeploymentKey(), r.client, r.factory, r.statusGetter)
+
 	err := deploy.Fetch(ctx)
 	if err != nil {
 		return reconcile.Result{}, err

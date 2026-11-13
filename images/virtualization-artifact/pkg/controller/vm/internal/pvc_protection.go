@@ -42,9 +42,11 @@ func vmRequiresPVCProtection(vm *v1alpha2.VirtualMachine) bool {
 	if vm == nil {
 		return false
 	}
+
 	if !vm.GetDeletionTimestamp().IsZero() {
 		return true
 	}
+
 	switch vm.Status.Phase {
 	case v1alpha2.MachineStarting,
 		v1alpha2.MachineRunning,
@@ -55,6 +57,7 @@ func vmRequiresPVCProtection(vm *v1alpha2.VirtualMachine) bool {
 		v1alpha2.MachineDegraded:
 		return true
 	}
+
 	return false
 }
 
@@ -80,6 +83,7 @@ func volumeClaimNames(claims map[string]struct{}, kvvm *virtv1.VirtualMachine, k
 
 	if kvvmi != nil {
 		addVolumes(kvvmi.Spec.Volumes)
+
 		for _, vs := range kvvmi.Status.VolumeStatus {
 			if vs.PersistentVolumeClaimInfo != nil && vs.PersistentVolumeClaimInfo.ClaimName != "" {
 				claims[vs.PersistentVolumeClaimInfo.ClaimName] = struct{}{}

@@ -43,10 +43,12 @@ type ImportProgress struct {
 
 func GetImportProgressFromPod(ownerUID string, pod *corev1.Pod) (*ImportProgress, error) {
 	httpClient = BuildHTTPClient(httpClient)
+
 	url, err := GetMetricsURL(pod)
 	if err != nil {
 		return nil, err
 	}
+
 	if url == "" {
 		return nil, nil
 	}
@@ -55,6 +57,7 @@ func GetImportProgressFromPod(ownerUID string, pod *corev1.Pod) (*ImportProgress
 	if err != nil {
 		return nil, err
 	}
+
 	return extractProgress(progressReport, ownerUID)
 }
 
@@ -92,30 +95,36 @@ func extractProgress(report, ownerUID string) (*ImportProgress, error) {
 	match := progressRe.FindStringSubmatch(report)
 	if match != nil {
 		raw := match[1]
+
 		val, err := strconv.ParseFloat(raw, 64)
 		if err != nil {
 			return nil, fmt.Errorf("parse import progress metric: %w", err)
 		}
+
 		res.progress = val
 	}
 
 	match = avgSpeedRe.FindStringSubmatch(report)
 	if match != nil {
 		raw := match[1]
+
 		val, err := strconv.ParseFloat(raw, 64)
 		if err != nil {
 			return nil, fmt.Errorf("parse registry_average_speed metric: %w", err)
 		}
+
 		res.avgSpeed = uint64(val)
 	}
 
 	match = curSpeedRe.FindStringSubmatch(report)
 	if match != nil {
 		raw := match[1]
+
 		val, err := strconv.ParseFloat(raw, 64)
 		if err != nil {
 			return nil, fmt.Errorf("parse registry_current_speed metric: %w", err)
 		}
+
 		res.curSpeed = uint64(val)
 	}
 
@@ -180,6 +189,7 @@ func BuildHTTPClient(httpClient *http.Client) *http.Client {
 			Timeout: scrapeTimeout,
 		}
 	}
+
 	return httpClient
 }
 
@@ -199,6 +209,7 @@ func GetPodMetricsPort(pod *corev1.Pod) (int, error) {
 			}
 		}
 	}
+
 	return 0, fmt.Errorf("metrics port not found in pod %s", pod.Name)
 }
 
@@ -220,6 +231,7 @@ func GetProgressReportFromURL(url string, httpClient *http.Client) (string, erro
 		if net.IsConnectionRefused(err) {
 			return "", nil
 		}
+
 		if strings.Contains(err.Error(), "no route to host") {
 			return "", nil
 		}
@@ -227,10 +239,12 @@ func GetProgressReportFromURL(url string, httpClient *http.Client) (string, erro
 		return "", err
 	}
 	defer resp.Body.Close()
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
 	}
+
 	return string(body), nil
 }
 
@@ -239,10 +253,13 @@ func GetMetricsURL(pod *corev1.Pod) (string, error) {
 	if pod == nil {
 		return "", nil
 	}
+
 	port, err := GetPodMetricsPort(pod)
 	if err != nil || pod.Status.PodIP == "" {
 		return "", err
 	}
+
 	url := fmt.Sprintf("https://%s:%d/metrics", pod.Status.PodIP, port)
+
 	return url, nil
 }

@@ -69,6 +69,7 @@ func (w VolumeRestoreRequestWatcher) Watch(mgr manager.Manager, ctr controller.C
 	); err != nil {
 		return fmt.Errorf("error setting watch on VolumeRestoreRequest: %w", err)
 	}
+
 	return nil
 }
 
@@ -83,6 +84,7 @@ func (w VolumeRestoreRequestWatcher) enqueueRequestsFromOwnerRefs(obj client.Obj
 			})
 		}
 	}
+
 	return requests
 }
 
@@ -90,6 +92,7 @@ func (w VolumeRestoreRequestWatcher) filterUpdateEvents(e event.TypedUpdateEvent
 	if (e.ObjectOld.Status.PvcRef != nil) != (e.ObjectNew.Status.PvcRef != nil) {
 		return true
 	}
+
 	return conditionsChanged(e.ObjectOld.Status.Conditions, e.ObjectNew.Status.Conditions)
 }
 
@@ -102,11 +105,13 @@ func conditionsChanged(oldConds, newConds []metav1.Condition) bool {
 	for _, c := range oldConds {
 		was[c.Type] = c
 	}
+
 	for _, c := range newConds {
 		prev, ok := was[c.Type]
 		if !ok || prev.Status != c.Status || prev.Reason != c.Reason || prev.Message != c.Message {
 			return true
 		}
 	}
+
 	return false
 }

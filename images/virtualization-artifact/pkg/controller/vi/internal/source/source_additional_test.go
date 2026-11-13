@@ -51,6 +51,7 @@ var _ = Describe("Source validations and helpers", func() {
 		Expect(corev1.AddToScheme(scheme)).To(Succeed())
 		Expect(netv1.AddToScheme(scheme)).To(Succeed())
 		Expect(vsv1.AddToScheme(scheme)).To(Succeed())
+
 		return scheme
 	}
 
@@ -339,6 +340,7 @@ var _ = Describe("Source validations and helpers", func() {
 			ds := NewObjectRefDataSource(newRecorder(), nil, nil, nil, settings, client, nil)
 
 			Expect(ds.Validate(ctx, vi)).To(Succeed())
+
 			ref.Status.Phase = v1alpha2.ImagePending
 			client = fake.NewClientBuilder().WithScheme(scheme).WithObjects(ref).Build()
 			ds = NewObjectRefDataSource(newRecorder(), nil, nil, nil, settings, client, nil)
@@ -355,6 +357,7 @@ var _ = Describe("Source validations and helpers", func() {
 			ds := NewObjectRefDataSource(newRecorder(), nil, nil, nil, settings, client, nil)
 
 			Expect(ds.Validate(ctx, vi)).To(Succeed())
+
 			cvi.Status.Phase = v1alpha2.ImagePending
 			client = fake.NewClientBuilder().WithScheme(scheme).WithObjects(cvi).Build()
 			ds = NewObjectRefDataSource(newRecorder(), nil, nil, nil, settings, client, nil)

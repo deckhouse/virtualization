@@ -59,6 +59,7 @@ var _ = Describe("CreateSnapshotStep", func() {
 			}
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -85,6 +86,7 @@ var _ = Describe("CreateSnapshotStep", func() {
 			}
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -108,6 +110,7 @@ var _ = Describe("CreateSnapshotStep", func() {
 			snapshot.Status.Phase = v1alpha2.VirtualMachineSnapshotPhaseFailed
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop, snapshot)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -128,6 +131,7 @@ var _ = Describe("CreateSnapshotStep", func() {
 			snapshot.Status.Phase = v1alpha2.VirtualMachineSnapshotPhaseReady
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop, snapshot)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -149,6 +153,7 @@ var _ = Describe("CreateSnapshotStep", func() {
 			snapshot.Status.Phase = v1alpha2.VirtualMachineSnapshotPhaseInProgress
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop, snapshot)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -168,6 +173,7 @@ var _ = Describe("CreateSnapshotStep", func() {
 			vmop := createCloneVMOP("default", "test-vmop", "test-vm", "test-snapshot")
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -201,6 +207,7 @@ var _ = Describe("CreateSnapshotStep", func() {
 			}
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop, snapshot)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -219,6 +226,7 @@ var _ = Describe("CreateSnapshotStep", func() {
 			delete(vmop.Annotations, annotations.AnnVMOPSnapshotName)
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -237,6 +245,7 @@ var _ = Describe("CreateSnapshotStep", func() {
 			Expect(snapshotCond.Reason).To(Equal(string(vmopcondition.ReasonSnapshotInProgress)))
 
 			var snapshotList v1alpha2.VirtualMachineSnapshotList
+
 			err = fakeClient.List(ctx, &snapshotList, client.InNamespace("default"))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(snapshotList.Items).To(HaveLen(1))
@@ -252,6 +261,7 @@ var _ = Describe("CreateSnapshotStep", func() {
 			vmop.Annotations = nil
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -277,6 +287,7 @@ var _ = Describe("CreateSnapshotStep", func() {
 			}
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop)
 			Expect(err).NotTo(HaveOccurred())
 

@@ -37,6 +37,7 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&FakeObject{},
 		&FakeObjectList{},
 	)
+
 	return nil
 }
 
@@ -44,6 +45,7 @@ func NewFakeObject(name, namespace string) *FakeObject {
 	obj := NewEmptyFakeObject()
 	obj.SetName(name)
 	obj.SetNamespace(namespace)
+
 	return obj
 }
 
@@ -108,9 +110,11 @@ func newFakeGCManager(client client.Client, ttl time.Duration, max int) *fakeGCM
 	if ttl == 0 {
 		ttl = 24 * time.Hour
 	}
+
 	if max == 0 {
 		max = 10
 	}
+
 	return &fakeGCManager{
 		client: client,
 		ttl:    ttl,
@@ -133,11 +137,13 @@ func (f *fakeGCManager) ShouldBeDeleted(obj client.Object) bool {
 	if !ok {
 		return false
 	}
+
 	return fobj.Phase == fakeObjectPhaseCompleted
 }
 
 func (f *fakeGCManager) ListForDelete(ctx context.Context, now time.Time) ([]client.Object, error) {
 	fobjList := &FakeObjectList{}
+
 	err := f.client.List(ctx, fobjList)
 	if err != nil {
 		return nil, err
@@ -158,5 +164,6 @@ func (f *fakeGCManager) getIndex(obj client.Object) string {
 	if !ok {
 		return ""
 	}
+
 	return fobj.RefObject
 }

@@ -81,6 +81,7 @@ func (w *VolumeEventWatcher) resolveVirtualMachineName(ctx context.Context, pod 
 			if volumeStatus.HotplugVolume.AttachPodUID != "" && volumeStatus.HotplugVolume.AttachPodUID == pod.UID {
 				return kvvmi.Name
 			}
+
 			if volumeStatus.HotplugVolume.AttachPodName == pod.Name {
 				return kvvmi.Name
 			}
@@ -142,5 +143,6 @@ func (w *VolumeEventWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 	); err != nil {
 		return fmt.Errorf("error setting watch on Event: %w", err)
 	}
+
 	return nil
 }

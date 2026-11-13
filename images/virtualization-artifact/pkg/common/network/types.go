@@ -69,19 +69,24 @@ func WillProvisionInterface(ctx context.Context, c client.Client, vm *v1alpha2.V
 	if netSpec.Type == v1alpha2.NetworksTypeMain {
 		return false, nil
 	}
+
 	if netSpec.Type == v1alpha2.NetworksTypeUnderlayNetwork {
 		// UnderlayNetwork entries are always provisioned by SDN (no IPAM involved).
 		return true, nil
 	}
+
 	hasPool, err := HasIPAM(ctx, c, vm.Namespace, netSpec)
 	if err != nil {
 		return false, err
 	}
+
 	if !hasPool {
 		// No pool: L2-only is provisioned unless ipAddressName is set (config error).
 		return netSpec.IPAddressName == "", nil
 	}
+
 	ipa, err := AdditionalNetworkIPAddress(ctx, c, vm, netSpec)
+
 	return ipa != nil, err
 }
 
@@ -112,6 +117,7 @@ func ProvisionableInterfaceSpecs(ctx context.Context, c client.Client, vm *v1alp
 			// The Main interface spec without an address stays out of the annotation (see
 			// ForAnnotation), and the pod takes the vmip address from cni.cilium.io/ipAddress.
 			spec.IPAddressNames, spec.IPAddress = nil, ""
+
 			if mainInterfaceSpecEnabled {
 				ipa, err := usableMainIPAddress(ctx, c, vm)
 				if err != nil {
@@ -119,13 +125,17 @@ func ProvisionableInterfaceSpecs(ctx context.Context, c client.Client, vm *v1alp
 					// from the annotation of a running pod.
 					return nil, fmt.Errorf("get the Main IPAddress: %w", err)
 				}
+
 				if ipa != nil {
 					spec.IPAddressNames, spec.IPAddress = []string{ipa.GetName()}, ipa.Status.Address
 				}
 			}
+
 			result = append(result, spec)
+
 			continue
 		}
+
 		hasPool, err := HasIPAM(ctx, c, vm.Namespace, v1alpha2.NetworksSpec{
 			Type: spec.Type,
 			Name: spec.Name,
@@ -133,6 +143,7 @@ func ProvisionableInterfaceSpecs(ctx context.Context, c client.Client, vm *v1alp
 		if err != nil {
 			return nil, fmt.Errorf("check IPAM for network %s: %w", spec.Name, err)
 		}
+
 		if !hasPool {
 			// No pool: IPAM is not enabled.
 			if len(spec.IPAddressNames) > 0 {
@@ -145,6 +156,7 @@ func ProvisionableInterfaceSpecs(ctx context.Context, c client.Client, vm *v1alp
 			// L2-only: no IPAM, keep as-is (without ipAddressNames).
 			spec.IPAddressNames = nil
 			result = append(result, spec)
+
 			continue
 		}
 
@@ -153,17 +165,21 @@ func ProvisionableInterfaceSpecs(ctx context.Context, c client.Client, vm *v1alp
 		if len(spec.IPAddressNames) > 0 {
 			netSpec.IPAddressName = spec.IPAddressNames[0]
 		}
+
 		ipa, err := AdditionalNetworkIPAddress(ctx, c, vm, netSpec)
 		if err != nil {
 			return nil, fmt.Errorf("get the IPAddress of %s: %w", SpecKey(netSpec), err)
 		}
+
 		if ipa == nil {
 			continue
 		}
+
 		spec.IPAddressNames = []string{ipa.GetName()}
 		spec.IPAssignmentMode = IPAssignmentModeDHCP
 		result = append(result, spec)
 	}
+
 	return result, nil
 }
 
@@ -260,6 +276,7 @@ func (s InterfaceSpecList) HasAdditional() bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -270,6 +287,7 @@ func (s InterfaceSpecList) MainWithAddress() *InterfaceSpec {
 			return &s[i]
 		}
 	}
+
 	return nil
 }
 
@@ -279,15 +297,19 @@ func (s InterfaceSpecList) MainWithAddress() *InterfaceSpec {
 // address would die with it.
 func (s InterfaceSpecList) ForAnnotation() InterfaceSpecList {
 	filtered := InterfaceSpecList{}
+
 	for _, spec := range s {
 		if spec.Type == v1alpha2.NetworksTypeMain {
 			if !spec.HasAddress() {
 				continue
 			}
+
 			spec.InterfaceName = MainPodInterfaceName
 		}
+
 		filtered = append(filtered, spec)
 	}
+
 	return filtered
 }
 
@@ -300,16 +322,19 @@ func (s InterfaceSpecList) BuildNetworksAnnotations() (annotationsToSet map[stri
 	if len(advertised) == 0 {
 		return nil, []string{annotations.AnnNetworksSpec, annotations.AnnTapProvisionByDVPSupported}, nil
 	}
+
 	data, err := json.Marshal(advertised)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	annotationsToSet = map[string]string{annotations.AnnNetworksSpec: string(data)}
 	if advertised.HasAdditional() {
 		annotationsToSet[annotations.AnnTapProvisionByDVPSupported] = "true"
 	} else {
 		annotationsToRemove = []string{annotations.AnnTapProvisionByDVPSupported}
 	}
+
 	return annotationsToSet, annotationsToRemove, nil
 }
 
@@ -318,6 +343,7 @@ func (s InterfaceSpecList) ToString() (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	return string(data), nil
 }
 
@@ -327,5 +353,6 @@ func (s InterfaceSpecList) HasMain() bool {
 			return true
 		}
 	}
+
 	return false
 }

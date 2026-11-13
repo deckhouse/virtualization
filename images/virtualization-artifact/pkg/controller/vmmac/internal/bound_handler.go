@@ -52,6 +52,7 @@ func NewBoundHandler(macService MACAddressService, client client.Client, recorde
 
 func (h *BoundHandler) Handle(ctx context.Context, vmmac *v1alpha2.VirtualMachineMACAddress) (reconcile.Result, error) {
 	cb := conditions.NewConditionBuilder(vmmaccondition.BoundType).Generation(vmmac.Generation)
+
 	defer func() { conditions.SetCondition(cb, &vmmac.Status.Conditions) }()
 
 	lease, err := h.macService.GetLease(ctx, vmmac)

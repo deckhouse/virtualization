@@ -93,6 +93,7 @@ func domainCaptureStateFromStatus(cs *v1alpha2.UnifiedSnapshotterCaptureState, c
 	if cs == nil || cs.DomainSpecificController == nil {
 		return out
 	}
+
 	d := cs.DomainSpecificController
 	out.ManifestCaptureRequestName = d.ManifestCaptureRequestName
 	out.VolumeCaptureRequestName = d.VolumeCaptureRequestName
@@ -100,6 +101,7 @@ func domainCaptureStateFromStatus(cs *v1alpha2.UnifiedSnapshotterCaptureState, c
 	out.Reason = d.Reason
 	out.Message = d.Message
 	out.ExcludedRefs = excludedRefsToSDK(d.ExcludedRefs)
+
 	return out
 }
 
@@ -110,6 +112,7 @@ func domainCaptureStateToStatus(cur *v1alpha2.UnifiedSnapshotterCaptureState, st
 	if out == nil {
 		out = &v1alpha2.UnifiedSnapshotterCaptureState{}
 	}
+
 	out.DomainSpecificController = &v1alpha2.UnifiedSnapshotterDomainCaptureState{
 		ManifestCaptureRequestName: st.ManifestCaptureRequestName,
 		VolumeCaptureRequestName:   st.VolumeCaptureRequestName,
@@ -118,6 +121,7 @@ func domainCaptureStateToStatus(cur *v1alpha2.UnifiedSnapshotterCaptureState, st
 		Message:                    st.Message,
 		ExcludedRefs:               excludedRefsFromSDK(st.ExcludedRefs),
 	}
+
 	return out, childRefsFromSDK(st.ChildrenSnapshotRefs)
 }
 
@@ -125,6 +129,7 @@ func coreCaptureStateFromStatus(cs *v1alpha2.UnifiedSnapshotterCaptureState) sna
 	if cs == nil || cs.CommonController == nil {
 		return snapshotsdk.CoreCaptureState{}
 	}
+
 	return snapshotsdk.CoreCaptureState{
 		ManifestCaptured:                cs.CommonController.ManifestCaptured,
 		DataCaptured:                    cs.CommonController.DataCaptured,
@@ -137,6 +142,7 @@ func snapshotSourceFromRef(ref *v1alpha2.UnifiedSnapshotterSourceRef) *snapshots
 	if ref == nil {
 		return nil
 	}
+
 	src := snapshotsdk.SnapshotSource{
 		APIVersion: ref.APIVersion,
 		Kind:       ref.Kind,
@@ -144,6 +150,7 @@ func snapshotSourceFromRef(ref *v1alpha2.UnifiedSnapshotterSourceRef) *snapshots
 		Namespace:  ref.Namespace,
 		UID:        types.UID(ref.UID),
 	}
+
 	return &src
 }
 
@@ -151,6 +158,7 @@ func snapshotSourceToRef(src *snapshotsdk.SnapshotSource) *v1alpha2.UnifiedSnaps
 	if src == nil {
 		return nil
 	}
+
 	return &v1alpha2.UnifiedSnapshotterSourceRef{
 		APIVersion: src.APIVersion,
 		Kind:       src.Kind,
@@ -164,6 +172,7 @@ func readyStatus(conditions []metav1.Condition) metav1.ConditionStatus {
 	if c := meta.FindStatusCondition(conditions, v1alpha2.UnifiedSnapshotterConditionReady); c != nil {
 		return c.Status
 	}
+
 	return ""
 }
 
@@ -171,6 +180,7 @@ func readyReason(conditions []metav1.Condition) string {
 	if c := meta.FindStatusCondition(conditions, v1alpha2.UnifiedSnapshotterConditionReady); c != nil {
 		return c.Reason
 	}
+
 	return ""
 }
 
@@ -178,6 +188,7 @@ func readyMessage(conditions []metav1.Condition) string {
 	if c := meta.FindStatusCondition(conditions, v1alpha2.UnifiedSnapshotterConditionReady); c != nil {
 		return c.Message
 	}
+
 	return ""
 }
 
@@ -185,10 +196,12 @@ func childRefsToSDK(refs []v1alpha2.UnifiedSnapshotterChildRef) []storagev1alpha
 	if refs == nil {
 		return nil
 	}
+
 	out := make([]storagev1alpha1.SnapshotChildRef, len(refs))
 	for i, r := range refs {
 		out[i] = storagev1alpha1.SnapshotChildRef{APIVersion: r.APIVersion, Kind: r.Kind, Name: r.Name}
 	}
+
 	return out
 }
 
@@ -196,10 +209,12 @@ func childRefsFromSDK(refs []storagev1alpha1.SnapshotChildRef) []v1alpha2.Unifie
 	if refs == nil {
 		return nil
 	}
+
 	out := make([]v1alpha2.UnifiedSnapshotterChildRef, len(refs))
 	for i, r := range refs {
 		out[i] = v1alpha2.UnifiedSnapshotterChildRef{APIVersion: r.APIVersion, Kind: r.Kind, Name: r.Name}
 	}
+
 	return out
 }
 
@@ -208,6 +223,7 @@ func excludedRefsToSDK(refs []v1alpha2.UnifiedSnapshotterChildRef) []snapshotsdk
 	for i, r := range refs {
 		out[i] = storagev1alpha1.ExcludedObjectRef{APIVersion: r.APIVersion, Kind: r.Kind, Name: r.Name}
 	}
+
 	return out
 }
 
@@ -216,5 +232,6 @@ func excludedRefsFromSDK(refs []snapshotsdk.ExcludedObjectRef) []v1alpha2.Unifie
 	for i, r := range refs {
 		out[i] = v1alpha2.UnifiedSnapshotterChildRef{APIVersion: r.APIVersion, Kind: r.Kind, Name: r.Name}
 	}
+
 	return out
 }

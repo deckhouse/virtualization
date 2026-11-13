@@ -36,6 +36,7 @@ func NewUSBDeviceStore(devices map[string]*USBDevice, log *slog.Logger) *USBDevi
 	if devices == nil {
 		devices = make(map[string]*USBDevice)
 	}
+
 	return &USBDeviceStore{
 		devices:   devices,
 		changesCh: make(chan struct{}, 1),
@@ -53,6 +54,7 @@ func (s *USBDeviceStore) Changes() <-chan struct{} {
 func (s *USBDeviceStore) Close() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	if s.changesCh != nil {
 		close(s.changesCh)
 		s.changesCh = nil
@@ -62,10 +64,12 @@ func (s *USBDeviceStore) Close() {
 // GetDevices returns a sorted copy of all discovered USB devices.
 func (s *USBDeviceStore) GetDevices() []USBDevice {
 	s.mu.RLock()
+
 	devices := make([]USBDevice, 0, len(s.devices))
 	for _, device := range s.devices {
 		devices = append(devices, *device)
 	}
+
 	s.mu.RUnlock()
 
 	slices.SortFunc(devices, func(a, b USBDevice) int {
@@ -86,6 +90,7 @@ func (s *USBDeviceStore) GetDevice(path string) (*USBDevice, bool) {
 	}
 
 	deviceCopy := *device
+
 	return &deviceCopy, true
 }
 
@@ -100,6 +105,7 @@ func (s *USBDeviceStore) GetDeviceByBusID(busID string) (*USBDevice, bool) {
 			return &deviceCopy, true
 		}
 	}
+
 	return nil, false
 }
 
@@ -107,6 +113,7 @@ func (s *USBDeviceStore) unlockedSendChange() {
 	ch := s.changesCh
 	if ch != nil {
 		s.log.Debug("Notifying USB device store")
+
 		select {
 		case ch <- struct{}{}:
 		default:
@@ -122,6 +129,7 @@ func (s *USBDeviceStore) AddDevice(path string, device *USBDevice) bool {
 
 	oldDevice, exists := s.devices[path]
 	needNotify := false
+
 	if !exists || !device.Equal(oldDevice) {
 		s.devices[path] = device
 		s.log.Info("device added",
@@ -131,12 +139,14 @@ func (s *USBDeviceStore) AddDevice(path string, device *USBDevice) bool {
 			slog.String("manufacturer", device.Manufacturer),
 			slog.String("serial", device.Serial),
 		)
+
 		needNotify = true
 	}
 
 	if needNotify {
 		s.unlockedSendChange()
 	}
+
 	return needNotify
 }
 
@@ -147,18 +157,21 @@ func (s *USBDeviceStore) RemoveDevice(path string) bool {
 
 	device, exists := s.devices[path]
 	needNotify := false
+
 	if exists {
 		s.log.Info("device removed",
 			slog.String("path", path),
 			slog.String("busid", device.BusID),
 		)
 		delete(s.devices, path)
+
 		needNotify = true
 	}
 
 	if needNotify {
 		s.unlockedSendChange()
 	}
+
 	return needNotify
 }
 
@@ -174,6 +187,7 @@ func (s *USBDeviceStore) Resync(devices map[string]*USBDevice) bool {
 		if _, exists := devices[path]; !exists {
 			s.log.Info("device removed (resync)", slog.String("path", path))
 			delete(s.devices, path)
+
 			changed = true
 		}
 	}
@@ -207,6 +221,8 @@ func (s *USBDeviceStore) Resync(devices map[string]*USBDevice) bool {
 func (s *USBDeviceStore) Exists(path string) bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+
 	_, exists := s.devices[path]
+
 	return exists
 }

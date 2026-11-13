@@ -163,6 +163,7 @@ var _ = Describe("UploadDataSource", func() {
 				if prev == "" {
 					return "10%"
 				}
+
 				return prev
 			},
 			CheckPodFunc:        func(_ *corev1.Pod) error { return nil },
@@ -186,6 +187,7 @@ var _ = Describe("UploadDataSource", func() {
 
 		It("creates the uploader supplements and sets DiskProvisioning", func() {
 			var started bool
+
 			uploaderSvc.ApplyFunc = func(_ context.Context, _ client.Object, _ supplements.Generator, _ serviceuploader.Settings, _ *datasource.CABundle, _ ...serviceuploader.Option) error {
 				started = true
 				return nil
@@ -320,6 +322,7 @@ var _ = Describe("UploadDataSource", func() {
 			}}
 
 			var cleaned bool
+
 			uploaderSvc.CleanupFunc = func(_ context.Context, _ supplements.Generator) (bool, string, error) {
 				cleaned = true
 				return true, "", nil
@@ -423,9 +426,12 @@ var _ = Describe("UploadDataSource", func() {
 
 		It("starts the PVC import using a registry source", func() {
 			var started bool
+
 			pvcSvc.CreateTargetFromDVCRFunc = func(_ context.Context, _ types.NamespacedName, _ string, _ *resource.Quantity, _ client.Object, source *service.PVCImportSourceRegistry, _ service.VolumeAndAccessModesGetter, _ *provisioner.NodePlacement) (corev1.PersistentVolumeClaim, error) {
 				started = true
+
 				Expect(source).ToNot(BeNil())
+
 				return corev1.PersistentVolumeClaim{}, nil
 			}
 
@@ -472,7 +478,9 @@ var _ = Describe("UploadDataSource", func() {
 			uploaderSvc.GetServiceFunc = func(_ context.Context, _ supplements.Generator) (*corev1.Service, error) {
 				return &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "uploader-svc", Namespace: vd.Namespace}}, nil
 			}
+
 			var cleaned bool
+
 			uploaderSvc.CleanupFunc = func(_ context.Context, _ supplements.Generator) (bool, string, error) {
 				cleaned = true
 				return true, "", nil
@@ -498,10 +506,13 @@ var _ = Describe("UploadDataSource", func() {
 
 		It("waits for populator to start the PVC import", func() {
 			var imported bool
+
 			pvcSvc.ImportFunc = func(_ context.Context, target *corev1.PersistentVolumeClaim, source *service.PVCImportSource, _ client.Object, _ supplements.Generator, _ *provisioner.NodePlacement) error {
 				imported = true
+
 				Expect(target.Name).To(Equal(pvc.Name))
 				Expect(source).To(BeNil())
+
 				return nil
 			}
 			pvcSvc.WaitForImportFunc = func(_ context.Context, _ *corev1.PersistentVolumeClaim, _ *service.PVCImportSource, _ client.Object, _ supplements.Generator, _ *provisioner.NodePlacement) (corev1.PodPhase, error) {
@@ -523,6 +534,7 @@ var _ = Describe("UploadDataSource", func() {
 	Context("CleanUp", func() {
 		It("delegates to both uploader and disk services", func() {
 			var uploaderCleaned, diskCleaned bool
+
 			uploaderSvc.CleanupFunc = func(_ context.Context, _ supplements.Generator) (bool, string, error) {
 				uploaderCleaned = true
 				return false, "", nil

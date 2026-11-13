@@ -38,5 +38,6 @@ func StorageFormat(pvc *corev1.PersistentVolumeClaim) string {
 	if pvc != nil && pvc.Spec.VolumeMode != nil && *pvc.Spec.VolumeMode == corev1.PersistentVolumeBlock {
 		return FormatRAW
 	}
+
 	return FormatQCOW2
 }

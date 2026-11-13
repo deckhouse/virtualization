@@ -37,6 +37,7 @@ func writeSysfsAttr(attrPath string, value sysfsAttr) error {
 	slog.Debug("writing sysfs attr", "attrPath", attrPath, "value", completed)
 
 	_, err = f.WriteString(completed)
+
 	return err
 }
 

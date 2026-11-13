@@ -46,6 +46,7 @@ var _ = Describe("Evaluate", func() {
 		vm := &v1alpha2.VirtualMachine{}
 		vm.Spec.CPU.Cores = 1
 		vm.Spec.CPU.CoreFraction = coreFraction
+
 		return vm
 	}
 
@@ -91,6 +92,7 @@ var _ = Describe("Evaluate", func() {
 				LastTransitionTime: metav1.NewTime(finished),
 			}}
 		}
+
 		return vmop
 	}
 
@@ -279,6 +281,7 @@ var _ = Describe("Evaluate", func() {
 		user := newVMOP(v1alpha2.VMOPPhaseCompleted, "", t0.Add(-20*time.Minute), t0.Add(-19*time.Minute))
 		delete(user.Annotations, annotations.AnnVMOPWorkloadUpdate)
 		delete(user.Annotations, Annotation)
+
 		pod := newPod("pod-2", t0.Add(-19*time.Minute-30*time.Second))
 		plan := Evaluate(Input{Now: t0, KVVMI: newKVVMI("50"), Pod: pod, VMOPs: []*v1alpha2.VirtualMachineOperation{user}})
 		Expect(plan.Phase).To(Equal(PhaseDue))
@@ -297,10 +300,12 @@ var _ = Describe("Evaluate", func() {
 
 		failures := func(keys ...string) []*v1alpha2.VirtualMachineOperation {
 			var vmops []*v1alpha2.VirtualMachineOperation
+
 			for i, k := range keys {
 				finished := t0.Add(time.Duration(i-len(keys)) * time.Minute)
 				vmops = append(vmops, newVMOP(v1alpha2.VMOPPhaseFailed, k, finished.Add(-30*time.Second), finished))
 			}
+
 			return vmops
 		}
 
@@ -310,12 +315,14 @@ var _ = Describe("Evaluate", func() {
 				for range failed {
 					keys = append(keys, key("50"))
 				}
+
 				vmops := failures(keys...)
 				last := vmops[len(vmops)-1]
 				now := finishedAt(last).Add(after)
 				plan := Evaluate(Input{Now: now, KVVMI: newKVVMI("50"), Pod: pod, VMOPs: vmops})
 				Expect(plan.Phase).To(Equal(expected))
 				Expect(plan.Failed).To(HaveLen(failed))
+
 				if expected == PhaseRetrying {
 					Expect(plan.At).To(Equal(finishedAt(last).Add(retryDelays[failed-1])))
 				}
@@ -362,6 +369,7 @@ var _ = Describe("Evaluate", func() {
 			if mutate != nil {
 				mutate(kvvmi)
 			}
+
 			Expect(Autoscaled(newVM(coreFraction), kvvmi)).To(Equal(expected))
 		},
 		Entry("only the core fraction of an Auto VM is pending", string(v1alpha2.CoreFractionAuto), nil, true),

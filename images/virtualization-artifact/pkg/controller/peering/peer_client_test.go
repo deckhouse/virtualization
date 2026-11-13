@@ -42,6 +42,7 @@ func clusterPeer(phase string, capabilities []any, endpoint string) *unstructure
 	cp.SetGroupVersionKind(clusterPeerGVK)
 	cp.SetName("cluster-b")
 	cp.SetResourceVersion("7")
+
 	return cp
 }
 
@@ -83,6 +84,7 @@ var _ = Describe("PeerClients", func() {
 		again, err := p.token(ctx, "aud-b")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(again).To(Equal(first), "a live token is reused")
+
 		other, err := p.token(ctx, "aud-c")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(other).NotTo(Equal(first), "each audience gets its own token")
@@ -105,6 +107,7 @@ var _ = Describe("PeerClients", func() {
 		Entry("no audience for virtualization", func() *unstructured.Unstructured {
 			cp := clusterPeer("Active", []any{Capability}, "https://x")
 			Expect(unstructured.SetNestedSlice(cp.Object, []any{}, "status", "access", "audiences")).To(Succeed())
+
 			return cp
 		}()),
 	)
@@ -131,6 +134,7 @@ var _ = Describe("PeerClients", func() {
 			pp.SetGroupVersionKind(projectPeerGVK)
 			pp.SetNamespace("app-x")
 			pp.SetName(name)
+
 			return pp
 		}
 		virt := []any{map[string]any{"name": Capability, "version": "1.2.0"}}
@@ -145,11 +149,13 @@ var _ = Describe("PeerClients", func() {
 		).Build()
 		p, err := NewPeerClients(cl, nil, "d8-virtualization")
 		Expect(err).NotTo(HaveOccurred())
+
 		ctx := context.Background()
 
 		Expect(p.Paired(ctx, "cluster-b", "app-x")).To(Succeed())
 		Expect(p.Paired(ctx, "cluster-b", "app-x-extra")).To(Succeed(), "an additional namespace of the project")
 		Expect(p.Paired(ctx, "self", "orphan")).To(Succeed(), "a dev Secret stands for a pair")
+
 		for peer, ns := range map[string]string{"cluster-c": "app-x", "cluster-d": "app-x", "cluster-e": "app-x", "cluster-b": "orphan"} {
 			Expect(errors.Is(p.Paired(ctx, peer, ns), ErrPeerNotPaired)).To(BeTrue(), "%s in %s", peer, ns)
 		}
@@ -191,6 +197,7 @@ current-context: b
 		reader := fake.NewClientBuilder().WithObjects(secret).Build()
 		p, err := NewPeerClients(reader, nil, "d8-virtualization")
 		Expect(err).NotTo(HaveOccurred())
+
 		ctx := context.Background()
 		first, err := p.Client(ctx, "cluster-b")
 		Expect(err).NotTo(HaveOccurred())
@@ -199,6 +206,7 @@ current-context: b
 		again, err := p.Client(ctx, "cluster-b")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(again).To(BeIdenticalTo(first))
+
 		target, err := p.Target(ctx, "cluster-b", "src")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(target.Namespace).To(Equal("dst"))

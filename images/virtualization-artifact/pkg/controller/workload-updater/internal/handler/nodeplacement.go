@@ -147,6 +147,7 @@ func isLiveMigratable(kvvmi *virtv1.VirtualMachineInstance) bool {
 	// but the evict operation migrates its volumes along; that ability is
 	// reported by the StorageLiveMigratable condition.
 	storageCond, _ := conditions.GetKVVMICondition(virtv1.VirtualMachineInstanceIsStorageLiveMigratable, kvvmi.Status.Conditions)
+
 	return storageCond.Status == corev1.ConditionTrue
 }
 
@@ -154,17 +155,21 @@ func genNodePlacementSum(kvvmi *virtv1.VirtualMachineInstance) (string, error) {
 	if kvvmi == nil {
 		return "", fmt.Errorf("kvvmi is nil")
 	}
+
 	np := &nodePlacement{
 		NodeSelector: kvvmi.Spec.NodeSelector,
 		Affinity:     kvvmi.Spec.Affinity,
 	}
+
 	b, err := json.Marshal(np)
 	if err != nil {
 		return "", err
 	}
+
 	hasher := md5.New()
 	hasher.Write(b)
 	hashInBytes := hasher.Sum(nil)
+
 	return hex.EncodeToString(hashInBytes), nil
 }
 

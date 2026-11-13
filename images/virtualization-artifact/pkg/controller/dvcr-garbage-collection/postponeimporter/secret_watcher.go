@@ -50,6 +50,7 @@ func NewWatcher[T client.Object](client client.Client, logger *log.Logger) *DVCR
 	if logger == nil {
 		logger = log.Default()
 	}
+
 	return &DVCRGarbageCollectionSecretWatcher[T]{
 		client: client,
 		logger: logger.With("watcher", strings.ToLower("Secret")),
@@ -70,6 +71,7 @@ func (w *DVCRGarbageCollectionSecretWatcher[T]) Watch(mgr manager.Manager, ctr c
 					if !watcher.IsDVCRGarbageCollectionSecret(e.ObjectNew) {
 						return false
 					}
+
 					return !reflect.DeepEqual(e.ObjectNew.GetAnnotations(), e.ObjectOld.GetAnnotations())
 				},
 				DeleteFunc: func(e event.TypedDeleteEvent[*corev1.Secret]) bool {
@@ -80,6 +82,7 @@ func (w *DVCRGarbageCollectionSecretWatcher[T]) Watch(mgr manager.Manager, ctr c
 	); err != nil {
 		return fmt.Errorf("error setting watch on DVCR garbage collection Secret: %w", err)
 	}
+
 	return nil
 }
 
@@ -105,6 +108,7 @@ func (w *DVCRGarbageCollectionSecretWatcher[T]) enqueuePostponedResources(ctx co
 	}
 
 	requests := make([]reconcile.Request, 0)
+
 	switch obj := resList.(type) {
 	case *v1alpha2.ClusterVirtualImageList:
 		for _, item := range obj.Items {

@@ -63,6 +63,7 @@ var _ = Describe("DeletionHandler", func() {
 		vmop := vmopbuilder.NewEmpty(name, namespace)
 		vmop.Status.Phase = phase
 		vmopbuilder.ApplyOptions(vmop, opts...)
+
 		return vmop
 	}
 
@@ -70,6 +71,7 @@ var _ = Describe("DeletionHandler", func() {
 		vmop := newVmop(phase, vmopbuilder.WithType(v1alpha2.VMOPTypeEvict))
 
 		fakeClient, srv = setupEnvironment(vmop)
+
 		reconcile()
 
 		newVMOP := &v1alpha2.VirtualMachineOperation{}
@@ -92,12 +94,15 @@ var _ = Describe("DeletionHandler", func() {
 	Context("Migration", func() {
 		DescribeTable("Should cleanup migration", func(vmop *v1alpha2.VirtualMachineOperation, mig *virtv1.VirtualMachineInstanceMigration, shouldExist bool) {
 			expectLength := 1
+
 			if !shouldExist {
 				controllerutil.AddFinalizer(vmop, v1alpha2.FinalizerVMOPCleanup)
 				vmop.DeletionTimestamp = ptr.To(metav1.Now())
 				expectLength = 0
 			}
+
 			fakeClient, srv = setupEnvironment(vmop, mig)
+
 			reconcile()
 
 			migs := &virtv1.VirtualMachineInstanceMigrationList{}

@@ -61,6 +61,7 @@ func (w *DVCRGarbageCollectionSecretWatcher) Watch(mgr manager.Manager, ctr cont
 					if !IsDVCRGarbageCollectionSecret(e.ObjectNew) {
 						return false
 					}
+
 					return !reflect.DeepEqual(e.ObjectNew.GetAnnotations(), e.ObjectOld.GetAnnotations())
 				},
 				DeleteFunc: func(e event.TypedDeleteEvent[*corev1.Secret]) bool {
@@ -75,5 +76,6 @@ func IsDVCRGarbageCollectionSecret(secret metav1.Object) bool {
 	if secret == nil {
 		return false
 	}
+
 	return secret.GetNamespace() == dvcrtypes.ModuleNamespace && secret.GetName() == dvcrtypes.DVCRGarbageCollectionSecretName
 }

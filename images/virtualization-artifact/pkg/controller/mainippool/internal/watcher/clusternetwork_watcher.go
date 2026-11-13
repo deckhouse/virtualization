@@ -59,5 +59,6 @@ func (w *ClusterNetworkWatcher) Watch(mgr manager.Manager, ctr controller.Contro
 	if err := ctr.Watch(source.Kind(mgr.GetCache(), &sdnapi.ClusterNetwork{}, enqueue, byMainNetwork)); err != nil {
 		return fmt.Errorf("error setting watch on ClusterNetwork: %w", err)
 	}
+
 	return nil
 }

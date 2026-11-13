@@ -155,6 +155,7 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 	Context("VirtualDisk has just been created", func() {
 		It("must create PVC", func() {
 			var pvcCreated bool
+
 			vd.Status = v1alpha2.VirtualDiskStatus{
 				Target: v1alpha2.DiskTarget{
 					PersistentVolumeClaim: "test-pvc",
@@ -165,7 +166,9 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 					Create: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.CreateOption) error {
 						_, ok := obj.(*corev1.PersistentVolumeClaim)
 						Expect(ok).To(BeTrue())
+
 						pvcCreated = true
+
 						return nil
 					},
 				}).Build()
@@ -190,12 +193,15 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 				if vdSize != "" {
 					vd.Spec.PersistentVolumeClaim.Size = ptr.To(resource.MustParse(vdSize))
 				}
+
 				if originalSize != "" {
 					if vs.Annotations == nil {
 						vs.Annotations = map[string]string{}
 					}
+
 					vs.Annotations[annotations.AnnVirtualDiskOriginalSize] = originalSize
 				}
+
 				if restoreSize != "" {
 					vs.Status.RestoreSize = ptr.To(resource.MustParse(restoreSize))
 				}
@@ -205,8 +211,10 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 						Create: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.CreateOption) error {
 							pvc, ok := obj.(*corev1.PersistentVolumeClaim)
 							Expect(ok).To(BeTrue())
+
 							actualSize := pvc.Spec.Resources.Requests[corev1.ResourceStorage]
 							Expect(actualSize.String()).To(Equal(expectedSize))
+
 							return nil
 						},
 					}).Build()

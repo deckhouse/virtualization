@@ -93,6 +93,7 @@ func NewManifestReader(ctx context.Context, c client.Client, vmSnapshot *v1alpha
 			// yet; retryable, not a real error.
 			return nil, common.ErrQueueing
 		}
+
 		if err := verifySnapshotContentBackRef(ctx, c, vmSnapshot.Status.BoundSnapshotContentName, snapshotSubject{
 			kind:      v1alpha2.VirtualMachineSnapshotKind,
 			namespace: vmSnapshot.Namespace,
@@ -101,10 +102,12 @@ func NewManifestReader(ctx context.Context, c client.Client, vmSnapshot *v1alpha
 		}); err != nil {
 			return nil, err
 		}
+
 		cc, err := sharedContentClient()
 		if err != nil {
 			return nil, err
 		}
+
 		return &unifiedManifestReader{
 			client:        cc,
 			contentName:   vmSnapshot.Status.BoundSnapshotContentName,
@@ -113,13 +116,16 @@ func NewManifestReader(ctx context.Context, c client.Client, vmSnapshot *v1alpha
 	}
 
 	restorerSecretKey := types.NamespacedName{Namespace: vmSnapshot.Namespace, Name: vmSnapshot.Status.VirtualMachineSnapshotSecretName}
+
 	secret, err := object.FetchObject(ctx, restorerSecretKey, c, &corev1.Secret{})
 	if err != nil {
 		return nil, err
 	}
+
 	if secret == nil {
 		return nil, fmt.Errorf("restorer secret %q is not found", restorerSecretKey.Name)
 	}
+
 	return &secretManifestReader{restorer: NewSecretRestorer(c), secret: secret}, nil
 }
 
@@ -174,9 +180,11 @@ func CapturedVirtualDisk(ctx context.Context, c client.Client, vdSnapshot *v1alp
 	if !IsUnifiedDiskCapture(vdSnapshot) {
 		return nil, nil
 	}
+
 	if vdSnapshot.Status.BoundSnapshotContentName == "" {
 		return nil, common.ErrQueueing
 	}
+
 	if err := verifySnapshotContentBackRef(ctx, c, vdSnapshot.Status.BoundSnapshotContentName, snapshotSubject{
 		kind:      v1alpha2.VirtualDiskSnapshotKind,
 		namespace: vdSnapshot.Namespace,
@@ -190,6 +198,7 @@ func CapturedVirtualDisk(ctx context.Context, c client.Client, vdSnapshot *v1alp
 	if err != nil {
 		return nil, err
 	}
+
 	return capturedVirtualDiskFrom(ctx, cc, vdSnapshot.Status.BoundSnapshotContentName)
 }
 
@@ -198,16 +207,20 @@ func capturedVirtualDiskFrom(ctx context.Context, downloader manifestDownloader,
 	if err != nil {
 		return nil, err
 	}
+
 	for _, m := range manifests {
 		if !m.Is(v1alpha2.SchemeGroupVersion.String(), v1alpha2.VirtualDiskKind) {
 			continue
 		}
+
 		vd := &v1alpha2.VirtualDisk{}
 		if err := json.Unmarshal(m.Raw, vd); err != nil {
 			return nil, fmt.Errorf("unmarshal captured VirtualDisk from SnapshotContent %q: %w", contentName, err)
 		}
+
 		return vd, nil
 	}
+
 	return nil, fmt.Errorf("no VirtualDisk manifest found in SnapshotContent %q", contentName)
 }
 
@@ -270,6 +283,7 @@ func (u *unifiedManifestReader) load(ctx context.Context) ([]RawManifest, error)
 	u.once.Do(func() {
 		u.manifests, u.loadErr = u.client.DownloadManifests(ctx, u.contentName)
 	})
+
 	return u.manifests, u.loadErr
 }
 
@@ -278,16 +292,20 @@ func (u *unifiedManifestReader) RestoreVirtualMachine(ctx context.Context) (*v1a
 	if err != nil {
 		return nil, err
 	}
+
 	for _, m := range manifests {
 		if !m.Is(v1alpha2.SchemeGroupVersion.String(), v1alpha2.VirtualMachineKind) {
 			continue
 		}
+
 		vm := &v1alpha2.VirtualMachine{}
 		if err := json.Unmarshal(m.Raw, vm); err != nil {
 			return nil, fmt.Errorf("unmarshal captured VirtualMachine from SnapshotContent %q: %w", u.contentName, err)
 		}
+
 		return vm, nil
 	}
+
 	return nil, fmt.Errorf("no VirtualMachine manifest found in SnapshotContent %q", u.contentName)
 }
 
@@ -306,19 +324,24 @@ func (u *unifiedManifestReader) RestoreProvisioner(ctx context.Context) (*corev1
 	if err != nil {
 		return nil, err
 	}
+
 	for _, m := range manifests {
 		if !m.Is("v1", "Secret") {
 			continue
 		}
+
 		secret := &corev1.Secret{}
 		if err := json.Unmarshal(m.Raw, secret); err != nil {
 			return nil, fmt.Errorf("unmarshal captured provisioner Secret from SnapshotContent %q: %w", u.contentName, err)
 		}
+
 		if secret.Name != secretName {
 			continue
 		}
+
 		return secret, nil
 	}
+
 	return nil, fmt.Errorf("provisioner Secret %q referenced by the captured VirtualMachine %q is missing from SnapshotContent %q", secretName, vm.Name, u.contentName)
 }
 
@@ -333,11 +356,13 @@ func provisionerSecretName(vm *v1alpha2.VirtualMachine) string {
 		if p.UserDataRef == nil || p.UserDataRef.Kind != v1alpha2.UserDataRefKindSecret {
 			return ""
 		}
+
 		return p.UserDataRef.Name
 	case v1alpha2.ProvisioningTypeSysprepRef:
 		if p.SysprepRef == nil || p.SysprepRef.Kind != v1alpha2.SysprepRefKindSecret {
 			return ""
 		}
+
 		return p.SysprepRef.Name
 	default:
 		return ""
@@ -349,19 +374,24 @@ func (u *unifiedManifestReader) RestoreVirtualMachineIPAddress(ctx context.Conte
 	if err != nil {
 		return nil, err
 	}
+
 	for _, m := range manifests {
 		if !m.Is(v1alpha2.SchemeGroupVersion.String(), v1alpha2.VirtualMachineIPAddressKind) {
 			continue
 		}
+
 		vmip := &v1alpha2.VirtualMachineIPAddress{}
 		if err := json.Unmarshal(m.Raw, vmip); err != nil {
 			return nil, fmt.Errorf("unmarshal captured VirtualMachineIPAddress from SnapshotContent %q: %w", u.contentName, err)
 		}
+
 		if err := u.applyKeepIPAddress(vmip); err != nil {
 			return nil, err
 		}
+
 		return vmip, nil
 	}
+
 	return nil, nil
 }
 
@@ -379,6 +409,7 @@ func (u *unifiedManifestReader) applyKeepIPAddress(vmip *v1alpha2.VirtualMachine
 
 	vmip.Spec.Type = v1alpha2.VirtualMachineIPAddressTypeStatic
 	vmip.Spec.StaticIP = vmip.Status.Address
+
 	return nil
 }
 
@@ -388,23 +419,29 @@ func (u *unifiedManifestReader) RestoreMainIPAddress(ctx context.Context) (*Main
 	if err != nil {
 		return nil, err
 	}
+
 	for _, m := range manifests {
 		if !m.Is(sdnapi.SchemeGroupVersion.String(), sdnapi.IPAddressKind) {
 			continue
 		}
+
 		ipa := &sdnapi.IPAddress{}
 		if err := json.Unmarshal(m.Raw, ipa); err != nil {
 			return nil, fmt.Errorf("unmarshal captured IPAddress from SnapshotContent %q: %w", u.contentName, err)
 		}
+
 		if !network.IsMainNetworkIPAddress(ipa) {
 			continue
 		}
+
 		address := network.AddressOfIPAddress(ipa)
 		if address == "" {
 			return nil, fmt.Errorf("captured IPAddress %q has an Auto type and no allocated address", ipa.GetName())
 		}
+
 		return &MainIPAddressSnapshot{Name: ipa.GetName(), Address: address}, nil
 	}
+
 	return nil, nil
 }
 
@@ -413,11 +450,14 @@ func (u *unifiedManifestReader) RestoreVirtualMachineMACAddresses(ctx context.Co
 	if err != nil {
 		return nil, err
 	}
+
 	var vmmacs []*v1alpha2.VirtualMachineMACAddress
+
 	for _, m := range manifests {
 		if !m.Is(v1alpha2.SchemeGroupVersion.String(), v1alpha2.VirtualMachineMACAddressKind) {
 			continue
 		}
+
 		vmmac := &v1alpha2.VirtualMachineMACAddress{}
 		if err := json.Unmarshal(m.Raw, vmmac); err != nil {
 			return nil, fmt.Errorf("unmarshal captured VirtualMachineMACAddress from SnapshotContent %q: %w", u.contentName, err)
@@ -426,8 +466,10 @@ func (u *unifiedManifestReader) RestoreVirtualMachineMACAddresses(ctx context.Co
 		if vmmac.Spec.Address == "" {
 			vmmac.Spec.Address = vmmac.Status.Address
 		}
+
 		vmmacs = append(vmmacs, vmmac)
 	}
+
 	return vmmacs, nil
 }
 
@@ -438,6 +480,7 @@ func (u *unifiedManifestReader) RestoreMACAddressOrder(ctx context.Context) ([]s
 	}
 
 	var macAddressOrder []string
+
 	for _, ns := range vm.Status.Networks {
 		switch ns.Type {
 		case v1alpha2.NetworksTypeMain:
@@ -446,6 +489,7 @@ func (u *unifiedManifestReader) RestoreMACAddressOrder(ctx context.Context) ([]s
 			macAddressOrder = append(macAddressOrder, ns.MAC)
 		}
 	}
+
 	return macAddressOrder, nil
 }
 
@@ -454,16 +498,21 @@ func (u *unifiedManifestReader) RestoreVirtualMachineBlockDeviceAttachments(ctx 
 	if err != nil {
 		return nil, err
 	}
+
 	var vmbdas []*v1alpha2.VirtualMachineBlockDeviceAttachment
+
 	for _, m := range manifests {
 		if !m.Is(v1alpha2.SchemeGroupVersion.String(), v1alpha2.VirtualMachineBlockDeviceAttachmentKind) {
 			continue
 		}
+
 		vmbda := &v1alpha2.VirtualMachineBlockDeviceAttachment{}
 		if err := json.Unmarshal(m.Raw, vmbda); err != nil {
 			return nil, fmt.Errorf("unmarshal captured VirtualMachineBlockDeviceAttachment from SnapshotContent %q: %w", u.contentName, err)
 		}
+
 		vmbdas = append(vmbdas, vmbda)
 	}
+
 	return vmbdas, nil
 }

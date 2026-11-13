@@ -87,6 +87,7 @@ func newVhciDriver() (*vhciDriver, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	ncontrollers, err := getNControllers()
 	if err != nil {
 		return nil, err
@@ -124,7 +125,9 @@ func getNControllers() (int, error) {
 	if err != nil {
 		return -1, err
 	}
+
 	count := 0
+
 	for _, entry := range entries {
 		if entry.IsDir() && strings.HasPrefix(entry.Name(), "vhci_hcd") {
 			count++
@@ -181,6 +184,7 @@ func (d *vhciDriver) parseStatus(statusBytes []byte) error {
 		)
 
 		buf := bytes.NewBufferString(line)
+
 		_, err := fmt.Fscanf(buf, "%2s %d %d %d %x %d %31s", &hub, &port, &status, &speed, &devID, &sockFd, &localBusID)
 		if err != nil {
 			return fmt.Errorf("failed to parse status: %w", err)

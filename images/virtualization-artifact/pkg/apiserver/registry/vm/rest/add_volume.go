@@ -59,6 +59,7 @@ func (r AddVolumeREST) Connect(ctx context.Context, name string, opts runtime.Ob
 	if !ok {
 		return nil, fmt.Errorf("invalid options object: %#v", opts)
 	}
+
 	var (
 		addVolumePather pather
 		hooks           []mutateRequestHook
@@ -68,16 +69,20 @@ func (r AddVolumeREST) Connect(ctx context.Context, name string, opts runtime.Ob
 		addVolumePather = newKVVMIPather("addvolume")
 	} else {
 		addVolumePather = newKVVMPather("addvolume")
+
 		h, err := r.genMutateRequestHook(addVolumeOpts)
 		if err != nil {
 			return nil, err
 		}
+
 		hooks = append(hooks, h)
 	}
+
 	location, transport, err := AddVolumeLocation(ctx, r.vmLister, name, r.kubevirt, r.proxyCertManager, addVolumePather)
 	if err != nil {
 		return nil, err
 	}
+
 	handler := newThrottledUpgradeAwareProxyHandler(location, transport, false, responder, r.kubevirt.ServiceAccount, hooks...)
 
 	return handler, nil
@@ -128,6 +133,7 @@ func (r AddVolumeREST) genMutateRequestHook(opts *subresources.VirtualMachineAdd
 		if opts.PVCName == "" {
 			return nil, fmt.Errorf("must specify PVCName")
 		}
+
 		hotplugRequest.VolumeSource = &virtv1.HotplugVolumeSource{
 			PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
 				PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
@@ -146,6 +152,7 @@ func (r AddVolumeREST) genMutateRequestHook(opts *subresources.VirtualMachineAdd
 			if dd.Disk != nil {
 				dd.Disk.ReadOnly = true
 			}
+
 			hotplugRequest.VolumeSource = &virtv1.HotplugVolumeSource{
 				PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
 					PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
@@ -169,6 +176,7 @@ func (r AddVolumeREST) genMutateRequestHook(opts *subresources.VirtualMachineAdd
 		if opts.Image == "" {
 			return nil, fmt.Errorf("must specify Image")
 		}
+
 		hotplugRequest.VolumeSource = &virtv1.HotplugVolumeSource{
 			ContainerDisk: &virtv1.ContainerDiskSource{
 				Image:        opts.Image,

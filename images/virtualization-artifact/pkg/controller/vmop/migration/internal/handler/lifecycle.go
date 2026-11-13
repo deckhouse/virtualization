@@ -151,6 +151,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 	if commonvmop.IsTerminating(vmop) {
 		h.forgetProgress(vmop)
 		vmop.Status.Phase = v1alpha2.VMOPPhaseTerminating
+
 		return reconcile.Result{}, nil
 	}
 
@@ -185,6 +186,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 					Status(metav1.ConditionFalse).
 					Message("The `nodeSelector` field is not available in the Community Edition version."),
 				&vmop.Status.Conditions)
+
 			return reconcile.Result{}, nil
 		}
 	}
@@ -196,6 +198,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to check if migration was rejected due to quota for VMOP: %w", err)
 	}
+
 	if isQuotaExceededDuringMigration {
 		h.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPPending, "Project quota exceeded")
 		conditions.SetCondition(
@@ -204,6 +207,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 				Status(metav1.ConditionFalse).
 				Message("Project quota exceeded"),
 			&vmop.Status.Conditions)
+
 		return reconcile.Result{}, nil
 	}
 
@@ -228,6 +232,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to get migration for VMOP: %w", err)
 	}
+
 	if mig != nil {
 		conditions.SetCondition(
 			conditions.NewConditionBuilder(vmopcondition.TypeSignalSent).
@@ -235,6 +240,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 				Reason(vmopcondition.ReasonSignalSentSuccess).
 				Status(metav1.ConditionTrue),
 			&vmop.Status.Conditions)
+
 		return h.syncOperationCompleteResult(ctx, vmop)
 	}
 
@@ -244,6 +250,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to determine if VMOP should execute: %w", err)
 	}
+
 	if !should {
 		return reconcile.Result{}, nil
 	}
@@ -265,6 +272,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 					Status(metav1.ConditionFalse).
 					Message(msg),
 				&vmop.Status.Conditions)
+
 			return reconcile.Result{}, nil
 		}
 	}
@@ -280,6 +288,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 				Status(metav1.ConditionFalse).
 				Message(msg),
 			&vmop.Status.Conditions)
+
 		return reconcile.Result{}, nil
 	} else if msg != "" {
 		h.recorder.Event(vmop, corev1.EventTypeNormal, v1alpha2.ReasonVMOPStarted, msg)
@@ -290,6 +299,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to check other migrations in progress for VMOP: %w", err)
 	}
+
 	if found {
 		vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
 		h.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, "Other Migrations are in progress")
@@ -299,6 +309,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 				Status(metav1.ConditionFalse).
 				Message("Other Migrations are in progress"),
 			&vmop.Status.Conditions)
+
 		return reconcile.Result{}, nil
 	}
 
@@ -306,6 +317,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to check block device requests for VMOP: %w", err)
 	}
+
 	if wait {
 		return res, nil
 	}
@@ -318,6 +330,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 		if vmop.Status.Phase == v1alpha2.VMOPPhasePending {
 			return reconcile.Result{RequeueAfter: timeElapsedUpdateInterval}, nil
 		}
+
 		return reconcile.Result{}, nil
 	}
 	// 7.1 The Operation is valid, and can be executed.
@@ -338,9 +351,11 @@ func (h LifecycleHandler) syncOperationCompleteResult(ctx context.Context, vmop 
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	if vmop.Status.Phase == v1alpha2.VMOPPhaseInProgress || vmop.Status.Phase == v1alpha2.VMOPPhasePending {
 		return reconcile.Result{RequeueAfter: timeElapsedUpdateInterval}, nil
 	}
+
 	return reconcile.Result{}, nil
 }
 
@@ -368,6 +383,7 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alp
 			Reason(vmopcondition.ReasonOperationFailed)
 
 		var msg string
+
 		if kvvmi != nil {
 			migrationState := kvvmi.Status.MigrationState
 			if migrationState != nil &&
@@ -387,16 +403,21 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alp
 		} else {
 			msg = "Migration failed because the virtual machine is currently not running."
 		}
+
 		if aborting {
 			completedCond.Reason(vmopcondition.ReasonAborted)
+
 			msg = messageAbortedTargetNotReady
 		}
+
 		if msg != "" {
 			completedCond.Message(msg)
 		}
+
 		h.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, failureEventMessage(msg))
 
 		conditions.SetCondition(completedCond, &vmop.Status.Conditions)
+
 		return nil
 	}
 
@@ -409,6 +430,7 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alp
 		if aborting {
 			reason = vmopcondition.ReasonAborted
 		}
+
 		if reason == vmopcondition.ReasonFailed {
 			if prev, found := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions); found {
 				if prev.Reason == vmopcondition.ReasonNotConverging.String() {
@@ -416,6 +438,7 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alp
 				}
 			}
 		}
+
 		msg := h.getFailedMessage(reason, mig)
 		if aborting {
 			msg = messageAbortedTargetNotReady
@@ -432,6 +455,7 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alp
 			Reason(reason).
 			Message(msg)
 		conditions.SetCondition(completedCond, &vmop.Status.Conditions)
+
 		return nil
 	case virtv1.MigrationSucceeded:
 		vmop.Status.Phase = v1alpha2.VMOPPhaseCompleted
@@ -442,6 +466,7 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alp
 			Status(metav1.ConditionTrue).
 			Reason(vmopcondition.ReasonMigrationCompleted)
 		conditions.SetCondition(completedCond, &vmop.Status.Conditions)
+
 		return nil
 	}
 
@@ -466,9 +491,11 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alp
 		if err := h.migration.DeleteMigration(ctx, vmop); err != nil {
 			return fmt.Errorf("failed to delete migration stuck preparing target: %w", err)
 		}
+
 		if !aborting {
 			h.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, "Timed out preparing the migration target, aborting the migration")
 		}
+
 		vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
 		vmop.Status.Progress = migrationprogress.FormatPercent(h.calculateMigrationProgress(vmop, mig, reason))
 		conditions.SetCondition(
@@ -477,6 +504,7 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alp
 				Reason(vmopcondition.ReasonAborting).
 				Message("Timed out preparing the migration target. The migration is being aborted."),
 			&vmop.Status.Conditions)
+
 		return nil
 	}
 
@@ -494,6 +522,7 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alp
 	if reason == vmopcondition.ReasonMigrationPending || reason == vmopcondition.ReasonWaitingForSyncSlot {
 		vmop.Status.Phase = v1alpha2.VMOPPhasePending
 	}
+
 	progress := h.calculateMigrationProgress(vmop, mig, reason)
 	vmop.Status.Progress = migrationprogress.FormatPercent(progress)
 
@@ -519,9 +548,11 @@ func isTargetPreparationStalled(reason vmopcondition.ReasonCompleted, prevComple
 	default:
 		return false
 	}
+
 	if prevCompleted.Reason != reason.String() || prevCompleted.LastTransitionTime.IsZero() {
 		return false
 	}
+
 	return now.Sub(prevCompleted.LastTransitionTime.Time) > prepareTargetTimeout
 }
 
@@ -533,6 +564,7 @@ func (h LifecycleHandler) isApplicableForLiveMigrationPolicy(vmop *v1alpha2.Virt
 	}
 
 	msg := fmt.Sprintf("Migration settings for operation type %s: liveMigrationPolicy %s, autoConverge %v", vmop.Spec.Type, effectivePolicy, autoConverge)
+
 	return msg, true
 }
 
@@ -541,6 +573,7 @@ func (h LifecycleHandler) isKubeVirtMigrationRejectedDueToQuota(ctx context.Cont
 	if err != nil {
 		return false, err
 	}
+
 	if mig == nil {
 		return false, nil
 	}
@@ -555,15 +588,18 @@ func (h LifecycleHandler) isKubeVirtMigrationRejectedDueToQuota(ctx context.Cont
 
 func (h LifecycleHandler) otherMigrationsAreInProgress(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (bool, error) {
 	migList := &virtv1.VirtualMachineInstanceMigrationList{}
+
 	err := h.client.List(ctx, migList, client.InNamespace(vmop.GetNamespace()))
 	if err != nil {
 		return false, err
 	}
+
 	for _, mig := range migList.Items {
 		if mig.Spec.VMIName == vmop.Spec.VirtualMachine && !mig.IsFinal() && !metav1.IsControlledBy(&mig, vmop) {
 			return true, nil
 		}
 	}
+
 	return false, nil
 }
 
@@ -572,16 +608,19 @@ func (h LifecycleHandler) waitForBlockDeviceAttachments(ctx context.Context, vmo
 	if err != nil {
 		return reconcile.Result{}, false, err
 	}
+
 	attaching := attachingVolumes(kvvmi)
 
 	names, err := h.unappliedVolumeRequests(ctx, vmop)
 	if err != nil {
 		return reconcile.Result{}, false, err
 	}
+
 	vmbdas, err := h.attachmentsInProgress(ctx, vmop, attaching)
 	if err != nil {
 		return reconcile.Result{}, false, err
 	}
+
 	for _, vmbda := range vmbdas {
 		names = append(names, vmbda.Name)
 	}
@@ -594,6 +633,7 @@ func (h LifecycleHandler) waitForBlockDeviceAttachments(ctx context.Context, vmo
 	if err != nil {
 		return reconcile.Result{}, false, err
 	}
+
 	vds, err := h.attachedDisks(ctx, vmop.GetNamespace(), vmbdas)
 	if err != nil {
 		return reconcile.Result{}, false, err
@@ -614,10 +654,12 @@ func (h LifecycleHandler) waitForBlockDeviceAttachments(ctx context.Context, vmo
 	// for the next. A pod that cannot be placed holds the attachment back however recently the others
 	// were placed.
 	waitStart := completed.LastTransitionTime.Time
+
 	progressAt := []time.Time{waitStart, lastDiskReadyAt(vds)}
 	if !unschedulable {
 		progressAt = append(progressAt, lastPodPlacedAt(pods))
 	}
+
 	waitingSince := slices.MaxFunc(progressAt, func(a, b time.Time) int { return a.Compare(b) })
 	stalled := time.Since(waitStart) > attachmentWaitLimit ||
 		(!provisioning && time.Since(waitingSince) > attachmentSettleTimeout)
@@ -629,7 +671,9 @@ func (h LifecycleHandler) waitForBlockDeviceAttachments(ctx context.Context, vmo
 
 	if waiting && !waitStart.IsZero() && stalled {
 		event := "Timed out waiting for block device requests to complete"
+
 		var notPlacedMsg string
+
 		switch {
 		case provisioning:
 			notPlacedMsg = fmt.Sprintf(" The disks are still being provisioned on node %q. Retry the operation once the disks are ready.", nodeName)
@@ -637,6 +681,7 @@ func (h LifecycleHandler) waitForBlockDeviceAttachments(ctx context.Context, vmo
 			event = fmt.Sprintf("%s: the disks cannot be attached on node %q: %s", event, nodeName, unschedulableCond.Message)
 			notPlacedMsg = fmt.Sprintf(" The disks could not be attached on node %q. Free up resources on the node or detach the disks, then retry the operation.", nodeName)
 		}
+
 		vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
 		h.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, event)
 		conditions.SetCondition(
@@ -645,16 +690,19 @@ func (h LifecycleHandler) waitForBlockDeviceAttachments(ctx context.Context, vmo
 				Status(metav1.ConditionFalse).
 				Message(fmt.Sprintf("Timed out waiting for block device requests to complete: %s.%s", requests, notPlacedMsg)),
 			&vmop.Status.Conditions)
+
 		return reconcile.Result{}, true, nil
 	}
 
 	var notPlacedMsg string
+
 	switch {
 	case provisioning:
 		notPlacedMsg = fmt.Sprintf(" The disks are being provisioned on node %q.", nodeName)
 	case unschedulable:
 		notPlacedMsg = fmt.Sprintf(" The disks cannot be attached on node %q yet. Free up resources on the node or detach the disks.", nodeName)
 	}
+
 	vmop.Status.Phase = v1alpha2.VMOPPhasePending
 	conditions.SetCondition(
 		completedCond.
@@ -675,27 +723,32 @@ func attachingVolumes(kvvmi *virtv1.VirtualMachineInstance) map[string]string {
 	}
 
 	volumes := make(map[string]string)
+
 	for _, vs := range kvvmi.Status.VolumeStatus {
 		if commonkvvm.IsHotplugVolumeInProgress(vs) {
 			volumes[vs.Name] = vs.HotplugVolume.AttachPodName
 		}
 	}
+
 	return volumes
 }
 
 func (h LifecycleHandler) attachmentPods(ctx context.Context, namespace string, attaching map[string]string) ([]*corev1.Pod, error) {
 	var pods []*corev1.Pod
+
 	seen := make(map[string]struct{})
 	for _, podName := range attaching {
 		if _, ok := seen[podName]; ok || podName == "" {
 			continue
 		}
+
 		seen[podName] = struct{}{}
 
 		pod, err := object.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: podName}, h.client, &corev1.Pod{})
 		if err != nil {
 			return nil, err
 		}
+
 		if pod != nil {
 			pods = append(pods, pod)
 		}
@@ -711,23 +764,27 @@ func unschedulablePodCondition(pods []*corev1.Pod) (corev1.PodCondition, bool) {
 			return scheduled, true
 		}
 	}
+
 	return corev1.PodCondition{}, false
 }
 
 func lastPodPlacedAt(pods []*corev1.Pod) time.Time {
 	var placedAt time.Time
+
 	for _, pod := range pods {
 		scheduled, _ := conditions.GetPodCondition(corev1.PodScheduled, pod.Status.Conditions)
 		if scheduled.Status == corev1.ConditionTrue && scheduled.LastTransitionTime.After(placedAt) {
 			placedAt = scheduled.LastTransitionTime.Time
 		}
 	}
+
 	return placedAt
 }
 
 // attachmentsInProgress returns the attachments whose request is sent and not completed yet.
 func (h LifecycleHandler) attachmentsInProgress(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation, attaching map[string]string) ([]v1alpha2.VirtualMachineBlockDeviceAttachment, error) {
 	vmbdas := &v1alpha2.VirtualMachineBlockDeviceAttachmentList{}
+
 	err := h.client.List(ctx, vmbdas,
 		client.InNamespace(vmop.GetNamespace()),
 		client.MatchingFields{indexer.IndexFieldVMBDAByVM: vmop.Spec.VirtualMachine},
@@ -737,9 +794,11 @@ func (h LifecycleHandler) attachmentsInProgress(ctx context.Context, vmop *v1alp
 	}
 
 	var inProgress []v1alpha2.VirtualMachineBlockDeviceAttachment
+
 	for _, vmbda := range vmbdas.Items {
 		// A failed attachment, such as a conflicting one, may name the disk another attachment is attaching.
 		_, isAttaching := attaching[kvbuilder.GenerateVMBDADiskName(vmbda.Spec.BlockDeviceRef)]
+
 		isAttaching = isAttaching && vmbda.Status.Phase != v1alpha2.BlockDeviceAttachmentPhaseFailed
 		if vmbda.DeletionTimestamp != nil || vmbda.Status.Phase == v1alpha2.BlockDeviceAttachmentPhaseInProgress || isAttaching {
 			inProgress = append(inProgress, vmbda)
@@ -753,18 +812,22 @@ func (h LifecycleHandler) attachmentsInProgress(ctx context.Context, vmop *v1alp
 // provisioned for the attachment pod on the node chosen for it.
 func (h LifecycleHandler) attachedDisks(ctx context.Context, namespace string, vmbdas []v1alpha2.VirtualMachineBlockDeviceAttachment) ([]*v1alpha2.VirtualDisk, error) {
 	var vds []*v1alpha2.VirtualDisk
+
 	for _, vmbda := range vmbdas {
 		if vmbda.Spec.BlockDeviceRef.Kind != v1alpha2.VMBDAObjectRefKindVirtualDisk {
 			continue
 		}
+
 		vd, err := object.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: vmbda.Spec.BlockDeviceRef.Name}, h.client, &v1alpha2.VirtualDisk{})
 		if err != nil {
 			return nil, err
 		}
+
 		if vd != nil {
 			vds = append(vds, vd)
 		}
 	}
+
 	return vds, nil
 }
 
@@ -772,12 +835,14 @@ func (h LifecycleHandler) attachedDisks(ctx context.Context, namespace string, v
 // once the storage of the disk is bound.
 func lastDiskReadyAt(vds []*v1alpha2.VirtualDisk) time.Time {
 	var readyAt time.Time
+
 	for _, vd := range vds {
 		ready, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 		if ready.Status == metav1.ConditionTrue && ready.LastTransitionTime.After(readyAt) {
 			readyAt = ready.LastTransitionTime.Time
 		}
 	}
+
 	return readyAt
 }
 
@@ -797,6 +862,7 @@ func (h LifecycleHandler) unappliedVolumeRequests(ctx context.Context, vmop *v1a
 	}
 
 	var names []string
+
 	for _, vr := range kvvm.Status.VolumeRequests {
 		switch {
 		case vr.AddVolumeOptions != nil:
@@ -826,6 +892,7 @@ func (h LifecycleHandler) canExecute(vmop *v1alpha2.VirtualMachineOperation, vm 
 
 	if migratable.Status == metav1.ConditionTrue || hasNoTarget {
 		completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
+
 		waitingForReady := completed.Reason == vmopcondition.ReasonWaitingForVirtualMachineToBeReadyToMigrate.String()
 		if waitingForReady && !completed.LastTransitionTime.IsZero() &&
 			time.Since(completed.LastTransitionTime.Time) > waitForVMReadyToMigrateTimeout {
@@ -838,6 +905,7 @@ func (h LifecycleHandler) canExecute(vmop *v1alpha2.VirtualMachineOperation, vm 
 					Status(metav1.ConditionFalse).
 					Message("Timed out waiting for the VirtualMachine to become ready to migrate."),
 				&vmop.Status.Conditions)
+
 			return false
 		}
 
@@ -848,6 +916,7 @@ func (h LifecycleHandler) canExecute(vmop *v1alpha2.VirtualMachineOperation, vm 
 				Reason(vmopcondition.ReasonWaitingForVirtualMachineToBeReadyToMigrate).
 				Status(metav1.ConditionFalse),
 			&vmop.Status.Conditions)
+
 		return false
 	}
 
@@ -864,6 +933,7 @@ func (h LifecycleHandler) canExecute(vmop *v1alpha2.VirtualMachineOperation, vm 
 			Status(metav1.ConditionFalse).
 			Message(message),
 		&vmop.Status.Conditions)
+
 	return false
 }
 
@@ -879,6 +949,7 @@ func isNodePlacementUpdate(vmop *v1alpha2.VirtualMachineOperation) bool {
 // repeated when nodes change, not when those pods leave, so a freed node may be missed for a while.
 func hasPodAffinityRules(vm *v1alpha2.VirtualMachine) bool {
 	affinity := vm.Spec.Affinity
+
 	return affinity != nil &&
 		(affinity.VirtualMachineAndPodAffinity != nil || affinity.VirtualMachineAndPodAntiAffinity != nil)
 }
@@ -915,6 +986,7 @@ func (h LifecycleHandler) execute(ctx context.Context, vmop *v1alpha2.VirtualMac
 	if reason == vmopcondition.ReasonMigrationPending || reason == vmopcondition.ReasonWaitingForSyncSlot {
 		vmop.Status.Phase = v1alpha2.VMOPPhasePending
 	}
+
 	progress := h.calculateMigrationProgress(vmop, mig, reason)
 	vmop.Status.Progress = migrationprogress.FormatPercent(progress)
 
@@ -985,9 +1057,11 @@ func (h LifecycleHandler) getFailedReason(mig *virtv1.VirtualMachineInstanceMigr
 		if state.AbortRequested || state.AbortStatus == virtv1.MigrationAbortSucceeded {
 			return vmopcondition.ReasonAborted
 		}
+
 		if isBlockDeviceStateCorrupted(state.FailureReason) {
 			return vmopcondition.ReasonBlockDeviceStateCorrupted
 		}
+
 		if strings.Contains(strings.ToLower(state.FailureReason), "converg") || strings.Contains(strings.ToLower(state.FailureReason), "progress") {
 			return vmopcondition.ReasonNotConverging
 		}
@@ -998,9 +1072,11 @@ func (h LifecycleHandler) getFailedReason(mig *virtv1.VirtualMachineInstanceMigr
 		if isBlockDeviceStateCorrupted(reason) {
 			return vmopcondition.ReasonBlockDeviceStateCorrupted
 		}
+
 		if strings.Contains(reason, "schedul") || strings.Contains(reason, "unschedul") {
 			return vmopcondition.ReasonTargetUnschedulable
 		}
+
 		if strings.Contains(reason, "csi") || strings.Contains(reason, "attach") || strings.Contains(reason, "volume") || strings.Contains(reason, "disk") {
 			return vmopcondition.ReasonTargetDiskError
 		}
@@ -1011,6 +1087,7 @@ func (h LifecycleHandler) getFailedReason(mig *virtv1.VirtualMachineInstanceMigr
 
 func (h LifecycleHandler) getFailedMessage(reason vmopcondition.ReasonCompleted, mig *virtv1.VirtualMachineInstanceMigration) string {
 	base := "Migration failed"
+
 	switch reason {
 	case vmopcondition.ReasonAborted:
 		base = "Migration aborted"
@@ -1031,9 +1108,11 @@ func (h LifecycleHandler) getFailedMessage(reason vmopcondition.ReasonCompleted,
 	if mig != nil && mig.Status.MigrationState != nil && mig.Status.MigrationState.FailureReason != "" {
 		return fmt.Sprintf("%s: %s", base, mig.Status.MigrationState.FailureReason)
 	}
+
 	if msg := getMessageByMigrationFailedReason(mig); msg != "" {
 		return fmt.Sprintf("%s: %s", base, msg)
 	}
+
 	return base
 }
 
@@ -1048,11 +1127,13 @@ func (h LifecycleHandler) getInProgressReasonAndMessage(
 	case virtv1.MigrationPhaseUnset, virtv1.MigrationPending:
 		reason = vmopcondition.ReasonMigrationPending
 		message = messageMigrationPending
+
 		if cond, found := conditions.GetKVVMIMCondition(virtv1.VirtualMachineInstanceMigrationConcurrencyLimitReached, mig.Status.Conditions); found && cond.Status == corev1.ConditionTrue {
 			kvvmi, err := h.getMigrationVMI(ctx, mig)
 			if err != nil {
 				return reason, message, err
 			}
+
 			message = concurrencyLimitWaitMessage(cond.Reason, kvvmi)
 		}
 	case virtv1.MigrationScheduling:
@@ -1070,9 +1151,11 @@ func (h LifecycleHandler) getInProgressReasonAndMessage(
 	if err != nil {
 		return "", "", err
 	}
+
 	if unschedulableMsg, isUnschedulable := getPodPendingUnschedulableMessage(pod); isUnschedulable {
 		return vmopcondition.ReasonTargetUnschedulable, unschedulableMsg, nil
 	}
+
 	if diskErrMsg, hasDiskErr := h.getTargetPodDiskError(ctx, pod); hasDiskErr {
 		return vmopcondition.ReasonTargetDiskError, fmt.Sprintf("Target pod has disk attach error: %s", diskErrMsg), nil
 	}
@@ -1086,6 +1169,7 @@ func (h LifecycleHandler) getInProgressReasonAndMessage(
 		if err != nil {
 			return "", "", err
 		}
+
 		return vmopcondition.ReasonWaitingForSyncSlot, activeSlotWaitMessage(cond.Reason, kvvmi), nil
 	}
 
@@ -1095,10 +1179,12 @@ func (h LifecycleHandler) getInProgressReasonAndMessage(
 			reason = vmopcondition.ReasonTargetResumed
 			message = messageTargetVMResumed
 		}
+
 		if state.Completed {
 			reason = vmopcondition.ReasonSourceSuspended
 			message = messageSourceVMSuspended
 		}
+
 		if details := formatMigrationDetails(mig, time.Now()); details != "" {
 			message = fmt.Sprintf("%s. %s", message, details)
 		}
@@ -1115,29 +1201,37 @@ func formatMigrationDetails(mig *virtv1.VirtualMachineInstanceMigration, now tim
 	state := mig.Status.MigrationState
 	status := state.TransferStatus
 	parts := make([]string, 0, 7)
+
 	if state.StartTimestamp != nil {
 		elapsed := now.Sub(state.StartTimestamp.Time).Truncate(timeElapsedUpdateInterval)
 		if elapsed < 0 {
 			elapsed = 0
 		}
+
 		parts = append(parts, fmt.Sprintf("TimeElapsed:%ds", int64(elapsed.Seconds())))
 	}
+
 	if status.DataProcessedBytes != nil {
 		parts = append(parts, fmt.Sprintf("DataProcessed:%dMiB", bytesToMiB(*status.DataProcessedBytes)))
 	}
+
 	if status.DataRemainingBytes != nil {
 		parts = append(parts, fmt.Sprintf("DataRemaining:%dMiB", bytesToMiB(*status.DataRemainingBytes)))
 	}
+
 	if status.DataTotalBytes != nil {
 		parts = append(parts, fmt.Sprintf("DataTotal:%dMiB", bytesToMiB(*status.DataTotalBytes)))
 	}
+
 	if status.Iteration != nil {
 		parts = append(parts, fmt.Sprintf("Iteration:%d", *status.Iteration))
 	}
+
 	parts = append(parts, fmt.Sprintf("AutoConvergeThrottleSet:%t", status.AutoConvergeThrottle != nil))
 	if status.AutoConvergeThrottle != nil {
 		parts = append(parts, fmt.Sprintf("AutoConvergeThrottle:%d", *status.AutoConvergeThrottle))
 	}
+
 	if len(parts) == 0 {
 		return ""
 	}
@@ -1181,9 +1275,11 @@ func (h LifecycleHandler) calculateMigrationProgress(
 		return progressMigrationCompleted
 	default:
 		h.forgetProgress(vmop)
+
 		if vmop != nil {
 			return migrationprogress.ParsePercent(vmop.Status.Progress)
 		}
+
 		return 0
 	}
 }
@@ -1194,6 +1290,7 @@ func (h LifecycleHandler) getTargetPodDiskError(ctx context.Context, pod *corev1
 	}
 
 	eventList := &corev1.EventList{}
+
 	err := h.client.List(ctx, eventList, &client.ListOptions{
 		Namespace: pod.Namespace,
 		FieldSelector: fields.SelectorFromSet(fields.Set{
@@ -1204,11 +1301,13 @@ func (h LifecycleHandler) getTargetPodDiskError(ctx context.Context, pod *corev1
 	if err != nil {
 		return "", false
 	}
+
 	for _, e := range eventList.Items {
 		if e.Type == corev1.EventTypeWarning && (e.Reason == reasonFailedAttachVolume || e.Reason == reasonFailedMount) {
 			return fmt.Sprintf("%s: %s", e.Reason, e.Message), true
 		}
 	}
+
 	return "", false
 }
 
@@ -1216,6 +1315,7 @@ func (h LifecycleHandler) forgetProgress(vmop *v1alpha2.VirtualMachineOperation)
 	if h.progressStrategy == nil || vmop == nil {
 		return
 	}
+
 	h.progressStrategy.Forget(vmop.UID)
 }
 
@@ -1227,6 +1327,7 @@ func failureEventMessage(conditionMessage string) string {
 	if conditionMessage == "" {
 		return "The VirtualMachineOperation failed."
 	}
+
 	return conditionMessage
 }
 
@@ -1264,6 +1365,7 @@ func (h LifecycleHandler) getMigrationVMI(ctx context.Context, mig *virtv1.Virtu
 	}
 
 	var kvvmi virtv1.VirtualMachineInstance
+
 	err := h.client.Get(ctx, types.NamespacedName{Namespace: mig.Namespace, Name: mig.Spec.VMIName}, &kvvmi)
 	if err != nil {
 		return nil, client.IgnoreNotFound(err)
@@ -1310,6 +1412,7 @@ func concurrencyLimitWaitMessage(condReason string, kvvmi *virtv1.VirtualMachine
 		if kvvmi != nil && kvvmi.Status.NodeName != "" {
 			return fmt.Sprintf(messageOutboundNodeMigrationLimitReachedFmt, kvvmi.Status.NodeName)
 		}
+
 		return messageOutboundNodeMigrationLimitReached
 	default:
 		return messageMigrationLimitReached
@@ -1328,6 +1431,7 @@ func (h LifecycleHandler) getTargetPod(ctx context.Context, mig *virtv1.VirtualM
 	}
 
 	pods := &corev1.PodList{}
+
 	err = h.client.List(ctx, pods, client.InNamespace(mig.Namespace), client.MatchingLabelsSelector{Selector: selector})
 	if err != nil {
 		return nil, err
@@ -1344,11 +1448,13 @@ func isContainerCreating(pod *corev1.Pod) bool {
 	if pod == nil || pod.Status.Phase != corev1.PodPending {
 		return false
 	}
+
 	for _, cs := range pod.Status.ContainerStatuses {
 		if cs.State.Waiting != nil && cs.State.Waiting.Reason == "ContainerCreating" {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -1357,16 +1463,19 @@ func (h *LifecycleHandler) checkMigrationNetwork(ctx context.Context, vm *v1alph
 	if nodeName == "" {
 		return "Virtual machine is not scheduled to any node", false
 	}
+
 	var node corev1.Node
 	if err := h.client.Get(ctx, client.ObjectKey{Name: nodeName}, &node); err != nil {
 		return fmt.Sprintf("failed to get source node %q: %v", nodeName, err), false
 	}
+
 	if node.Annotations[annotations.AnnMigrationIface] == "" {
 		return fmt.Sprintf(
 			"source node %q has no dedicated migration interface for network %q",
 			nodeName, h.systemNetworkName,
 		), false
 	}
+
 	return "", true
 }
 
@@ -1374,6 +1483,7 @@ func getPodPendingUnschedulableMessage(pod *corev1.Pod) (string, bool) {
 	if pod == nil {
 		return "", false
 	}
+
 	if pod.Status.Phase != corev1.PodPending || pod.DeletionTimestamp != nil {
 		return "", false
 	}
@@ -1383,5 +1493,6 @@ func getPodPendingUnschedulableMessage(pod *corev1.Pod) (string, bool) {
 			return fmt.Sprintf("Target pod %q is unschedulable", pod.Namespace+"/"+pod.Name), true
 		}
 	}
+
 	return "", false
 }

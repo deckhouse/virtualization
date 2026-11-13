@@ -137,6 +137,7 @@ var _ = Describe("VirtualImageCreation", Label(
 
 			By("Downloading source image to upload", func() {
 				var err error
+
 				uploadFilePath, err = downloadImageToTempFile(object.ImageURLCustomBIOS)
 				Expect(err).NotTo(HaveOccurred(), "failed to download upload source image")
 				DeferCleanup(func() {
@@ -196,6 +197,7 @@ var _ = Describe("VirtualImageCreation", Label(
 
 		BeforeAll(func(ctx context.Context) {
 			setup(ctx)
+
 			baseVI = newVirtualImageOnDVCR("vi-source-dvcr",
 				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVICustomBIOS),
 			)
@@ -222,6 +224,7 @@ var _ = Describe("VirtualImageCreation", Label(
 
 		BeforeAll(func(ctx context.Context) {
 			setup(ctx)
+
 			baseVI = newVirtualImageOnPVC("vi-source-pvc", scPtr,
 				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVICustomBIOS),
 			)
@@ -290,6 +293,7 @@ var _ = Describe("VirtualImageCreation", Label(
 			)
 
 			snapObs := vdsnapshotobs.StartObserver(ctx, f, vdSnapshot)
+
 			By("Creating VirtualDiskSnapshot", func() {
 				err := f.CreateWithDeferredDeletion(ctx, vdSnapshot)
 				Expect(err).NotTo(HaveOccurred())
@@ -322,6 +326,7 @@ func newVirtualImageOnDVCR(name string, opts ...vibuilder.Option) *v1alpha2.Virt
 		vibuilder.WithStorage(v1alpha2.StorageContainerRegistry),
 	}
 	baseOpts = append(baseOpts, opts...)
+
 	return object.NewVI(baseOpts...)
 }
 
@@ -330,6 +335,7 @@ func newVirtualImageOnPVC(name string, sc *string, opts ...vibuilder.Option) *v1
 		append([]vibuilder.Option{vibuilder.WithStorage(v1alpha2.StoragePersistentVolumeClaim)}, opts...)...,
 	)
 	vi.Spec.PersistentVolumeClaim.StorageClass = sc
+
 	return vi
 }
 
@@ -457,12 +463,15 @@ func virtualImageProgressExpectations(vi *v1alpha2.VirtualImage, o progressWaitO
 	if isVirtualImageFromCVI(vi) {
 		return minimalVirtualImageProgress()
 	}
+
 	if vi.Spec.Storage == v1alpha2.StorageContainerRegistry {
 		if o.progressCoverage == progressCoverageMinimal {
 			return minimalVirtualImageProgress()
 		}
+
 		return intermediateVirtualImageProgress()
 	}
+
 	switch o.progressCoverage {
 	case progressCoverageMinimal:
 		return minimalVirtualImageProgress()
@@ -517,6 +526,7 @@ func runVirtualMachineFromImageDisk(ctx context.Context, f *framework.Framework,
 	vdOpts := []vdbuilder.Option{
 		vdbuilder.WithStorageClass(defaultStorageClass()),
 	}
+
 	if vi.Spec.Storage == v1alpha2.StoragePersistentVolumeClaim {
 		opts = append(opts, withoutDiskStreamingProgress())
 	} else {

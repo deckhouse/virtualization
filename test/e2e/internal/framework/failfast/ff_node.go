@@ -31,14 +31,17 @@ func NodeNotReady(nodes Client[*corev1.Node]) FailFast {
 			if cond.Type != corev1.NodeReady {
 				continue
 			}
+
 			if cond.Status == corev1.ConditionTrue {
 				return nil
 			}
+
 			return &Finding{
 				Message: fmt.Sprintf("is not Ready (%s): %s", cond.Reason, cond.Message),
 				Grace:   defaultGrace,
 			}
 		}
+
 		return nil
 	})
 }

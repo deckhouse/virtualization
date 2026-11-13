@@ -59,6 +59,7 @@ func GetPhase() string {
 	phase := os.Getenv(phaseEnv)
 	Expect(phase).To(BeElementOf(PhasePreUpgrade, PhasePostUpgrade),
 		"%s must be %q or %q", phaseEnv, PhasePreUpgrade, PhasePostUpgrade)
+
 	return phase
 }
 
@@ -82,33 +83,41 @@ func CreateScenarioResources(ctx context.Context, f *framework.Framework) {
 	local := storageClasses.LocalStorageClass.Name
 
 	By("Creating root and data disks")
+
 	disks := make([]crclient.Object, 0, len(vmScenarios)+len(dataDiskScenarios))
 	for _, s := range vmScenarios {
 		disks = append(disks, s.newRootDisk(replicated))
 	}
+
 	dataDisks := make(map[string]*v1alpha2.VirtualDisk, len(dataDiskScenarios))
 	for _, d := range dataDiskScenarios {
 		storageClass := replicated
 		if d.local {
 			storageClass = local
 		}
+
 		dataDisks[d.name] = d.newDisk(storageClass)
 		disks = append(disks, dataDisks[d.name])
 	}
+
 	createObjects(ctx, f, disks...)
 
 	By("Creating virtual machines")
+
 	vms := make([]crclient.Object, 0, len(vmScenarios))
 	for _, s := range vmScenarios {
 		vms = append(vms, s.newVM())
 	}
+
 	createObjects(ctx, f, vms...)
 
 	By("Creating hotplug attachments")
+
 	attachments := make([]crclient.Object, 0, len(dataDiskScenarios))
 	for _, d := range dataDiskScenarios {
 		attachments = append(attachments, d.newAttachment(dataDisks[d.name]))
 	}
+
 	createObjects(ctx, f, attachments...)
 }
 
@@ -132,6 +141,7 @@ func recreateProject(ctx context.Context, f *framework.Framework) {
 	GinkgoHelper()
 
 	project := &dv1alpha2.Project{ObjectMeta: metav1.ObjectMeta{Name: projectName}}
+
 	err := f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(project), project)
 	switch {
 	case err == nil:
@@ -160,6 +170,7 @@ func createObjects(ctx context.Context, f *framework.Framework, objs ...crclient
 		if labels == nil {
 			labels = make(map[string]string)
 		}
+
 		labels[framework.E2ELabel] = "true"
 		obj.SetLabels(labels)
 
@@ -173,5 +184,6 @@ func getVirtualMachine(ctx context.Context, f *framework.Framework, vm *v1alpha2
 	current := &v1alpha2.VirtualMachine{}
 	err := f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vm), current)
 	Expect(err).NotTo(HaveOccurred())
+
 	return current
 }

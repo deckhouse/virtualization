@@ -209,5 +209,6 @@ func findCondition(conditions []metav1.Condition, condType string) *metav1.Condi
 			return &conditions[i]
 		}
 	}
+
 	return nil
 }

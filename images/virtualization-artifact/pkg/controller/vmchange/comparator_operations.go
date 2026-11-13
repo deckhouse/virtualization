@@ -41,6 +41,7 @@ func compareInts(path string, current, desired, defaultValue int, onChange Actio
 	currentValue := NewIntValue(current, defaultValue)
 	desiredValue := NewIntValue(desired, defaultValue)
 	isEqual := current == desired
+
 	return compareValues(path, currentValue, desiredValue, isEqual, onChange)
 }
 
@@ -105,6 +106,7 @@ func compareEmpty(path string, currentValue, desiredValue Value, onChange Action
 		if desiredValue.IsDefault {
 			onChange = ActionNone
 		}
+
 		return []FieldChange{
 			{
 				Operation:      ChangeAdd,
@@ -120,6 +122,7 @@ func compareEmpty(path string, currentValue, desiredValue Value, onChange Action
 		if currentValue.IsDefault {
 			onChange = ActionNone
 		}
+
 		return []FieldChange{
 			{
 				Operation:      ChangeRemove,
@@ -150,24 +153,28 @@ func NewValue(value interface{}, isEmpty, isDefault bool) Value {
 func NewStringValue(value, defaultValue string) Value {
 	isEmpty := value == ""
 	isDefault := !isEmpty && value == defaultValue
+
 	return NewValue(value, isEmpty, isDefault)
 }
 
 func NewQuantityValue(value, defaultValue resource.Quantity) Value {
 	isEmpty := value.IsZero()
 	isDefault := !isEmpty && value.Cmp(defaultValue) == 0
+
 	return NewValue(value, isEmpty, isDefault)
 }
 
 func NewIntValue(value, defaultValue int) Value {
 	isEmpty := value == 0
 	isDefault := !isEmpty && value == defaultValue
+
 	return NewValue(value, isEmpty, isDefault)
 }
 
 func NewPtrInt64Value(value *int64, defaultValue int64) Value {
 	isEmpty := value == nil
 	isDefault := !isEmpty && *value == defaultValue
+
 	return NewValue(value, isEmpty, isDefault)
 }
 
@@ -175,9 +182,11 @@ func isEqualPtrInt64(a, b *int64) bool {
 	if a == nil && b == nil {
 		return true
 	}
+
 	if a != nil && b != nil && *a == *b {
 		return true
 	}
+
 	return false
 }
 
@@ -190,6 +199,7 @@ func NewBoolValue(value, defaultValue bool) Value {
 func NewPtrBoolValue(value *bool, defaultValue bool) Value {
 	isEmpty := value == nil
 	isDefault := !isEmpty && *value == defaultValue
+
 	return NewValue(value, isEmpty, isDefault)
 }
 

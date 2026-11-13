@@ -131,6 +131,7 @@ func (u *USBDevice) GetBusID() string {
 
 func (u *USBDevice) Decode(r io.Reader) error {
 	buf := make([]byte, sysfsPathMax+sysfsBusIdMax+12+6+6)
+
 	_, err := io.ReadFull(r, buf)
 	if err != nil {
 		return fmt.Errorf("failed to read USBDevice from reader: %w", err)
@@ -208,6 +209,7 @@ func (u *USBDevice) Encode(w io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("failed to write USBDevice to writer: %w", err)
 	}
+
 	return nil
 }
 
@@ -220,6 +222,7 @@ type USBDeviceInterface struct {
 
 func (u *USBDeviceInterface) Decode(r io.Reader) error {
 	buf := make([]byte, 4)
+
 	_, err := io.ReadFull(r, buf)
 	if err != nil {
 		return fmt.Errorf("failed to read USBDeviceInterface from reader: %w", err)
@@ -245,5 +248,6 @@ func (u *USBDeviceInterface) Encode(w io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("failed to write USBDeviceInterface to writer: %w", err)
 	}
+
 	return nil
 }

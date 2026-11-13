@@ -57,21 +57,25 @@ func HasChanges(changes []FieldChange) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
 // MostDisruptiveAction returns a most dangerous action from the list.
 func MostDisruptiveAction(actions ...ActionType) ActionType {
 	result := ActionNone
+
 	for _, action := range actions {
 		// Break immediately if 'action' is the most disruptive action.
 		if action == ActionRestart {
 			return action
 		}
+
 		if action.Cmp(result) == 1 {
 			result = action
 		}
 	}
+
 	return result
 }
 
@@ -79,6 +83,7 @@ func MostDisruptiveAction(actions ...ActionType) ActionType {
 // or 1 if the action is more disruptive than 'other'.
 func (a ActionType) Cmp(other ActionType) int {
 	aOrder, hasA := actionDisruptionOrder[a]
+
 	otherOrder, hasOther := actionDisruptionOrder[other]
 	if hasA && hasOther {
 		return cmp.Compare(aOrder, otherOrder)

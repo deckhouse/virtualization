@@ -59,6 +59,7 @@ func (d *DVCRService) CreateGarbageCollectionSecret(ctx context.Context) error {
 			Name:      garbageCollectionModeSecretName,
 		},
 	}
+
 	return d.client.Create(ctx, secret)
 }
 
@@ -74,7 +75,9 @@ func (d *DVCRService) IsGarbageCollectionStarted(secret *corev1.Secret) bool {
 	if secret == nil {
 		return false
 	}
+
 	_, switched := secret.GetAnnotations()[annotations.AnnDVCRDeploymentSwitchToGarbageCollectionMode]
+
 	return switched
 }
 
@@ -84,7 +87,9 @@ func (d *DVCRService) IsGarbageCollectionInitiatedOrInProgress(secret *corev1.Se
 	if secret == nil {
 		return false
 	}
+
 	_, done := secret.GetAnnotations()[annotations.AnnDVCRGarbageCollectionDone]
+
 	return !done
 }
 
@@ -94,7 +99,9 @@ func (d *DVCRService) IsGarbageCollectionDone(secret *corev1.Secret) bool {
 	if secret == nil {
 		return false
 	}
+
 	_, done := secret.GetAnnotations()[annotations.AnnDVCRGarbageCollectionDone]
+
 	return done
 }
 
@@ -103,6 +110,7 @@ func (d *DVCRService) InitiateGarbageCollectionMode(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("get garbage collection secret: %w", err)
 	}
+
 	if secret == nil {
 		return d.CreateGarbageCollectionSecret(ctx)
 	}
@@ -110,6 +118,7 @@ func (d *DVCRService) InitiateGarbageCollectionMode(ctx context.Context) error {
 	// Update existing secret to initial state: remove annotations and data.
 	secret.SetAnnotations(nil)
 	secret.Data = nil
+
 	return d.client.Update(ctx, secret)
 }
 
@@ -118,6 +127,7 @@ func (d *DVCRService) SwitchToGarbageCollectionMode(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("get garbage collection secret to update: %w", err)
 	}
+
 	if secret == nil {
 		return fmt.Errorf("get garbage collection secret to update: not found")
 	}
@@ -126,22 +136,27 @@ func (d *DVCRService) SwitchToGarbageCollectionMode(ctx context.Context) error {
 	if objAnnotations == nil {
 		objAnnotations = make(map[string]string)
 	}
+
 	objAnnotations[annotations.AnnDVCRDeploymentSwitchToGarbageCollectionMode] = ""
 	secret.SetAnnotations(objAnnotations)
+
 	return d.client.Update(ctx, secret)
 }
 
 func (d *DVCRService) GetGarbageCollectionSecret(ctx context.Context) (*corev1.Secret, error) {
 	var secret corev1.Secret
+
 	secretKey := types.NamespacedName{
 		Namespace: moduleNamespace,
 		Name:      garbageCollectionModeSecretName,
 	}
+
 	err := d.client.Get(ctx, secretKey, &secret)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil, nil
 		}
+
 		return nil, err
 	}
 
@@ -153,6 +168,7 @@ func (d *DVCRService) DeleteGarbageCollectionSecret(ctx context.Context) error {
 	secret.SetNamespace(moduleNamespace)
 	secret.SetName(garbageCollectionModeSecretName)
 	err := d.client.Delete(ctx, secret)
+
 	return client.IgnoreNotFound(err)
 }
 
@@ -160,6 +176,7 @@ func (d *DVCRService) GetGarbageCollectionResult(secret *corev1.Secret) string {
 	if secret == nil {
 		return ""
 	}
+
 	return string(secret.Data["result"])
 }
 
@@ -177,6 +194,7 @@ func (d *DVCRService) IsGarbageCollectionResultPersisted(secret *corev1.Secret, 
 
 	// Last resort: check that success result is saved in annotation.
 	result := d.GetGarbageCollectionResult(secret)
+
 	return result != "" && result == deploy.GetAnnotations()[annotations.AnnDVCRGarbageCollectionResult]
 }
 
@@ -188,6 +206,7 @@ type GarbageCollectionResult struct {
 
 func (d *DVCRService) ParseGarbageCollectionResult(secret *corev1.Secret) (reason dvcrdeploymentcondition.GarbageCollectionReason, message string, err error) {
 	var gcResult GarbageCollectionResult
+
 	err = json.Unmarshal(secret.Data["result"], &gcResult)
 	if err != nil {
 		return "", "", fmt.Errorf("parse garbage collection result '%s': %w", string(secret.Data["result"]), err)

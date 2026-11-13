@@ -82,6 +82,7 @@ var _ = Describe("ImageChecksums", Label(
 
 		By("Computing the checksums of the source image", func() {
 			var err error
+
 			imagePath, err = downloadImageToTempFile(object.ImageTestDataQCOW)
 			Expect(err).NotTo(HaveOccurred(), "failed to download the source image")
 			DeferCleanup(func() {
@@ -274,6 +275,7 @@ func computeChecksums(path string) (*v1alpha2.Checksum, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open %q: %w", path, err)
 	}
+
 	defer func() {
 		if closeErr := file.Close(); closeErr != nil && !errors.Is(closeErr, os.ErrClosed) {
 			Expect(closeErr).NotTo(HaveOccurred(), "failed to close the source image")

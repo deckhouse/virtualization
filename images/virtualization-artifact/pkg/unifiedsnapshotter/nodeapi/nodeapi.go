@@ -124,10 +124,12 @@ func (s *Service) Download(ctx context.Context, resource, namespace, name string
 	if err != nil {
 		return nil, err
 	}
+
 	contentName, err := node.ResolveBoundContent(ctx, s.Reader, n)
 	if err != nil {
 		return nil, err
 	}
+
 	return s.Core.DownloadManifestsRaw(ctx, contentName)
 }
 
@@ -155,6 +157,7 @@ func (s *Service) Upload(ctx context.Context, resource, namespace, name string, 
 	if err != nil {
 		return 0, nil, err
 	}
+
 	children, err := validateChildRefs(payload.ChildRefs)
 	if err != nil {
 		return 0, nil, err
@@ -165,6 +168,7 @@ func (s *Service) Upload(ctx context.Context, resource, namespace, name string, 
 		if apierrors.IsNotFound(err) {
 			return 0, nil, newStatusError(http.StatusNotFound, "NotFound", fmt.Sprintf("%s %s/%s not found", resource, namespace, name))
 		}
+
 		return 0, nil, newStatusError(http.StatusInternalServerError, "InternalError", err.Error())
 	}
 
@@ -196,6 +200,7 @@ func (s *Service) Upload(ctx context.Context, resource, namespace, name string, 
 		return 0, nil, newStatusError(http.StatusBadGateway, "BadGateway", fmt.Sprintf(
 			"forwarding the manifests to SnapshotContent %q failed: %v", contentName, err))
 	}
+
 	return code, respBody, nil
 }
 
@@ -216,6 +221,7 @@ func (s *Service) recordChildren(ctx context.Context, resource, namespace, name 
 	if err != nil {
 		return newStatusError(http.StatusInternalServerError, "InternalError", err.Error())
 	}
+
 	obj.SetNamespace(namespace)
 	obj.SetName(name)
 
@@ -244,6 +250,7 @@ func childrenPatch(resource string, children []v1alpha2.UnifiedSnapshotterChildR
 	if !ok {
 		return nil, fmt.Errorf("unsupported snapshot resource %q", resource)
 	}
+
 	return statuspatch.For(v1alpha2.SchemeGroupVersion.WithKind(kind), map[string]any{
 		"childrenSnapshotRefs": children,
 	})
@@ -256,10 +263,12 @@ func validateManifests(manifests json.RawMessage) (json.RawMessage, error) {
 	if len(trimmed) == 0 || string(trimmed) == "null" {
 		return nil, newStatusError(http.StatusBadRequest, "BadRequest", "the upload payload has no manifests")
 	}
+
 	var array []json.RawMessage
 	if err := json.Unmarshal(trimmed, &array); err != nil {
 		return nil, newStatusError(http.StatusBadRequest, "BadRequest", fmt.Sprintf("the upload payload's manifests must be a JSON array: %v", err))
 	}
+
 	return manifests, nil
 }
 
@@ -274,13 +283,16 @@ func validateChildRefs(refs []UploadChildRef) ([]v1alpha2.UnifiedSnapshotterChil
 			return nil, newStatusError(http.StatusBadRequest, "BadRequest", fmt.Sprintf(
 				"childRefs[%d] must set apiVersion, kind and name", i))
 		}
+
 		if _, ok := node.ResourceForKind(ref.Kind); !ok || ref.APIVersion != v1alpha2.SchemeGroupVersion.String() {
 			return nil, newStatusError(http.StatusBadRequest, "BadRequest", fmt.Sprintf(
 				"childRefs[%d] is a %s %s, which is not a snapshot kind of %s: a node may only declare children of its own domain",
 				i, ref.APIVersion, ref.Kind, v1alpha2.SchemeGroupVersion.String()))
 		}
+
 		out = append(out, v1alpha2.UnifiedSnapshotterChildRef{APIVersion: ref.APIVersion, Kind: ref.Kind, Name: ref.Name})
 	}
+
 	return out, nil
 }
 

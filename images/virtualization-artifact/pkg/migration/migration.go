@@ -50,6 +50,7 @@ func NewController(client client.Client, log *log.Logger) (*Controller, error) {
 		if err != nil {
 			return nil, err
 		}
+
 		migrations[i] = m
 	}
 
@@ -72,6 +73,7 @@ func (c *Controller) run(ctx context.Context, wg *sync.WaitGroup, migrations []M
 		if wg != nil {
 			wg.Add(1)
 		}
+
 		lg := c.log.With("name", m.Name())
 		lg.Info("Running migration")
 
@@ -89,9 +91,12 @@ func (c *Controller) run(ctx context.Context, wg *sync.WaitGroup, migrations []M
 					if err := m.Migrate(ctx); err != nil {
 						lg.Error("Failed to run migration, retry after 5s...", logger.SlogErr(err))
 						time.Sleep(5 * time.Second)
+
 						continue
 					}
+
 					lg.Info("Finished migration")
+
 					return
 				}
 			}

@@ -92,24 +92,31 @@ func (d *USBDevice) Validate() error {
 	if d.VendorID == 0 {
 		return fmt.Errorf("vendorID is required")
 	}
+
 	if d.ProductID == 0 {
 		return fmt.Errorf("productID is required")
 	}
+
 	if d.Bus == 0 {
 		return fmt.Errorf("bus is required")
 	}
+
 	if d.DeviceNumber == 0 {
 		return fmt.Errorf("deviceNumber is required")
 	}
+
 	if d.DevicePath == "" {
 		return fmt.Errorf("devicePath is required")
 	}
+
 	if d.Major == 0 {
 		return fmt.Errorf("major is required")
 	}
+
 	if d.Minor == 0 {
 		return fmt.Errorf("minor is required")
 	}
+
 	return nil
 }
 
@@ -124,27 +131,35 @@ func LoadUSBDevice(path string) (device USBDevice, err error) {
 	if err = parseSysUeventFile(path, &device); err != nil {
 		return device, err
 	}
+
 	if err = parseSerial(path, &device); err != nil {
 		return device, err
 	}
+
 	if err = parseManufacturer(path, &device); err != nil {
 		return device, err
 	}
+
 	if err = parseProduct(path, &device); err != nil {
 		return device, err
 	}
+
 	if err = parseBConfigurationValue(path, &device); err != nil {
 		return device, err
 	}
+
 	if err = parseBNumConfigurations(path, &device); err != nil {
 		return device, err
 	}
+
 	if err = parseBNumInterfaces(path, &device); err != nil {
 		return device, err
 	}
+
 	if err = parseSpeed(path, &device); err != nil {
 		return device, err
 	}
+
 	if err = parseSysUeventInterfaces(path, &device); err != nil {
 		return device, err
 	}
@@ -164,6 +179,7 @@ func parseSysUeventFile(path string, device *USBDevice) error {
 	// BUSNUM=003
 	// DEVNUM=002
 	ueventPath := filepath.Join(path, "uevent")
+
 	file, err := os.Open(ueventPath)
 	if err != nil {
 		return fmt.Errorf("unable to open the file %s: %w", ueventPath, err)
@@ -173,23 +189,27 @@ func parseSysUeventFile(path string, device *USBDevice) error {
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := scanner.Text()
+
 		values := strings.Split(line, "=")
 		if len(values) != 2 {
 			slog.Info("Skipping %s due not being key=value", slog.String("line", line))
 			continue
 		}
+
 		switch values[0] {
 		case "MAJOR":
 			val, err := strconv.ParseUint(values[1], 10, 32)
 			if err != nil {
 				return fmt.Errorf("failed to parse MAJOR: %s", values[1])
 			}
+
 			device.Major = val
 		case "MINOR":
 			val, err := strconv.ParseUint(values[1], 10, 32)
 			if err != nil {
 				return fmt.Errorf("failed to parse MINOR: %s", values[1])
 			}
+
 			device.Minor = val
 		case "DEVNAME":
 			device.DevicePath = filepath.Join("/dev", values[1])
@@ -206,28 +226,33 @@ func parseSysUeventFile(path string, device *USBDevice) error {
 			if err != nil {
 				return fmt.Errorf("failed to parse PRODUCT: %s", values[1])
 			}
+
 			device.VendorID = uint16(val)
 
 			val, err = strconv.ParseUint(products[1], 16, 32)
 			if err != nil {
 				return fmt.Errorf("failed to parse PRODUCT: %s", values[1])
 			}
+
 			device.ProductID = uint16(val)
 
 			val, err = strconv.ParseUint(products[2], 16, 32)
 			if err != nil {
 				return fmt.Errorf("failed to parse PRODUCT: %s", values[1])
 			}
+
 			device.BCD = uint16(val)
 		case "TYPE":
 			types := strings.Split(values[1], "/")
 			if len(types) != 3 {
 				return fmt.Errorf("failed to parse TYPE: %s", values[1])
 			}
+
 			val, err := strconv.ParseUint(types[0], 10, 8)
 			if err != nil {
 				return fmt.Errorf("failed to parse TYPE: %s", values[1])
 			}
+
 			device.BDeviceClass = uint8(val)
 			device.IsHub = device.BDeviceClass == 9 // 09 = USB Hub class
 
@@ -235,28 +260,33 @@ func parseSysUeventFile(path string, device *USBDevice) error {
 			if err != nil {
 				return fmt.Errorf("failed to parse TYPE: %s", values[1])
 			}
+
 			device.BDeviceSubClass = uint8(val)
 
 			val, err = strconv.ParseUint(types[2], 10, 8)
 			if err != nil {
 				return fmt.Errorf("failed to parse TYPE: %s", values[1])
 			}
+
 			device.BDeviceProtocol = uint8(val)
 		case "BUSNUM":
 			val, err := strconv.ParseUint(values[1], 10, 32)
 			if err != nil {
 				return fmt.Errorf("failed to parse BUSNUM: %s", values[1])
 			}
+
 			device.Bus = uint32(val)
 		case "DEVNUM":
 			val, err := strconv.ParseUint(values[1], 10, 32)
 			if err != nil {
 				return fmt.Errorf("failed to parse DEVNUM: %s", values[1])
 			}
+
 			device.DeviceNumber = uint32(val)
 		default:
 		}
 	}
+
 	return nil
 }
 
@@ -265,7 +295,9 @@ func parseSerial(path string, device *USBDevice) error {
 	if err != nil {
 		return err
 	}
+
 	device.Serial = serial
+
 	return nil
 }
 
@@ -274,7 +306,9 @@ func parseManufacturer(path string, device *USBDevice) error {
 	if err != nil {
 		return err
 	}
+
 	device.Manufacturer = manufacturer
+
 	return nil
 }
 
@@ -283,7 +317,9 @@ func parseProduct(path string, device *USBDevice) error {
 	if err != nil {
 		return err
 	}
+
 	device.Product = product
+
 	return nil
 }
 
@@ -292,7 +328,9 @@ func parseBConfigurationValue(path string, device *USBDevice) error {
 	if err != nil {
 		return err
 	}
+
 	device.BConfigurationValue = uint8(val)
+
 	return nil
 }
 
@@ -301,7 +339,9 @@ func parseBNumConfigurations(path string, device *USBDevice) error {
 	if err != nil {
 		return err
 	}
+
 	device.BNumConfigurations = uint8(val)
+
 	return nil
 }
 
@@ -310,7 +350,9 @@ func parseBNumInterfaces(path string, device *USBDevice) error {
 	if err != nil {
 		return err
 	}
+
 	device.BNumInterfaces = uint8(val)
+
 	return nil
 }
 
@@ -319,7 +361,9 @@ func parseSpeed(path string, device *USBDevice) error {
 	if err != nil {
 		return err
 	}
+
 	device.Speed = uint32(val)
+
 	return nil
 }
 
@@ -332,7 +376,6 @@ func parseSysUeventInterfaces(path string, device *USBDevice) error {
 
 	// path - /sys/bus/usb/devices/3-2.1.1
 	// uevent path - /sys/bus/usb/devices/3-2.1.1:1.0/uevent
-
 	if device.BConfigurationValue == 0 || device.BNumInterfaces == 0 {
 		device.Interfaces = nil
 		return nil
@@ -341,20 +384,25 @@ func parseSysUeventInterfaces(path string, device *USBDevice) error {
 	var deviceInterfaces []USBDeviceInterface
 
 	parent := filepath.Dir(path)
+
 	entries, err := os.ReadDir(parent)
 	if err != nil {
 		return fmt.Errorf("unable to read the directory %s: %w", path, err)
 	}
 
 	prefix := fmt.Sprintf("%s:%d.", device.BusID, device.BConfigurationValue)
+
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
 		}
+
 		if !strings.HasPrefix(entry.Name(), prefix) {
 			continue
 		}
+
 		interfaceNumberStr := strings.TrimPrefix(entry.Name(), prefix)
+
 		_, err := strconv.Atoi(interfaceNumberStr)
 		if err != nil {
 			// not a valid interface number
@@ -362,6 +410,7 @@ func parseSysUeventInterfaces(path string, device *USBDevice) error {
 		}
 
 		ueventPath := filepath.Join(parent, entry.Name(), "uevent")
+
 		file, err := os.Open(ueventPath)
 		if err != nil {
 			return fmt.Errorf("unable to open the file %s: %w", ueventPath, err)
@@ -371,11 +420,13 @@ func parseSysUeventInterfaces(path string, device *USBDevice) error {
 		scanner := bufio.NewScanner(file)
 		for scanner.Scan() {
 			line := scanner.Text()
+
 			values := strings.Split(line, "=")
 			if len(values) != 2 {
 				slog.Info("Skipping %s due not being key=value", slog.String("line", line))
 				continue
 			}
+
 			if values[0] == "INTERFACE" {
 				deviceInterface := USBDeviceInterface{}
 
@@ -383,22 +434,26 @@ func parseSysUeventInterfaces(path string, device *USBDevice) error {
 				if len(interfaces) != 3 {
 					return fmt.Errorf("failed to parse INTERFACE: %s", values[1])
 				}
+
 				val, err := strconv.ParseUint(interfaces[0], 10, 8)
 				if err != nil {
 					return fmt.Errorf("failed to parse INTERFACE: %s", values[1])
 				}
+
 				deviceInterface.BInterfaceClass = uint8(val)
 
 				val, err = strconv.ParseUint(interfaces[1], 10, 8)
 				if err != nil {
 					return fmt.Errorf("failed to parse INTERFACE: %s", values[1])
 				}
+
 				deviceInterface.BInterfaceSubClass = uint8(val)
 
 				val, err = strconv.ParseUint(interfaces[2], 10, 8)
 				if err != nil {
 					return fmt.Errorf("failed to parse INTERFACE: %s", values[1])
 				}
+
 				deviceInterface.BInterfaceProtocol = uint8(val)
 
 				deviceInterfaces = append(deviceInterfaces, deviceInterface)
@@ -415,6 +470,7 @@ func parseSysUeventInterfaces(path string, device *USBDevice) error {
 
 func parseStringValue(path, valueName string) (string, error) {
 	valuePath := filepath.Join(path, valueName)
+
 	data, err := os.ReadFile(valuePath)
 	if err != nil {
 		return "", fmt.Errorf("failed to read %s: %w", valuePath, err)
@@ -430,6 +486,7 @@ func parseStringValue(path, valueName string) (string, error) {
 
 func parseUintValue(path, valueName string, bitSize int, ignoreNotExist bool) (uint64, error) {
 	valuePath := filepath.Join(path, valueName)
+
 	data, err := os.ReadFile(valuePath)
 	if err != nil {
 		return 0, fmt.Errorf("failed to read %s: %w", path, err)

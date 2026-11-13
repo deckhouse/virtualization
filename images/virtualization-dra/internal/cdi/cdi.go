@@ -95,6 +95,7 @@ func (cdi *manager) CreateCommonSpecFile() error {
 	if err != nil {
 		return fmt.Errorf("failed to get minimum required CDI spec version: %w", err)
 	}
+
 	spec.Version = minVersion
 
 	specName, err := cdiapi.GenerateNameForTransientSpec(spec, cdiCommonDeviceName)
@@ -140,6 +141,7 @@ func (cdi *manager) CreateClaimSpecFile(claimUID string, devices PreparedDevices
 	if err != nil {
 		return fmt.Errorf("failed to get minimum required CDI spec version: %w", err)
 	}
+
 	spec.Version = minVersion
 
 	return cdi.cache.WriteSpec(spec, specName)
@@ -177,5 +179,6 @@ func (pds PreparedDevices) GetDevices() []*drapbv1.Device {
 	for _, pd := range pds {
 		devices = append(devices, &pd.Device)
 	}
+
 	return devices
 }

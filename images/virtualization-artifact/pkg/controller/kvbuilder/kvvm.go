@@ -166,6 +166,7 @@ func (b *KVVM) SetCPUModel(class *v1alpha2.VirtualMachineClass) error {
 	if b.Resource.Spec.Template.Spec.Domain.CPU == nil {
 		b.Resource.Spec.Template.Spec.Domain.CPU = &virtv1.CPU{}
 	}
+
 	cpu := b.Resource.Spec.Template.Spec.Domain.CPU
 	// Reset the features to drop the ones left by the vmclass the virtual machine used before.
 	cpu.Features = nil
@@ -186,6 +187,7 @@ func (b *KVVM) SetCPUModel(class *v1alpha2.VirtualMachineClass) error {
 	default:
 		return fmt.Errorf("unexpected cpu type: %q", class.Spec.CPU.Type)
 	}
+
 	return nil
 }
 
@@ -203,6 +205,7 @@ func setupNestedVirtualizationFeatures(class *v1alpha2.VirtualMachineClass) []vi
 	for _, name := range v1alpha2.NestedVirtualizationCPUFeatures {
 		features = append(features, virtv1.CPUFeature{Name: name, Policy: cpuFeaturePolicyDisable})
 	}
+
 	return features
 }
 
@@ -221,6 +224,7 @@ func genericModelCPUFeatures(class *v1alpha2.VirtualMachineClass) []virtv1.CPUFe
 		if slices.Contains(provided, name) {
 			continue
 		}
+
 		switch {
 		case !nested:
 			// Spell the feature out: keeping it off must not rest on the libvirt defaults for a
@@ -263,8 +267,10 @@ func keepRunningCPUFeatures(kvvm *KVVM, kvvmi *virtv1.VirtualMachineInstance) {
 		IsRestartRequested(kvvm.Resource) {
 		return
 	}
+
 	cpu := kvvm.Resource.Spec.Template.Spec.Domain.CPU
 	running := kvvmi.Spec.Domain.CPU
+
 	stable := slices.DeleteFunc(slices.Clone(running.Features), func(f virtv1.CPUFeature) bool {
 		return slices.Contains(v1alpha2.ArchCapabilitiesCPUFeatures, f.Name)
 	})
@@ -283,6 +289,7 @@ func IsRestartRequested(kvvm *virtv1.VirtualMachine) bool {
 
 func HasArchCapabilitiesCPUFeatures(kvvm *virtv1.VirtualMachine) bool {
 	cpu := kvvm.Spec.Template.Spec.Domain.CPU
+
 	return cpu != nil && slices.ContainsFunc(cpu.Features, func(f virtv1.CPUFeature) bool {
 		return slices.Contains(v1alpha2.ArchCapabilitiesCPUFeatures, f.Name)
 	})
@@ -301,6 +308,7 @@ func (b *KVVM) SetRunPolicy(runPolicy v1alpha2.RunPolicy) error {
 	default:
 		return fmt.Errorf("unexpected runPolicy %s. %w", runPolicy, common.ErrUnknownValue)
 	}
+
 	return nil
 }
 
@@ -310,6 +318,7 @@ func (b *KVVM) lastAppliedRunPolicy() v1alpha2.RunPolicy {
 	if err != nil || spec == nil {
 		return ""
 	}
+
 	return spec.RunPolicy
 }
 
@@ -318,6 +327,7 @@ func (b *KVVM) SetNodeSelector(vmNodeSelector, classNodeSelector map[string]stri
 		b.Resource.Spec.Template.Spec.NodeSelector = nil
 		return
 	}
+
 	selector := make(map[string]string, len(vmNodeSelector)+len(classNodeSelector))
 	maps.Copy(selector, vmNodeSelector)
 	maps.Copy(selector, classNodeSelector)
@@ -331,20 +341,24 @@ func (b *KVVM) SetUSBGatewayNodeSelector(hasUSBDevices bool) {
 	if !hasUSBDevices {
 		return
 	}
+
 	if b.Resource.Spec.Template.Spec.NodeSelector == nil {
 		b.Resource.Spec.Template.Spec.NodeSelector = make(map[string]string, 1)
 	}
+
 	b.Resource.Spec.Template.Spec.NodeSelector[annotations.USBGatewayLabel] = "true"
 }
 
 func (b *KVVM) SetTolerations(vmTolerations, classTolerations []corev1.Toleration) {
 	tolerations := make([]corev1.Toleration, 0, len(vmTolerations)+len(classTolerations))
 	tolerations = append(tolerations, vmTolerations...)
+
 	tolerations = append(tolerations, classTolerations...)
 	if len(tolerations) == 0 {
 		b.Resource.Spec.Template.Spec.Tolerations = nil
 		return
 	}
+
 	b.Resource.Spec.Template.Spec.Tolerations = tolerations
 }
 
@@ -364,14 +378,17 @@ func (b *KVVM) SetAffinity(vmAffinity *corev1.Affinity, classMatchExpressions []
 		b.Resource.Spec.Template.Spec.Affinity = vmAffinity
 		return
 	}
+
 	terms := nodeaffinity.PlacementTerms(vmAffinity, classMatchExpressions)
 
 	if vmAffinity == nil {
 		vmAffinity = &corev1.Affinity{}
 	}
+
 	if vmAffinity.NodeAffinity == nil {
 		vmAffinity.NodeAffinity = &corev1.NodeAffinity{}
 	}
+
 	vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &corev1.NodeSelector{
 		NodeSelectorTerms: terms,
 	}
@@ -400,6 +417,7 @@ func (b *KVVM) SetCPU(cores int, coreFraction string) error {
 	if b.ResourceExists && isVMRunningWithCPUResources(b.Resource) {
 		return b.setCPUNonHotpluggable(cores, coreFraction)
 	}
+
 	return b.setCPUHotpluggable(cores, coreFraction)
 }
 
@@ -410,18 +428,22 @@ func (b *KVVM) setCPUNonHotpluggable(cores int, coreFraction string) error {
 	if domainSpec.CPU == nil {
 		domainSpec.CPU = &virtv1.CPU{}
 	}
+
 	cpuRequest, err := GetCPURequest(cores, coreFraction)
 	if err != nil {
 		return err
 	}
 
 	cpuLimit := GetCPULimit(cores)
+
 	if domainSpec.Resources.Requests == nil {
 		domainSpec.Resources.Requests = make(map[corev1.ResourceName]resource.Quantity)
 	}
+
 	if domainSpec.Resources.Limits == nil {
 		domainSpec.Resources.Limits = make(map[corev1.ResourceName]resource.Quantity)
 	}
+
 	domainSpec.Resources.Requests[corev1.ResourceCPU] = *cpuRequest
 	domainSpec.Resources.Limits[corev1.ResourceCPU] = *cpuLimit
 
@@ -430,6 +452,7 @@ func (b *KVVM) setCPUNonHotpluggable(cores int, coreFraction string) error {
 	domainSpec.CPU.Cores = uint32(coresNeeded)
 	domainSpec.CPU.Sockets = uint32(socketsNeeded)
 	domainSpec.CPU.MaxSockets = uint32(socketsNeeded)
+
 	return nil
 }
 
@@ -447,12 +470,14 @@ func (b *KVVM) setCPUHotpluggable(cores int, coreFraction string) error {
 	if err != nil {
 		return err
 	}
+
 	b.SetKVVMIAnnotation(CPUResourcesRequestsFractionAnnotation, strconv.Itoa(fraction))
 
 	socketsNeeded, coresPerSocketNeeded, maxCoresPerSocketNeeded := vm.CalculateCoresAndSockets(cores)
 	// Use "dynamic cores" hotplug strategy.
 	// Workaround: swap cores and sockets in domainSpec to bypass vm-validator webhook.
 	b.SetKVVMIAnnotation(VCPUTopologyDynamicCoresAnnotation, "")
+
 	domainSpec.CPU.Cores = uint32(socketsNeeded)
 	domainSpec.CPU.Sockets = uint32(coresPerSocketNeeded)
 	domainSpec.CPU.MaxSockets = uint32(maxCoresPerSocketNeeded)
@@ -478,6 +503,7 @@ func (b *KVVM) SetMemory(memorySize resource.Quantity) {
 		// advertising hotpluggable memory slots to a guest switched to Legacy.
 		b.Resource.Spec.Template.Spec.Domain.Memory = nil
 		b.setMemoryNonHotpluggable(memorySize)
+
 		return
 	}
 	// Support for VMs started with memory size in requests-limits.
@@ -486,6 +512,7 @@ func (b *KVVM) SetMemory(memorySize resource.Quantity) {
 		b.setMemoryNonHotpluggable(memorySize)
 		return
 	}
+
 	b.setMemoryHotpluggable(memorySize)
 }
 
@@ -496,9 +523,11 @@ func (b *KVVM) setMemoryNonHotpluggable(memorySize resource.Quantity) {
 	if res.Requests == nil {
 		res.Requests = make(map[corev1.ResourceName]resource.Quantity)
 	}
+
 	if res.Limits == nil {
 		res.Limits = make(map[corev1.ResourceName]resource.Quantity)
 	}
+
 	res.Requests[corev1.ResourceMemory] = memorySize
 	res.Limits[corev1.ResourceMemory] = memorySize
 }
@@ -510,7 +539,9 @@ func (b *KVVM) setMemoryHotpluggable(memorySize resource.Quantity) {
 	domain := &b.Resource.Spec.Template.Spec.Domain
 
 	var currentMaxGuest *resource.Quantity
+
 	currentMaxGuestValue := int64(-1)
+
 	if domain.Memory != nil && domain.Memory.MaxGuest != nil {
 		currentMaxGuest = domain.Memory.MaxGuest
 		currentMaxGuestValue = domain.Memory.MaxGuest.Value()
@@ -588,11 +619,14 @@ func ParseCPUCoreFraction(cpuFraction string) (int, error) {
 	if cpuFraction == "" {
 		return 100, nil
 	}
+
 	fraction := intstr.FromString(cpuFraction)
+
 	value, _, err := getIntOrPercentValueSafely(&fraction)
 	if err != nil {
 		return 0, fmt.Errorf("invalid value for cpu core fraction: %w", err)
 	}
+
 	return value, nil
 }
 
@@ -605,14 +639,17 @@ func getIntOrPercentValueSafely(intOrStr *intstr.IntOrString) (int, bool, error)
 		if !strings.HasSuffix(s, "%") {
 			return 0, false, fmt.Errorf("invalid type: string is not a percentage")
 		}
+
 		s = strings.TrimSuffix(intOrStr.StrVal, "%")
 
 		v, err := strconv.Atoi(s)
 		if err != nil {
 			return 0, false, fmt.Errorf("invalid value %q: %w", intOrStr.StrVal, err)
 		}
+
 		return v, true, nil
 	}
+
 	return 0, false, fmt.Errorf("invalid type: neither int nor percentage")
 }
 
@@ -620,14 +657,18 @@ func GetCPURequest(cores int, coreFraction string) (*resource.Quantity, error) {
 	if coreFraction == "" {
 		return GetCPULimit(cores), nil
 	}
+
 	fraction := intstr.FromString(coreFraction)
+
 	req, err := intstr.GetScaledValueFromIntOrPercent(&fraction, cores*1000, true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate coreFraction. %w", err)
 	}
+
 	if req == 0 {
 		return GetCPULimit(cores), nil
 	}
+
 	return resource.NewMilliQuantity(int64(req), resource.DecimalSI), nil
 }
 
@@ -663,6 +704,7 @@ func (b *KVVM) deviceOptions() DeviceOptions {
 	if b.opts.OsType == v1alpha2.LegacyOs {
 		return LegacyDeviceOptionsPresets.Find(b.opts.EnableParavirtualization)
 	}
+
 	return DeviceOptionsPresets.Find(b.opts.EnableParavirtualization)
 }
 
@@ -705,6 +747,7 @@ func (b *KVVM) SetDisk(name string, opts SetDiskOptions) error {
 	)
 
 	var vs virtv1.VolumeSource
+
 	switch {
 	case opts.PersistentVolumeClaim != nil && !opts.IsEphemeral:
 		vs.PersistentVolumeClaim = &virtv1.PersistentVolumeClaimVolumeSource{
@@ -783,6 +826,7 @@ func (b *KVVM) SetDisk(name string, opts SetDiskOptions) error {
 			return v1.Name == v2.Name
 		}, true,
 	)
+
 	return nil
 }
 
@@ -820,6 +864,7 @@ func (b *KVVM) HasTablet(name string) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -827,6 +872,7 @@ func (b *KVVM) SetProvisioning(p *v1alpha2.Provisioning) error {
 	if p == nil {
 		b.RemoveDisk(CloudInitDiskName)
 		b.RemoveDisk(SysprepDiskName)
+
 		return nil
 	}
 
@@ -867,7 +913,9 @@ func (b *KVVM) SetSpiceDevices(vm *v1alpha2.VirtualMachine) {
 		devices.Video = nil
 		devices.Sound = nil
 		devices.ClientPassthrough = nil
+
 		b.RemoveKVVMIAnnotation(annotations.AnnSpice)
+
 		return
 	}
 
@@ -892,6 +940,7 @@ func (b *KVVM) SetVideoModel(vm *v1alpha2.VirtualMachine) {
 	if model == "" {
 		return
 	}
+
 	b.Resource.Spec.Template.Spec.Domain.Devices.Video = &virtv1.VideoDevice{Type: model}
 }
 
@@ -900,7 +949,6 @@ func (b *KVVM) SetOSType(osType v1alpha2.OsType) error {
 	case v1alpha2.Windows:
 		// Need for `029-use-OFVM_CODE-for-linux.patch`
 		// b.SetKVVMIAnnotation(annotations.AnnOsType, string(virtv2.Windows))
-
 		b.Resource.Spec.Template.Spec.Domain.Machine = &virtv1.Machine{
 			Type: "q35",
 		}
@@ -981,6 +1029,7 @@ func (b *KVVM) SetOSType(osType v1alpha2.OsType) error {
 	default:
 		return fmt.Errorf("unexpected os type %q. %w", osType, common.ErrUnknownType)
 	}
+
 	return nil
 }
 
@@ -1054,10 +1103,12 @@ func (b *KVVM) SetNetworkInterface(name, macAddress string, acpiIndex int) {
 	}
 
 	updated := false
+
 	for i, existing := range b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces {
 		if existing.Name == name {
 			b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces[i] = iface
 			updated = true
+
 			break
 		}
 	}
@@ -1087,6 +1138,7 @@ func (b *KVVM) SetUnderlayNetworkDevices(specs network.InterfaceSpecList) {
 		if _, wanted := desired[name]; wanted {
 			return false
 		}
+
 		return strings.HasPrefix(name, network.UnderlayDeviceName(""))
 	}
 	templateSpec.ResourceClaims = slices.DeleteFunc(templateSpec.ResourceClaims, func(claim virtv1.ResourceClaim) bool {
@@ -1144,6 +1196,7 @@ func (b *KVVM) SetBootloader(bootloader v1alpha2.BootloaderType) error {
 		if b.Resource.Spec.Template.Spec.Domain.Features == nil {
 			b.Resource.Spec.Template.Spec.Domain.Features = &virtv1.Features{}
 		}
+
 		b.Resource.Spec.Template.Spec.Domain.Features.SMM = &virtv1.FeatureState{
 			Enabled: ptr.To(true),
 		}
@@ -1156,6 +1209,7 @@ func (b *KVVM) SetBootloader(bootloader v1alpha2.BootloaderType) error {
 	default:
 		return fmt.Errorf("unexpected bootloader type %q. %w", bootloader, common.ErrUnknownType)
 	}
+
 	return nil
 }
 
@@ -1174,9 +1228,11 @@ func (b *KVVM) SetMetadata(metadata metav1.ObjectMeta) {
 		// initialize only
 		return
 	}
+
 	if b.Resource.Spec.Template.ObjectMeta.Labels == nil {
 		b.Resource.Spec.Template.ObjectMeta.Labels = make(map[string]string, len(metadata.Labels))
 	}
+
 	if b.Resource.Spec.Template.ObjectMeta.Annotations == nil {
 		b.Resource.Spec.Template.ObjectMeta.Annotations = make(map[string]string, len(metadata.Annotations))
 	}
@@ -1197,9 +1253,11 @@ func (b *KVVM) ApplyPVNodeAffinity(pvTerms []corev1.NodeSelectorTerm) {
 	if affinity == nil {
 		affinity = &corev1.Affinity{}
 	}
+
 	if affinity.NodeAffinity == nil {
 		affinity.NodeAffinity = &corev1.NodeAffinity{}
 	}
+
 	if affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
 		affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &corev1.NodeSelector{}
 	}

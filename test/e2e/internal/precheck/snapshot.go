@@ -68,6 +68,7 @@ func (s *snapshotPrecheck) Run(ctx context.Context, f *framework.Framework) erro
 	if err != nil {
 		return fmt.Errorf("%s=no to disable this precheck: failed to list VolumeSnapshotClasses: %w", snapshotModuleCheckEnvName, err)
 	}
+
 	if len(vscList.Items) == 0 {
 		return fmt.Errorf("%s=no to disable this precheck: no VolumeSnapshotClass found in the cluster", snapshotModuleCheckEnvName)
 	}

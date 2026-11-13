@@ -47,17 +47,20 @@ func (p *portForwarder) startForwardingUDP(address *net.IPAddr, port forwardedPo
 		listener: listener,
 		remoteDialer: func() (net.Conn, error) {
 			klog.Infof("opening new udp tunnel to %d", port.remote)
+
 			stream, err := p.resource.PortForward(p.name, subv1alpha2.VirtualMachinePortForward{Port: port.remote, Protocol: port.protocol})
 			if err != nil {
 				klog.Errorf("can't access vm/%s.%s: %v", p.name, p.namespace, err)
 				return nil, err
 			}
+
 			return stream.AsConn(), nil
 		},
 		clients: make(map[string]*udpProxyConn),
 	}
 
 	go proxy.Run()
+
 	return nil
 }
 
@@ -84,6 +87,7 @@ func (p *udpProxy) handleRead(buf []byte) error {
 	if err != nil {
 		return err
 	}
+
 	clientID := clientAddr.String()
 
 	p.Lock()
@@ -96,18 +100,21 @@ func (p *udpProxy) handleRead(buf []byte) error {
 		if err != nil {
 			return err
 		}
+
 		client = &udpProxyConn{
 			localConn:  p.listener,
 			clientAddr: clientAddr,
 			remoteConn: remoteConn,
 			close:      make(chan struct{}),
 		}
+
 		p.clients[clientID] = client
 		go client.handleRemoteReads()
 		go p.cleanupClient(clientID, client)
 	}
 
 	_, err = client.remoteConn.Write(buf[0:n])
+
 	return err
 }
 
@@ -115,6 +122,7 @@ func (p *udpProxy) cleanupClient(clientID string, client *udpProxyConn) {
 	<-client.close
 	p.Lock()
 	defer p.Unlock()
+
 	delete(p.clients, clientID)
 }
 
@@ -128,6 +136,7 @@ type udpProxyConn struct {
 
 func (c *udpProxyConn) handleRemoteReads() {
 	defer close(c.close)
+
 	buf := make([]byte, bufSize)
 	for {
 		if err := c.handleRemoteRead(buf); err != nil {
@@ -142,9 +151,11 @@ func (c *udpProxyConn) handleRemoteRead(buf []byte) error {
 	if err != nil {
 		return err
 	}
+
 	_, err = c.localConn.WriteToUDP(buf[0:n], c.clientAddr)
 	if err != nil {
 		return err
 	}
+
 	return nil
 }

@@ -48,6 +48,7 @@ func SetupScaleWebhook(mgr manager.Manager) {
 	if !featuregates.Default().Enabled(featuregates.VirtualMachinePool) {
 		return
 	}
+
 	mgr.GetWebhookServer().Register(ScaleWebhookPath, &webhook.Admission{
 		Handler: &scaleValidator{client: mgr.GetClient()},
 	})
@@ -67,6 +68,7 @@ func (v *scaleValidator) Handle(ctx context.Context, req admission.Request) admi
 	if req.SubResource != "scale" {
 		return admission.Allowed("")
 	}
+
 	switch req.Operation {
 	case admissionv1.Update:
 		return v.validateScaleUpdate(ctx, req)
@@ -82,6 +84,7 @@ func (v *scaleValidator) validateScaleUpdate(ctx context.Context, req admission.
 	if err := json.Unmarshal(req.Object.Raw, &newScale); err != nil {
 		return admission.Errored(http.StatusBadRequest, fmt.Errorf("decode new Scale: %w", err))
 	}
+
 	if err := json.Unmarshal(req.OldObject.Raw, &oldScale); err != nil {
 		return admission.Errored(http.StatusBadRequest, fmt.Errorf("decode old Scale: %w", err))
 	}
@@ -96,6 +99,7 @@ func (v *scaleValidator) validateScaleUpdate(ctx context.Context, req admission.
 		if apierrors.IsNotFound(err) {
 			return admission.Allowed("")
 		}
+
 		return admission.Errored(http.StatusInternalServerError, fmt.Errorf("get VirtualMachinePool %s/%s: %w", req.Namespace, req.Name, err))
 	}
 

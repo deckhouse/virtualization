@@ -49,6 +49,7 @@ func (m *migratablePrecheck) Run(ctx context.Context, f *framework.Framework) er
 	if err != nil {
 		return fmt.Errorf("%s=no to disable this precheck: failed to list ready KVM-enabled nodes: %w", migratablePrecheckEnvName, err)
 	}
+
 	if len(nodes) < minReadyKVMNodesForMigratable {
 		return fmt.Errorf("%s=no to disable this precheck: at least %d ready KVM-enabled nodes are required, got %d", migratablePrecheckEnvName, minReadyKVMNodesForMigratable, len(nodes))
 	}

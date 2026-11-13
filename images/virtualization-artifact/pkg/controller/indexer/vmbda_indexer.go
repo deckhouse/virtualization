@@ -28,6 +28,7 @@ func IndexVMBDAByVM() (obj client.Object, field string, extractValue client.Inde
 		if !ok || vmbda == nil {
 			return nil
 		}
+
 		return []string{vmbda.Spec.VirtualMachineName}
 	}
 }

@@ -59,6 +59,7 @@ func (s *Store) Load(uid types.UID) (State, bool) {
 	if !ok {
 		return State{}, false
 	}
+
 	return v.(State), true
 }
 
@@ -66,6 +67,7 @@ func (s *Store) Store(uid types.UID, state State) {
 	if uid == "" {
 		return
 	}
+
 	s.cache.Add(uid, state, storeTTL)
 }
 
@@ -73,6 +75,7 @@ func (s *Store) Delete(uid types.UID) {
 	if uid == "" {
 		return
 	}
+
 	s.cache.Remove(uid)
 }
 

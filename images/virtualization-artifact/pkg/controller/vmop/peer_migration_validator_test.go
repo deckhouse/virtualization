@@ -67,6 +67,7 @@ var _ = Describe("checkPeerMigrationType", func() {
 		if peer != "" {
 			op.Spec.Migrate = &v1alpha2.VirtualMachineOperationMigrateSpec{ProjectPeerName: peer}
 		}
+
 		return op
 	}
 

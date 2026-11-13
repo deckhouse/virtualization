@@ -90,6 +90,7 @@ func (f *Framework) Before() {
 	if slices.Contains(labels, LabelTolerateUnschedulablePods) {
 		f.tolerateUnschedulablePods = true
 	}
+
 	if slices.Contains(labels, LabelTolerateFailedMigrations) {
 		f.tolerateFailedMigrations = true
 	}
@@ -111,6 +112,7 @@ func (f *Framework) After(ctx context.Context) {
 	if CurrentSpecReport().Failed() {
 		if f.namespace != nil {
 			By("Failed: save resource dump")
+
 			dumpCtx, cancel := dumpContext(ctx)
 			f.saveTestCaseDump(dumpCtx)
 			cancel()
@@ -128,6 +130,7 @@ func (f *Framework) After(ctx context.Context) {
 		if f.namespace != nil && !f.skipNsDeletion {
 			objs = append(objs, f.namespace)
 		}
+
 		err := f.Delete(ctx, objs...)
 		Expect(err).NotTo(HaveOccurred(), "Failed to delete resources")
 	}
@@ -142,6 +145,7 @@ func dumpContext(ctx context.Context) (context.Context, context.CancelFunc) {
 	if !ok {
 		return ctx, func() {}
 	}
+
 	return context.WithTimeout(ctx, time.Until(deadline)*4/5)
 }
 
@@ -226,6 +230,7 @@ func (f *Framework) startFailFast() {
 	if !f.tolerateUnschedulablePods {
 		rules = append(rules, failfast.Unschedulable(testPods, ns))
 	}
+
 	if !f.tolerateFailedMigrations {
 		rules = append(rules,
 			failfast.KVVMIMigrationFailed(f.DynamicClient(), ns),
@@ -288,6 +293,7 @@ func (f *Framework) Delete(ctx context.Context, objs ...client.Object) error {
 		// Handle namespace: it may be managed by the parent Project that should be deleted.
 		if _, ok := obj.(*corev1.Namespace); ok {
 			nsKey := client.ObjectKeyFromObject(obj)
+
 			err := f.client.Get(ctx, nsKey, obj)
 			if err == nil && obj.GetLabels()["heritage"] == "multitenancy-manager" {
 				objToDelete = &v1alpha2.Project{
@@ -320,6 +326,7 @@ func (f *Framework) Delete(ctx context.Context, objs ...client.Object) error {
 		key := client.ObjectKeyFromObject(obj)
 
 		var lastErr error
+
 		err := wait.PollUntilContextTimeout(ctx, time.Second, LongTimeout, true, func(ctx context.Context) (bool, error) {
 			err := f.client.Get(ctx, key, obj)
 			switch {
@@ -351,6 +358,7 @@ func (f *Framework) CreateWithDeferredDeletion(ctx context.Context, objs ...clie
 		if labels == nil {
 			labels = make(map[string]string)
 		}
+
 		maps.Copy(labels, map[string]string{E2ELabel: f.namespacePrefix})
 		obj.SetLabels(labels)
 
@@ -359,6 +367,7 @@ func (f *Framework) CreateWithDeferredDeletion(ctx context.Context, objs ...clie
 			SkipIfKnownClusterWebhookFailure(err)
 			return err
 		}
+
 		f.DeferDelete(obj)
 	}
 
@@ -381,6 +390,7 @@ func SkipIfKnownClusterWebhookFailure(err error) {
 	if err == nil {
 		return
 	}
+
 	if knownFlakyClusterWebhookRe.MatchString(err.Error()) {
 		Skip("skip due to known flaky cluster webhook failure: " + err.Error())
 	}

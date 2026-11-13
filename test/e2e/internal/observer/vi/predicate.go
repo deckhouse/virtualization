@@ -36,11 +36,13 @@ func BeFailed() Predicate {
 		if i.Status.Phase == v1alpha2.ImageFailed {
 			return true, fmt.Errorf("VirtualImage entered Failed phase")
 		}
+
 		if cond := findCondition(i.Status.Conditions, vicondition.ReadyType.String()); cond != nil {
 			if isConditionFresh(cond, i) && isProvisioningFailedReason(cond.Reason) {
 				return true, fmt.Errorf("ready condition reports %s: %s", cond.Reason, cond.Message)
 			}
 		}
+
 		return false, nil
 	}
 }
@@ -60,9 +62,11 @@ func HaveFormat(expected string) Predicate {
 		if i.Status.Phase != v1alpha2.ImageReady {
 			return true, nil
 		}
+
 		if i.Status.Format != expected {
 			return false, fmt.Errorf("status.format is %q, expected %q", i.Status.Format, expected)
 		}
+
 		return true, nil
 	}
 }
@@ -134,24 +138,29 @@ func BeQuotaExceeded() Predicate {
 		if cond == nil || !isConditionFresh(cond, i) {
 			return false, nil
 		}
+
 		if cond.Reason != vicondition.QuotaExceeded.String() {
 			return false, nil
 		}
+
 		if !strings.HasPrefix(cond.Message, quotaExceededMessagePrefix) {
 			return false, nil
 		}
+
 		if cond.Status != metav1.ConditionFalse {
 			return false, fmt.Errorf(
 				"ready condition reports QuotaExceeded but status is %s, expected %s",
 				cond.Status, metav1.ConditionFalse,
 			)
 		}
+
 		if i.Status.Phase != v1alpha2.ImageFailed {
 			return false, fmt.Errorf(
 				"ready condition reports QuotaExceeded but phase is %q, expected %q",
 				i.Status.Phase, v1alpha2.ImageFailed,
 			)
 		}
+
 		return true, nil
 	}
 }
@@ -185,6 +194,7 @@ func BeChecksumMismatch(algorithm string) Predicate {
 		if cond == nil || !isConditionFresh(cond, i) {
 			return false, nil
 		}
+
 		if !isProvisioningFailedReason(cond.Reason) {
 			return false, nil
 		}
@@ -204,18 +214,21 @@ func BeChecksumMismatch(algorithm string) Predicate {
 				algorithm, cond.Message,
 			)
 		}
+
 		if cond.Status != metav1.ConditionFalse {
 			return false, fmt.Errorf(
 				"ready condition reports a checksum mismatch but status is %s, expected %s",
 				cond.Status, metav1.ConditionFalse,
 			)
 		}
+
 		if i.Status.Phase != v1alpha2.ImageFailed {
 			return false, fmt.Errorf(
 				"ready condition reports a checksum mismatch but phase is %q, expected %q",
 				i.Status.Phase, v1alpha2.ImageFailed,
 			)
 		}
+
 		return true, nil
 	}
 }
@@ -227,12 +240,15 @@ func BeReadyForUserUpload() Predicate {
 		if i.Status.Phase != v1alpha2.ImageWaitForUserUpload {
 			return false, nil
 		}
+
 		if i.Status.ImageUploadURLs == nil {
 			return false, errors.New("phase is WaitForUserUpload but ImageUploadURLs is nil")
 		}
+
 		if i.Status.ImageUploadURLs.External == "" {
 			return false, errors.New("phase is WaitForUserUpload but external upload URL is empty")
 		}
+
 		return true, nil
 	}
 }
@@ -286,7 +302,9 @@ func HaveValidPhaseTransitions() Predicate {
 			maxRank = rank
 			maxPhase = i.Status.Phase
 		}
+
 		hasObserved = true
+
 		return true, nil
 	}
 }
@@ -314,6 +332,7 @@ func displayPhase(phase v1alpha2.ImagePhase) string {
 	if phase == "" {
 		return `""`
 	}
+
 	return fmt.Sprintf("%q", string(phase))
 }
 
@@ -337,9 +356,11 @@ func HaveValidProgress(expect ProgressExpectations) Predicate {
 		if i.Status.Phase == v1alpha2.ImagePending && i.Status.Progress != "" {
 			return false, fmt.Errorf("phase is Pending but progress is %q, expected empty progress", i.Status.Progress)
 		}
+
 		if i.Status.Phase == v1alpha2.ImageReady && i.Status.Progress == "" {
 			return false, errors.New("phase is Ready but progress is empty, expected 100%")
 		}
+
 		if i.Status.Progress == "" {
 			return true, nil
 		}
@@ -352,12 +373,15 @@ func HaveValidProgress(expect ProgressExpectations) Predicate {
 		if current == 100 && i.Status.Phase != v1alpha2.ImageReady {
 			return false, fmt.Errorf("progress is 100%% but phase is %s, expected Ready", displayPhase(i.Status.Phase))
 		}
+
 		if i.Status.Phase == v1alpha2.ImageReady && current != 100 {
 			return false, fmt.Errorf("phase is Ready but progress is %q, expected 100%%", i.Status.Progress)
 		}
+
 		if previous != nil && current < *previous {
 			return false, fmt.Errorf("progress decreased from %s to %s", formatProgressValue(*previous), formatProgressValue(current))
 		}
+
 		if previous != nil && current == *previous && current == 100 && i.Status.Phase == v1alpha2.ImageReady {
 			return observed.satisfies(expect)
 		}
@@ -389,6 +413,7 @@ func HaveValidProgress(expect ProgressExpectations) Predicate {
 		if i.Status.Phase != v1alpha2.ImageReady {
 			return true, nil
 		}
+
 		return observed.satisfies(expect)
 	}
 }
@@ -446,9 +471,11 @@ func parseProgress(progress string) (float64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("parse progress %q: %w", progress, err)
 	}
+
 	if parsed < 0 || parsed > 100 {
 		return 0, fmt.Errorf("progress %q is outside 0..100 range", progress)
 	}
+
 	return parsed, nil
 }
 
@@ -462,6 +489,7 @@ func findCondition(conds []metav1.Condition, condType string) *metav1.Condition 
 			return &conds[i]
 		}
 	}
+
 	return nil
 }
 
@@ -469,6 +497,7 @@ func condStatus(cond *metav1.Condition) metav1.ConditionStatus {
 	if cond == nil {
 		return "<absent>"
 	}
+
 	return cond.Status
 }
 
@@ -476,6 +505,7 @@ func condReason(cond *metav1.Condition) string {
 	if cond == nil {
 		return "<absent>"
 	}
+
 	return cond.Reason
 }
 
@@ -483,5 +513,6 @@ func condMessage(cond *metav1.Condition) string {
 	if cond == nil {
 		return ""
 	}
+
 	return cond.Message
 }

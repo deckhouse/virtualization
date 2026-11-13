@@ -40,6 +40,7 @@ func (p *upgradeStorageClassesPrecheck) Label() string {
 
 func (p *upgradeStorageClassesPrecheck) Run(ctx context.Context, f *framework.Framework) error {
 	replicated := config.StorageClassNameOverride()
+
 	local := config.LocalStorageClassNameOverride()
 	if replicated == "" || local == "" {
 		return fmt.Errorf("the module upgrade suite needs both %s and %s to be set: "+
@@ -47,6 +48,7 @@ func (p *upgradeStorageClassesPrecheck) Run(ctx context.Context, f *framework.Fr
 			config.StorageClassNameEnv, config.LocalStorageClassNameEnv,
 			config.StorageClassNameEnv, config.LocalStorageClassNameEnv)
 	}
+
 	if replicated == local {
 		return fmt.Errorf("%s and %s must name different StorageClasses, both are %q",
 			config.StorageClassNameEnv, config.LocalStorageClassNameEnv, replicated)
@@ -56,9 +58,11 @@ func (p *upgradeStorageClassesPrecheck) Run(ctx context.Context, f *framework.Fr
 	if err := f.GenericClient().List(ctx, &scList); err != nil {
 		return fmt.Errorf("list StorageClasses: %w", err)
 	}
+
 	if _, err := config.ResolveDefaultStorageClass(&scList); err != nil {
 		return err
 	}
+
 	if _, err := config.ResolveLocalStorageClass(&scList); err != nil {
 		return err
 	}

@@ -61,6 +61,7 @@ func compareBlockDevices(current, desired *v1alpha2.VirtualMachineSpec) []FieldC
 	// Detect swapped devices if there are no add/remove changes.
 	// TODO(future): Cleanup added/removed from current/desired and detect swapped.
 	swapped := make(map[int]struct{})
+
 	if len(added) == 0 && len(removed) == 0 {
 		for _, devAccessor := range deviceAccessors {
 			currentIndexes := devAccessor(current)
@@ -71,6 +72,7 @@ func compareBlockDevices(current, desired *v1alpha2.VirtualMachineSpec) []FieldC
 
 	// Combine cvmi, vmi and vmd changes into final list.
 	indexes := getUniqueIndexes(added, removed, swapped)
+
 	changes := make([]FieldChange, 0, len(indexes))
 	for _, idx := range indexes {
 		_, isAdded := added[idx]
@@ -123,31 +125,37 @@ func compareBlockDevices(current, desired *v1alpha2.VirtualMachineSpec) []FieldC
 
 func cvmiIndexedNames(vm *v1alpha2.VirtualMachineSpec) map[string]int {
 	res := make(map[string]int)
+
 	for idx, dev := range vm.BlockDeviceRefs {
 		if dev.Kind == v1alpha2.ClusterImageDevice {
 			res[dev.Name] = idx
 		}
 	}
+
 	return res
 }
 
 func vmiIndexedNames(vm *v1alpha2.VirtualMachineSpec) map[string]int {
 	res := make(map[string]int)
+
 	for idx, dev := range vm.BlockDeviceRefs {
 		if dev.Kind == v1alpha2.VirtualImageKind {
 			res[dev.Name] = idx
 		}
 	}
+
 	return res
 }
 
 func vmdIndexedNames(vm *v1alpha2.VirtualMachineSpec) map[string]int {
 	res := make(map[string]int)
+
 	for idx, dev := range vm.BlockDeviceRefs {
 		if dev.Kind == v1alpha2.VirtualDiskKind {
 			res[dev.Name] = idx
 		}
 	}
+
 	return res
 }
 
@@ -184,6 +192,7 @@ func updateIndexesForSwappedDevices(swapped map[int]struct{}, currentDevices, de
 func getUniqueIndexes(maps ...map[int]struct{}) []int {
 	// Unique.
 	acc := make(map[int]struct{})
+
 	for _, m := range maps {
 		for idx := range m {
 			acc[idx] = struct{}{}
@@ -196,5 +205,6 @@ func getUniqueIndexes(maps ...map[int]struct{}) []int {
 	}
 
 	sort.Ints(res)
+
 	return res
 }

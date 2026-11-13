@@ -74,6 +74,7 @@ func (s CleanupSnapshotStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 	}
 
 	vmSnapshotKey := types.NamespacedName{Namespace: vmop.Namespace, Name: snapshotName}
+
 	vmSnapshot, err := object.FetchObject(ctx, vmSnapshotKey, s.client, &v1alpha2.VirtualMachineSnapshot{})
 	if err != nil {
 		return &reconcile.Result{}, err
@@ -84,6 +85,7 @@ func (s CleanupSnapshotStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 			snapshotConditionBuilder.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonSnapshotCleanedUp).Message("Snapshot cleanup completed."),
 			&vmop.Status.Conditions,
 		)
+
 		return &reconcile.Result{}, nil
 	}
 

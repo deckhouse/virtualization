@@ -56,6 +56,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 	// TODO protect vd.
 
 	cb := conditions.NewConditionBuilder(vmbdacondition.AttachedType)
+
 	defer func() { conditions.SetCondition(cb.Generation(vmbda.Generation), &vmbda.Status.Conditions) }()
 
 	if !conditions.HasCondition(cb.GetType(), vmbda.Status.Conditions) {
@@ -63,12 +64,14 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 	}
 
 	var ad *service.AttachmentDisk
+
 	switch vmbda.Spec.BlockDeviceRef.Kind {
 	case v1alpha2.VMBDAObjectRefKindVirtualDisk:
 		vd, err := h.attacher.GetVirtualDisk(ctx, vmbda.Spec.BlockDeviceRef.Name, vmbda.Namespace)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
+
 		if vd != nil {
 			ad = service.NewAttachmentDiskFromVirtualDisk(vd)
 		}
@@ -77,6 +80,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 		if err != nil {
 			return reconcile.Result{}, err
 		}
+
 		if vi != nil {
 			ad = service.NewAttachmentDiskFromVirtualImage(vi)
 		}
@@ -85,6 +89,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 		if err != nil {
 			return reconcile.Result{}, err
 		}
+
 		if cvi != nil {
 			ad = service.NewAttachmentDiskFromClusterVirtualImage(cvi)
 		}
@@ -144,6 +149,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.NotAttached).
 			Message("Waiting for block device to be ready.")
+
 		return reconcile.Result{}, nil
 	}
 
@@ -154,6 +160,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.NotAttached).
 			Message("Waiting for virtual machine to be ready.")
+
 		return reconcile.Result{}, nil
 	}
 
@@ -163,6 +170,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.NotAttached).
 			Message(fmt.Sprintf("Block device %q not found.", vmbda.Spec.BlockDeviceRef.Name))
+
 		return reconcile.Result{}, nil
 	}
 
@@ -172,6 +180,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.NotAttached).
 			Message(fmt.Sprintf("VirtualMachine %q not found.", vmbda.Spec.VirtualMachineName))
+
 		return reconcile.Result{}, nil
 	}
 
@@ -181,6 +190,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.NotAttached).
 			Message(fmt.Sprintf("VirtualMachine %q is Running, but its underlying virtualization instance is not ready yet.", vm.Name))
+
 		return reconcile.Result{}, nil
 	}
 
@@ -195,6 +205,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.NotAttached).
 			Message(fmt.Sprintf("VirtualMachine %q is Running, but its underlying virtualization instance is not ready yet.", vm.Name))
+
 		return reconcile.Result{}, nil
 	}
 
@@ -206,12 +217,14 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 			return reconcile.Result{}, err
 		}
 	}
+
 	if unplugMessage != "" {
 		vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhasePending
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.NotAttached).
 			Message(unplugMessage)
+
 		return reconcile.Result{}, nil
 	}
 
@@ -226,6 +239,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.Conflict).
 			Message(service.CapitalizeFirstLetter(canErr.Error()))
+
 		return reconcile.Result{}, nil
 	}
 
@@ -239,6 +253,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 				Status(metav1.ConditionFalse).
 				Reason(vmbdacondition.AttachmentRequestSent).
 				Message(service.CapitalizeFirstLetter(err.Error() + "."))
+
 			return reconcile.Result{}, nil
 		}
 
@@ -267,6 +282,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 				Status(metav1.ConditionFalse).
 				Reason(vmbdacondition.NotAttached).
 				Message("Virtual machine block device capacity reached.")
+
 			return reconcile.Result{}, nil
 		}
 
@@ -284,6 +300,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 					Status(metav1.ConditionFalse).
 					Reason(vmbdacondition.BlockedByMigration).
 					Message(migrationBlockedHotPlugMessage(vmbda))
+
 				return reconcile.Result{}, nil
 			}
 		}
@@ -306,6 +323,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 						Status(metav1.ConditionFalse).
 						Reason(vmbdacondition.DeviceNotAvailableOnNode).
 						Message(fmt.Sprintf("The disk storage is not available on node %q where the VirtualMachine is running.", kvvmi.Status.NodeName))
+
 					return reconcile.Result{}, nil
 				}
 			}
@@ -329,6 +347,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 					Status(metav1.ConditionFalse).
 					Reason(vmbdacondition.NotAttached).
 					Message("Waiting for block device to be ready.")
+
 				return reconcile.Result{}, nil
 			}
 
@@ -340,6 +359,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.AttachmentRequestSent).
 			Message("Attachment request has been sent: attachment is in progress.")
+
 		return reconcile.Result{}, nil
 	case errors.Is(canErr, service.ErrHotPlugRequestAlreadySent):
 		log.Info("Attachment request sent: attachment is in progress.")
@@ -349,6 +369,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.AttachmentRequestSent).
 			Message("Attachment request sent: attachment is in progress.")
+
 		return reconcile.Result{}, nil
 	default:
 		return reconcile.Result{}, canErr

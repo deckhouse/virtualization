@@ -96,6 +96,7 @@ func (s BounderPodService) CleanUpSupplements(ctx context.Context, sup supplemen
 
 	if pod != nil {
 		reason = CleanUpReasonForObject(CleanUpRoleBounderPod, pod)
+
 		err = s.client.Delete(ctx, pod)
 		if err != nil && !k8serrors.IsNotFound(err) {
 			return false, "", err
@@ -111,6 +112,7 @@ func (s BounderPodService) GetPod(ctx context.Context, sup supplements.Generator
 
 func (s BounderPodService) GetPodSettings(ownerRef *metav1.OwnerReference, sup supplements.Generator) *bounder.PodSettings {
 	bounderPod := sup.BounderPod()
+
 	return &bounder.PodSettings{
 		Name:                 bounderPod.Name,
 		Namespace:            bounderPod.Namespace,

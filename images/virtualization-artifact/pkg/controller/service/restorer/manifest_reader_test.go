@@ -54,6 +54,7 @@ func (f *fakeManifestDownloader) DownloadManifests(_ context.Context, _ string) 
 func rawManifest(apiVersion, kind string, obj any) RawManifest {
 	data, err := json.Marshal(obj)
 	Expect(err).NotTo(HaveOccurred())
+
 	return RawManifest{TypeMeta: metav1.TypeMeta{APIVersion: apiVersion, Kind: kind}, Raw: data}
 }
 
@@ -188,6 +189,7 @@ func (c *countingManifestDownloader) DownloadManifests(_ context.Context, _ stri
 var _ = Describe("unifiedManifestReader keepIPAddress", func() {
 	newReader := func(keep v1alpha2.KeepIPAddress, vmip *v1alpha2.VirtualMachineIPAddress) *unifiedManifestReader {
 		vm := &v1alpha2.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: "vm"}}
+
 		return &unifiedManifestReader{
 			client: &fakeManifestDownloader{manifests: []RawManifest{
 				rawManifest(v1alpha2.SchemeGroupVersion.String(), v1alpha2.VirtualMachineKind, vm),
@@ -262,6 +264,7 @@ var _ = Describe("unifiedManifestReader provisioner", func() {
 		for _, n := range secretNames {
 			manifests = append(manifests, rawManifest("v1", "Secret", &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: n}}))
 		}
+
 		return &unifiedManifestReader{client: &fakeManifestDownloader{manifests: manifests}, contentName: "content-1"}
 	}
 
@@ -300,6 +303,7 @@ var _ = Describe("NewManifestReader", func() {
 			},
 		}
 		mutate(vms)
+
 		return vms
 	}
 
@@ -379,6 +383,7 @@ var _ = Describe("CapturedVirtualDisk", func() {
 				Spec:       ssstoragev1alpha1.SnapshotContentSpec{SnapshotRef: ref},
 			})
 		}
+
 		return builder.Build()
 	}
 
@@ -521,6 +526,7 @@ var _ = Describe("NewManifestReader SnapshotContent back-reference", func() {
 				Spec:       ssstoragev1alpha1.SnapshotContentSpec{SnapshotRef: ref},
 			})
 		}
+
 		return builder.Build()
 	}
 
@@ -638,7 +644,9 @@ var _ = Describe("unifiedManifestReader main IPAddress", func() {
 		for _, ipa := range ipas {
 			manifests = append(manifests, rawManifest(sdnapi.SchemeGroupVersion.String(), sdnapi.IPAddressKind, ipa))
 		}
+
 		reader := &unifiedManifestReader{client: &fakeManifestDownloader{manifests: manifests}, contentName: "content-1"}
+
 		return reader.RestoreMainIPAddress(context.Background())
 	}
 

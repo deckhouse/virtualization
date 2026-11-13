@@ -30,6 +30,7 @@ func humanateBytes(s uint64, base float64, sizes []string) string {
 	if s < 10 {
 		return fmt.Sprintf("%dB", s)
 	}
+
 	e := math.Floor(logn(float64(s), base))
 
 	suffix := sizes[int(e)]

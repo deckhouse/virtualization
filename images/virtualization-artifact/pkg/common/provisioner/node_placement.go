@@ -125,5 +125,6 @@ func AddTolerationForSystemNodes(placement *NodePlacement) {
 			return
 		}
 	}
+
 	placement.Tolerations = append(placement.Tolerations, systemNodeToleration)
 }

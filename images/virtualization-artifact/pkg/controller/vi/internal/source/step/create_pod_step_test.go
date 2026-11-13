@@ -65,6 +65,7 @@ func (s *createPodStepImporterStub) StartWithPodSetting(_ context.Context, setti
 	s.startCalls++
 	s.settings = settings
 	s.podSettings = podSettings
+
 	return s.startErr
 }
 
@@ -84,6 +85,7 @@ var _ = Describe("CreatePodStep", func() {
 		scheme := runtime.NewScheme()
 		Expect(corev1.AddToScheme(scheme)).To(Succeed())
 		Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
+
 		return scheme
 	}
 
@@ -126,12 +128,14 @@ var _ = Describe("CreatePodStep", func() {
 
 	newCreatePodRecorder := func() *eventrecord.EventRecorderLoggerMock {
 		var recorder *eventrecord.EventRecorderLoggerMock
+
 		recorder = &eventrecord.EventRecorderLoggerMock{
 			EventFunc: noopEvent,
 			WithLoggingFunc: func(eventrecord.InfoLogger) eventrecord.EventRecorderLogger {
 				return recorder
 			},
 		}
+
 		return recorder
 	}
 

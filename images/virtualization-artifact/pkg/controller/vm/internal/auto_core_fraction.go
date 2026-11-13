@@ -96,6 +96,7 @@ func (h *AutoCoreFractionHandler) Handle(ctx context.Context, s state.VirtualMac
 		if !autoscaled(vm) {
 			return reconcile.Result{}, nil
 		}
+
 		return reconcile.Result{}, h.deleteVPA(ctx, vm)
 	}
 
@@ -122,10 +123,13 @@ func (h *AutoCoreFractionHandler) Handle(ctx context.Context, s state.VirtualMac
 		if sizingpolicy.RecommendedCoreFraction(vm) == "" {
 			return reconcile.Result{}, nil
 		}
+
 		if err := h.deleteVPA(ctx, vm); err != nil {
 			return reconcile.Result{}, err
 		}
+
 		sizingpolicy.SetRecommendedCoreFraction(vm, "")
+
 		return reconcile.Result{}, nil
 	}
 
@@ -137,10 +141,12 @@ func (h *AutoCoreFractionHandler) Handle(ctx context.Context, s state.VirtualMac
 		if err := h.deleteVPA(ctx, vm); err != nil {
 			return reconcile.Result{}, err
 		}
+
 		cb.Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonCoreFractionAutoscalingDisabled).
 			Message(unavailableMessage("vertical autoscaling of virtual machines is disabled",
 				"To manage it yourself, set an explicit value in the specification."))
+
 		return reconcile.Result{}, nil
 	}
 
@@ -148,10 +154,12 @@ func (h *AutoCoreFractionHandler) Handle(ctx context.Context, s state.VirtualMac
 		if err := h.deleteVPA(ctx, vm); err != nil {
 			return reconcile.Result{}, err
 		}
+
 		cb.Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonInPlaceResizeDisabled).
 			Message(unavailableMessage("in-place resizing of virtual machine resources is disabled",
 				"To manage it yourself, set an explicit value in the specification."))
+
 		return reconcile.Result{}, nil
 	}
 
@@ -159,11 +167,13 @@ func (h *AutoCoreFractionHandler) Handle(ctx context.Context, s state.VirtualMac
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	if class == nil {
 		// The class may show up later; until then there is no policy to pick steps from.
 		cb.Status(metav1.ConditionTrue).
 			Reason(vmcondition.ReasonWaitingForRecommendation).
 			Message(waitingForRecommendationMessage)
+
 		return reconcile.Result{}, nil
 	}
 
@@ -176,9 +186,11 @@ func (h *AutoCoreFractionHandler) Handle(ctx context.Context, s state.VirtualMac
 		if err := h.deleteVPA(ctx, vm); err != nil {
 			return reconcile.Result{}, err
 		}
+
 		cb.Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonSizingPolicyHasNoSteps).
 			Message(noStepsMessage(class, policy))
+
 		return reconcile.Result{}, nil
 	}
 
@@ -203,6 +215,7 @@ func (h *AutoCoreFractionHandler) Handle(ctx context.Context, s state.VirtualMac
 		if apierrors.IsNotFound(err) {
 			return reconcile.Result{}, nil
 		}
+
 		return reconcile.Result{}, fmt.Errorf("get VerticalPodAutoscaler %s/%s: %w", vm.GetNamespace(), commonvm.VerticalPodAutoscalerName(vm), err)
 	}
 
@@ -210,6 +223,7 @@ func (h *AutoCoreFractionHandler) Handle(ctx context.Context, s state.VirtualMac
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	if override, ok, err := recommendationOverride(kvvm); err != nil {
 		logger.FromContext(ctx).Warn("Ignoring malformed recommendation override annotation", logger.SlogErr(err))
 	} else if ok {
@@ -230,6 +244,7 @@ func (h *AutoCoreFractionHandler) Handle(ctx context.Context, s state.VirtualMac
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	if decision.Direction == service.DirectionNone {
 		return reconcile.Result{}, nil
 	}
@@ -259,11 +274,13 @@ func (h *AutoCoreFractionHandler) ensureVPA(ctx context.Context, vm *v1alpha2.Vi
 	name := commonvm.VerticalPodAutoscalerName(vm)
 
 	existing := &vpav1.VerticalPodAutoscaler{}
+
 	err := h.client.Get(ctx, vpaKey(vm), existing)
 	if err == nil {
 		// The VPA never changes after creation: its spec is derived from the VM name alone.
 		return nil
 	}
+
 	if !apierrors.IsNotFound(err) {
 		return fmt.Errorf("get VerticalPodAutoscaler %s/%s: %w", vm.GetNamespace(), name, err)
 	}
@@ -276,6 +293,7 @@ func (h *AutoCoreFractionHandler) ensureVPA(ctx context.Context, vm *v1alpha2.Vi
 	if err := h.client.Create(ctx, desired); err != nil && !apierrors.IsAlreadyExists(err) {
 		return fmt.Errorf("create VerticalPodAutoscaler %s/%s: %w", vm.GetNamespace(), name, err)
 	}
+
 	return nil
 }
 
@@ -295,6 +313,7 @@ func (h *AutoCoreFractionHandler) deleteVPA(ctx context.Context, vm *v1alpha2.Vi
 	if err := h.client.Delete(ctx, obj); err != nil && !apierrors.IsNotFound(err) && !meta.IsNoMatchError(err) {
 		return fmt.Errorf("delete VerticalPodAutoscaler %s/%s: %w", vm.GetNamespace(), name, err)
 	}
+
 	return nil
 }
 
@@ -325,6 +344,7 @@ func noStepsMessage(class *v1alpha2.VirtualMachineClass, policy *v1alpha2.Sizing
 	if len(sizingpolicy.AutoCoreFractionSteps(policy)) > 0 {
 		allows = "allows a single core fraction below 100%"
 	}
+
 	return unavailableMessage(
 		fmt.Sprintf("the sizing policy of the VirtualMachineClass %q %s", class.GetName(), allows),
 		"Ask the administrator to allow more values, or set an explicit one in the specification.")
@@ -368,14 +388,17 @@ func recommendationOverride(kvvm *virtv1.VirtualMachine) (*vpav1.RecommendedPodR
 	if kvvm == nil {
 		return nil, false, nil
 	}
+
 	raw, ok := kvvm.GetAnnotations()[annotations.AnnRecommendationOverride]
 	if !ok || raw == "" {
 		return nil, false, nil
 	}
+
 	override := &vpav1.RecommendedPodResources{}
 	if err := json.Unmarshal([]byte(raw), override); err != nil {
 		return nil, false, fmt.Errorf("unmarshal %s annotation: %w", annotations.AnnRecommendationOverride, err)
 	}
+
 	return override, true, nil
 }
 
@@ -385,22 +408,28 @@ func computeCPURecommendation(vpaObj *vpav1.VerticalPodAutoscaler) (service.Reco
 	if vpaObj.Status.Recommendation == nil {
 		return service.Recommendation{}, false
 	}
+
 	for _, cr := range vpaObj.Status.Recommendation.ContainerRecommendations {
 		if !commonvm.IsComputeContainer(cr.ContainerName) {
 			continue
 		}
+
 		target, ok := cr.Target[corev1.ResourceCPU]
 		if !ok {
 			return service.Recommendation{}, false
 		}
+
 		rec := service.Recommendation{TargetMilli: target.MilliValue()}
 		if lb, ok := cr.LowerBound[corev1.ResourceCPU]; ok {
 			rec.LowerMilli = lb.MilliValue()
 		}
+
 		if ub, ok := cr.UpperBound[corev1.ResourceCPU]; ok {
 			rec.UpperMilli = ub.MilliValue()
 		}
+
 		return rec, true
 	}
+
 	return service.Recommendation{}, false
 }

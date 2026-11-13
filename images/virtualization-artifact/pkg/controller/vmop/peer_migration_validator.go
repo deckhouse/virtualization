@@ -49,16 +49,20 @@ func (v *peerMigrationValidator) ValidateCreate(ctx context.Context, vmop *v1alp
 	if err := checkPeerMigrationType(vmop); err != nil {
 		return nil, err
 	}
+
 	if commonvmop.PeerName(vmop) == "" {
 		return nil, nil
 	}
+
 	if !featuregates.Default().Enabled(featuregates.Peering) {
 		return nil, errors.New("migration to a peer cluster requires the Peering feature gate")
 	}
+
 	if err := v.peers.Paired(ctx, commonvmop.PeerName(vmop), vmop.Namespace); err != nil {
 		if errors.Is(err, peering.ErrPeerNotPaired) {
 			return nil, fmt.Errorf("the cluster %q is not paired with this project or does not support virtual machine migration", commonvmop.PeerName(vmop))
 		}
+
 		return nil, fmt.Errorf("failed to check the peer cluster: %w", err)
 	}
 
@@ -66,6 +70,7 @@ func (v *peerMigrationValidator) ValidateCreate(ctx context.Context, vmop *v1alp
 	if err := v.client.Get(ctx, types.NamespacedName{Name: vmop.Spec.VirtualMachine, Namespace: vmop.Namespace}, vm); err != nil {
 		return nil, fmt.Errorf("failed to get VirtualMachine: %w", err)
 	}
+
 	return nil, checkPeerMigratable(vm)
 }
 
@@ -76,6 +81,7 @@ func checkPeerMigrationType(vmop *v1alpha2.VirtualMachineOperation) error {
 	if commonvmop.PeerName(vmop) != "" && vmop.Spec.Type != v1alpha2.VMOPTypeMigrate {
 		return errors.New("projectPeerName can only be set for the Migrate operation")
 	}
+
 	return nil
 }
 
@@ -85,23 +91,28 @@ func checkPeerMigratable(vm *v1alpha2.VirtualMachine) error {
 	if vm.Status.Phase != v1alpha2.MachineRunning {
 		return fmt.Errorf("only a running virtual machine can move to a peer cluster, %q is %s", vm.Name, vm.Status.Phase)
 	}
+
 	for _, ref := range vm.OwnerReferences {
 		if ref.Kind == v1alpha2.VirtualMachinePoolKind {
 			return fmt.Errorf("the virtual machine %q is a replica of VirtualMachinePool %q: replicas do not move to a peer cluster", vm.Name, ref.Name)
 		}
 	}
+
 	if len(vm.Spec.USBDevices) > 0 || len(vm.Spec.PCIDevices) > 0 {
 		return fmt.Errorf("the virtual machine %q uses USB or PCI devices of its node: it cannot move to a peer cluster", vm.Name)
 	}
+
 	for _, bd := range vm.Status.BlockDeviceRefs {
 		// Every disk is hot-plugged now; a VirtualMachineBlockDeviceAttachment is what does not move.
 		if bd.VirtualMachineBlockDeviceAttachmentName != "" {
 			return fmt.Errorf("the disk %q is attached with VirtualMachineBlockDeviceAttachment: detach it before moving to a peer cluster", bd.Name)
 		}
+
 		if bd.Kind != v1alpha2.DiskDevice {
 			return fmt.Errorf("the %s %q cannot move to a peer cluster: only VirtualDisks move", bd.Kind, bd.Name)
 		}
 	}
+
 	return nil
 }
 
@@ -116,6 +127,7 @@ func (v *lockedVMValidator) ValidateCreate(ctx context.Context, vmop *v1alpha2.V
 	if err := v.client.Get(ctx, types.NamespacedName{Name: vmop.Spec.VirtualMachine, Namespace: vmop.Namespace}, vm); err != nil {
 		return nil, client.IgnoreNotFound(err)
 	}
+
 	return nil, checkVMLocked(ctx, v.client, vm)
 }
 
@@ -126,10 +138,13 @@ func checkVMLocked(ctx context.Context, c client.Client, vm *v1alpha2.VirtualMac
 		if err := c.Get(ctx, types.NamespacedName{Name: op, Namespace: vm.Namespace}, &vmop); err == nil && commonvmop.PeerName(&vmop) != "" {
 			return fmt.Errorf("the virtual machine is being migrated to cluster %q. Cancel the migration by deleting the VirtualMachineOperation first", commonvmop.PeerName(&vmop))
 		}
+
 		return errors.New("the virtual machine is being migrated to a peer cluster. Cancel the migration by deleting the VirtualMachineOperation first")
 	}
+
 	if vm.GetAnnotations()[annotations.AnnVMMigrationReceiver] != "" {
 		return errors.New("the virtual machine is being migrated from a peer cluster and cannot be changed until the migration completes")
 	}
+
 	return nil
 }

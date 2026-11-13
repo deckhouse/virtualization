@@ -69,6 +69,7 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (
 	}
 
 	supgen := vdsupplements.NewGenerator(vd)
+
 	pvc, err := h.diskService.GetPersistentVolumeClaim(ctx, supgen)
 	if err != nil {
 		conditions.RemoveCondition(cb.GetType(), &vd.Status.Conditions)
@@ -81,6 +82,7 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (
 			Reason(conditions.ReasonUnknown).
 			Message("Underlying PersistentVolumeClaim not found: resizing is not possible.")
 		conditions.SetCondition(cb, &vd.Status.Conditions)
+
 		return reconcile.Result{}, nil
 	}
 
@@ -90,6 +92,7 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (
 			Reason(conditions.ReasonUnknown).
 			Message("Underlying PersistentVolumeClaim not bound: resizing is not possible.")
 		conditions.SetCondition(cb, &vd.Status.Conditions)
+
 		return reconcile.Result{}, nil
 	}
 
@@ -112,6 +115,7 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (
 			Reason(vdcondition.InProgress).
 			Message(pvcResizing.Message)
 		conditions.SetCondition(cb, &vd.Status.Conditions)
+
 		return reconcile.Result{}, nil
 	}
 
@@ -148,6 +152,7 @@ func (h ResizingHandler) ResizeNeeded(
 			Message("The virtual disk cannot be selected for resizing as it is currently snapshotting.")
 
 		conditions.SetCondition(cb, &vd.Status.Conditions)
+
 		return reconcile.Result{}, nil
 	}
 
@@ -166,6 +171,7 @@ func (h ResizingHandler) ResizeNeeded(
 			Message("The virtual disk cannot be selected for resizing as it is currently being migrated.")
 
 		conditions.SetCondition(cb, &vd.Status.Conditions)
+
 		return reconcile.Result{}, nil
 	}
 
@@ -192,6 +198,7 @@ func (h ResizingHandler) ResizeNeeded(
 			} else {
 				conditions.RemoveCondition(cb.GetType(), &vd.Status.Conditions)
 			}
+
 			return reconcile.Result{}, err
 		}
 
@@ -236,6 +243,7 @@ func (h ResizingHandler) ResizeNotNeeded(
 	}
 
 	conditions.RemoveCondition(cb.GetType(), &vd.Status.Conditions)
+
 	return reconcile.Result{}, nil
 }
 

@@ -91,11 +91,13 @@ func handler(_ context.Context, input *pkg.HookInput) error {
 			input.Logger.Info(fmt.Sprintf(logMessageTemplate, kvmEnabledLabel, nodeInfo.Name))
 		}
 	}
+
 	return nil
 }
 
 func jsonPatchEscape(s string) string {
 	s = strings.ReplaceAll(s, "~", "~0")
 	s = strings.ReplaceAll(s, "/", "~1")
+
 	return s
 }

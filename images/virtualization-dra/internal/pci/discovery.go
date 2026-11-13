@@ -73,6 +73,7 @@ func baseClass(classCode string) string {
 	if len(classCode) < 2 {
 		return classCode
 	}
+
 	return classCode[:2]
 }
 
@@ -80,6 +81,7 @@ func subClass(classCode string) string {
 	if len(classCode) < 4 {
 		return classCode
 	}
+
 	return classCode[:4]
 }
 
@@ -87,7 +89,9 @@ func isDeniedClass(classCode string) bool {
 	if _, denied := deniedClasses[baseClass(classCode)]; denied {
 		return true
 	}
+
 	_, denied := deniedClasses[subClass(classCode)]
+
 	return denied
 }
 
@@ -100,18 +104,22 @@ func (s sysfs) loadDevice(address string) (Device, error) {
 	if err != nil {
 		return Device{}, err
 	}
+
 	deviceID, err := s.readDeviceHex(address, "device")
 	if err != nil {
 		return Device{}, err
 	}
+
 	classCode, err := s.readDeviceHex(address, "class")
 	if err != nil {
 		return Device{}, err
 	}
+
 	driver, err := s.driver(address)
 	if err != nil {
 		return Device{}, err
 	}
+
 	group, err := s.iommuGroup(address)
 	if err != nil {
 		return Device{}, err
@@ -141,11 +149,13 @@ func (s sysfs) discoverDevices(log *slog.Logger) (map[string]Device, error) {
 	all := make(map[string]Device, len(entries))
 	for _, entry := range entries {
 		address := entry.Name()
+
 		device, err := s.loadDevice(address)
 		if err != nil {
 			log.Warn("Failed to load PCI device, skipping", slog.String("address", address), slog.Any("err", err))
 			continue
 		}
+
 		all[address] = device
 	}
 
@@ -155,22 +165,27 @@ func (s sysfs) discoverDevices(log *slog.Logger) (map[string]Device, error) {
 		if err != nil {
 			return nil, err
 		}
+
 		allowed[address] = ok
 	}
 
 	result := make(map[string]Device)
+
 	for address, device := range all {
 		if !allowed[address] {
 			continue
 		}
+
 		clean, err := s.groupClean(&device, all, allowed)
 		if err != nil {
 			return nil, err
 		}
+
 		if !clean {
 			log.Debug("Skipping PCI device: IOMMU group contains non-passthrough devices", slog.String("address", address), slog.Int("iommuGroup", device.IOMMUGroup))
 			continue
 		}
+
 		result[address] = device
 	}
 
@@ -181,9 +196,11 @@ func (s sysfs) deviceAllowed(device *Device) (bool, error) {
 	if device.IOMMUGroup < 0 {
 		return false, nil
 	}
+
 	if isRootComplexIntegrated(device.Address) {
 		return false, nil
 	}
+
 	if isDeniedClass(device.ClassCode) {
 		return false, nil
 	}
@@ -192,11 +209,13 @@ func (s sysfs) deviceAllowed(device *Device) (bool, error) {
 	if !s.hasResetMethod(device.Address) {
 		return false, nil
 	}
+
 	if baseClass(device.ClassCode) == classNetwork {
 		active, err := s.hasActiveNetInterface(device.Address)
 		if err != nil {
 			return false, err
 		}
+
 		if active {
 			return false, nil
 		}
@@ -208,10 +227,12 @@ func (s sysfs) deviceAllowed(device *Device) (bool, error) {
 		if err != nil {
 			return false, err
 		}
+
 		if busy {
 			return false, nil
 		}
 	}
+
 	return true, nil
 }
 
@@ -220,21 +241,26 @@ func (s sysfs) groupClean(device *Device, all map[string]Device, allowed map[str
 	if err != nil {
 		return false, fmt.Errorf("failed to list IOMMU group %d devices: %w", device.IOMMUGroup, err)
 	}
+
 	for _, member := range members {
 		if member == device.Address {
 			continue
 		}
+
 		memberDevice, known := all[member]
 		if !known {
 			return false, nil
 		}
+
 		if isBridge(memberDevice.ClassCode) {
 			continue
 		}
+
 		if !allowed[member] {
 			return false, nil
 		}
 	}
+
 	return true, nil
 }
 
@@ -245,19 +271,24 @@ func (s sysfs) endpointGroupDevices(group int) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	endpoints := make([]string, 0, len(members))
 	for _, member := range members {
 		classCode, err := s.readDeviceHex(member, "class")
 		if err != nil {
 			return nil, err
 		}
+
 		if isBridge(classCode) {
 			continue
 		}
+
 		endpoints = append(endpoints, member)
 	}
+
 	if len(endpoints) == 0 {
 		return nil, fmt.Errorf("IOMMU group %d has no endpoint devices", group)
 	}
+
 	return endpoints, nil
 }

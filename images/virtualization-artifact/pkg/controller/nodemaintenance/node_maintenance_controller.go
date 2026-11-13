@@ -56,5 +56,6 @@ func SetupController(ctx context.Context, mgr manager.Manager, log *log.Logger) 
 	}
 
 	log.Info("Initialized node maintenance controller")
+
 	return nil
 }

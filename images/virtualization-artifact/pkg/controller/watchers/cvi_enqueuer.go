@@ -53,6 +53,7 @@ func (w ClusterVirtualImageRequestEnqueuer) GetEnqueueFrom() client.Object {
 
 func (w ClusterVirtualImageRequestEnqueuer) EnqueueRequests(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
 	var cvis v1alpha2.ClusterVirtualImageList
+
 	err := w.client.List(ctx, &cvis)
 	if err != nil {
 		w.logger.Error(fmt.Sprintf("failed to list cvi: %s", err))

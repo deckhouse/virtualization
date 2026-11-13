@@ -105,6 +105,7 @@ func LoadSpecLabelsFromFile(filename, labelFilter string) {
 
 	// Convert to specInfo
 	var allSpecs []specInfo
+
 	for _, report := range reports {
 		for _, r := range report.SpecReports {
 			if r.LeafNodeType == "" || r.LeafNodeType == "ReportBeforeSuite" || r.LeafNodeType == "ReportAfterSuite" {
@@ -123,6 +124,7 @@ func LoadSpecLabelsFromFile(filename, labelFilter string) {
 				for i := 1; i < len(r.ContainerHierarchyTexts); i++ {
 					location += " / " + r.ContainerHierarchyTexts[i]
 				}
+
 				if r.LeafNodeText != "" {
 					location += " - " + r.LeafNodeText
 				}
@@ -158,6 +160,7 @@ func LoadSpecLabelsFromFile(filename, labelFilter string) {
 
 	// Collect precheck labels only from filtered specs
 	labelSet := make(map[string]bool)
+
 	for _, spec := range filteredSpecs {
 		for _, label := range spec.Labels {
 			if _, ok := registeredPrechecks[label]; ok {
@@ -175,8 +178,10 @@ func LoadSpecLabelsFromFile(filename, labelFilter string) {
 func filterSpecs(specs []specInfo, focusRegex, labelFilter string) []specInfo {
 	var filtered []specInfo
 
-	var focus *regexp.Regexp
-	var err error
+	var (
+		focus *regexp.Regexp
+		err   error
+	)
 	if focusRegex != "" {
 		focus, err = regexp.Compile(focusRegex)
 		if err != nil {
@@ -188,6 +193,7 @@ func filterSpecs(specs []specInfo, focusRegex, labelFilter string) []specInfo {
 	// Parse label filter (comma-separated, supports ! for negated)
 	requiredLabels := make(map[string]bool)
 	negatedLabels := make(map[string]bool)
+
 	if labelFilter != "" {
 		for _, l := range strings.Split(labelFilter, ",") {
 			l = strings.TrimSpace(l)
@@ -208,12 +214,14 @@ func filterSpecs(specs []specInfo, focusRegex, labelFilter string) []specInfo {
 		// Check LABELS filter
 		if len(requiredLabels) > 0 {
 			matched := false
+
 			for _, sl := range spec.Labels {
 				if requiredLabels[sl] {
 					matched = true
 					break
 				}
 			}
+
 			if !matched {
 				continue
 			}
@@ -221,12 +229,14 @@ func filterSpecs(specs []specInfo, focusRegex, labelFilter string) []specInfo {
 
 		// Check negated labels (~label)
 		hasNegated := false
+
 		for _, sl := range spec.Labels {
 			if negatedLabels[sl] {
 				hasNegated = true
 				break
 			}
 		}
+
 		if hasNegated {
 			continue
 		}
@@ -253,11 +263,13 @@ func ValidateFromJSONFile(filename string) error {
 		if len(dataStr) > 200 {
 			dataStr = dataStr[:200]
 		}
+
 		return fmt.Errorf("failed to parse ginkgo report: %w, data: %s", err, dataStr)
 	}
 
 	// Convert ginkgo spec reports to our format
 	var specs []specInfo
+
 	for _, report := range reports {
 		for _, r := range report.SpecReports {
 			// Skip non-spec entries like ReportBeforeSuite, ReportAfterSuite
@@ -271,6 +283,7 @@ func ValidateFromJSONFile(filename string) error {
 				for i := 1; i < len(r.ContainerHierarchyTexts); i++ {
 					location += " / " + r.ContainerHierarchyTexts[i]
 				}
+
 				if r.LeafNodeText != "" {
 					location += " - " + r.LeafNodeText
 				}
@@ -301,12 +314,14 @@ func validateSpecs(specs []specInfo) error {
 
 	for _, spec := range specs {
 		hasPrecheckLabel := false
+
 		for _, label := range spec.Labels {
 			if IsPrecheckLabel(label) {
 				hasPrecheckLabel = true
 				break
 			}
 		}
+
 		if !hasPrecheckLabel {
 			missingSpecs = append(missingSpecs, spec.Location)
 		}
@@ -317,12 +332,14 @@ func validateSpecs(specs []specInfo) error {
 		if len(display) > 20 {
 			display = append(display[:20], fmt.Sprintf("... and %d more", len(missingSpecs)-20))
 		}
+
 		return fmt.Errorf("found %d specs without precheck labels:\n%s\n\n"+
 			"Add Label(precheck.NoPrecheck) or Label(precheck.PrecheckXXX) to your Describe/It",
 			len(missingSpecs), strings.Join(display, "\n"))
 	}
 
 	fmt.Printf("PASS: all %d specs have precheck labels\n", len(specs))
+
 	return nil
 }
 
@@ -335,10 +352,13 @@ func Run(f *framework.Framework, labelFilter string) {
 	// immediately even in parallel mode, where GinkgoWriter output is buffered.
 	runOne := func(kind, label string, p Precheck) {
 		fmt.Printf("[precheck] running %s precheck %q ...\n", kind, label)
+
 		start := time.Now()
+
 		if err := p.Run(ctx, f); err != nil {
 			Fail(kind + " precheck " + label + " failed: " + err.Error())
 		}
+
 		fmt.Printf("[precheck] %s precheck %q passed (%s)\n", kind, label, time.Since(start).Truncate(time.Millisecond))
 	}
 
@@ -353,6 +373,7 @@ func Run(f *framework.Framework, labelFilter string) {
 		if p == nil {
 			continue
 		}
+
 		runOne("labeled", label, p)
 	}
 }
@@ -371,10 +392,13 @@ func RunByLabels(f *framework.Framework, labels ...string) {
 		}
 
 		fmt.Printf("[precheck] running precheck %q ...\n", label)
+
 		start := time.Now()
+
 		if err := p.Run(ctx, f); err != nil {
 			Fail("precheck " + label + " failed: " + err.Error())
 		}
+
 		fmt.Printf("[precheck] precheck %q passed (%s)\n", label, time.Since(start).Truncate(time.Millisecond))
 	}
 }
@@ -383,6 +407,7 @@ func isCheckEnabled(envName string) bool {
 	if os.Getenv("PRECHECK") == "no" {
 		return false
 	}
+
 	return os.Getenv(envName) != "no"
 }
 
@@ -394,7 +419,9 @@ func IsModuleEnabledByConfig(ctx context.Context, f *framework.Framework, module
 		_, _ = fmt.Fprintf(GinkgoWriter, "failed to get %s module config: %v\n", moduleName, err)
 		return false
 	}
+
 	enabled := module.Spec.Enabled
+
 	return enabled != nil && *enabled
 }
 
@@ -404,12 +431,15 @@ func RequireModuleReady(ctx context.Context, f *framework.Framework, moduleName 
 	if err := f.GenericClient().Get(ctx, client.ObjectKey{Name: moduleName}, module); err != nil {
 		return fmt.Errorf("failed to check %s module status: %w", moduleName, err)
 	}
+
 	if !IsModuleEnabled(module) {
 		return fmt.Errorf("%s module should be enabled", moduleName)
 	}
+
 	if module.Status.Phase != modulePhaseReady {
 		return fmt.Errorf("%s module should be ready; current status: %s", moduleName, module.Status.Phase)
 	}
+
 	return nil
 }
 
@@ -421,11 +451,14 @@ func RequireModuleDisabled(ctx context.Context, f *framework.Framework, moduleNa
 		if apierrors.IsNotFound(err) {
 			return nil
 		}
+
 		return fmt.Errorf("failed to check %s module status: %w", moduleName, err)
 	}
+
 	if IsModuleEnabled(module) {
 		return fmt.Errorf("deprecated %s module should be disabled", moduleName)
 	}
+
 	return nil
 }
 
@@ -442,5 +475,6 @@ func IsModuleEnabled(module *dv1alpha1.Module) bool {
 			}
 		}
 	}
+
 	return false
 }

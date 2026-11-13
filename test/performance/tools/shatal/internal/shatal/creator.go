@@ -73,6 +73,7 @@ func (s *Creator) createVMs(ctx context.Context) {
 		}
 
 		s.logger.Error(err.Error())
+
 		return
 	}
 
@@ -83,6 +84,7 @@ func (s *Creator) createVMs(ctx context.Context) {
 
 	for i := 0; i < s.count; i++ {
 		vmName := fmt.Sprintf("%s-%d", s.resourcePrefix, i)
+
 		_, ok := names[vmName]
 		if ok {
 			continue
@@ -151,6 +153,7 @@ func (s *Creator) createVMs(ctx context.Context) {
 			}
 
 			s.logger.Error(err.Error())
+
 			return
 		}
 	}

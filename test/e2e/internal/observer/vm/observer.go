@@ -92,6 +92,7 @@ func describe(vm *v1alpha2.VirtualMachine) string {
 		if c.Status == metav1.ConditionTrue {
 			continue
 		}
+
 		blockers = append(blockers, fmt.Sprintf("%s=%s/%s (%s)", c.Type, c.Status, c.Reason, c.Message))
 	}
 
@@ -99,6 +100,7 @@ func describe(vm *v1alpha2.VirtualMachine) string {
 	if len(blockers) == 0 {
 		return phase + ", no conditions other than True"
 	}
+
 	return phase + ", " + strings.Join(blockers, "; ")
 }
 
@@ -109,10 +111,12 @@ func describe(vm *v1alpha2.VirtualMachine) string {
 // Ginkgo even though we are off the spec's main goroutine.
 func failFastOnInvariant(obs Observer, label string) {
 	defer GinkgoRecover()
+
 	select {
 	case <-obs.InvariantViolated():
 	case <-obs.Stopped():
 	}
+
 	if err := obs.Err(); err != nil {
 		Fail(fmt.Sprintf("%s observer reported an invariant violation: %s", label, err))
 	}

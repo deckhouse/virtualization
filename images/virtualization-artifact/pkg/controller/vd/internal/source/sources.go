@@ -71,6 +71,7 @@ func (s Sources) CleanUp(ctx context.Context, vd *v1alpha2.VirtualDisk) (requeue
 		}
 
 		requeue = requeue || sourceRequeue
+
 		reasons = append(reasons, sourceReason)
 	}
 

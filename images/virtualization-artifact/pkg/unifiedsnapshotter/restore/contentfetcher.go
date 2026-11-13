@@ -51,7 +51,9 @@ func (f *contentFetcher) NodeBaseManifests(ctx context.Context, contentName stri
 		if err := json.Unmarshal(m.Raw, &obj.Object); err != nil {
 			return nil, fmt.Errorf("decode %s manifest from SnapshotContent %q: %w", m.Kind, contentName, err)
 		}
+
 		objs = append(objs, obj)
 	}
+
 	return objs, nil
 }

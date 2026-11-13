@@ -100,6 +100,7 @@ func (o *Options) ServerConfig() (*server.Config, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	restConfig, err := o.RestConfig()
 	if err != nil {
 		return nil, err
@@ -115,18 +116,23 @@ func (o *Options) ServerConfig() (*server.Config, error) {
 	if o.Kubevirt.Endpoint != "" {
 		conf.Kubevirt.Endpoint = o.Kubevirt.Endpoint
 	}
+
 	if o.Kubevirt.CaBundlePath != "" {
 		conf.Kubevirt.CaBundlePath = o.Kubevirt.CaBundlePath
 	}
+
 	if o.Kubevirt.ServiceAccount.Name != "" {
 		conf.Kubevirt.ServiceAccount.Name = o.Kubevirt.ServiceAccount.Name
 	}
+
 	if o.Kubevirt.ServiceAccount.Namespace != "" {
 		conf.Kubevirt.ServiceAccount.Namespace = o.Kubevirt.ServiceAccount.Namespace
 	}
+
 	if err := conf.Validate(); err != nil {
 		return nil, err
 	}
+
 	return conf, nil
 }
 
@@ -144,6 +150,7 @@ func (o *Options) ApiserverConfig() (*genericapiserver.Config, error) {
 		if err := o.Authentication.ApplyTo(&serverConfig.Authentication, serverConfig.SecureServing, nil); err != nil {
 			return nil, err
 		}
+
 		if err := o.Authorization.ApplyTo(&serverConfig.Authorization); err != nil {
 			return nil, err
 		}
@@ -177,5 +184,6 @@ func (o *Options) RestConfig() (*rest.Config, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return cfg, nil
 }

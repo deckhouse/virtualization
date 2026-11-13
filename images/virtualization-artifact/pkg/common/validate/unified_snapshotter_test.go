@@ -30,8 +30,10 @@ func objectWith(annotations ...string) metav1.Object {
 		if meta.Annotations == nil {
 			meta.Annotations = map[string]string{}
 		}
+
 		meta.Annotations[a] = ""
 	}
+
 	return meta
 }
 

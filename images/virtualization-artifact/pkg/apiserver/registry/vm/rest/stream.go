@@ -73,6 +73,7 @@ func virtualMachineShouldBeRunning(vm *v1alpha2.VirtualMachine) error {
 	if vm == nil || vm.Status.Phase != v1alpha2.MachineRunning {
 		return fmt.Errorf("VirtualMachine is not Running")
 	}
+
 	return nil
 }
 
@@ -80,6 +81,7 @@ func virtualMachineShouldBeRunningOrMigrating(vm *v1alpha2.VirtualMachine) error
 	if vm == nil || (vm.Status.Phase != v1alpha2.MachineRunning && vm.Status.Phase != v1alpha2.MachineMigrating) {
 		return fmt.Errorf("VirtualMachine is not Running or Migrating")
 	}
+
 	return nil
 }
 
@@ -95,6 +97,7 @@ func streamLocation(
 	preConditions ...preconditionVirtualMachine,
 ) (*url.URL, *http.Transport, error) {
 	ns, _ := request.NamespaceFrom(ctx)
+
 	vm, err := getter.VirtualMachines(ns).Get(name)
 	if err != nil {
 		return nil, nil, err
@@ -112,10 +115,12 @@ func streamLocation(
 		Path:     pather.Path(vm.Namespace, name),
 		RawQuery: url.Values{}.Encode(),
 	}
+
 	ca, err := os.ReadFile(kubevirt.CaBundlePath)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(ca)
 
@@ -123,12 +128,14 @@ func streamLocation(
 	if cert == nil {
 		return nil, nil, fmt.Errorf("proxy certificate not found")
 	}
+
 	tlsConfig := &tls.Config{
 		RootCAs:      caCertPool,
 		Certificates: []tls.Certificate{*cert},
 	}
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.TLSClientConfig = tlsConfig
+
 	return location, transport, nil
 }
 
@@ -145,18 +152,22 @@ func newThrottledUpgradeAwareProxyHandler(
 	var handler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
 		r.Header.Add(userHeader, fmt.Sprintf("system:serviceaccount:%s:%s", sa.Namespace, sa.Name))
 		r.Header.Add(groupHeader, "system:serviceaccounts")
+
 		for _, hook := range mutateHooks {
 			if hook != nil {
 				if err := hook(r); err != nil {
 					w.WriteHeader(http.StatusInternalServerError)
 					_, _ = w.Write([]byte(err.Error()))
+
 					return
 				}
 			}
 		}
+
 		proxyHandler := proxy.NewUpgradeAwareHandler(location, transport, false, upgradeRequired, proxy.NewErrorResponder(responder))
 		proxyHandler.ServeHTTP(w, r)
 	}
+
 	return handler
 }
 
@@ -167,7 +178,9 @@ func rewriteBody(req *http.Request, newBody []byte) error {
 			return err
 		}
 	}
+
 	req.Body = io.NopCloser(bytes.NewBuffer(newBody))
 	req.ContentLength = int64(len(newBody))
+
 	return nil
 }

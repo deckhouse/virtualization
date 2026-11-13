@@ -71,14 +71,17 @@ func genCert(hosts ...string) (tls.Certificate, []byte) {
 
 	der, err := x509.CreateCertificate(rand.Reader, &tmpl, &tmpl, &priv.PublicKey, priv)
 	Expect(err).NotTo(HaveOccurred())
+
 	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
 
 	keyDER, err := x509.MarshalECPrivateKey(priv)
 	Expect(err).NotTo(HaveOccurred())
+
 	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyDER})
 
 	tlsCert, err := tls.X509KeyPair(certPEM, keyPEM)
 	Expect(err).NotTo(HaveOccurred())
+
 	return tlsCert, certPEM
 }
 
@@ -89,6 +92,7 @@ func tlsServer(cert tls.Certificate, status int) *httptest.Server {
 	}))
 	srv.TLS = &tls.Config{Certificates: []tls.Certificate{cert}}
 	srv.StartTLS()
+
 	return srv
 }
 
@@ -97,6 +101,7 @@ func readyPod(ready bool) *corev1.Pod {
 	if ready {
 		status = corev1.ConditionTrue
 	}
+
 	return &corev1.Pod{
 		Status: corev1.PodStatus{
 			Conditions: []corev1.PodCondition{{Type: corev1.PodReady, Status: status}},
@@ -137,6 +142,7 @@ var _ = Describe("StatService.IsUploaderReady", func() {
 
 	It("returns true when the endpoint serves a matching, trusted cert and 200", func() {
 		cert, certPEM := genCert("127.0.0.1")
+
 		srv := tlsServer(cert, http.StatusOK)
 		defer srv.Close()
 
@@ -149,6 +155,7 @@ var _ = Describe("StatService.IsUploaderReady", func() {
 
 	It("returns false (no error) when the endpoint replies non-200", func() {
 		cert, certPEM := genCert("127.0.0.1")
+
 		srv := tlsServer(cert, http.StatusInternalServerError)
 		defer srv.Close()
 
@@ -164,6 +171,7 @@ var _ = Describe("StatService.IsUploaderReady", func() {
 	// verification. The probe must surface the error rather than report ready.
 	It("returns an error when the served cert is valid for a different host", func() {
 		cert, certPEM := genCert("ingress.local")
+
 		srv := tlsServer(cert, http.StatusOK)
 		defer srv.Close()
 
@@ -178,6 +186,7 @@ var _ = Describe("StatService.IsUploaderReady", func() {
 
 	It("probes the external endpoint even when the Service has a ClusterIP", func() {
 		cert, certPEM := genCert("127.0.0.1")
+
 		srv := tlsServer(cert, http.StatusServiceUnavailable)
 		defer srv.Close()
 
@@ -191,6 +200,7 @@ var _ = Describe("StatService.IsUploaderReady", func() {
 
 	It("reports ready once the external endpoint serves 200 regardless of the ClusterIP", func() {
 		cert, certPEM := genCert("127.0.0.1")
+
 		srv := tlsServer(cert, http.StatusOK)
 		defer srv.Close()
 

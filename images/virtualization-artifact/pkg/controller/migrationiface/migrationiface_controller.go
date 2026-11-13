@@ -64,5 +64,6 @@ func NewController(
 	}
 
 	log.Info("Initialized migrationiface controller", "systemNetwork", systemNetworkName)
+
 	return c, nil
 }

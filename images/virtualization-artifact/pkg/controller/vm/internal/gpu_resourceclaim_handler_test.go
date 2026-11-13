@@ -65,6 +65,7 @@ var _ = Describe("GPUResourceClaimHandler", func() {
 		_, err := handler.Handle(context.Background(), vmState)
 
 		Expect(err).NotTo(HaveOccurred())
+
 		template := &resourcev1.ResourceClaimTemplate{}
 		Expect(fakeClient.Get(context.Background(), types.NamespacedName{Name: kvbuilder.GPUResourceClaimTemplateName(vmName, 0), Namespace: namespace}, template)).To(Succeed())
 		Expect(template.Spec.Spec.Devices.Requests).To(HaveLen(1))
@@ -86,9 +87,11 @@ var _ = Describe("GPUResourceClaimHandler", func() {
 		_, err := handler.Handle(context.Background(), vmState)
 
 		Expect(err).NotTo(HaveOccurred())
+
 		template := &resourcev1.ResourceClaimTemplate{}
 		err = fakeClient.Get(context.Background(), types.NamespacedName{Name: kvbuilder.GPUResourceClaimTemplateName(vmName, 0), Namespace: namespace}, template)
 		Expect(apierrors.IsNotFound(err)).To(BeTrue())
+
 		_, ok := conditions.GetCondition(vmcondition.TypeGPUClassReady, vmState.VirtualMachine().Changed().Status.Conditions)
 		Expect(ok).To(BeFalse())
 	})
@@ -102,6 +105,7 @@ var _ = Describe("GPUResourceClaimHandler", func() {
 		_, err := handler.Handle(context.Background(), vmState)
 
 		Expect(err).NotTo(HaveOccurred())
+
 		stored := &resourcev1.ResourceClaimTemplate{}
 		err = fakeClient.Get(context.Background(), types.NamespacedName{Name: kvbuilder.GPUResourceClaimTemplateName(vmName, 0), Namespace: namespace}, stored)
 		Expect(err).To(HaveOccurred())
@@ -117,6 +121,7 @@ var _ = Describe("GPUResourceClaimHandler", func() {
 		_, err := handler.Handle(context.Background(), vmState)
 
 		Expect(err).NotTo(HaveOccurred())
+
 		stored := &resourcev1.ResourceClaimTemplate{}
 		Expect(fakeClient.Get(context.Background(), types.NamespacedName{Name: templateName, Namespace: namespace}, stored)).To(Succeed())
 		Expect(stored.Spec.Spec.Devices.Requests[0].Exactly.DeviceClassName).To(Equal("nvidia-a100"))
@@ -135,6 +140,7 @@ var _ = Describe("GPUResourceClaimHandler", func() {
 		_, err := handler.Handle(context.Background(), vmState)
 
 		Expect(err).NotTo(HaveOccurred())
+
 		stored := &resourcev1.ResourceClaimTemplate{}
 		Expect(fakeClient.Get(context.Background(), types.NamespacedName{Name: templateName, Namespace: namespace}, stored)).To(Succeed())
 		Expect(stored.Labels).To(HaveKeyWithValue("keep", "me"))
@@ -152,6 +158,7 @@ var _ = Describe("GPUResourceClaimHandler", func() {
 		_, err := handler.Handle(context.Background(), vmState)
 
 		Expect(err).To(HaveOccurred())
+
 		stored := &resourcev1.ResourceClaimTemplate{}
 		Expect(fakeClient.Get(context.Background(), types.NamespacedName{Name: template.Name, Namespace: namespace}, stored)).To(Succeed())
 		Expect(stored.OwnerReferences).To(BeEmpty())
@@ -172,6 +179,7 @@ var _ = Describe("GPUResourceClaimHandler", func() {
 		_, err := handler.Handle(context.Background(), vmState)
 
 		Expect(err).NotTo(HaveOccurred())
+
 		stored := &resourcev1.ResourceClaimTemplate{}
 		Expect(fakeClient.Get(context.Background(), types.NamespacedName{Name: otherName, Namespace: namespace}, stored)).To(Succeed())
 	})
@@ -183,6 +191,7 @@ var _ = Describe("GPUResourceClaimHandler", func() {
 		_, err := handler.Handle(context.Background(), vmState)
 
 		Expect(err).NotTo(HaveOccurred())
+
 		cond, ok := conditions.GetCondition(vmcondition.TypeGPUClassReady, vmState.VirtualMachine().Changed().Status.Conditions)
 		Expect(ok).To(BeTrue())
 		Expect(cond.Status).To(Equal(metav1.ConditionFalse))
@@ -196,6 +205,7 @@ var _ = Describe("GPUResourceClaimHandler", func() {
 		_, err := handler.Handle(context.Background(), vmState)
 
 		Expect(err).NotTo(HaveOccurred())
+
 		cond, ok := conditions.GetCondition(vmcondition.TypeGPUClassReady, vmState.VirtualMachine().Changed().Status.Conditions)
 		Expect(ok).To(BeTrue())
 		Expect(cond.Status).To(Equal(metav1.ConditionTrue))
@@ -208,6 +218,7 @@ var _ = Describe("GPUResourceClaimHandler", func() {
 		_, err := handler.Handle(context.Background(), vmState)
 
 		Expect(err).NotTo(HaveOccurred())
+
 		cond, ok := conditions.GetCondition(vmcondition.TypeGPUClassReady, vmState.VirtualMachine().Changed().Status.Conditions)
 		Expect(ok).To(BeTrue())
 		Expect(cond.Status).To(Equal(metav1.ConditionFalse))
@@ -220,11 +231,13 @@ func newGPUClass(name string, ready bool) *unstructured.Unstructured {
 	if ready {
 		status = "True"
 	}
+
 	gpuClass := &unstructured.Unstructured{}
 	gpuClass.SetGroupVersionKind(kvbuilder.GPUClassGVK)
 	gpuClass.SetName(name)
 	_ = unstructured.SetNestedSlice(gpuClass.Object, []interface{}{
 		map[string]interface{}{"type": "Ready", "status": status},
 	}, "status", "conditions")
+
 	return gpuClass
 }

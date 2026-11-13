@@ -46,5 +46,6 @@ func (w VolumeSnapshotWatcher) Watch(mgr manager.Manager, ctr controller.Control
 	); err != nil {
 		return fmt.Errorf("error setting watch on VolumeSnapshot: %w", err)
 	}
+
 	return nil
 }

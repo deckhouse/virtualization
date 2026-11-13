@@ -64,6 +64,7 @@ var _ = Describe("DeletionHandler", func() {
 		}
 		vmop.Spec.VirtualMachine = "test-vm"
 		vmopbuilder.ApplyOptions(vmop, opts...)
+
 		return vmop
 	}
 
@@ -71,6 +72,7 @@ var _ = Describe("DeletionHandler", func() {
 		vmop := newVmop(phase, vmopbuilder.WithType(v1alpha2.VMOPTypeClone))
 
 		fakeClient, srv = setupEnvironment(vmop)
+
 		reconcile()
 
 		newVMOP := &v1alpha2.VirtualMachineOperation{}

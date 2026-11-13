@@ -41,6 +41,7 @@ var _ = Describe("VMCheckTPM", label.TPM(), Label(label.SIGCompute, precheck.NoP
 		f   *framework.Framework
 		ctx context.Context
 	)
+
 	BeforeEach(func() {
 		ctx = context.Background()
 		f = framework.NewFramework("vm-check-tpm")
@@ -55,6 +56,7 @@ var _ = Describe("VMCheckTPM", label.TPM(), Label(label.SIGCompute, precheck.NoP
 		skipWithoutInvariantTSC(ctx, f)
 
 		By("Create a VM with the TPM module.")
+
 		const (
 			expectedTPMVersion = "2.0"
 			bootLoader         = "EFI"
@@ -79,6 +81,7 @@ var _ = Describe("VMCheckTPM", label.TPM(), Label(label.SIGCompute, precheck.NoP
 		)
 		err := f.CreateWithDeferredDeletion(ctx, vdRoot, vmTPM)
 		Expect(err).NotTo(HaveOccurred())
+
 		vmObs := vmobs.StartObserver(ctx, f, vmTPM)
 		vmObs.Never(vmobs.BeFailed())
 		err = vmObs.WaitFor(vmobs.BeRunning(), framework.LongTimeout)
@@ -86,6 +89,7 @@ var _ = Describe("VMCheckTPM", label.TPM(), Label(label.SIGCompute, precheck.NoP
 		eventually.SSHReadyAsRoot(f, vmTPM, framework.LongTimeout)
 
 		By(fmt.Sprintf("Checks that the VM has the TPM module version %s.", expectedTPMVersion))
+
 		cmd := `tpm2_getcap properties-fixed | grep -A2 TPM2_PT_FAMILY_INDICATOR | grep value`
 		cmdStdOut, err := f.SSHCommand(vmTPM.Name, vmTPM.Namespace, cmd, framework.WithSSHUser("root"))
 		Expect(err).NotTo(HaveOccurred())

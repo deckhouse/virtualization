@@ -65,6 +65,7 @@ var _ = Describe("VirtualMachineUSB", Label(label.SIGCompute, precheck.PrecheckU
 	BeforeEach(func() {
 		ctx = context.Background()
 		f = framework.NewFramework("vm-usb")
+
 		DeferCleanup(func(ctx context.Context) {
 			t.unassignNodeUSB()
 			f.After(ctx)
@@ -112,12 +113,14 @@ var _ = Describe("VirtualMachineUSB", Label(label.SIGCompute, precheck.PrecheckU
 			// hotplugged disk "Operation not permitted" race) and skips instead
 			// of failing when one of them hits.
 			util.UntilVMOPMigrationSucceeded(ctx, vmop, framework.MaxTimeout)
+
 			err := t.vmObs.WaitFor(vmobs.HaveMigrationSucceeded(), framework.MaxTimeout)
 			if err != nil {
 				// TODO: remove temporary migration skip logic when both known issues are
 				// fixed: kubevirt "client socket is closed" and Volume(s)UpdateError.
 				util.SkipIfKnownMigrationFailureWithContext(ctx, t.VM)
 			}
+
 			Expect(err).NotTo(HaveOccurred())
 
 			err = t.vmObs.WaitFor(vmobs.BeRunning(), framework.ShortTimeout)
@@ -317,6 +320,7 @@ func (t *VMUSBTest) GenerateEnvironmentResources(ctx context.Context, withUSB bo
 	if withUSB {
 		opts = append(opts, vmbuilder.WithUSBDevices([]v1alpha2.USBDeviceSpecRef{{Name: t.NodeUSBDevice.Name}}))
 	}
+
 	t.VM = vmbuilder.New(opts...)
 }
 
@@ -337,24 +341,28 @@ func (t *VMUSBTest) assignFreeNodeUSB() {
 		}
 
 		var freeUSBs []*v1alpha2.NodeUSBDevice
+
 		for i := range nodeUSBList.Items {
 			item := &nodeUSBList.Items[i]
 			if item.Status.Attributes.VendorID == dummyHCDVendorID && item.Status.Attributes.ProductID == dummyHCDProductID && item.Spec.AssignedNamespace == "" && item.Status.NodeName != "" {
 				freeUSBs = append(freeUSBs, item)
 			}
 		}
+
 		if len(freeUSBs) == 0 {
 			return fmt.Errorf("no free dummy_hcd USB devices available")
 		}
 
 		candidate := freeUSBs[rand.New(rand.NewSource(time.Now().UnixNano())).Intn(len(freeUSBs))]
 		candidate.Spec.AssignedNamespace = namespace
+
 		assigned, err := virtClient.NodeUSBDevices().Update(t.ctx, candidate, metav1.UpdateOptions{})
 		if err != nil {
 			return fmt.Errorf("assign NodeUSBDevice %s: %w", candidate.Name, err)
 		}
 
 		t.NodeUSBDevice = assigned
+
 		return nil
 	}, framework.MiddleTimeout)
 
@@ -373,13 +381,16 @@ func (t *VMUSBTest) setNodeUSBAssignedNamespace(namespace string) {
 	GinkgoHelper()
 
 	virtClient := t.Framework.VirtClient()
+
 	eventually.Until(func() error {
 		nodeUSBDevice, err := virtClient.NodeUSBDevices().Get(t.ctx, t.NodeUSBDevice.Name, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
+
 		nodeUSBDevice.Spec.AssignedNamespace = namespace
 		_, err = virtClient.NodeUSBDevices().Update(t.ctx, nodeUSBDevice, metav1.UpdateOptions{})
+
 		return err
 	}, framework.ShortTimeout)
 
@@ -409,6 +420,7 @@ func (t *VMUSBTest) waitForUSBDeviceDeleted() {
 			if k8serrors.IsNotFound(err) {
 				return true, nil
 			}
+
 			return false, err
 		})
 	Expect(err).NotTo(HaveOccurred(), "USBDevice %s/%s should be removed after unassignment", namespace, t.NodeUSBDevice.Name)
@@ -442,6 +454,7 @@ func (t *VMUSBTest) setVMUSBDevices(names ...string) {
 	for _, name := range names {
 		refs = append(refs, v1alpha2.USBDeviceSpecRef{Name: name})
 	}
+
 	updateVMSpec(t.ctx, t.Framework, t.VM.Name, func(vm *v1alpha2.VirtualMachine) {
 		vm.Spec.USBDevices = refs
 	})
@@ -453,6 +466,7 @@ func (t *VMUSBTest) activePodName() string {
 	vm := getVirtualMachine(t.ctx, t.Framework, t.VM.Name)
 	podName, err := util.GetActivePodName(vm)
 	Expect(err).NotTo(HaveOccurred())
+
 	return podName
 }
 
@@ -462,11 +476,13 @@ func (t *VMUSBTest) runningConditionTransitionTime() time.Time {
 	vm := getVirtualMachine(t.ctx, t.Framework, t.VM.Name)
 	cond := meta.FindStatusCondition(vm.Status.Conditions, vmcondition.TypeRunning.String())
 	Expect(cond).NotTo(BeNil(), "VirtualMachine %s/%s has no Running condition", vm.Namespace, vm.Name)
+
 	return cond.LastTransitionTime.Time
 }
 
 func (t *VMUSBTest) waitForNodeUSBAttached(status metav1.ConditionStatus) {
 	GinkgoHelper()
+
 	err := t.nodeUSBObs.WaitFor(nodeusbobs.HaveAttachedCondition(status), framework.MaxTimeout)
 	Expect(err).NotTo(HaveOccurred(),
 		"NodeUSBDevice %s Attached condition should become %s", t.NodeUSBDevice.Name, status)
@@ -488,6 +504,7 @@ func haveUSBDeviceReady(name string) vmobs.Predicate {
 				return true, nil
 			}
 		}
+
 		return false, nil
 	}
 }
@@ -501,6 +518,7 @@ func haveUSBDeviceDetached(name string) vmobs.Predicate {
 				return !dev.Attached, nil
 			}
 		}
+
 		return false, nil
 	}
 }
@@ -513,6 +531,7 @@ func haveNoUSBDevice(name string) vmobs.Predicate {
 				return false, nil
 			}
 		}
+
 		return true, nil
 	}
 }
@@ -601,6 +620,7 @@ func (t *VMUSBTest) findUSBMountDevice() string {
 		if err != nil {
 			return err
 		}
+
 		mountDevice = strings.TrimSpace(result)
 		if mountDevice == "" {
 			return fmt.Errorf("empty mount device output")
@@ -630,6 +650,7 @@ func (t *VMUSBTest) waitForUSBDeviceGoneFromGuest() {
 		if err == nil {
 			return fmt.Errorf("USB device with serial %s is still visible in the guest", t.NodeUSBDevice.Status.Attributes.Serial)
 		}
+
 		return nil
 	}, framework.MiddleTimeout, eventually.WithExplanation(t.usbDiagnostics))
 }
@@ -650,6 +671,7 @@ func (t *VMUSBTest) formatUSBDevice(mountDevice string) {
 			framework.WithSSHUser("root"),
 			framework.WithSSHTimeout(framework.ShortTimeout),
 		)
+
 		return err
 	}, framework.MiddleTimeout, eventually.WithExplanation(t.usbDiagnostics))
 }
@@ -675,6 +697,7 @@ func (t *VMUSBTest) mountUSBDevice(mountDevice string) {
 			framework.WithSSHUser("root"),
 			framework.WithSSHTimeout(framework.MiddleTimeout),
 		)
+
 		return err
 	}, framework.LongTimeout, eventually.WithExplanation(t.usbDiagnostics))
 }
@@ -711,6 +734,7 @@ func (t *VMUSBTest) unassignNodeUSB() {
 	Expect(err).NotTo(HaveOccurred())
 
 	nodeUSBDevice.Spec.AssignedNamespace = ""
+
 	_, err = t.Framework.VirtClient().NodeUSBDevices().Update(t.ctx, nodeUSBDevice, metav1.UpdateOptions{})
 	if err != nil {
 		fmt.Printf("Failed to unassign NodeUSBDevice: %v\n", err)

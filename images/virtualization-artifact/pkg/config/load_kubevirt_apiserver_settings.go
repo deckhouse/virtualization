@@ -35,5 +35,6 @@ func LoadKubevirtAPIServerFromEnv() rest.KubevirtAPIServerConfig {
 	conf.CaBundlePath = os.Getenv(KubevirtAPIServerCABundlePathVar)
 	conf.ServiceAccount.Name = os.Getenv(VirtualizationAPIAuthServiceAccountNameVar)
 	conf.ServiceAccount.Namespace = os.Getenv(VirtualizationAPIAuthServiceAccountNamespaceVar)
+
 	return conf
 }

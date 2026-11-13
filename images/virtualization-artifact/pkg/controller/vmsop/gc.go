@@ -46,9 +46,11 @@ func newVMSOPGCManager(client client.Client, ttl time.Duration, max int) *vmsopG
 	if ttl == 0 {
 		ttl = 24 * time.Hour
 	}
+
 	if max == 0 {
 		max = 10
 	}
+
 	return &vmsopGCManager{
 		client: client,
 		ttl:    ttl,
@@ -73,11 +75,13 @@ func (m *vmsopGCManager) ShouldBeDeleted(obj client.Object) bool {
 	if !ok {
 		return false
 	}
+
 	return vmsop.Status.Phase == v1alpha2.VMSOPPhaseFailed || vmsop.Status.Phase == v1alpha2.VMSOPPhaseCompleted
 }
 
 func (m *vmsopGCManager) ListForDelete(ctx context.Context, now time.Time) ([]client.Object, error) {
 	vmsopList := &v1alpha2.VirtualMachineSnapshotOperationList{}
+
 	err := m.client.List(ctx, vmsopList)
 	if err != nil {
 		return nil, err
@@ -98,5 +102,6 @@ func (m *vmsopGCManager) getIndex(obj client.Object) string {
 	if !ok {
 		return ""
 	}
+
 	return vmsop.Spec.VirtualMachineSnapshotName
 }

@@ -78,6 +78,7 @@ func (w VirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Control
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualMachine: %w", err)
 	}
+
 	return nil
 }
 
@@ -95,6 +96,7 @@ func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, vm *v1alpha2
 	}
 
 	vmips := &v1alpha2.VirtualMachineIPAddressList{}
+
 	err := w.client.List(ctx, vmips, client.InNamespace(vm.Namespace), &client.MatchingFields{
 		indexer.IndexFieldVMIPByVM: vm.Name,
 	})

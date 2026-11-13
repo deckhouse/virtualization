@@ -151,6 +151,7 @@ func (p JSONPatch) String() string {
 	} else {
 		value = fmt.Sprintf("%q", p.Value)
 	}
+
 	return fmt.Sprintf(`{"op": %q, "path": %q, "value":%s}`, p.Op, p.Path, value)
 }
 
@@ -166,6 +167,7 @@ func NewKubectl(conf KubectlConf) (*KubectlCMD, error) {
 	if _, found := os.LookupEnv("HOME"); !found {
 		return nil, fmt.Errorf("HOME environment variable shoule be set")
 	}
+
 	if _, found := os.LookupEnv("PATH"); !found {
 		return nil, fmt.Errorf("PATH environment variable shoule be set")
 	}
@@ -176,6 +178,7 @@ func NewKubectl(conf KubectlConf) (*KubectlCMD, error) {
 	}
 
 	e := executor.NewExecutor(connEnvs)
+
 	return &KubectlCMD{
 		Executor: e,
 		cmd:      strings.Join(append([]string{Cmd}, connArgs...), " "),
@@ -190,24 +193,30 @@ type KubectlCMD struct {
 func (k KubectlCMD) Apply(opts ApplyOptions) *executor.CMDResult {
 	cmd := fmt.Sprintf("%s apply", k.cmd)
 	cmd = k.applyOptions(cmd, opts)
+
 	ctx, cancel := context.WithTimeout(context.Background(), LongTimeout)
 	defer cancel()
+
 	return k.ExecContext(ctx, cmd)
 }
 
 func (k KubectlCMD) Create(filepath string, opts CreateOptions) *executor.CMDResult {
 	cmd := fmt.Sprintf("%s create -f %s", k.cmd, filepath)
 	cmd = k.createOptions(cmd, opts)
+
 	ctx, cancel := context.WithTimeout(context.Background(), ShortTimeout)
 	defer cancel()
+
 	return k.ExecContext(ctx, cmd)
 }
 
 func (k KubectlCMD) CreateResource(resource Resource, name string, opts CreateOptions) *executor.CMDResult {
 	cmd := fmt.Sprintf("%s create %s %s", k.cmd, resource, name)
 	cmd = k.createOptions(cmd, opts)
+
 	ctx, cancel := context.WithTimeout(context.Background(), ShortTimeout)
 	defer cancel()
+
 	return k.ExecContext(ctx, cmd)
 }
 
@@ -218,63 +227,79 @@ func (k KubectlCMD) Get(resource Resource, opts GetOptions) *executor.CMDResult 
 func (k KubectlCMD) GetContext(ctx context.Context, resource Resource, opts GetOptions) *executor.CMDResult {
 	cmd := fmt.Sprintf("%s get %s", k.cmd, resource)
 	cmd = k.getOptions(cmd, opts)
+
 	ctx, cancel := context.WithTimeout(ctx, MediumTimeout)
 	defer cancel()
+
 	return k.ExecContext(ctx, cmd)
 }
 
 func (k KubectlCMD) GetResource(resource Resource, name string, opts GetOptions) *executor.CMDResult {
 	cmd := fmt.Sprintf("%s get %s %s", k.cmd, resource, name)
 	cmd = k.getOptions(cmd, opts)
+
 	ctx, cancel := context.WithTimeout(context.Background(), MediumTimeout)
 	defer cancel()
+
 	return k.ExecContext(ctx, cmd)
 }
 
 func (k KubectlCMD) Delete(opts DeleteOptions) *executor.CMDResult {
 	cmd := fmt.Sprintf("%s delete", k.cmd)
 	cmd = k.deleteOptions(cmd, opts)
+
 	return k.Exec(cmd)
 }
 
 func (k KubectlCMD) List(resource Resource, opts GetOptions) *executor.CMDResult {
 	cmd := fmt.Sprintf("%s get %s", k.cmd, resource)
 	cmd = k.getOptions(cmd, opts)
+
 	ctx, cancel := context.WithTimeout(context.Background(), MediumTimeout)
 	defer cancel()
+
 	return k.ExecContext(ctx, cmd)
 }
 
 func (k KubectlCMD) Wait(filepath string, opts WaitOptions) *executor.CMDResult {
 	cmd := k.waitOptions(fmt.Sprintf("%s wait -f %s", k.cmd, filepath), opts)
+
 	timeout := MediumTimeout
 	if opts.Timeout != 0 {
 		timeout = opts.Timeout + ExecExtraTimeout
 	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
+
 	return k.ExecContext(ctx, cmd)
 }
 
 func (k KubectlCMD) WaitResource(resource Resource, name string, opts WaitOptions) *executor.CMDResult {
 	cmd := k.waitOptions(fmt.Sprintf("%s wait %s %s", k.cmd, resource, name), opts)
+
 	timeout := MediumTimeout
 	if opts.Timeout != 0 {
 		timeout = opts.Timeout + ExecExtraTimeout
 	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
+
 	return k.ExecContext(ctx, cmd)
 }
 
 func (k KubectlCMD) WaitResources(resource Resource, opts WaitOptions, names ...string) *executor.CMDResult {
 	cmd := k.waitOptions(fmt.Sprintf("%s wait %s %v", k.cmd, resource, strings.Join(names, " ")), opts)
+
 	timeout := MediumTimeout
 	if opts.Timeout != 0 {
 		timeout = opts.Timeout + ExecExtraTimeout
 	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
+
 	return k.ExecContext(ctx, cmd)
 }
 
@@ -284,22 +309,28 @@ func (k KubectlCMD) RawCommand(subCmd string, timeout time.Duration) *executor.C
 
 func (k KubectlCMD) RawCommandContext(ctx context.Context, subCmd string, timeout time.Duration) *executor.CMDResult {
 	cmd := fmt.Sprintf("%s %s", k.cmd, subCmd)
+
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
+
 	return k.ExecContext(ctx, cmd)
 }
 
 func (k KubectlCMD) Patch(filepath string, opts PatchOptions) *executor.CMDResult {
 	cmd := k.patchOptions(fmt.Sprintf("%s patch -f %s", k.cmd, filepath), opts)
+
 	ctx, cancel := context.WithTimeout(context.Background(), ShortTimeout)
 	defer cancel()
+
 	return k.ExecContext(ctx, cmd)
 }
 
 func (k KubectlCMD) PatchResource(resource Resource, name string, opts PatchOptions) *executor.CMDResult {
 	cmd := k.patchOptions(fmt.Sprintf("%s patch %s %s", k.cmd, resource, name), opts)
+
 	ctx, cancel := context.WithTimeout(context.Background(), ShortTimeout)
 	defer cancel()
+
 	return k.ExecContext(ctx, cmd)
 }
 
@@ -307,6 +338,7 @@ func (k KubectlCMD) addAllFlag(cmd string, allFlag bool) string {
 	if allFlag {
 		return fmt.Sprintf("%s --all=true", cmd)
 	}
+
 	return cmd
 }
 
@@ -314,6 +346,7 @@ func (k KubectlCMD) addNamespace(cmd, ns string) string {
 	if ns != "" {
 		return fmt.Sprintf("%s --namespace %s", cmd, ns)
 	}
+
 	return cmd
 }
 
@@ -321,16 +354,20 @@ func (k KubectlCMD) addFilenameOptions(cmd string, resource Resource, filenameOp
 	if resource != "" {
 		cmd = fmt.Sprintf("%s %s", cmd, resource)
 	}
+
 	if filenameOpt != "" {
 		cmd = fmt.Sprintf("%s %s", cmd, filenameOpt)
 	}
+
 	if len(filenames) != 0 {
 		files := strings.Join(filenames, " ")
 		cmd = fmt.Sprintf("%s %s", cmd, files)
 	}
+
 	if recursive {
 		cmd = fmt.Sprintf("%s --recoursive=%t", cmd, recursive)
 	}
+
 	return cmd
 }
 
@@ -347,8 +384,10 @@ func (k KubectlCMD) addLabels(cmd string, labels map[string]string, excludedLabe
 		}
 
 		l := strings.Join(rawLabels, ",")
+
 		return fmt.Sprintf("%s -l '%s'", cmd, l)
 	}
+
 	return cmd
 }
 
@@ -356,6 +395,7 @@ func (k KubectlCMD) addOutput(cmd, output string) string {
 	if output != "" {
 		return fmt.Sprintf("%s -o %s", cmd, output)
 	}
+
 	return cmd
 }
 
@@ -363,20 +403,24 @@ func (k KubectlCMD) addIgnoreNotFound(cmd string, ignoreNotFound bool) string {
 	if ignoreNotFound {
 		return fmt.Sprintf("%s --ignore-not-found", cmd)
 	}
+
 	return cmd
 }
 
 func (k KubectlCMD) applyOptions(cmd string, opts ApplyOptions) string {
 	var resourceEmptyValue Resource = ""
+
 	cmd = k.addFilenameOptions(cmd, resourceEmptyValue, opts.FilenameOption, opts.Recursive, opts.Filename...)
 	cmd = k.addNamespace(cmd, opts.Namespace)
 	cmd = k.addOutput(cmd, opts.Output)
+
 	return fmt.Sprintf("%s --force=%t", cmd, opts.Force)
 }
 
 func (k KubectlCMD) createOptions(cmd string, opts CreateOptions) string {
 	cmd = k.addNamespace(cmd, opts.Namespace)
 	cmd = k.addOutput(cmd, opts.Output)
+
 	return cmd
 }
 
@@ -385,6 +429,7 @@ func (k KubectlCMD) getOptions(cmd string, opts GetOptions) string {
 	cmd = k.addOutput(cmd, opts.Output)
 	cmd = k.addIgnoreNotFound(cmd, opts.IgnoreNotFound)
 	cmd = k.addLabels(cmd, opts.Labels, opts.ExcludedLabels)
+
 	return cmd
 }
 
@@ -393,22 +438,27 @@ func (k KubectlCMD) deleteOptions(cmd string, opts DeleteOptions) string {
 	cmd = k.addNamespace(cmd, opts.Namespace)
 	cmd = k.addLabels(cmd, opts.Labels, opts.ExcludedLabels)
 	cmd = k.addIgnoreNotFound(cmd, opts.IgnoreNotFound)
+
 	cmd = k.addAllFlag(cmd, opts.AllFlag)
 	if opts.Name != "" {
 		cmd += fmt.Sprintf(" %s", opts.Name)
 	}
+
 	return cmd
 }
 
 func (k KubectlCMD) waitOptions(cmd string, opts WaitOptions) string {
 	cmd = k.addNamespace(cmd, opts.Namespace)
+
 	cmd = k.addLabels(cmd, opts.Labels, opts.ExcludedLabels)
 	if opts.For != "" {
 		cmd = fmt.Sprintf("%s --for=%s", cmd, opts.For)
 	}
+
 	if opts.Timeout != 0 {
 		cmd = fmt.Sprintf("%s --timeout=%s", cmd, opts.Timeout)
 	}
+
 	return cmd
 }
 
@@ -417,19 +467,24 @@ func (k KubectlCMD) patchOptions(cmd string, opts PatchOptions) string {
 	if opts.Type != "" {
 		cmd = fmt.Sprintf("%s --type=%s", cmd, opts.Type)
 	}
+
 	if opts.PatchFile != "" {
 		cmd = fmt.Sprintf("%s --patch-file=%s", cmd, opts.PatchFile)
 	}
+
 	if opts.JSONPatch != nil {
 		patches := make([]string, len(opts.JSONPatch))
 		for i, p := range opts.JSONPatch {
 			patches[i] = p.String()
 		}
+
 		rawPatches := strings.Join(patches, ",")
 		cmd = fmt.Sprintf("%s --type=json --patch='[%s]'", cmd, rawPatches)
 	}
+
 	if opts.MergePatch != "" {
 		cmd = fmt.Sprintf("%s --type=merge --patch='%s'", cmd, opts.MergePatch)
 	}
+
 	return cmd
 }

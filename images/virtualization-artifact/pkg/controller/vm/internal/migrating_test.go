@@ -65,6 +65,7 @@ var _ = Describe("MigratingHandler", func() {
 	newKVVMI := func(migrationState *virtv1.VirtualMachineInstanceMigrationState) *virtv1.VirtualMachineInstance {
 		kvvmi := newEmptyKVVMI(name, namespace)
 		kvvmi.Status.MigrationState = migrationState
+
 		return kvvmi
 	}
 
@@ -76,6 +77,7 @@ var _ = Describe("MigratingHandler", func() {
 			vmopbuilder.WithType(v1alpha2.VMOPTypeMigrate),
 		)
 		vmop.Status.Phase = phase
+
 		vmop.Status.Conditions = []metav1.Condition{
 			{
 				Type:   vmopcondition.TypeCompleted.String(),
@@ -89,6 +91,7 @@ var _ = Describe("MigratingHandler", func() {
 				Status: metav1.ConditionTrue,
 			})
 		}
+
 		return vmop
 	}
 
@@ -109,6 +112,7 @@ var _ = Describe("MigratingHandler", func() {
 			}
 			kvvmi := newKVVMI(migrationState)
 			fakeClient, resource, vmState = setupEnvironment(vm, kvvmi)
+
 			reconcile()
 
 			newVM := &v1alpha2.VirtualMachine{}
@@ -131,6 +135,7 @@ var _ = Describe("MigratingHandler", func() {
 			}
 			kvvmi := newKVVMI(migrationState)
 			fakeClient, resource, vmState = setupEnvironment(vm, kvvmi)
+
 			reconcile()
 
 			newVM := &v1alpha2.VirtualMachine{}
@@ -151,6 +156,7 @@ var _ = Describe("MigratingHandler", func() {
 			}
 			kvvmi := newKVVMI(nil)
 			fakeClient, resource, vmState = setupEnvironment(vm, kvvmi)
+
 			reconcile()
 
 			newVM := &v1alpha2.VirtualMachine{}
@@ -172,6 +178,7 @@ var _ = Describe("MigratingHandler", func() {
 			}
 			kvvmi := newKVVMI(nil)
 			fakeClient, resource, vmState = setupEnvironment(vm, kvvmi)
+
 			reconcile()
 
 			updated := &v1alpha2.VirtualMachine{}
@@ -180,6 +187,7 @@ var _ = Describe("MigratingHandler", func() {
 			// The stale state must be cleared, otherwise liveMigrationInProgress
 			// latches true forever and blocks every future migration of the VM.
 			Expect(updated.Status.MigrationState).To(BeNil())
+
 			if cond, exists := conditions.GetCondition(vmcondition.TypeMigrating, updated.Status.Conditions); exists {
 				Expect(cond.Reason).NotTo(Equal(vmcondition.ReasonMigratingInProgress.String()))
 			}
@@ -192,6 +200,7 @@ var _ = Describe("MigratingHandler", func() {
 			})
 			kvvmi.Status.MigratedVolumes = []virtv1.StorageMigratedVolumeInfo{{VolumeName: "root"}}
 			fakeClient, resource, vmState = setupEnvironment(vm, kvvmi)
+
 			reconcile()
 
 			updated := &v1alpha2.VirtualMachine{}
@@ -214,6 +223,7 @@ var _ = Describe("MigratingHandler", func() {
 				Completed:      true,
 			})
 			fakeClient, resource, vmState = setupEnvironment(vm, kvvmi)
+
 			reconcile()
 
 			updated := &v1alpha2.VirtualMachine{}
@@ -231,6 +241,7 @@ var _ = Describe("MigratingHandler", func() {
 				StartTimestamp: &metav1.Time{Time: time.Now()},
 			})
 			fakeClient, resource, vmState = setupEnvironment(vm, kvvmi)
+
 			reconcile()
 
 			updated := &v1alpha2.VirtualMachine{}
@@ -368,13 +379,16 @@ var _ = Describe("MigratingHandler", func() {
 		newKVVMWithConditions := func(conds ...virtv1.VirtualMachineCondition) *virtv1.VirtualMachine {
 			kvvm := newEmptyKVVM(name, namespace)
 			kvvm.Status.Conditions = conds
+
 			return kvvm
 		}
 
 		migratableOf := func(vm *v1alpha2.VirtualMachine) (metav1.Condition, bool) {
 			GinkgoHelper()
+
 			updated := &v1alpha2.VirtualMachine{}
 			Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), updated)).To(Succeed())
+
 			return conditions.GetCondition(vmcondition.TypeMigratable, updated.Status.Conditions)
 		}
 
@@ -390,6 +404,7 @@ var _ = Describe("MigratingHandler", func() {
 				Status: corev1.ConditionTrue,
 			})
 			fakeClient, resource, vmState = setupEnvironment(vm, kvvm)
+
 			reconcile()
 
 			_, exists := migratableOf(vm)
@@ -410,6 +425,7 @@ var _ = Describe("MigratingHandler", func() {
 				},
 			)
 			fakeClient, resource, vmState = setupEnvironment(vm, kvvm, newKVVMI(nil))
+
 			reconcile()
 
 			cond, exists := migratableOf(vm)
@@ -436,6 +452,7 @@ var _ = Describe("MigratingHandler", func() {
 				},
 			)
 			fakeClient, resource, vmState = setupEnvironment(vm, kvvm, newKVVMI(nil))
+
 			reconcile()
 
 			cond, exists := migratableOf(vm)
@@ -458,6 +475,7 @@ var _ = Describe("MigratingHandler", func() {
 				},
 			)
 			fakeClient, resource, vmState = setupEnvironment(vm, kvvm, newKVVMI(nil))
+
 			reconcile()
 
 			cond, exists := migratableOf(vm)
@@ -485,6 +503,7 @@ var _ = Describe("MigratingHandler", func() {
 				},
 			)
 			fakeClient, resource, vmState = setupEnvironment(vm, kvvm, newKVVMI(nil))
+
 			reconcile()
 
 			cond, exists := migratableOf(vm)
@@ -514,6 +533,7 @@ var _ = Describe("MigratingHandler", func() {
 				},
 			)
 			fakeClient, resource, vmState = setupEnvironment(vm, kvvm, newKVVMI(nil))
+
 			reconcile()
 
 			cond, exists := migratableOf(vm)
@@ -540,6 +560,7 @@ var _ = Describe("MigratingHandler", func() {
 				},
 			)
 			fakeClient, resource, vmState = setupEnvironment(vm, kvvm, newKVVMI(nil))
+
 			reconcile()
 
 			cond, exists := migratableOf(vm)

@@ -66,6 +66,7 @@ func (r ConsoleREST) Connect(ctx context.Context, name string, opts runtime.Obje
 	if !ok {
 		return nil, fmt.Errorf("invalid options object: %#v", opts)
 	}
+
 	vm, err := r.vmLister.VirtualMachines(request.NamespaceValue(ctx)).Get(name)
 	if err != nil {
 		return nil, err
@@ -75,10 +76,12 @@ func (r ConsoleREST) Connect(ctx context.Context, name string, opts runtime.Obje
 	if consoleOpts.Probe {
 		return r.probeSession(vm, subv1alpha2.ConsoleSession), nil
 	}
+
 	location, transport, err := ConsoleLocation(ctx, r.vmLister, name, r.kubevirt, r.proxyCertManager)
 	if err != nil {
 		return nil, err
 	}
+
 	handler := newThrottledUpgradeAwareProxyHandler(location, transport, true, responder, r.kubevirt.ServiceAccount)
 	// Connecting disconnects whoever holds the console now; record who holds it from now on,
 	// so the next client can be warned before it does the same.

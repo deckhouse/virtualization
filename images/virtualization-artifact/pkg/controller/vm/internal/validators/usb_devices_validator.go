@@ -86,13 +86,16 @@ func (v *USBDevicesValidator) validateUSBDevicesUnique(ctx context.Context, vm *
 	}
 
 	seen := make(map[string]struct{})
+
 	for _, ref := range vm.Spec.USBDevices {
 		if ref.Name == "" {
 			continue
 		}
+
 		if _, exists := seen[ref.Name]; exists {
 			return nil, fmt.Errorf("duplicate USB device %s in spec.usbDevices", ref.Name)
 		}
+
 		seen[ref.Name] = struct{}{}
 
 		if _, exists := oldUSBDevices[ref.Name]; exists {
@@ -109,6 +112,7 @@ func (v *USBDevicesValidator) validateUSBDevicesUnique(ctx context.Context, vm *
 			if otherVM.Name == vm.Name {
 				continue
 			}
+
 			return nil, fmt.Errorf("USB device %s is already used by VirtualMachine %s/%s", ref.Name, otherVM.Namespace, otherVM.Name)
 		}
 	}
@@ -134,6 +138,7 @@ func getUSBDeviceNames(refs []v1alpha2.USBDeviceSpecRef) map[string]struct{} {
 		if ref.Name == "" {
 			continue
 		}
+
 		names[ref.Name] = struct{}{}
 	}
 
@@ -144,12 +149,15 @@ func (v *USBDevicesValidator) validateAvailableUSBIPPorts(ctx context.Context, v
 	if vm.Status.Node == "" {
 		return admission.Warnings{}, nil
 	}
+
 	if vm.Spec.USBDevices == nil {
 		return admission.Warnings{}, nil
 	}
 
-	var hsUSBFromOtherNodes []string
-	var ssUSBFromOtherNodes []string
+	var (
+		hsUSBFromOtherNodes []string
+		ssUSBFromOtherNodes []string
+	)
 
 	for _, ref := range vm.Spec.USBDevices {
 		if _, exists := oldUSBDevices[ref.Name]; exists {
@@ -157,6 +165,7 @@ func (v *USBDevicesValidator) validateAvailableUSBIPPorts(ctx context.Context, v
 		}
 
 		usbDevice := &v1alpha2.USBDevice{}
+
 		err := v.client.Get(ctx, client.ObjectKey{Name: ref.Name, Namespace: vm.Namespace}, usbDevice)
 		if err != nil {
 			return admission.Warnings{}, fmt.Errorf("failed to get USB device %s: %w", ref.Name, err)
@@ -186,6 +195,7 @@ func (v *USBDevicesValidator) validateAvailableUSBIPPorts(ctx context.Context, v
 		if err != nil {
 			return admission.Warnings{}, err
 		}
+
 		if !hasFree {
 			return admission.Warnings{}, fmt.Errorf("node %s has no available ports for sharing USB devices %v", vm.Status.Node, hsUSBFromOtherNodes)
 		}
@@ -196,6 +206,7 @@ func (v *USBDevicesValidator) validateAvailableUSBIPPorts(ctx context.Context, v
 		if err != nil {
 			return admission.Warnings{}, err
 		}
+
 		if !hasFree {
 			return admission.Warnings{}, fmt.Errorf("node %s has no available ports for sharing USB devices %v", vm.Status.Node, ssUSBFromOtherNodes)
 		}

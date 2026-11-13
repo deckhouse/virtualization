@@ -79,10 +79,12 @@ func (s MirrorStep) isVMMovedToIPAddress(ctx context.Context, vmip *v1alpha2.Vir
 	if vm == nil || vmip.Labels[annotations.LabelVirtualMachineUID] != string(vm.UID) {
 		return false, nil
 	}
+
 	usesVMIP, err := network.UsesVMIP(ctx, s.client, vm)
 	if err != nil || usesVMIP {
 		return false, err
 	}
+
 	return vm.Status.IPAddress != "" && vm.Status.IPAddress != vmip.Status.Address, nil
 }
 
@@ -91,6 +93,7 @@ func (s MirrorStep) Take(ctx context.Context, vmip *v1alpha2.VirtualMachineIPAdd
 	if address == "" && s.lease != nil {
 		address = ip.LeaseNameToIP(s.lease.Name)
 	}
+
 	if address == "" {
 		// Nothing allocated yet; the mirror appears after the lease is created.
 		return nil, nil
@@ -102,6 +105,7 @@ func (s MirrorStep) Take(ctx context.Context, vmip *v1alpha2.VirtualMachineIPAdd
 	if err != nil {
 		return nil, fmt.Errorf("check whether the sdn module serves the Main network: %w", err)
 	}
+
 	if !mainIPAMAvailable {
 		return nil, nil
 	}
@@ -119,6 +123,7 @@ func (s MirrorStep) Take(ctx context.Context, vmip *v1alpha2.VirtualMachineIPAdd
 	if boundCondition.Status == metav1.ConditionTrue && intsvc.HasReference(vmip, s.lease) {
 		s.cb.Status(metav1.ConditionTrue).Reason(vmipcondition.Bound)
 	}
+
 	return result, err
 }
 
@@ -128,16 +133,20 @@ func (s MirrorStep) ensureMirror(ctx context.Context, vmip *v1alpha2.VirtualMach
 	if err != nil {
 		return nil, err
 	}
+
 	if vmip.GetDeletionTimestamp() != nil && !isAttachedTo(vmip, vm) {
 		return nil, nil
 	}
+
 	if err := network.ReleaseTerminatingMirror(ctx, s.client, vmip, vm); err != nil {
 		return nil, err
 	}
+
 	vmMovedToIPAddress, err := s.isVMMovedToIPAddress(ctx, vmip, vm)
 	if err != nil {
 		return nil, err
 	}
+
 	if vmip.GetDeletionTimestamp() != nil && vmMovedToIPAddress {
 		return nil, nil
 	}
@@ -146,9 +155,11 @@ func (s MirrorStep) ensureMirror(ctx context.Context, vmip *v1alpha2.VirtualMach
 	if err != nil {
 		return setConditionFromMirrorError(s.cb, err)
 	}
+
 	if ipa == nil {
 		return setMirrorNameTakenCondition(s.cb, vmip.Name), nil
 	}
+
 	if vmMovedToIPAddress {
 		// The VM does not run on the address of this vmip: its Bound does not wait
 		// for the mirror.
@@ -169,6 +180,7 @@ func (s MirrorStep) ensureMirror(ctx context.Context, vmip *v1alpha2.VirtualMach
 		if err != nil {
 			return nil, err
 		}
+
 		orAnother := ""
 		if vmip.Spec.Type == v1alpha2.VirtualMachineIPAddressTypeStatic {
 			orAnother = ", or give this VirtualMachineIPAddress another address"
@@ -178,7 +190,9 @@ func (s MirrorStep) ensureMirror(ctx context.Context, vmip *v1alpha2.VirtualMach
 			setLeaseNotReadyCondition(s.cb, fmt.Sprintf("The address %s is still reserved by the sdn module for a recently deleted resource and becomes available once the reservation expires. Wait%s.", vmip.Status.Address, orAnother))
 			return &reconcile.Result{}, nil
 		}
+
 		setLeaseNotReadyCondition(s.cb, fmt.Sprintf("The address %s is held by the IPAddress %q in the namespace %q. Delete that IPAddress%s.", vmip.Status.Address, holder.GetName(), holder.GetNamespace(), orAnother))
+
 		return &reconcile.Result{}, nil
 	}
 }
@@ -226,6 +240,7 @@ func setMirrorNameTakenCondition(cb *conditions.ConditionBuilder, name string) *
 // machine is not an option.
 func (s MirrorStep) canTakeAnotherAddress(vmip *v1alpha2.VirtualMachineIPAddress) bool {
 	boundCondition, _ := conditions.GetCondition(vmipcondition.BoundType, vmip.Status.Conditions)
+
 	return vmip.Spec.Type == v1alpha2.VirtualMachineIPAddressTypeAuto &&
 		boundCondition.Status != metav1.ConditionTrue && s.lease != nil
 }
@@ -247,11 +262,15 @@ func (s MirrorStep) takeAnotherAddress(ctx context.Context, vmip *v1alpha2.Virtu
 	// removes it; if the status is not saved, the next reconcile gives the address up again.
 	unbound := s.lease.DeepCopy()
 	ip.UnbindLease(unbound)
+
 	if err := s.client.Patch(ctx, unbound, client.MergeFromWithOptions(s.lease, client.MergeFromWithOptimisticLock{})); err != nil && !k8serrors.IsNotFound(err) {
 		return nil, fmt.Errorf("unbind the conflicting lease %q: %w", s.lease.Name, err)
 	}
+
 	vmip.Status.Address = ""
+
 	setLeaseNotReadyCondition(s.cb, msg)
+
 	return &reconcile.Result{}, nil
 }
 
@@ -261,5 +280,6 @@ func ipAddressRefusalMessage(ipa *sdnapi.IPAddress) string {
 	if cond == nil || cond.Status == metav1.ConditionTrue || cond.Message == "" {
 		return "the address is already in use"
 	}
+
 	return strings.TrimSuffix(cond.Message, ".")
 }

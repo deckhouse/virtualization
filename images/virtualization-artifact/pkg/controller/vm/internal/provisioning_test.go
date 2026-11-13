@@ -50,6 +50,7 @@ var _ = Describe("ProvisioningHandler", func() {
 	newVM := func(provisioning *v1alpha2.Provisioning) *v1alpha2.VirtualMachine {
 		vm := vmbuilder.NewEmpty(name, namespace)
 		vm.Spec.Provisioning = provisioning
+
 		return vm
 	}
 
@@ -87,6 +88,7 @@ var _ = Describe("ProvisioningHandler", func() {
 
 		cond, found := conditions.GetCondition(vmcondition.TypeProvisioningReady, updated.Status.Conditions)
 		Expect(found).To(BeTrue())
+
 		return &cond
 	}
 

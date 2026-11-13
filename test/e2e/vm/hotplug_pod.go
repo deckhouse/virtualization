@@ -65,6 +65,7 @@ var _ = Describe("HotplugPod", Label(label.SIGCompute, precheck.NoPrecheck), fun
 			vm    *v1alpha2.VirtualMachine
 			blank *v1alpha2.VirtualDisk
 		)
+
 		By("Create VM", func() {
 			root := object.NewVDFromVI("root", f.Namespace().Name, vi, vdbuilder.WithSize(ptr.To(resource.MustParse(vdCustomImageSize))))
 			blank = object.NewBlankVD("blank", f.Namespace().Name, nil, ptr.To(resource.MustParse(vdCustomImageSize)))
@@ -124,6 +125,7 @@ var _ = Describe("HotplugPod", Label(label.SIGCompute, precheck.NoPrecheck), fun
 			blank         *v1alpha2.VirtualDisk
 			priorityClass *schedulingv1.PriorityClass
 		)
+
 		By("Create priority class", func() {
 			// A dedicated class instead of a cluster one (develop etc.): the globalDefault
 			// admission would put the default class on the pod even without inheritance,
@@ -144,6 +146,7 @@ var _ = Describe("HotplugPod", Label(label.SIGCompute, precheck.NoPrecheck), fun
 			Expect(f.CreateWithDeferredDeletion(ctx, root, blank)).To(Succeed())
 
 			var err error
+
 			vm = object.NewMinimalVM("hotplug-pod-priority-", f.Namespace().Name,
 				vmbuilder.WithDisks(root),
 				vmbuilder.WithPriorityClassName(priorityClass.Name),

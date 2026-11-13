@@ -44,6 +44,7 @@ func objectWith(annotations ...string) metav1.Object {
 			meta.Annotations[a] = ""
 		}
 	}
+
 	return meta
 }
 
@@ -219,6 +220,7 @@ var _ = Describe("routing an already-captured object", func() {
 func newReader(objs ...client.Object) client.Reader {
 	scheme := apiruntime.NewScheme()
 	Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
+
 	return fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).Build()
 }
 
@@ -226,6 +228,7 @@ func newReader(objs ...client.Object) client.Reader {
 func routeDisk(vds *v1alpha2.VirtualDiskSnapshot, unifiedPresent bool) bool {
 	useUnified, err := UseUnifiedForVirtualDiskSnapshot(context.Background(), nil, vds, unifiedPresent)
 	Expect(err).NotTo(HaveOccurred())
+
 	return useUnified
 }
 
@@ -304,8 +307,10 @@ var _ = Describe("spec.mode: Import", func() {
 			if vms.Annotations == nil {
 				vms.Annotations = map[string]string{}
 			}
+
 			vms.Annotations[a] = ""
 		}
+
 		return vms
 	}
 
@@ -317,8 +322,10 @@ var _ = Describe("spec.mode: Import", func() {
 			if vds.Annotations == nil {
 				vds.Annotations = map[string]string{}
 			}
+
 			vds.Annotations[a] = ""
 		}
+
 		return vds
 	}
 

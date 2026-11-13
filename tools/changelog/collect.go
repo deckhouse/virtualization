@@ -43,22 +43,27 @@ func runCollect(sections Sections) error {
 	if err != nil {
 		return err
 	}
+
 	projectID, err := requireEnv("CI_PROJECT_ID")
 	if err != nil {
 		return err
 	}
+
 	token, err := requireEnv("GITLAB_API_TOKEN")
 	if err != nil {
 		return err
 	}
+
 	projectPath, err := requireEnv("CI_PROJECT_PATH")
 	if err != nil {
 		return err
 	}
+
 	serverHost, err := requireEnv("CI_SERVER_HOST")
 	if err != nil {
 		return err
 	}
+
 	projectDir, err := requireEnv("CI_PROJECT_DIR")
 	if err != nil {
 		return err
@@ -72,6 +77,7 @@ func runCollect(sections Sections) error {
 	if err != nil {
 		return err
 	}
+
 	if len(milestones) == 0 {
 		logf("no milestones to process")
 		return nil
@@ -86,8 +92,10 @@ func runCollect(sections Sections) error {
 	}
 
 	var failures []string
+
 	for _, milestone := range milestones {
 		logf("milestone %s (iid=%d)", milestone.Title, milestone.IID)
+
 		if err := collectMilestone(collectRequest{
 			gitlab:      gitlab,
 			sections:    sections,
@@ -104,9 +112,11 @@ func runCollect(sections Sections) error {
 			failures = append(failures, milestone.Title)
 		}
 	}
+
 	if len(failures) > 0 {
 		return fmt.Errorf("failed on milestone(s): %s", strings.Join(failures, ", "))
 	}
+
 	return nil
 }
 
@@ -161,16 +171,19 @@ func unreadSection(unread []string) string {
 	if len(unread) == 0 {
 		return ""
 	}
+
 	lines := []string{"", "## Entries that could not be read", ""}
 	for _, line := range unread {
 		lines = append(lines, " - "+line)
 	}
+
 	lines = append(lines,
 		"",
 		"These merge requests carry a ```changes block that is not valid YAML, "+
 			"so their entries are missing above. Fix the block in the merge request "+
 			"description and re-run the changelog job.",
 		"")
+
 	return strings.Join(lines, "\n")
 }
 
@@ -180,10 +193,12 @@ func collectEntries(gitlab *GitLab, sections Sections, milestone string) (collec
 	var result collectResult
 
 	logf("fetching merged merge requests of %s", milestone)
+
 	mrs, err := gitlab.MergedMergeRequests(milestone)
 	if err != nil {
 		return result, err
 	}
+
 	logf("found %d merged merge request(s) in %s", len(mrs), milestone)
 
 	for _, mr := range mrs {
@@ -191,13 +206,16 @@ func collectEntries(gitlab *GitLab, sections Sections, milestone string) (collec
 			logf("skipping changelog merge request !%d", mr.IID)
 			continue
 		}
+
 		for _, block := range ParseDescription(mr.Description) {
 			if block.Err != nil {
 				line := fmt.Sprintf("!%d (%s): block #%d: %v", mr.IID, mr.WebURL, block.Index, block.Err)
 				logf("WARN: %s", line)
 				result.unread = append(result.unread, line)
+
 				continue
 			}
+
 			for _, entry := range block.Entries {
 				// An entry that names a section nobody publishes is dropped,
 				// not refused: the list of sections changes between releases,
@@ -206,14 +224,17 @@ func collectEntries(gitlab *GitLab, sections Sections, milestone string) (collec
 				if _, known := sections[entry.Section]; !known {
 					logf("WARN: !%d names section '%s', which is not in %s, skipping the entry",
 						mr.IID, entry.Section, defaultSectionsFile)
+
 					continue
 				}
+
 				entry.MRIID = mr.IID
 				entry.MRURL = mr.WebURL
 				result.entries = append(result.entries, entry)
 			}
 		}
 	}
+
 	return result, nil
 }
 
@@ -234,17 +255,21 @@ func writeFiles(projectDir string, sections Sections, milestone string, result c
 
 	minor := MinorVersion(milestone)
 	markdownPath := filepath.Join(directory, "CHANGELOG-"+minor+".md")
+
 	existing, err := os.ReadFile(markdownPath)
 	if err != nil && !os.IsNotExist(err) {
 		return "", "", err
 	}
+
 	block := RenderMilestoneBlock(result.entries, sections, milestone)
+
 	merged := MergeMinorMarkdown(string(existing), minor, milestone, block)
 	if err := os.WriteFile(markdownPath, []byte(merged), 0o644); err != nil {
 		return "", "", err
 	}
 
 	logf("wrote CHANGELOG/%s and CHANGELOG/%s", filepath.Base(ymlPath), filepath.Base(markdownPath))
+
 	return ymlPath, markdownPath, nil
 }
 
@@ -257,9 +282,11 @@ func pushChangelogMR(request collectRequest, files []string, description string)
 	if _, err := git(directory, "config", "user.email", "ci-changelog@flant.com"); err != nil {
 		return err
 	}
+
 	if _, err := git(directory, "config", "user.name", "GitLab CI Changelog Bot"); err != nil {
 		return err
 	}
+
 	if _, err := git(directory, "checkout", "-B", branch, request.baseSHA); err != nil {
 		return err
 	}
@@ -268,6 +295,7 @@ func pushChangelogMR(request collectRequest, files []string, description string)
 	if _, err := git(directory, append([]string{"add"}, files...)...); err != nil {
 		return err
 	}
+
 	if _, err := git(directory, "diff", "--cached", "--quiet"); err == nil {
 		logf("no changes for %s; nothing to commit", request.milestone.Title)
 		return nil
@@ -285,6 +313,7 @@ func pushChangelogMR(request collectRequest, files []string, description string)
 	if _, err := git(directory, "push", "--force", pushURL, "HEAD:refs/heads/"+branch); err != nil {
 		return fmt.Errorf("pushing %s failed", branch)
 	}
+
 	logf("pushed branch %s", branch)
 
 	// The force-push above already refreshed a merge request opened by an
@@ -294,11 +323,14 @@ func pushChangelogMR(request collectRequest, files []string, description string)
 	if err != nil {
 		return err
 	}
+
 	if len(open) > 0 {
 		if err := request.gitlab.UpdateMergeRequestDescription(open[0].IID, description); err != nil {
 			return err
 		}
+
 		logf("refreshed the open changelog merge request !%d", open[0].IID)
+
 		return nil
 	}
 
@@ -314,7 +346,9 @@ func pushChangelogMR(request collectRequest, files []string, description string)
 	if err != nil {
 		return err
 	}
+
 	logf("opened the changelog merge request !%d", created.IID)
+
 	return nil
 }
 
@@ -324,26 +358,31 @@ func targetMilestones(gitlab *GitLab, title string) ([]Milestone, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	title = strings.TrimSpace(title)
 	if title == "" {
 		logf("no MILESTONE_TITLE set — generating every active milestone")
 		return active, nil
 	}
+
 	for _, milestone := range active {
 		if milestone.Title == title {
 			return []Milestone{milestone}, nil
 		}
 	}
+
 	return nil, fmt.Errorf("milestone '%s' is not among the active ones", title)
 }
 
 func git(directory string, args ...string) (string, error) {
 	command := exec.Command("git", args...)
 	command.Dir = directory
+
 	output, err := command.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("git %s: %w: %s", args[0], err, strings.TrimSpace(string(output)))
 	}
+
 	return strings.TrimSpace(string(output)), nil
 }
 
@@ -351,5 +390,6 @@ func envOr(name, fallback string) string {
 	if value := os.Getenv(name); value != "" {
 		return value
 	}
+
 	return fallback
 }

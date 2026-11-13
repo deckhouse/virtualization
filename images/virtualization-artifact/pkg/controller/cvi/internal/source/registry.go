@@ -75,7 +75,9 @@ func (ds RegistryDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirt
 	log, ctx := logger.GetDataSourceContext(ctx, "registry")
 
 	condition, _ := conditions.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
+
 	cb := conditions.NewConditionBuilder(cvicondition.ReadyType).Generation(cvi.Generation)
+
 	defer func() {
 		// It is necessary to avoid setting unknown for the ready condition if it was already set to true.
 		if cb.Condition().Status != metav1.ConditionUnknown || condition.Status != metav1.ConditionTrue {
@@ -84,6 +86,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirt
 	}()
 
 	supgen := supplements.NewGenerator(annotations.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
+
 	pod, err := ds.importerService.GetPod(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -126,6 +129,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirt
 		cvi.Status.Progress = "0%"
 
 		envSettings := ds.getEnvSettings(cvi, supgen)
+
 		err = ds.importerService.Start(ctx, envSettings, cvi, supgen, datasource.NewCABundleForCVMI(cvi.Spec.DataSource), service.WithSystemNodeToleration())
 		switch {
 		case err == nil:
@@ -208,6 +212,7 @@ func (ds RegistryDataSource) Validate(ctx context.Context, cvi *v1alpha2.Cluster
 			Namespace: cvi.Spec.DataSource.ContainerImage.ImagePullSecret.Namespace,
 			Name:      cvi.Spec.DataSource.ContainerImage.ImagePullSecret.Name,
 		}
+
 		secret, err := object.FetchObject[*corev1.Secret](ctx, secretName, ds.client, &corev1.Secret{})
 		if err != nil {
 			return fmt.Errorf("failed to get secret %s: %w", secretName, err)

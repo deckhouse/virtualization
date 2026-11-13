@@ -79,6 +79,7 @@ func (h *MigrationHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk)
 		h.recorder.Eventf(vd, corev1.EventTypeWarning, v1alpha2.ReasonVolumeMigrationCannotBeProcessed, "VirtualDisk is not ready. Cannot be migrated now.")
 		return reconcile.Result{}, nil
 	}
+
 	migrating, _ := conditions.GetCondition(vdcondition.MigratingType, vd.Status.Conditions)
 	if migrating.Status == metav1.ConditionTrue {
 		h.recorder.Eventf(vd, corev1.EventTypeNormal, v1alpha2.ReasonVolumeMigrationCannotBeProcessed, "VirtualDisk is migrating. Cannot be migrated now.")
@@ -91,6 +92,7 @@ func (h *MigrationHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk)
 			h.recorder.Eventf(vd, corev1.EventTypeWarning, v1alpha2.ReasonVolumeMigrationCannotBeProcessed, "VirtualMachine not found. Cannot be migrated now.")
 			return reconcile.Result{}, nil
 		}
+
 		return reconcile.Result{}, err
 	}
 
@@ -105,6 +107,7 @@ func (h *MigrationHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk)
 	}
 
 	setBackoff := h.backoff[vm.UID]
+
 	calculatedBackoff := h.calculateBackoff(finishedVMOPs, vm.GetCreationTimestamp())
 	if calculatedBackoff > setBackoff {
 		h.backoff[vm.UID] = calculatedBackoff
@@ -121,6 +124,7 @@ func (h *MigrationHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk)
 
 	vmop := newVolumeMigrationVMOP(vm.Name, vm.Namespace)
 	log.Info("Create VMOP", slog.String("vmop.generate-name", vmop.GenerateName), slog.String("vmop.namespace", vmop.Namespace))
+
 	if err := h.client.Create(ctx, vmop); err != nil {
 		return reconcile.Result{}, err
 	}
@@ -141,11 +145,13 @@ func (h *MigrationHandler) getVirtualMachine(ctx context.Context, vd *v1alpha2.V
 	vmName := commonvd.GetCurrentlyMountedVMName(vd)
 	vm := &v1alpha2.VirtualMachine{}
 	err := h.client.Get(ctx, client.ObjectKey{Name: vmName, Namespace: vd.Namespace}, vm)
+
 	return vm, err
 }
 
 func (h *MigrationHandler) getVMOPs(ctx context.Context, vm *v1alpha2.VirtualMachine) (finishedVMOPs, migrationVMOPs []*v1alpha2.VirtualMachineOperation, err error) {
 	vmops := &v1alpha2.VirtualMachineOperationList{}
+
 	err = h.client.List(ctx, vmops, client.InNamespace(vm.Namespace))
 	if err != nil {
 		return nil, nil, err
@@ -176,6 +182,7 @@ func (h *MigrationHandler) calculateBackoff(finishedVMOPs []*v1alpha2.VirtualMac
 	})
 
 	failedCount := 0
+
 	for _, vmop := range finishedVMOPs {
 		// we should calculate the backoff only for the last failed VMOP migrations in a row
 		if commonvmop.IsMigration(vmop) && vmop.Status.Phase == v1alpha2.VMOPPhaseFailed && vmop.CreationTimestamp.After(after.Time) {

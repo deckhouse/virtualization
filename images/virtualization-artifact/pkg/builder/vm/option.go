@@ -66,6 +66,7 @@ func WithDisks(disks ...*v1alpha2.VirtualDisk) Option {
 				Name: disk.Name,
 			})
 		}
+
 		vm.Spec.BlockDeviceRefs = append(vm.Spec.BlockDeviceRefs, blockDeviceRefs...)
 	}
 }
@@ -79,6 +80,7 @@ func WithImages(images ...*v1alpha2.VirtualImage) Option {
 				Name: image.Name,
 			})
 		}
+
 		vm.Spec.BlockDeviceRefs = append(vm.Spec.BlockDeviceRefs, blockDeviceRefs...)
 	}
 }
@@ -125,6 +127,7 @@ func WithRestartApprovalMode(restartApprovalMode v1alpha2.RestartApprovalMode) O
 		if vm.Spec.Disruptions == nil {
 			vm.Spec.Disruptions = &v1alpha2.Disruptions{}
 		}
+
 		vm.Spec.Disruptions.RestartApprovalMode = restartApprovalMode
 	}
 }
@@ -158,6 +161,7 @@ func WithTolerations(t []corev1.Toleration) Option {
 		if vm.Spec.Tolerations == nil {
 			vm.Spec.Tolerations = make([]corev1.Toleration, 0, len(t))
 		}
+
 		vm.Spec.Tolerations = append(vm.Spec.Tolerations, t...)
 	}
 }

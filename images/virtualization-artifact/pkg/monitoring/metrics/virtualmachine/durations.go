@@ -89,6 +89,7 @@ func ObserveShutdown(d time.Duration) {
 	if d < 0 {
 		return
 	}
+
 	ShutdownDuration.Observe(d.Seconds())
 }
 
@@ -96,6 +97,7 @@ func ObserveMigration(migrationType, stage, result string, d time.Duration) {
 	if d < 0 {
 		return
 	}
+
 	MigrationDuration.WithLabelValues(migrationType, stage, result).Observe(d.Seconds())
 }
 
@@ -103,5 +105,6 @@ func ObserveLaunchStage(stage string, d time.Duration) {
 	if d < 0 {
 		return
 	}
+
 	LaunchDuration.WithLabelValues(stage).Observe(d.Seconds())
 }

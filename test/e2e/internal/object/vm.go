@@ -38,5 +38,6 @@ func NewMinimalVM(prefix, namespace string, opts ...vm.Option) *v1alpha2.Virtual
 		vm.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
 	}
 	baseOpts = append(baseOpts, opts...)
+
 	return vm.New(baseOpts...)
 }

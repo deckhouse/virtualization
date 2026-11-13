@@ -62,6 +62,7 @@ var _ = Describe("PVNodeAffinityValidator", func() {
 				},
 			}
 		}
+
 		return pv
 	}
 
@@ -106,6 +107,7 @@ var _ = Describe("PVNodeAffinityValidator", func() {
 	makeValidator := func(objs ...client.Object) *validators.PVNodeAffinityValidator {
 		fakeClient := setupEnvironment(objs...)
 		attacher := service.NewAttachmentService(fakeClient, nil, "")
+
 		return validators.NewPVNodeAffinityValidator(fakeClient, attacher)
 	}
 

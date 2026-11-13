@@ -82,14 +82,17 @@ func (h *LifeCycleHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 			changed.Status.ObservedGeneration = changed.GetGeneration()
 			return
 		}
+
 		gen := changed.Status.Conditions[0].ObservedGeneration
 		for _, c := range changed.Status.Conditions {
 			if gen != c.ObservedGeneration {
 				return
 			}
 		}
+
 		changed.Status.ObservedGeneration = gen
 	}()
+
 	if isDeletion(current) {
 		changed.Status.Phase = v1alpha2.MachineTerminating
 		return reconcile.Result{}, nil
@@ -122,6 +125,7 @@ func (h *LifeCycleHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 	}
 
 	log := logger.FromContext(ctx).With(logger.SlogHandler(nameLifeCycleHandler))
+
 	return reconcile.Result{}, h.syncRunning(ctx, changed, kvvm, kvvmi, pod, log)
 }
 
@@ -135,10 +139,12 @@ func (h *LifeCycleHandler) syncMovePhase(ctx context.Context, changed *v1alpha2.
 		changed.Status.Phase = v1alpha2.MachineMigrating
 	case changed.Annotations[annotations.AnnVMMovedToPeer] != "" && kvvmi != nil && kvvmi.Status.MigrationState != nil:
 		var vmim virtv1.VirtualMachineInstanceMigration
+
 		err := h.client.Get(ctx, types.NamespacedName{Namespace: changed.Namespace, Name: commonvmop.MigrationName(changed.Annotations[annotations.AnnVMMovedToPeer])}, &vmim)
 		if client.IgnoreNotFound(err) != nil {
 			return err
 		}
+
 		state := kvvmi.Status.MigrationState
 		switch {
 		case err != nil || state.MigrationUID != vmim.UID:
@@ -148,6 +154,7 @@ func (h *LifeCycleHandler) syncMovePhase(ctx context.Context, changed *v1alpha2.
 			changed.Status.Phase = v1alpha2.MachineMigrating
 		}
 	}
+
 	return nil
 }
 
@@ -163,10 +170,12 @@ func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.Virtual
 			Reason(vmcondition.ReasonPodNotStarted).
 			Message(fmt.Sprintf("%s: %s", pod.Status.Reason, pod.Status.Message))
 		conditions.SetCondition(cb, &vm.Status.Conditions)
+
 		return nil
 	}
 
 	volumeError := h.checkVMPodVolumeErrors(ctx, vm, log)
+
 	var vmPodVolumeErr *VMPodVolumeError
 	switch {
 	// Kubelet retries these errors and some CSI drivers fail every first attempt: Running must not flap for a running guest.
@@ -177,6 +186,7 @@ func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.Virtual
 			Reason(vmcondition.ReasonPodNotStarted).
 			Message(service.CapitalizeFirstLetter(volumeError.Error()))
 		conditions.SetCondition(cb, &vm.Status.Conditions)
+
 		return nil
 	case volumeError != nil:
 		return volumeError
@@ -202,6 +212,7 @@ func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.Virtual
 				Reason(vmcondition.ReasonPodNotStarted).
 				Message(vmStartupMessage(kvvm))
 			conditions.SetCondition(cb, &vm.Status.Conditions)
+
 			return nil
 		}
 
@@ -215,6 +226,7 @@ func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.Virtual
 				Reason(vmcondition.ReasonInternalVirtualMachineError).
 				Message(vmStartupMessage(kvvm))
 			conditions.SetCondition(cb, &vm.Status.Conditions)
+
 			return nil
 		}
 	}
@@ -235,11 +247,13 @@ func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.Virtual
 			if err != nil {
 				return err
 			}
+
 			if nodeUnresponsive {
 				cb.Status(metav1.ConditionUnknown).
 					Reason(vmcondition.ReasonNodeUnresponsive).
 					Message(nodeMessage)
 				conditions.SetCondition(cb, &vm.Status.Conditions)
+
 				return nil
 			}
 
@@ -251,30 +265,37 @@ func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.Virtual
 						Reason(vmcondition.ReasonNoBootableDeviceFound).
 						Message(fmt.Sprintf("Among all the virtual machine’s block devices, there is no device from which it can boot. Check OS image is compatible with the chosen bootloader %q.", vm.Spec.Bootloader))
 					conditions.SetCondition(cb, &vm.Status.Conditions)
+
 					return nil
 				}
 			}
 
 			conditions.SetCondition(cb, &vm.Status.Conditions)
+
 			return nil
 		}
+
 		if paused, message := getPausedMessage(kvvmi); paused {
 			cb.Status(metav1.ConditionFalse).
 				Reason(vmcondition.ReasonVirtualMachinePaused).
 				Message(message)
 			conditions.SetCondition(cb, &vm.Status.Conditions)
+
 			return nil
 		}
+
 		for _, c := range kvvmi.Status.Conditions {
 			if c.Type == virtv1.VirtualMachineInstanceReady {
 				reason := getKVMIReadyReason(c.Reason)
 				if c.Status == corev1.ConditionTrue && c.Reason == "" {
 					reason = vmcondition.ReasonVirtualMachineRunning
 				}
+
 				cb.Status(conditionStatus(string(c.Status))).
 					Reason(reason).
 					Message(c.Message)
 				conditions.SetCondition(cb, &vm.Status.Conditions)
+
 				return nil
 			}
 		}
@@ -284,6 +305,7 @@ func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.Virtual
 
 	cb.Reason(vmcondition.ReasonVirtualMachineNotRunning).Status(metav1.ConditionFalse)
 	conditions.SetCondition(cb, &vm.Status.Conditions)
+
 	return nil
 }
 
@@ -318,9 +340,11 @@ func getPausedMessage(kvvmi *virtv1.VirtualMachineInstance) (bool, string) {
 
 func (h *LifeCycleHandler) checkVMPodVolumeErrors(ctx context.Context, vm *v1alpha2.VirtualMachine, log *slog.Logger) error {
 	var pods []corev1.Pod
+
 	processedPodNames := make(map[string]struct{})
 
 	var launcherPods corev1.PodList
+
 	err := h.client.List(ctx, &launcherPods, &client.ListOptions{
 		Namespace: vm.Namespace,
 		LabelSelector: labels.SelectorFromSet(map[string]string{
@@ -331,30 +355,36 @@ func (h *LifeCycleHandler) checkVMPodVolumeErrors(ctx context.Context, vm *v1alp
 		log.Error("Failed to list launcher pods", "error", err)
 		return err
 	}
+
 	for _, pod := range launcherPods.Items {
 		if _, exists := processedPodNames[pod.Name]; exists {
 			continue
 		}
+
 		processedPodNames[pod.Name] = struct{}{}
 		pods = append(pods, pod)
 	}
 
 	kvvmi := &virtv1.VirtualMachineInstance{}
+
 	err = h.client.Get(ctx, types.NamespacedName{Name: vm.Name, Namespace: vm.Namespace}, kvvmi)
 	if err != nil && !apierrors.IsNotFound(err) {
 		log.Error("Failed to get KVVMI for hotplug pod resolution", "error", err)
 		return err
 	}
+
 	if err == nil {
 		for _, vs := range kvvmi.Status.VolumeStatus {
 			if vs.HotplugVolume == nil || vs.HotplugVolume.AttachPodName == "" {
 				continue
 			}
+
 			if _, exists := processedPodNames[vs.HotplugVolume.AttachPodName]; exists {
 				continue
 			}
 
 			attachPod := &corev1.Pod{}
+
 			err := h.client.Get(ctx, types.NamespacedName{
 				Name:      vs.HotplugVolume.AttachPodName,
 				Namespace: vm.Namespace,
@@ -363,9 +393,12 @@ func (h *LifeCycleHandler) checkVMPodVolumeErrors(ctx context.Context, vm *v1alp
 				if apierrors.IsNotFound(err) {
 					continue
 				}
+
 				log.Error("Failed to get hotplug pod", "error", err, "pod", vs.HotplugVolume.AttachPodName)
+
 				return err
 			}
+
 			if vs.HotplugVolume.AttachPodUID != "" && attachPod.UID != vs.HotplugVolume.AttachPodUID {
 				continue
 			}
@@ -379,11 +412,13 @@ func (h *LifeCycleHandler) checkVMPodVolumeErrors(ctx context.Context, vm *v1alp
 		if !podutil.IsContainerCreating(&pod) {
 			continue
 		}
+
 		lastEvent, err := podutil.GetLastPodEvent(ctx, h.client, &pod)
 		if err != nil {
 			log.Error("Failed to get last pod event", "error", err)
 			return err
 		}
+
 		if lastEvent != nil && watcher.IsVolumeErrorReason(lastEvent.Reason) {
 			return &VMPodVolumeError{
 				Reason:  lastEvent.Reason,

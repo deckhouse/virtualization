@@ -70,7 +70,9 @@ func (ds HTTPDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtualI
 	log, ctx := logger.GetDataSourceContext(ctx, "http")
 
 	condition, _ := conditions.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
+
 	cb := conditions.NewConditionBuilder(cvicondition.ReadyType).Generation(cvi.Generation)
+
 	defer func() {
 		// It is necessary to avoid setting unknown for the ready condition if it was already set to true.
 		if cb.Condition().Status != metav1.ConditionUnknown || condition.Status != metav1.ConditionTrue {
@@ -79,6 +81,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtualI
 	}()
 
 	supgen := supplements.NewGenerator(annotations.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
+
 	pod, err := ds.importerService.GetPod(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -121,6 +124,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtualI
 		cvi.Status.Progress = ds.statService.GetProgress(cvi.GetUID(), pod, cvi.Status.Progress)
 
 		envSettings := ds.getEnvSettings(cvi, supgen)
+
 		err = ds.importerService.Start(ctx, envSettings, cvi, supgen, datasource.NewCABundleForCVMI(cvi.Spec.DataSource), service.WithSystemNodeToleration())
 		switch {
 		case err == nil:

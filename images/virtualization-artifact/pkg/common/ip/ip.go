@@ -51,6 +51,7 @@ func LeaseNameToIP(leaseName string) string {
 // UnbindLease drops the reference and the label the vmip finds the lease by.
 func UnbindLease(lease *v1alpha2.VirtualMachineIPAddressLease) {
 	annotations.AddLabel(lease, annotations.LabelVirtualMachineIPAddressUID, "")
+
 	if lease.Spec.VirtualMachineIPAddressRef != nil {
 		lease.Spec.VirtualMachineIPAddressRef.Name = ""
 	}

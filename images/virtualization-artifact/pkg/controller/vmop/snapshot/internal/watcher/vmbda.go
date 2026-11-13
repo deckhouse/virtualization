@@ -62,6 +62,7 @@ func (w VMBlockDeviceAttachmentWatcher) Watch(mgr manager.Manager, ctr controlle
 				}
 
 				var requests []reconcile.Request
+
 				for _, vmop := range vmops.Items {
 					if !Match(&vmop) {
 						continue
@@ -77,6 +78,7 @@ func (w VMBlockDeviceAttachmentWatcher) Watch(mgr manager.Manager, ctr controlle
 						})
 					}
 				}
+
 				return requests
 			}),
 			predicate.TypedFuncs[*v1alpha2.VirtualMachineBlockDeviceAttachment]{
@@ -95,5 +97,6 @@ func (w VMBlockDeviceAttachmentWatcher) Watch(mgr manager.Manager, ctr controlle
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualMachineBlockDeviceAttachment: %w", err)
 	}
+
 	return nil
 }

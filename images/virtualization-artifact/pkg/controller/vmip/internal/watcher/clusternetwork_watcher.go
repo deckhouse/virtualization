@@ -55,6 +55,7 @@ func (w MainClusterNetworkWatcher) Watch(mgr manager.Manager, ctr controller.Con
 	if !featuregates.Default().Enabled(featuregates.SDN) {
 		return nil
 	}
+
 	if err := ctr.Watch(
 		source.Kind(
 			mgr.GetCache(),
@@ -78,6 +79,7 @@ func (w MainClusterNetworkWatcher) Watch(mgr manager.Manager, ctr controller.Con
 	); err != nil {
 		return fmt.Errorf("error setting watch on ClusterNetwork: %w", err)
 	}
+
 	return nil
 }
 
@@ -91,6 +93,7 @@ func poolName(clusterNetwork *sdnapi.ClusterNetwork) string {
 	if clusterNetwork.Spec.IPAM == nil || clusterNetwork.Spec.IPAM.IPAddressPoolRef == nil {
 		return ""
 	}
+
 	return clusterNetwork.Spec.IPAM.IPAddressPoolRef.Name
 }
 
@@ -100,6 +103,7 @@ func (w MainClusterNetworkWatcher) enqueueAllVMIPs(ctx context.Context) []reconc
 		w.logger.Error("failed to list vmips", "err", err)
 		return nil
 	}
+
 	requests := make([]reconcile.Request, 0, len(vmips.Items))
 	for i := range vmips.Items {
 		requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{
@@ -107,5 +111,6 @@ func (w MainClusterNetworkWatcher) enqueueAllVMIPs(ctx context.Context) []reconc
 			Namespace: vmips.Items[i].Namespace,
 		}})
 	}
+
 	return requests
 }

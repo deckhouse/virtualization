@@ -67,6 +67,7 @@ func (w *VMOPWatcher) Watch(mgr manager.Manager, ctr controller.Controller) erro
 					}
 
 					oldCompleted, _ := conditions.GetCondition(vmopcondition.TypeCompleted, e.ObjectOld.Status.Conditions)
+
 					newCompleted, _ := conditions.GetCondition(vmopcondition.TypeCompleted, e.ObjectNew.Status.Conditions)
 					if oldCompleted.Reason != newCompleted.Reason {
 						return true
@@ -84,5 +85,6 @@ func (w *VMOPWatcher) Watch(mgr manager.Manager, ctr controller.Controller) erro
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualMachineOperation: %w", err)
 	}
+
 	return nil
 }

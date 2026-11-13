@@ -63,13 +63,16 @@ func WaitForFirst[T Object](
 			if !ok {
 				return zero, errors.New("observer: watch closed before a matching object was observed")
 			}
+
 			if event.Type == watch.Deleted {
 				continue
 			}
+
 			obj, ok := event.Object.(T)
 			if !ok {
 				continue
 			}
+
 			if match(obj) {
 				return obj, nil
 			}

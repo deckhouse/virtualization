@@ -136,6 +136,7 @@ func Evaluate(in Input) Plan {
 		if produced != nil {
 			completedAt = finishedAt(produced)
 		}
+
 		settled := settle(plan, completedAt, in.Now)
 		if settled.Phase == PhaseSettling || mark.retried {
 			return settled
@@ -148,6 +149,7 @@ func Evaluate(in Input) Plan {
 		if vmop == produced || vmop.GetCreationTimestamp().Time.Before(podCreated) {
 			continue
 		}
+
 		key := vmop.GetAnnotations()[Annotation]
 		switch vmop.Status.Phase {
 		case v1alpha2.VMOPPhaseCompleted:
@@ -171,6 +173,7 @@ func Evaluate(in Input) Plan {
 	default:
 		plan.Phase = PhaseDue
 	}
+
 	return plan
 }
 
@@ -181,20 +184,25 @@ func migrations(vmops []*v1alpha2.VirtualMachineOperation) ([]*v1alpha2.VirtualM
 		ops    []*v1alpha2.VirtualMachineOperation
 		active *v1alpha2.VirtualMachineOperation
 	)
+
 	for _, vmop := range vmops {
 		if !commonvmop.IsMigration(vmop) {
 			continue
 		}
+
 		if !commonvmop.IsFinished(vmop) {
 			active = vmop
 		}
+
 		if _, ok := vmop.GetAnnotations()[Annotation]; ok && isManaged(vmop) {
 			ops = append(ops, vmop)
 		}
 	}
+
 	slices.SortFunc(ops, func(a, b *v1alpha2.VirtualMachineOperation) int {
 		return a.GetCreationTimestamp().Compare(b.GetCreationTimestamp().Time)
 	})
+
 	return ops, active
 }
 
@@ -202,8 +210,11 @@ func migrations(vmops []*v1alpha2.VirtualMachineOperation) ([]*v1alpha2.VirtualM
 // A mark of another pod is replaced: the configuration is taken from the migration that produced
 // the pod, and dropped once the pod is asked for another one.
 func currentMark(in Input, ops []*v1alpha2.VirtualMachineOperation) (Mark, *v1alpha2.VirtualMachineOperation) {
-	var podUID types.UID
-	var produced *v1alpha2.VirtualMachineOperation
+	var (
+		podUID   types.UID
+		produced *v1alpha2.VirtualMachineOperation
+	)
+
 	if in.Pod != nil {
 		podUID = in.Pod.GetUID()
 		produced = producedBy(in.Pod.GetCreationTimestamp().Time, ops)
@@ -212,6 +223,7 @@ func currentMark(in Input, ops []*v1alpha2.VirtualMachineOperation) (Mark, *v1al
 	mark := parseMark(in.KVVMI.GetAnnotations()[Annotation])
 	if mark.pod != podUID {
 		previous := mark
+
 		mark = Mark{pod: podUID}
 		if produced != nil {
 			mark.key = produced.GetAnnotations()[Annotation]
@@ -219,10 +231,12 @@ func currentMark(in Input, ops []*v1alpha2.VirtualMachineOperation) (Mark, *v1al
 			mark.retried = previous.pod != "" && mark.key != "" && previous.key == mark.key
 		}
 	}
+
 	if mark.key != Key(in.KVVMI) {
 		mark.key = ""
 		mark.retried = false
 	}
+
 	return mark, produced
 }
 
@@ -233,6 +247,7 @@ func settle(plan Plan, completedAt, now time.Time) Plan {
 	} else {
 		plan.Phase = PhaseNotApplied
 	}
+
 	return plan
 }
 
@@ -244,6 +259,7 @@ func Key(kvvmi *virtv1.VirtualMachineInstance) string {
 	if m := kvvmi.Spec.Domain.Memory; m != nil && m.Guest != nil {
 		memory = m.Guest.String()
 	}
+
 	return fmt.Sprintf("cpu.vcpus=%d,cpu.coreFraction=%s,memory.guest=%s",
 		vcpus(kvvmi.Spec.Domain.CPU), kvvmi.GetAnnotations()[kvbuilder.CPUResourcesRequestsFractionAnnotation], memory)
 }
@@ -254,6 +270,7 @@ func Autoscaled(vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstanc
 	if vm == nil || vm.Spec.CPU.CoreFraction != v1alpha2.CoreFractionAuto {
 		return false
 	}
+
 	if current := kvvmi.Status.CurrentCPUTopology; current != nil && vcpus(kvvmi.Spec.Domain.CPU) != vcpus(&virtv1.CPU{
 		Sockets: current.Sockets,
 		Cores:   current.Cores,
@@ -261,9 +278,11 @@ func Autoscaled(vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstanc
 	}) {
 		return false
 	}
+
 	if m, s := kvvmi.Spec.Domain.Memory, kvvmi.Status.Memory; m != nil && m.Guest != nil && s != nil && s.GuestRequested != nil {
 		return m.Guest.Cmp(*s.GuestRequested) == 0
 	}
+
 	return true
 }
 
@@ -284,7 +303,9 @@ func parseMark(s string) Mark {
 	if !ok {
 		return Mark{}
 	}
+
 	key, retried := strings.CutSuffix(key, retriedSuffix)
+
 	return Mark{pod: types.UID(pod), key: key, retried: retried}
 }
 
@@ -292,9 +313,11 @@ func (m Mark) String() string {
 	if m.pod == "" {
 		return ""
 	}
+
 	if m.retried {
 		return string(m.pod) + "/" + m.key + retriedSuffix
 	}
+
 	return string(m.pod) + "/" + m.key
 }
 
@@ -305,10 +328,12 @@ func producedBy(podCreated time.Time, ops []*v1alpha2.VirtualMachineOperation) *
 		if vmop.Status.Phase != v1alpha2.VMOPPhaseCompleted {
 			continue
 		}
+
 		if !vmop.GetCreationTimestamp().After(podCreated) && !finishedAt(vmop).Before(podCreated) {
 			return vmop
 		}
 	}
+
 	return nil
 }
 
@@ -317,6 +342,7 @@ func finishedAt(vmop *v1alpha2.VirtualMachineOperation) time.Time {
 	if completed, ok := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions); ok && !completed.LastTransitionTime.IsZero() {
 		return completed.LastTransitionTime.Time
 	}
+
 	return vmop.GetCreationTimestamp().Time
 }
 
@@ -329,5 +355,6 @@ func vcpus(cpu *virtv1.CPU) int64 {
 	if cpu == nil {
 		return 0
 	}
+
 	return int64(max(cpu.Sockets, 1)) * int64(max(cpu.Cores, 1)) * int64(max(cpu.Threads, 1))
 }

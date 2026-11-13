@@ -38,9 +38,11 @@ var _ = Describe("pool member watcher", func() {
 		poolUID  = types.UID("pool-uid")
 		vmUID    = types.UID("vm-uid")
 	)
+
 	key := types.NamespacedName{Namespace: ns, Name: poolName}
 
 	var pool *v1alpha2.VirtualMachinePool
+
 	BeforeEach(func() {
 		pool = &v1alpha2.VirtualMachinePool{ObjectMeta: metav1.ObjectMeta{Name: poolName, Namespace: ns, UID: poolUID}}
 	})
@@ -85,6 +87,7 @@ var _ = Describe("pool member watcher", func() {
 			h   *memberEventHandler
 			q   workqueue.TypedRateLimitingInterface[reconcile.Request]
 		)
+
 		BeforeEach(func() {
 			exp = expectations.New()
 			h = &memberEventHandler{exp: exp}

@@ -68,6 +68,7 @@ var _ = Describe("TestFirmwareHandler", func() {
 			Type:   vmcondition.TypeFirmwareUpToDate.String(),
 			Status: firmwareUpToDateStatus,
 		})
+
 		return vm
 	}
 
@@ -84,6 +85,7 @@ var _ = Describe("TestFirmwareHandler", func() {
 		allObjects = append(allObjects, objs...)
 		fakeClient, err := testutil.NewFakeClientWithObjects(allObjects...)
 		Expect(err).NotTo(HaveOccurred())
+
 		return fakeClient
 	}
 
@@ -110,6 +112,7 @@ var _ = Describe("TestFirmwareHandler", func() {
 				},
 			},
 		}
+
 		deploy.Status.Replicas = 1
 		if ready {
 			deploy.Status.ReadyReplicas = 1
@@ -215,6 +218,7 @@ var _ = Describe("TestFirmwareHandler", func() {
 		buildVMWithConditions := func(conditions []metav1.Condition) *v1alpha2.VirtualMachine {
 			vm := vmbuilder.NewEmpty(name, namespace)
 			vm.Status.Conditions = conditions
+
 			return vm
 		}
 

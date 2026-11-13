@@ -35,10 +35,12 @@ func GetTotalPortsPerHub(nodeAnnotations map[string]string) (int, error) {
 	if !exists {
 		return 0, fmt.Errorf("node does not have %s annotation", annotations.AnnUSBIPTotalPorts)
 	}
+
 	totalPorts, err := strconv.Atoi(totalPortsStr)
 	if err != nil {
 		return 0, fmt.Errorf("failed to parse %s annotation: %w", annotations.AnnUSBIPTotalPorts, err)
 	}
+
 	return totalPorts / 2, nil
 }
 
@@ -48,10 +50,12 @@ func GetUsedPorts(nodeAnnotations map[string]string, hubAnnotation string) (int,
 	if !exists {
 		return 0, fmt.Errorf("node does not have %s annotation", hubAnnotation)
 	}
+
 	usedPorts, err := strconv.Atoi(usedPortsStr)
 	if err != nil {
 		return 0, fmt.Errorf("failed to parse %s annotation: %w", hubAnnotation, err)
 	}
+
 	return usedPorts, nil
 }
 

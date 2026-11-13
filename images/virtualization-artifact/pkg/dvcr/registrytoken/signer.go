@@ -66,10 +66,12 @@ func NewSignerFromPEM(keyPEM []byte) (*Signer, error) {
 	if block == nil {
 		return nil, errors.New("registrytoken: no PEM block in private key")
 	}
+
 	key, err := parseECKey(block.Bytes)
 	if err != nil {
 		return nil, fmt.Errorf("registrytoken: parse private key: %w", err)
 	}
+
 	return &Signer{key: key}, nil
 }
 
@@ -79,8 +81,10 @@ func parseECKey(der []byte) (*ecdsa.PrivateKey, error) {
 		if !ok {
 			return nil, errors.New("private key is not ECDSA")
 		}
+
 		return ec, nil
 	}
+
 	return x509.ParseECPrivateKey(der)
 }
 
@@ -97,5 +101,6 @@ func (s *Signer) Sign(access []Access, now time.Time) (string, error) {
 	}
 	tok := jwt.NewWithClaims(jwt.SigningMethodES256, claims)
 	tok.Header["kid"] = KeyID
+
 	return tok.SignedString(s.key)
 }

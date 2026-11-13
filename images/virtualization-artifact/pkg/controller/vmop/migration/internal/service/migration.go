@@ -93,10 +93,13 @@ func (s MigrationService) DeleteMigration(ctx context.Context, vmop *v1alpha2.Vi
 	if err != nil {
 		return err
 	}
+
 	if mig == nil {
 		return nil
 	}
+
 	err = s.client.Delete(ctx, mig)
+
 	return client.IgnoreNotFound(err)
 }
 

@@ -44,5 +44,6 @@ func LoadPostCleanupMode() (PostCleanupMode, error) {
 			return "", fmt.Errorf("invalid value for %s: %s", PostCleanupEnv, e)
 		}
 	}
+
 	return PostCleanupAlways, nil
 }

@@ -31,12 +31,15 @@ func IndexPodByMigrationTargetNode() (obj client.Object, field string, extractVa
 		if !ok || pod == nil || pod.Spec.NodeName == "" {
 			return nil
 		}
+
 		if pod.Labels[virtv1.AppLabel] != "virt-launcher" || pod.Labels[virtv1.MigrationJobLabel] == "" {
 			return nil
 		}
+
 		if pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed {
 			return nil
 		}
+
 		return []string{pod.Spec.NodeName}
 	}
 }

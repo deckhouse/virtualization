@@ -38,14 +38,17 @@ func runCheck(sections Sections) error {
 	if err != nil {
 		return err
 	}
+
 	projectID, err := requireEnv("CI_PROJECT_ID")
 	if err != nil {
 		return err
 	}
+
 	mrIID, err := requireEnv("CI_MERGE_REQUEST_IID")
 	if err != nil {
 		return err
 	}
+
 	token, err := requireEnv("GITLAB_API_TOKEN")
 	if err != nil {
 		return err
@@ -61,19 +64,23 @@ func runCheck(sections Sections) error {
 		logf("no ```changes blocks in the description of !%s — nothing to validate", mrIID)
 		return nil
 	}
+
 	logf("validating %d ```changes block(s) in the description of !%s", len(blocks), mrIID)
 
 	var problems []string
 	for _, block := range blocks {
 		problems = append(problems, blockProblems(block, sections)...)
 	}
+
 	if len(problems) == 0 {
 		logf("all %d ```changes block(s) are valid", len(blocks))
 		return nil
 	}
+
 	for _, problem := range problems {
 		logf("ERROR: %s", problem)
 	}
+
 	return fmt.Errorf("%d problem(s) in the ```changes blocks of !%s", len(problems), mrIID)
 }
 
@@ -81,16 +88,20 @@ func blockProblems(block ParsedBlock, sections Sections) []string {
 	if block.Err != nil {
 		return []string{fmt.Sprintf("block #%d: %v", block.Index, block.Err)}
 	}
+
 	var problems []string
+
 	for index, entry := range block.Entries {
 		prefix := fmt.Sprintf("block #%d", block.Index)
 		if len(block.Entries) > 1 {
 			prefix = fmt.Sprintf("%s entry #%d", prefix, index+1)
 		}
+
 		for _, problem := range entry.Validate(sections) {
 			problems = append(problems, fmt.Sprintf("%s: %s", prefix, problem))
 		}
 	}
+
 	return problems
 }
 
@@ -99,5 +110,6 @@ func requireEnv(name string) (string, error) {
 	if value == "" {
 		return "", errors.New("required environment variable " + name + " is not set")
 	}
+
 	return value, nil
 }

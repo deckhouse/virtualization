@@ -37,6 +37,7 @@ func (c *conditionsAccessorImpl) Conditions() *[]metav1.Condition {
 
 func NewConditionsAccessor(obj client.Object) ConditionsAccessor {
 	var ptr *[]metav1.Condition
+
 	switch v := obj.(type) {
 	case *v1alpha2.ClusterVirtualImage:
 		ptr = &v.Status.Conditions
@@ -47,5 +48,6 @@ func NewConditionsAccessor(obj client.Object) ConditionsAccessor {
 	case *v1alpha2.VirtualMachine:
 		ptr = &v.Status.Conditions
 	}
+
 	return &conditionsAccessorImpl{conditions: ptr}
 }

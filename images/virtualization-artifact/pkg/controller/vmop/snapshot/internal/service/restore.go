@@ -66,26 +66,31 @@ func (o RestoreOperation) Execute(ctx context.Context) (reconcile.Result, error)
 	if o.vmop.Spec.Restore == nil {
 		err := fmt.Errorf("restore specification is nil")
 		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
+
 		return reconcile.Result{}, err
 	}
 
 	if o.vmop.Spec.Restore.VirtualMachineSnapshotName == "" {
 		err := fmt.Errorf("virtual machine snapshot name is required")
 		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
+
 		return reconcile.Result{}, err
 	}
 
 	vmKey := types.NamespacedName{Namespace: o.vmop.Namespace, Name: o.vmop.Spec.VirtualMachine}
+
 	vm, err := object.FetchObject(ctx, vmKey, o.client, &v1alpha2.VirtualMachine{})
 	if err != nil {
 		err := fmt.Errorf("failed to fetch the virtual machine %q: %w", vmKey.Name, err)
 		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
+
 		return reconcile.Result{}, err
 	}
 
 	if vm == nil {
 		err := fmt.Errorf("virtual machine is nil")
 		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
+
 		return reconcile.Result{}, err
 	}
 

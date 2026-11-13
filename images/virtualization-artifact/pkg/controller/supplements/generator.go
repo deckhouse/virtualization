@@ -142,6 +142,7 @@ func (g *generator) podNameMaxLen() int {
 func (g *generator) generateName(template string, maxLength int) types.NamespacedName {
 	maxNameLen := maxLength - len(template) + 6 - len(g.prefix) - len(g.uid) // 6 is for %s placeholders
 	name := fmt.Sprintf(template, g.prefix, strings.ShortenString(g.name, maxNameLen), g.UID())
+
 	return types.NamespacedName{
 		Name:      name,
 		Namespace: g.namespace,
@@ -189,6 +190,7 @@ func (g *generator) ImagePullSecret() types.NamespacedName {
 // ImporterPod generates name for importer Pod.
 func (g *generator) ImporterPod() types.NamespacedName {
 	name := fmt.Sprintf(tplImporterPod, g.prefix, g.UID())
+
 	return types.NamespacedName{
 		Name:      name,
 		Namespace: g.namespace,
@@ -201,6 +203,7 @@ func (g *generator) ImporterPod() types.NamespacedName {
 // that runs in the first import phase.
 func (g *generator) PVCImporterPod() types.NamespacedName {
 	name := fmt.Sprintf(tplPVCImporterPod, g.prefix, g.UID())
+
 	return types.NamespacedName{
 		Name:      name,
 		Namespace: g.namespace,
@@ -209,6 +212,7 @@ func (g *generator) PVCImporterPod() types.NamespacedName {
 
 func (g *generator) PVCSourceImporterPod() types.NamespacedName {
 	name := fmt.Sprintf(tplPVCSourceImporterPod, g.prefix, g.UID())
+
 	return types.NamespacedName{
 		Name:      name,
 		Namespace: g.namespace,
@@ -217,6 +221,7 @@ func (g *generator) PVCSourceImporterPod() types.NamespacedName {
 
 func (g *generator) PVCSourceImporterService() types.NamespacedName {
 	name := fmt.Sprintf(tplPVCSourceImporterService, g.prefix, g.UID())
+
 	return types.NamespacedName{
 		Name:      name,
 		Namespace: g.namespace,
@@ -225,6 +230,7 @@ func (g *generator) PVCSourceImporterService() types.NamespacedName {
 
 func (g *generator) PVCTargetImporterPod() types.NamespacedName {
 	name := fmt.Sprintf(tplPVCTargetImporterPod, g.prefix, g.UID())
+
 	return types.NamespacedName{
 		Name:      name,
 		Namespace: g.namespace,

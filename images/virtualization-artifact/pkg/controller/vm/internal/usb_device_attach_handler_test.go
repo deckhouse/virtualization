@@ -59,6 +59,7 @@ func (m *mockVirtClient) VirtualMachines(namespace string) virtualizationv1alpha
 			removeResourceClaimCalls: make([]subv1alpha2.VirtualMachineRemoveResourceClaim, 0),
 		}
 	}
+
 	return m.vmClients[namespace]
 }
 
@@ -114,12 +115,14 @@ var _ = Describe("USBDeviceAttachHandler", func() {
 		address  *v1alpha2.USBAddress
 	}
 
-	var ctx context.Context
-	var fakeClient client.WithWatch
-	var mockVirtCl *mockVirtClient
-	var handler *USBDeviceAttachHandler
-	var vmState state.VirtualMachineState
-	var vmResource *reconciler.Resource[*v1alpha2.VirtualMachine, v1alpha2.VirtualMachineStatus]
+	var (
+		ctx        context.Context
+		fakeClient client.WithWatch
+		mockVirtCl *mockVirtClient
+		handler    *USBDeviceAttachHandler
+		vmState    state.VirtualMachineState
+		vmResource *reconciler.Resource[*v1alpha2.VirtualMachine, v1alpha2.VirtualMachineStatus]
+	)
 
 	BeforeEach(func() {
 		ctx = logger.ToContext(context.TODO(), slog.Default())
@@ -139,6 +142,7 @@ var _ = Describe("USBDeviceAttachHandler", func() {
 
 	newUSBDevice := func(ready bool, attributeName string, deleting bool) *v1alpha2.USBDevice {
 		usbMeta := metav1.ObjectMeta{Name: usbDeviceName, Namespace: vmNamespace}
+
 		if deleting {
 			now := metav1.NewTime(time.Now())
 			usbMeta.DeletionTimestamp = &now
@@ -147,6 +151,7 @@ var _ = Describe("USBDeviceAttachHandler", func() {
 
 		conds := []metav1.Condition{}
 		vid := ""
+
 		if ready {
 			conds = append(conds, metav1.Condition{Type: "Ready", Status: metav1.ConditionTrue})
 			vid = vendorID
@@ -206,6 +211,7 @@ var _ = Describe("USBDeviceAttachHandler", func() {
 	DescribeTable("Handle attach matrix",
 		func(input attachMatrixInput, expected attachMatrixExpected) {
 			vm := newVM(input.vmPhase)
+
 			objs := []client.Object{newUSBDevice(input.usbReady, input.attributeName, false)}
 			if input.withTemplate {
 				objs = append(objs, newResourceClaimTemplate())
@@ -218,6 +224,7 @@ var _ = Describe("USBDeviceAttachHandler", func() {
 
 			mockVM := mockVirtCl.vmClients[vmNamespace]
 			Expect(mockVM.addResourceClaimCalls).To(HaveLen(expected.addCalls))
+
 			if expected.addCalls > 0 {
 				Expect(mockVM.addResourceClaimCalls[0].Name).To(Equal(usbDeviceName))
 				Expect(mockVM.addResourceClaimCalls[0].RequestName).To(Equal(expected.requestName))
@@ -256,6 +263,7 @@ var _ = Describe("USBDeviceAttachHandler", func() {
 
 		_, _, _, err := runHandle(vm)
 		Expect(err).NotTo(HaveOccurred())
+
 		status := expectSingleUSBStatus()
 		Expect(status.Name).To(Equal("missing-device"))
 		Expect(status.Attached).To(BeFalse())
@@ -264,6 +272,7 @@ var _ = Describe("USBDeviceAttachHandler", func() {
 	DescribeTable("maps KVVMI host device phase to attached status",
 		func(input hostDeviceInput, expected hostDeviceExpected) {
 			vm := newVM(v1alpha2.MachineRunning)
+
 			hostDeviceStatus := virtv1.DeviceStatusInfo{Name: usbDeviceName, Phase: input.phase, Address: input.address}
 			if input.attachPodName != "" {
 				hostDeviceStatus.Hotplug = &virtv1.HotplugDeviceStatus{AttachPodName: input.attachPodName}
@@ -303,14 +312,18 @@ var _ = Describe("USBDeviceAttachHandler", func() {
 			vm := newVM(v1alpha2.MachineRunning)
 			hostDeviceStatus := virtv1.DeviceStatusInfo{Name: usbDeviceName, Phase: virtv1.DeviceReady, Address: invalidAddress}
 
-			var result reconcile.Result
-			var err error
+			var (
+				result reconcile.Result
+				err    error
+			)
+
 			Expect(func() {
 				result, _, _, err = runHandle(vm, newUSBDevice(true, usbDeviceName, false), newResourceClaimTemplate(), newKVVMI(hostDeviceStatus))
 			}).NotTo(Panic())
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(Equal(reconcile.Result{}))
+
 			status := expectSingleUSBStatus()
 			Expect(status.Attached).To(BeTrue())
 			Expect(status.Address).To(BeNil())
@@ -379,6 +392,7 @@ var _ = Describe("USBDeviceAttachHandler", func() {
 				Expect(err.Error()).To(ContainSubstring("failed to attach USB device"))
 			} else {
 				Expect(err).NotTo(HaveOccurred())
+
 				status := expectSingleUSBStatus()
 				Expect(status.Attached).To(BeFalse())
 				Expect(status.Address).To(BeNil())
@@ -424,12 +438,14 @@ var _ = Describe("USBDeviceAttachHandler", func() {
 			} else {
 				objs = append(objs, newUSBDevice(false, usbDeviceName, false))
 			}
+
 			if detachScenario.templatePresent {
 				objs = append(objs, newResourceClaimTemplate())
 			}
 
 			_, _, _, err := runHandle(vm, objs...)
 			Expect(err).NotTo(HaveOccurred())
+
 			status := expectSingleUSBStatus()
 			Expect(status.Attached).To(BeFalse())
 			Expect(status.Address).To(BeNil())
@@ -512,6 +528,7 @@ var _ = Describe("USBDeviceAttachHandler", func() {
 
 		mockVM := mockVirtCl.vmClients[vmNamespace]
 		Expect(mockVM.addResourceClaimCalls).To(HaveLen(0))
+
 		status := expectSingleUSBStatus()
 		Expect(status.Attached).To(BeFalse())
 		Expect(status.Ready).To(BeTrue())
@@ -527,6 +544,7 @@ var _ = Describe("USBDeviceAttachHandler", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(result.RequeueAfter).To(BeNumerically(">", 0))
 		Expect(mockVM.addResourceClaimCalls).To(HaveLen(0))
+
 		status = expectSingleUSBStatus()
 		Expect(status.Attached).To(BeFalse())
 		Expect(status.Ready).To(BeTrue())
@@ -583,6 +601,7 @@ var _ = Describe("USBDeviceAttachHandler", func() {
 
 		mockVM := mockVirtCl.vmClients[vmNamespace]
 		Expect(mockVM.addResourceClaimCalls).To(HaveLen(1))
+
 		status := expectSingleUSBStatus()
 		Expect(status.Attached).To(BeFalse())
 		Expect(status.Ready).To(BeTrue())

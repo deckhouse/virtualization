@@ -50,6 +50,7 @@ func newReadyNetwork(name, namespace string) *unstructured.Unstructured {
 			"status": "True",
 		},
 	}, "status", "conditions")).To(Succeed())
+
 	return u
 }
 
@@ -122,9 +123,11 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 		if phase != "" {
 			mac.Status.Phase = phase
 		}
+
 		if attachedVM != "" {
 			mac.Status.VirtualMachine = attachedVM
 		}
+
 		return mac
 	}
 
@@ -144,6 +147,7 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 		Describe("NetworkSpec is nil", func() {
 			It("Condition should have status 'Unknown'", func() {
 				fakeClient, resource, vmState = setupEnvironment(vm, vmPod)
+
 				reconcile()
 
 				newVM := &v1alpha2.VirtualMachine{}
@@ -165,6 +169,7 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 				}
 				vm.Spec.Networks = networkSpec
 				fakeClient, resource, vmState = setupEnvironment(vm, vmPod)
+
 				reconcile()
 
 				newVM := &v1alpha2.VirtualMachine{}
@@ -191,6 +196,7 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 				}
 				vm.Spec.Networks = networkSpec
 				fakeClient, resource, vmState = setupEnvironment(vm, vmPod, mac1)
+
 				reconcile()
 
 				newVM := &v1alpha2.VirtualMachine{}
@@ -242,6 +248,7 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 					}
 				]`
 				fakeClient, resource, vmState = setupEnvironment(vm, vmPod, mac1, newReadyNetwork("test-network", namespace))
+
 				reconcile()
 
 				newVM := &v1alpha2.VirtualMachine{}
@@ -294,6 +301,7 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 					}
 				]`
 				fakeClient, resource, vmState = setupEnvironment(vm, vmPod, mac1, newReadyNetwork("test-network", namespace))
+
 				reconcile()
 
 				newVM := &v1alpha2.VirtualMachine{}

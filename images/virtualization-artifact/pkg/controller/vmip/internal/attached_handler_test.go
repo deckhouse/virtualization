@@ -41,13 +41,16 @@ var _ = Describe("AttachedHandler", func() {
 	handle := func(vm *v1alpha2.VirtualMachine) metav1.ConditionStatus {
 		cl, err := testutil.NewFakeClientWithObjects(vm, vmip)
 		Expect(err).NotTo(HaveOccurred())
+
 		recorder := &eventrecord.EventRecorderLoggerMock{
 			EventFunc:  func(_ client.Object, _, _, _ string) {},
 			EventfFunc: func(_ client.Object, _, _, _ string, _ ...interface{}) {},
 		}
 		_, err = NewAttachedHandler(recorder, cl).Handle(context.Background(), vmip)
 		Expect(err).NotTo(HaveOccurred())
+
 		cond, _ := conditions.GetCondition(vmipcondition.AttachedType, vmip.Status.Conditions)
+
 		return cond.Status
 	}
 

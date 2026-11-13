@@ -68,11 +68,13 @@ func (w VirtualMachineBlockDeviceAttachmentWatcher) Watch(mgr manager.Manager, c
 	); err != nil {
 		return err
 	}
+
 	return nil
 }
 
 func (w VirtualMachineBlockDeviceAttachmentWatcher) enqueueSameBlockDevice(ctx context.Context, deleted *v1alpha2.VirtualMachineBlockDeviceAttachment) (requests []reconcile.Request) {
 	var vmbdas v1alpha2.VirtualMachineBlockDeviceAttachmentList
+
 	err := w.client.List(ctx, &vmbdas, client.InNamespace(deleted.GetNamespace()))
 	if err != nil {
 		slog.Default().Error(fmt.Sprintf("failed to list vmbdas: %s", err))

@@ -66,6 +66,7 @@ func NewStorage(
 	recorder record.EventRecorder,
 ) *VirtualMachineStorage {
 	baseRest := vmrest.NewBaseREST(vmLister, proxyCertManager, kubevirt, leases, recorder)
+
 	return &VirtualMachineStorage{
 		vmLister:            vmLister,
 		console:             vmrest.NewConsoleREST(baseRest),
@@ -157,13 +158,16 @@ func (store VirtualMachineStorage) GetSingularName() string {
 
 func (store VirtualMachineStorage) Get(ctx context.Context, name string, _ *metav1.GetOptions) (runtime.Object, error) {
 	namespace := genericreq.NamespaceValue(ctx)
+
 	vm, err := store.vmLister.VirtualMachines(namespace).Get(name)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil, k8serrors.NewNotFound(subresources.Resource("virtualmachines"), name)
 		}
+
 		return nil, k8serrors.NewInternalError(err)
 	}
+
 	return &subresources.VirtualMachine{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: subresources.SchemeGroupVersion.String(),

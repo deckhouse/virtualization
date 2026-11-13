@@ -66,6 +66,7 @@ func (h *ReadyHandler) Handle(ctx context.Context, s state.NodeUSBDeviceState) (
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	if found {
 		readyReason = nodeusbdevicecondition.Ready
 		readyStatus = metav1.ConditionTrue

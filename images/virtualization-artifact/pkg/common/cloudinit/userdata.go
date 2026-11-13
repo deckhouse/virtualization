@@ -183,6 +183,7 @@ func validateCloudConfig(text string) []string {
 			parseFailure(err),
 		)}
 	}
+
 	return nil
 }
 
@@ -197,6 +198,7 @@ func validateArchive(text, header string) []string {
 			header, parseFailure(err),
 		)}
 	}
+
 	return nil
 }
 
@@ -207,6 +209,7 @@ func parseFailure(err error) string {
 	if match := yamlLineRe.FindStringSubmatch(err.Error()); match != nil {
 		return fmt.Sprintf(" (YAML error at line %s)", match[1])
 	}
+
 	return ""
 }
 
@@ -214,5 +217,6 @@ func head(s string, n int) string {
 	if len(s) > n {
 		return s[:n]
 	}
+
 	return s
 }

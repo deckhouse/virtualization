@@ -73,6 +73,7 @@ func (m *VMControl) Fill() error {
 	}
 
 	var terminatedStatuses string
+
 	for _, status := range pod.Status.ContainerStatuses {
 		if vmutil.IsComputeContainer(status.Name) && status.State.Terminated != nil {
 			terminatedStatuses = status.State.Terminated.Message

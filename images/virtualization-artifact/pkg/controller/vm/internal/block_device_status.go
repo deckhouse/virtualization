@@ -55,10 +55,12 @@ func (h *BlockDeviceHandler) getBlockDeviceStatusRefs(ctx context.Context, s sta
 	if kvvm == nil {
 		for _, specBlockDeviceRef := range specRefs {
 			ref := h.getBlockDeviceStatusRef(specBlockDeviceRef.Kind, specBlockDeviceRef.Name)
+
 			ref.Size, err = h.getBlockDeviceRefSize(ctx, ref, s)
 			if err != nil {
 				return nil, err
 			}
+
 			refs = append(refs, ref)
 		}
 
@@ -74,8 +76,10 @@ func (h *BlockDeviceHandler) getBlockDeviceStatusRefs(ctx context.Context, s sta
 		return nil, err
 	}
 
-	var kvvmiVolumeStatusByName map[string]virtv1.VolumeStatus
-	var kvvmiDiskByName map[string]virtv1.Disk
+	var (
+		kvvmiVolumeStatusByName map[string]virtv1.VolumeStatus
+		kvvmiDiskByName         map[string]virtv1.Disk
+	)
 
 	// Disk.Name and VolumeStatus.Name should always be equal.
 	if kvvmi != nil {
@@ -83,6 +87,7 @@ func (h *BlockDeviceHandler) getBlockDeviceStatusRefs(ctx context.Context, s sta
 		for _, vs := range kvvmi.Status.VolumeStatus {
 			kvvmiVolumeStatusByName[vs.Name] = vs
 		}
+
 		kvvmiDiskByName = make(map[string]virtv1.Disk, len(kvvmi.Spec.Domain.Devices.Disks))
 		for _, d := range kvvmi.Spec.Domain.Devices.Disks {
 			kvvmiDiskByName[d.Name] = d
@@ -96,10 +101,12 @@ func (h *BlockDeviceHandler) getBlockDeviceStatusRefs(ctx context.Context, s sta
 	for _, bd := range specRefs {
 		resolver.Add(bd.Kind, bd.Name)
 	}
+
 	vmbdas, err := s.VirtualMachineBlockDeviceAttachments(ctx)
 	if err != nil {
 		return nil, err
 	}
+
 	for ref := range vmbdas {
 		resolver.Add(v1alpha2.BlockDeviceKind(ref.Kind), ref.Name)
 	}
@@ -119,10 +126,12 @@ func (h *BlockDeviceHandler) getBlockDeviceStatusRefs(ctx context.Context, s sta
 
 		ref := h.getBlockDeviceStatusRef(kind, bdName)
 		_, ref.Attached = h.getBlockDeviceTarget(volume, kvvmiVolumeStatusByName)
+
 		ref.Size, err = h.getBlockDeviceRefSize(ctx, ref, s)
 		if err != nil {
 			return nil, err
 		}
+
 		bootOrder := kvvmiDiskByName[volume.Name].BootOrder
 		if bootOrder != nil {
 			ref.BootOrder = bootOrder
@@ -151,10 +160,12 @@ func (h *BlockDeviceHandler) getBlockDeviceStatusRefs(ctx context.Context, s sta
 		}
 
 		ref := h.getBlockDeviceStatusRef(specBlockDeviceRef.Kind, specBlockDeviceRef.Name)
+
 		ref.Size, err = h.getBlockDeviceRefSize(ctx, ref, s)
 		if err != nil {
 			return nil, err
 		}
+
 		refs = append(refs, ref)
 	}
 
@@ -258,6 +269,7 @@ func (h *BlockDeviceHandler) getBlockDeviceAttachmentName(ctx context.Context, k
 	// A new attachment of the block device waits while a deleted one unplugs it: the volume belongs to
 	// the attachment that has sent the request.
 	var holders []*v1alpha2.VirtualMachineBlockDeviceAttachment
+
 	for _, vmbda := range vmbdas {
 		switch {
 		case vmbda.DeletionTimestamp != nil,

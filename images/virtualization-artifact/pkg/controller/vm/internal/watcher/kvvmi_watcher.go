@@ -59,6 +59,7 @@ func (w *KVVMIWatcher) Watch(mgr manager.Manager, ctr controller.Controller) err
 					if !equality.Semantic.DeepEqual(e.ObjectOld.Status, e.ObjectNew.Status) {
 						return true
 					}
+
 					return !equality.Semantic.DeepEqual(e.ObjectOld.Spec, e.ObjectNew.Spec)
 				},
 			},
@@ -66,5 +67,6 @@ func (w *KVVMIWatcher) Watch(mgr manager.Manager, ctr controller.Controller) err
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualMachine: %w", err)
 	}
+
 	return nil
 }

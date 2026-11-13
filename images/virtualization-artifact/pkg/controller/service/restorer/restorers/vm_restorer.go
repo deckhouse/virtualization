@@ -112,6 +112,7 @@ func (v *VirtualMachineHandler) Customize(prefix, suffix string) {
 		if v.vm.Spec.BlockDeviceRefs[i].Kind != v1alpha2.DiskDevice {
 			continue
 		}
+
 		v.vm.Spec.BlockDeviceRefs[i].Name = common.ApplyNameCustomization(v.vm.Spec.BlockDeviceRefs[i].Name, prefix, suffix)
 	}
 }
@@ -123,6 +124,7 @@ func (v *VirtualMachineHandler) SetMainIPAddressName(name string) {
 
 func (v *VirtualMachineHandler) ValidateRestore(ctx context.Context) error {
 	vmKey := types.NamespacedName{Namespace: v.vm.Namespace, Name: v.vm.Name}
+
 	existed, err := object.FetchObject(ctx, vmKey, v.client, &v1alpha2.VirtualMachine{})
 	if err != nil {
 		return err
@@ -147,6 +149,7 @@ func (v *VirtualMachineHandler) ValidateClone(ctx context.Context) error {
 	}
 
 	vmKey := types.NamespacedName{Namespace: v.vm.Namespace, Name: v.vm.Name}
+
 	existed, err := object.FetchObject(ctx, vmKey, v.client, &v1alpha2.VirtualMachine{})
 	if err != nil {
 		return err
@@ -182,6 +185,7 @@ func (v *VirtualMachineHandler) ProcessRestore(ctx context.Context) error {
 	}
 
 	vmKey := types.NamespacedName{Namespace: v.vm.Namespace, Name: v.vm.Name}
+
 	vm, err := object.FetchObject(ctx, vmKey, v.client, &v1alpha2.VirtualMachine{})
 	if err != nil {
 		return fmt.Errorf("failed to fetch the `VirtualMachine`: %w", err)
@@ -207,6 +211,7 @@ func (v *VirtualMachineHandler) ProcessRestore(ctx context.Context) error {
 		vm.Spec = v.vm.Spec
 		vm.Labels = v.vm.Labels
 		vm.Annotations = v.vm.Annotations
+
 		vm.Annotations[annotations.AnnVMOPRestore] = v.restoreUID
 		if hasPowerState {
 			vm.Annotations[annotations.AnnVMRestorePowerState] = powerState
@@ -217,6 +222,7 @@ func (v *VirtualMachineHandler) ProcessRestore(ctx context.Context) error {
 			if apierrors.IsConflict(updErr) {
 				return fmt.Errorf("waiting for the `VirtualMachine` %w", common.ErrUpdating)
 			}
+
 			return fmt.Errorf("failed to update the `VirtualMachine`: %w", updErr)
 		}
 
@@ -242,6 +248,7 @@ func (v *VirtualMachineHandler) ProcessClone(ctx context.Context) error {
 	}
 
 	vmKey := types.NamespacedName{Namespace: v.vm.Namespace, Name: v.vm.Name}
+
 	existed, err := object.FetchObject(ctx, vmKey, v.client, &v1alpha2.VirtualMachine{})
 	if err != nil {
 		return err
@@ -293,12 +300,15 @@ func (v *VirtualMachineHandler) validateImageDependencies(ctx context.Context) e
 	}
 
 	v.vm.Spec.BlockDeviceRefs = filteredRefs
+
 	return nil
 }
 
 func (v *VirtualMachineHandler) imageExists(ctx context.Context, ref v1alpha2.BlockDeviceSpecRef) (bool, error) {
-	var obj client.Object
-	var key types.NamespacedName
+	var (
+		obj client.Object
+		key types.NamespacedName
+	)
 
 	switch ref.Kind {
 	case v1alpha2.ImageDevice:
@@ -329,6 +339,7 @@ func (v *VirtualMachineHandler) filterUSBDependencies(_ context.Context) error {
 	}
 
 	v.vm.Spec.USBDevices = nil
+
 	return nil
 }
 
@@ -338,6 +349,7 @@ func (v *VirtualMachineHandler) Object() client.Object {
 
 func (v *VirtualMachineHandler) deleteCurrentVirtualMachineBlockDeviceAttachments(ctx context.Context) error {
 	vmbdas := &v1alpha2.VirtualMachineBlockDeviceAttachmentList{}
+
 	err := v.client.List(ctx, vmbdas, &client.ListOptions{Namespace: v.vm.Namespace})
 	if err != nil {
 		return fmt.Errorf("failed to list the `VirtualMachineBlockDeviceAttachment`: %w", err)

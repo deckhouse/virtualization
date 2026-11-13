@@ -67,9 +67,11 @@ func (f *fakeProber) answer() (*subv1alpha2.VirtualMachineSession, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
+
 	if f.calls > len(f.answers) {
 		return f.answers[len(f.answers)-1], nil
 	}
+
 	return f.answers[f.calls-1], nil
 }
 
@@ -97,6 +99,7 @@ var _ = Describe("Check", func() {
 				if self == "" {
 					return "", errors.New("unknown")
 				}
+
 				return self, nil
 			},
 		}
@@ -132,6 +135,7 @@ var _ = Describe("Check", func() {
 		heldFrom := func(client string) *fakeProber {
 			session := held("alice")
 			session.Client = client
+
 			return &fakeProber{answers: []*subv1alpha2.VirtualMachineSession{session}}
 		}
 
@@ -159,6 +163,7 @@ var _ = Describe("Check", func() {
 		heldFrom := func(client string) *fakeProber {
 			session := held("alice")
 			session.Client = client
+
 			return &fakeProber{answers: []*subv1alpha2.VirtualMachineSession{session}}
 		}
 
@@ -250,6 +255,7 @@ var _ = Describe("isTerminal", func() {
 		// device: asking it a question would leave the run without a connection.
 		devNull, err := os.Open(os.DevNull)
 		Expect(err).NotTo(HaveOccurred())
+
 		defer devNull.Close()
 
 		Expect(isTerminal(devNull)).To(BeFalse())
@@ -258,6 +264,7 @@ var _ = Describe("isTerminal", func() {
 	It("does not take a pipe for a person", func() {
 		reader, writer, err := os.Pipe()
 		Expect(err).NotTo(HaveOccurred())
+
 		defer reader.Close()
 		defer writer.Close()
 

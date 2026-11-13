@@ -46,6 +46,7 @@ var _ = Describe("VirtualImagePVCStorageClassValidator", func() {
 		scheme := runtime.NewScheme()
 		Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
 		Expect(storagev1.AddToScheme(scheme)).To(Succeed())
+
 		return scheme
 	}
 
@@ -63,6 +64,7 @@ var _ = Describe("VirtualImagePVCStorageClassValidator", func() {
 				annotations.AnnDefaultStorageClass: "true",
 			}
 		}
+
 		return sc
 	}
 
@@ -104,6 +106,7 @@ var _ = Describe("VirtualImagePVCStorageClassValidator", func() {
 			},
 		}
 		vd.Status.StorageClassName = statusSC
+
 		return vd
 	}
 
@@ -111,6 +114,7 @@ var _ = Describe("VirtualImagePVCStorageClassValidator", func() {
 		k8sClient := fake.NewClientBuilder().WithScheme(newScheme()).WithObjects(objs...).Build()
 		baseSCService := basevc.NewBaseStorageClassService(k8sClient)
 		vdSCService := intsvc.NewVirtualDiskStorageClassService(baseSCService, settings)
+
 		return NewVirtualImagePVCStorageClassValidator(k8sClient, vdSCService)
 	}
 
@@ -190,6 +194,7 @@ var _ = Describe("VirtualImagePVCStorageClassValidator", func() {
 	},
 		Entry("returns nil when data source didn't change", func() updateCase {
 			ds := newDataSource()
+
 			return updateCase{
 				oldVD: newVD("vd-sc", ptr("vd-sc"), ds),
 				newVD: newVD("vd-sc", ptr("vd-sc"), ds),
@@ -204,6 +209,7 @@ var _ = Describe("VirtualImagePVCStorageClassValidator", func() {
 					Reason: vdcondition.Ready.String(),
 				},
 			}
+
 			return updateCase{oldVD: oldVD, newVD: newVD}
 		}(), nil, ""),
 		Entry("validates and returns mismatch when provisioning is not finished", func() updateCase {
@@ -215,6 +221,7 @@ var _ = Describe("VirtualImagePVCStorageClassValidator", func() {
 					Reason: vdcondition.Provisioning.String(),
 				},
 			}
+
 			return updateCase{oldVD: oldVD, newVD: newVD}
 		}(), []client.Object{
 			newVirtualImage(),
@@ -224,6 +231,7 @@ var _ = Describe("VirtualImagePVCStorageClassValidator", func() {
 		Entry("validates successfully when provisioners are compatible", func() updateCase {
 			oldVD := newVD("vd-sc", ptr("vd-sc"), nil)
 			newVD := newVD("vd-sc", ptr("vd-sc"), newDataSource())
+
 			return updateCase{oldVD: oldVD, newVD: newVD}
 		}(), []client.Object{
 			newVirtualImage(),

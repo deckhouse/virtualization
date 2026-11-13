@@ -60,7 +60,9 @@ var _ = Describe("CronSource", func() {
 	newSource := func(scheduleSpec string) *CronSource {
 		source, err := NewCronSource(scheduleSpec, NewObjectLister(mgr.ListForDelete), log)
 		Expect(err).NotTo(HaveOccurred())
+
 		source.clock = fakeClock
+
 		return source
 	}
 

@@ -71,16 +71,19 @@ var _ = Describe("NetworkInterfaceHandler MAC addresses in the network status", 
 				ID: ptr.To(i + 2), Type: v1alpha2.NetworksTypeClusterNetwork, Name: name,
 			})
 		}
+
 		vm.Status.Networks = []v1alpha2.NetworksStatus{
 			{ID: 2, Type: v1alpha2.NetworksTypeClusterNetwork, Name: cnA, MAC: macOfA},
 			{ID: 3, Type: v1alpha2.NetworksTypeClusterNetwork, Name: cnB, MAC: macOfB},
 		}
+
 		return vm
 	}
 
 	unschedulableKVVM := func() *virtv1.VirtualMachine {
 		kvvm := newEmptyKVVM(vmName, namespace)
 		kvvm.Status.PrintableStatus = virtv1.VirtualMachineStatusUnschedulable
+
 		return kvvm
 	}
 
@@ -92,6 +95,7 @@ var _ = Describe("NetworkInterfaceHandler MAC addresses in the network status", 
 		for _, vmmac := range vmmacs {
 			objs = append(objs, vmmac)
 		}
+
 		_, _, vmState := setupEnvironment(vm, objs...)
 		h := &NetworkInterfaceHandler{}
 		changed := vmState.VirtualMachine().Changed()
@@ -102,6 +106,7 @@ var _ = Describe("NetworkInterfaceHandler MAC addresses in the network status", 
 		for _, ns := range changed.Status.Networks {
 			macs[ns.Name] = ns.MAC
 		}
+
 		return macs
 	}
 
@@ -135,7 +140,9 @@ var _ = Describe("NetworkInterfaceHandler MAC addresses in the network status", 
 		kvvm := newEmptyKVVM(vmName, namespace)
 		kvvm.Status.PrintableStatus = virtv1.VirtualMachineStatusRunning
 		kvvm.Spec.Template = &virtv1.VirtualMachineInstanceTemplateSpec{}
+
 		var cnBMAC string
+
 		for _, spec := range commonnetwork.CreateNetworkSpec(vm, vm.Spec.Networks[1:], vmmacs, true) {
 			kvvm.Spec.Template.Spec.Domain.Devices.Interfaces = append(kvvm.Spec.Template.Spec.Domain.Devices.Interfaces,
 				virtv1.Interface{Name: spec.InterfaceName, MacAddress: spec.MAC})
@@ -175,6 +182,7 @@ var _ = Describe("NetworkInterfaceHandler MAC addresses in the network status", 
 		vm.Spec.Networks[0].VirtualMachineMACAddressName = "mac-c"
 		kvvm := newEmptyKVVM(vmName, namespace)
 		kvvm.Status.PrintableStatus = virtv1.VirtualMachineStatusRunning
+
 		kvvm.Spec.Template = &virtv1.VirtualMachineInstanceTemplateSpec{}
 		for _, spec := range commonnetwork.CreateNetworkSpec(vm, vm.Spec.Networks, allVMMACs(), true) {
 			kvvm.Spec.Template.Spec.Domain.Devices.Interfaces = append(kvvm.Spec.Template.Spec.Domain.Devices.Interfaces,

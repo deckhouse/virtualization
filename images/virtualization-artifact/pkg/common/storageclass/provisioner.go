@@ -46,6 +46,7 @@ func ProvisionerOf(ctx context.Context, c client.Client, scName string) (string,
 	if err != nil {
 		return "", fmt.Errorf("get storage class %q: %w", scName, err)
 	}
+
 	if sc == nil {
 		return "", fmt.Errorf("storage class %q was not found", scName)
 	}
@@ -61,6 +62,7 @@ func ProvisionerOfVirtualDisk(ctx context.Context, c client.Client, namespace, n
 	if err != nil {
 		return "", false, err
 	}
+
 	if vd == nil || vd.Status.Phase != v1alpha2.DiskReady || vd.Status.StorageClassName == "" {
 		return "", false, nil
 	}
@@ -81,6 +83,7 @@ func ProvisionerOfVirtualImage(ctx context.Context, c client.Client, namespace, 
 	if err != nil {
 		return "", false, err
 	}
+
 	if vi == nil ||
 		vi.Status.Phase != v1alpha2.ImageReady ||
 		vi.Spec.Storage == v1alpha2.StorageContainerRegistry ||
@@ -103,6 +106,7 @@ func VolumeSnapshotOfVirtualDiskSnapshot(ctx context.Context, c client.Client, n
 	if err != nil {
 		return nil, err
 	}
+
 	if vdSnapshot == nil ||
 		vdSnapshot.Status.Phase != v1alpha2.VirtualDiskSnapshotPhaseReady ||
 		vdSnapshot.Status.VolumeSnapshotName == "" {
@@ -123,6 +127,7 @@ func ProvisionerOfVolumeSnapshot(ctx context.Context, c client.Client, vs *vsv1.
 	if err != nil {
 		return "", false, err
 	}
+
 	if pvc == nil {
 		return "", false, nil
 	}

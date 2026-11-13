@@ -38,6 +38,7 @@ func TestStore_LoadStoreDelete(t *testing.T) {
 	if !ok {
 		t.Fatal("expected state to be present")
 	}
+
 	if loaded.Progress != 42 || !loaded.Iterative {
 		t.Fatalf("unexpected loaded state: %+v", loaded)
 	}

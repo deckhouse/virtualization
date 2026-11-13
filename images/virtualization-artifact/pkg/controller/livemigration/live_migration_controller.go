@@ -66,5 +66,6 @@ func SetupController(
 	}
 
 	log.Info("Initialized LiveMigrationSettings controller")
+
 	return nil
 }

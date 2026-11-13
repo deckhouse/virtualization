@@ -45,8 +45,10 @@ import (
 )
 
 var _ = Describe("LifecycleHandler", func() {
-	var ctx context.Context
-	var scheme *apiruntime.Scheme
+	var (
+		ctx    context.Context
+		scheme *apiruntime.Scheme
+	)
 
 	BeforeEach(func() {
 		ctx = logger.ToContext(context.TODO(), slog.Default())
@@ -420,6 +422,7 @@ var _ = Describe("LifecycleHandler", func() {
 				if _, ok := obj.(*resourcev1.ResourceClaimTemplate); ok {
 					return errors.New(`resourceclaimtemplates.resource.k8s.io "usb-device-cr-template" already exists`)
 				}
+
 				return nil
 			},
 		}).Build()
@@ -481,6 +484,7 @@ var _ = Describe("LifecycleHandler", func() {
 		updated := &resourcev1.ResourceClaimTemplate{}
 		err = cl.Get(ctx, types.NamespacedName{Name: ResourceClaimTemplateName("usb-device-cr"), Namespace: "default"}, updated)
 		Expect(err).NotTo(HaveOccurred())
+
 		expr := updated.Spec.Spec.Devices.Requests[0].Exactly.Selectors[0].CEL.Expression
 		Expect(expr).To(ContainSubstring(`device.attributes["virtualization-usb"].name == "usb-new-name"`))
 		Expect(updated.Annotations).To(HaveKeyWithValue(annotations.AnnUSBClaimSpecHash, claimSpecHash(updated.Spec)))

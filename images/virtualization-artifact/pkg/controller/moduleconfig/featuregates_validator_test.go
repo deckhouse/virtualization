@@ -50,8 +50,10 @@ var _ = Describe("featureGatesValidator", func() {
 		for _, g := range gates {
 			values = append(values, g)
 		}
+
 		mc := &mcapi.ModuleConfig{}
 		mc.Spec.Settings = mcapi.SettingsValues{"featureGates": values}
+
 		return mc
 	}
 

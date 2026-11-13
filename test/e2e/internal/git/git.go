@@ -36,6 +36,7 @@ type GitCMD struct {
 func NewGit() (*GitCMD, error) {
 	cmd := Cmd
 	e := executor.NewExecutor([]string{})
+
 	return &GitCMD{
 		Executor: e,
 		cmd:      cmd,

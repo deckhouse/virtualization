@@ -49,5 +49,6 @@ func NewCommand(name string) *cobra.Command {
 		dump.NewCommand(load),
 		license.NewCommand(),
 	)
+
 	return root
 }

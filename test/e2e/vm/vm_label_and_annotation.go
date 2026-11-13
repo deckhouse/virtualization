@@ -80,6 +80,7 @@ var _ = Describe("VirtualMachineLabelAndAnnotation", Label(label.SIGCompute, pre
 		// any metadata mutation, so every propagation event below is captured.
 		_, activePod, err := util.GetVirtualMachineAndActivePod(ctx, f, vm)
 		Expect(err).NotTo(HaveOccurred())
+
 		podObs := podobs.StartObserver(ctx, f, activePod)
 
 		By(fmt.Sprintf("Adding label %q=%q to VM", metadataSpecialKey, metadataSpecialValue))
@@ -87,6 +88,7 @@ var _ = Describe("VirtualMachineLabelAndAnnotation", Label(label.SIGCompute, pre
 			if current.Labels == nil {
 				current.Labels = make(map[string]string)
 			}
+
 			current.Labels[metadataSpecialKey] = metadataSpecialValue
 		})
 
@@ -106,6 +108,7 @@ var _ = Describe("VirtualMachineLabelAndAnnotation", Label(label.SIGCompute, pre
 			if current.Annotations == nil {
 				current.Annotations = make(map[string]string)
 			}
+
 			current.Annotations[metadataSpecialKey] = metadataSpecialValue
 		})
 
@@ -129,12 +132,14 @@ func updateVirtualMachineMetadata(ctx context.Context, f *framework.Framework, v
 
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		var currentVM v1alpha2.VirtualMachine
+
 		err := f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vm), &currentVM)
 		if err != nil {
 			return err
 		}
 
 		mutate(&currentVM)
+
 		return f.GenericClient().Update(ctx, &currentVM)
 	})
 	Expect(err).NotTo(HaveOccurred())
@@ -203,5 +208,6 @@ func metadataKeyMatches(meta map[string]string, isPresent bool) bool {
 	if isPresent {
 		return ok && value == metadataSpecialValue
 	}
+
 	return !ok
 }

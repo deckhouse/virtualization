@@ -45,6 +45,7 @@ func NewVirtualMachineMACAddressHandler(client client.Client, vmmacTmpl *v1alpha
 		vmmacTmpl.Annotations = make(map[string]string)
 		vmmacTmpl.Annotations[annotations.AnnVMOPRestore] = vmRestoreUID
 	}
+
 	return &VirtualMachineMACHandler{
 		vmmac: &v1alpha2.VirtualMachineMACAddress{
 			TypeMeta: metav1.TypeMeta{
@@ -75,6 +76,7 @@ func (v *VirtualMachineMACHandler) Customize(prefix, suffix string) {
 
 func (v *VirtualMachineMACHandler) ValidateRestore(ctx context.Context) error {
 	vmMacKey := types.NamespacedName{Namespace: v.vmmac.Namespace, Name: v.vmmac.Name}
+
 	existed, err := object.FetchObject(ctx, vmMacKey, v.client, &v1alpha2.VirtualMachineMACAddress{})
 	if err != nil {
 		return err
@@ -88,6 +90,7 @@ func (v *VirtualMachineMACHandler) ValidateRestore(ctx context.Context) error {
 
 	if v.vmmac.Spec.Address != "" {
 		var vmmacs v1alpha2.VirtualMachineMACAddressList
+
 		err = v.client.List(ctx, &vmmacs, &client.ListOptions{
 			Namespace:     v.vmmac.Namespace,
 			FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVMMACByAddress, v.vmmac.Spec.Address),
@@ -124,6 +127,7 @@ func (v *VirtualMachineMACHandler) ProcessRestore(ctx context.Context) error {
 	}
 
 	vmMacKey := types.NamespacedName{Namespace: v.vmmac.Namespace, Name: v.vmmac.Name}
+
 	existed, err := object.FetchObject(ctx, vmMacKey, v.client, &v1alpha2.VirtualMachineMACAddress{})
 	if err != nil {
 		return err

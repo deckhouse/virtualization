@@ -43,7 +43,9 @@ func (h *InitHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (rec
 	if vd.Status.Target.PersistentVolumeClaim == "" {
 		name := fmt.Sprintf("d8v-vd-%s-%s", vd.UID, pwgen.LowerAlpha(5))
 		vdsupplements.SetPVCName(vd, name)
+
 		return reconcile.Result{RequeueAfter: 100 * time.Millisecond}, reconciler.ErrStopHandlerChain
 	}
+
 	return reconcile.Result{}, nil
 }

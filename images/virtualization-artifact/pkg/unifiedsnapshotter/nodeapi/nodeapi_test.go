@@ -55,31 +55,38 @@ func (f *fakeCore) DownloadManifestsRaw(_ context.Context, name string) ([]byte,
 	if f.downloadErr != nil {
 		return nil, f.downloadErr
 	}
+
 	if name != contentName {
 		return nil, fmt.Errorf("unexpected content %q", name)
 	}
+
 	return f.download, nil
 }
 
 func (f *fakeCore) UploadManifests(_ context.Context, name string, manifests json.RawMessage) (int, []byte, error) {
 	f.uploads++
 	f.uploadedTo = name
+
 	f.uploadedBytes = manifests
 	if f.uploadErr != nil {
 		return 0, nil, f.uploadErr
 	}
+
 	return f.uploadCode, f.uploadBody, nil
 }
 
 func scheme(t *testing.T) *apiruntime.Scheme {
 	t.Helper()
+
 	s := apiruntime.NewScheme()
 	if err := v1alpha2.AddToScheme(s); err != nil {
 		t.Fatalf("add v1alpha2 to scheme: %v", err)
 	}
+
 	if err := storagev1alpha1.AddToScheme(s); err != nil {
 		t.Fatalf("add state-snapshotter storage/v1alpha1 to scheme: %v", err)
 	}
+
 	return s
 }
 
@@ -103,11 +110,13 @@ func newService(t *testing.T, core ContentClient, opts snapshotOptions) *Service
 	}
 
 	objs := []client.Object{vms}
+
 	if opts.content != "" && !opts.noContent {
 		backRefTo := opts.backRefTo
 		if backRefTo == "" {
 			backRefTo = vms.Name
 		}
+
 		objs = append(objs, &storagev1alpha1.SnapshotContent{
 			ObjectMeta: metav1.ObjectMeta{Name: opts.content},
 			Spec: storagev1alpha1.SnapshotContentSpec{
@@ -132,29 +141,36 @@ func newService(t *testing.T, core ContentClient, opts snapshotOptions) *Service
 
 func childrenOf(t *testing.T, s *Service) []v1alpha2.UnifiedSnapshotterChildRef {
 	t.Helper()
+
 	vms := &v1alpha2.VirtualMachineSnapshot{}
+
 	key := types.NamespacedName{Namespace: testNamespace, Name: "vms"}
 	if err := s.Reader.Get(context.Background(), key, vms); err != nil {
 		t.Fatalf("re-read the snapshot: %v", err)
 	}
+
 	return vms.Status.ChildrenSnapshotRefs
 }
 
 func statusError(t *testing.T, err error) *StatusError {
 	t.Helper()
+
 	var se *StatusError
 	if !errors.As(err, &se) {
 		t.Fatalf("err = %v (%T), want a *StatusError", err, err)
 	}
+
 	return se
 }
 
 func uploadBody(t *testing.T, manifests string, children ...UploadChildRef) []byte {
 	t.Helper()
+
 	body, err := json.Marshal(Upload{Manifests: json.RawMessage(manifests), ChildRefs: children})
 	if err != nil {
 		t.Fatalf("marshal upload body: %v", err)
 	}
+
 	return body
 }
 
@@ -177,6 +193,7 @@ func TestDownload_RelaysTheCoreBytesVerbatim(t *testing.T) {
 	if err != nil {
 		t.Fatalf("download: %v", err)
 	}
+
 	if string(got) != string(raw) {
 		t.Errorf("download returned %s, want the core's bytes %s", got, raw)
 	}
@@ -224,9 +241,11 @@ func TestUpload_RefusesACaptureModeNode(t *testing.T) {
 	if got := statusError(t, err).Code; got != http.StatusConflict {
 		t.Errorf("code = %d, want %d", got, http.StatusConflict)
 	}
+
 	if core.uploads != 0 {
 		t.Error("manifests were forwarded for a capture-mode node")
 	}
+
 	if children := childrenOf(t, s); len(children) != 0 {
 		t.Errorf("children were recorded for a capture-mode node: %+v", children)
 	}
@@ -245,9 +264,11 @@ func TestUpload_UnboundNodeIsRefusedWithItsOwnReason(t *testing.T) {
 	if se.Code != http.StatusConflict {
 		t.Errorf("code = %d, want %d", se.Code, http.StatusConflict)
 	}
+
 	if se.Reason != ReasonImportContentNotBound {
 		t.Errorf("reason = %q, want %q", se.Reason, ReasonImportContentNotBound)
 	}
+
 	if core.uploads != 0 {
 		t.Error("manifests were forwarded before the node was bound")
 	}
@@ -264,6 +285,7 @@ func TestUpload_RecordsChildrenAndForwardsTheManifests(t *testing.T) {
 	s := newService(t, core, snapshotOptions{mode: v1alpha2.UnifiedSnapshotterModeImport, content: contentName})
 
 	manifests := `[{"apiVersion":"v1","kind":"Secret","metadata":{"name":"s"}}]`
+
 	code, body, err := s.Upload(context.Background(), v1alpha2.VirtualMachineSnapshotResource, testNamespace, "vms",
 		uploadBody(t, manifests, vdsChild("a"), vdsChild("b")))
 	if err != nil {
@@ -273,12 +295,15 @@ func TestUpload_RecordsChildrenAndForwardsTheManifests(t *testing.T) {
 	if code != http.StatusCreated {
 		t.Errorf("code = %d, want the core's %d relayed", code, http.StatusCreated)
 	}
+
 	if string(body) != string(coreStatus) {
 		t.Errorf("body = %s, want the core's status relayed verbatim", body)
 	}
+
 	if core.uploadedTo != contentName {
 		t.Errorf("forwarded to %q, want %q", core.uploadedTo, contentName)
 	}
+
 	if string(core.uploadedBytes) != manifests {
 		t.Errorf("forwarded %s, want the manifests unchanged %s", core.uploadedBytes, manifests)
 	}
@@ -287,6 +312,7 @@ func TestUpload_RecordsChildrenAndForwardsTheManifests(t *testing.T) {
 	if len(children) != 2 || children[0].Name != "a" || children[1].Name != "b" {
 		t.Errorf("children = %+v, want both uploaded children recorded", children)
 	}
+
 	if children[0].Kind != v1alpha2.VirtualDiskSnapshotKind {
 		t.Errorf("child kind = %q, want %q", children[0].Kind, v1alpha2.VirtualDiskSnapshotKind)
 	}
@@ -303,6 +329,7 @@ func TestUpload_IsRepeatable(t *testing.T) {
 			t.Fatalf("upload attempt %d: %v", attempt, err)
 		}
 	}
+
 	if children := childrenOf(t, s); len(children) != 1 {
 		t.Errorf("children = %+v, want the repeated upload to leave one child", children)
 	}
@@ -320,6 +347,7 @@ func TestUpload_RefusesAContentThatDoesNotPointBack(t *testing.T) {
 	if got := statusError(t, err).Code; got != http.StatusForbidden {
 		t.Errorf("code = %d, want %d", got, http.StatusForbidden)
 	}
+
 	if core.uploads != 0 {
 		t.Error("manifests were forwarded into a content bound to another snapshot")
 	}
@@ -344,6 +372,7 @@ func TestUpload_RejectsAMalformedPayload(t *testing.T) {
 			if got := statusError(t, err).Code; got != http.StatusBadRequest {
 				t.Errorf("code = %d, want %d", got, http.StatusBadRequest)
 			}
+
 			if core.uploads != 0 {
 				t.Error("a malformed payload reached the core")
 			}
@@ -372,6 +401,7 @@ func TestUpload_RejectsAnUnresolvableChild(t *testing.T) {
 			if got := statusError(t, err).Code; got != http.StatusBadRequest {
 				t.Errorf("code = %d, want %d", got, http.StatusBadRequest)
 			}
+
 			if children := childrenOf(t, s); len(children) != 0 {
 				t.Errorf("children = %+v, want nothing recorded from a rejected payload", children)
 			}
@@ -388,6 +418,7 @@ func TestUpload_AcceptsALeafWithNoChildren(t *testing.T) {
 		uploadBody(t, `[]`)); err != nil {
 		t.Fatalf("upload: %v", err)
 	}
+
 	if core.uploads != 1 {
 		t.Errorf("forwarded %d times, want 1", core.uploads)
 	}
@@ -405,9 +436,11 @@ func TestUpload_RelaysACoreRejection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("upload returned err = %v; a core rejection is relayed, not raised", err)
 	}
+
 	if code != http.StatusBadRequest {
 		t.Errorf("code = %d, want the core's %d", code, http.StatusBadRequest)
 	}
+
 	if string(body) != string(coreStatus) {
 		t.Errorf("body = %s, want the core's status verbatim", body)
 	}
@@ -426,6 +459,7 @@ func TestUpload_ReportsATransportFailureAsBadGateway(t *testing.T) {
 	if se.Code != http.StatusBadGateway {
 		t.Errorf("code = %d, want %d", se.Code, http.StatusBadGateway)
 	}
+
 	if se.Reason != "BadGateway" {
 		t.Errorf("reason = %q, want BadGateway", se.Reason)
 	}

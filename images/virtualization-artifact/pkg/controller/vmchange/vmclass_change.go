@@ -62,5 +62,6 @@ func placementAction() ActionType {
 	if featuregates.Default().Enabled(featuregates.AutoMigrationIfNodePlacementChanged) {
 		return ActionApplyImmediate
 	}
+
 	return ActionRestart
 }

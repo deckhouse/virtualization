@@ -83,11 +83,13 @@ func (r *ScaleREST) GroupVersionKind(schema.GroupVersion) schema.GroupVersionKin
 // Get implements rest.Getter interface.
 func (r *ScaleREST) Get(ctx context.Context, name string, _ *metav1.GetOptions) (runtime.Object, error) {
 	namespace := genericreq.NamespaceValue(ctx)
+
 	vm, err := r.vmLister.VirtualMachines(namespace).Get(name)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil, k8serrors.NewNotFound(subresources.Resource("virtualmachines"), name)
 		}
+
 		return nil, k8serrors.NewInternalError(err)
 	}
 

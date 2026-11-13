@@ -124,6 +124,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 		case v1alpha2.MachinePending:
 			return virtv1.VirtualMachineStatusUnknown
 		}
+
 		return ""
 	}
 
@@ -189,6 +190,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 		kvvmi.Annotations = map[string]string{
 			virtv1.VirtualMachineInstanceInPlaceResizeInProgressAnn: "true",
 		}
+
 		kvvmi.Status.Conditions = []virtv1.VirtualMachineInstanceCondition{
 			{
 				Type:    virtv1.VirtualMachineInstancePodResourceResizeInProgress,
@@ -218,6 +220,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 				conds = append(conds, cond)
 			}
 		}
+
 		kvvmi.Status.Conditions = conds
 
 		return kvvmi
@@ -261,6 +264,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 		if featureGates == nil {
 			featureGates = featuregates.Default()
 		}
+
 		h := NewSyncKvvmHandler(nil, fakeClient, recorder, featureGates, vmservice.NewMigrationVolumesService(fakeClient, MakeKVVMFromVMSpec, 10*time.Second))
 		_, err := h.Handle(ctx, vmState)
 		Expect(err).NotTo(HaveOccurred())
@@ -306,6 +310,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 
 	mutateMemorySize := func(size string) func(fakeClient client.WithWatch, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) {
 		memSize := resource.MustParse(size)
+
 		return func(fakeClient client.WithWatch, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) {
 			vm.Spec.Memory.Size = memSize
 		}
@@ -317,6 +322,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 		return func(fakeClient client.WithWatch, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) {
 			lastApplied, err := kvbuilder.LoadLastAppliedSpec(kvvm)
 			Expect(err).NotTo(HaveOccurred())
+
 			lastApplied.CPU.CoreFraction = applied
 			Expect(kvbuilder.SetLastAppliedSpec(kvvm, &v1alpha2.VirtualMachine{Spec: *lastApplied})).To(Succeed())
 			vm.Spec.CPU.CoreFraction = desired
@@ -372,11 +378,13 @@ var _ = Describe("SyncKvvmHandler", func() {
 					if _, ok := obj.(*virtv1.VirtualMachine); ok {
 						return errors.New("create rejected")
 					}
+
 					return c.Create(ctx, obj, opts...)
 				},
 			}
 
 			var err error
+
 			fakeClient, err = testutil.NewFakeClientWithInterceptorWithObjects(createFails, vm, makeVMIP(), makeVMClass())
 			Expect(err).NotTo(HaveOccurred())
 
@@ -477,6 +485,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 
 		newKVVM.ResourceVersion = ""
 		fakeClient, reconcileObj, vmState = setupEnvironment(vm, newKVVM, makeVMIP(), makeVMClass())
+
 		reconcile()
 
 		Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newKVVM)).To(Succeed())
@@ -506,6 +515,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 
 			awaitCond, awaitExists := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, newVM.Status.Conditions)
 			Expect(awaitExists).To(Equal(expectedExistence))
+
 			if awaitExists {
 				Expect(awaitCond.Status).To(Equal(expectedStatus))
 			}
@@ -533,6 +543,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 		func(restartRequested bool, expected []virtv1.CPUFeature) {
 			vm := makeVM(v1alpha2.MachineRunning)
 			kvvm := makeKVVM(vm)
+
 			kvvm.Spec.Template.Spec.Domain.CPU = &virtv1.CPU{
 				Model:    virtv1.CPUModeHostModel,
 				Features: []virtv1.CPUFeature{{Name: "arch-capabilities", Policy: "require"}},
@@ -542,10 +553,12 @@ var _ = Describe("SyncKvvmHandler", func() {
 					{Action: virtv1.StopRequest}, {Action: virtv1.StartRequest},
 				}
 			}
+
 			kvvmi := makeKVVMI()
 			kvvmi.Status.Phase = virtv1.Running
 
 			fakeClient, reconcileObj, vmState = setupEnvironment(vm, kvvm, kvvmi, makeVMIP(), makeVMClass())
+
 			reconcile()
 
 			newKVVM := &virtv1.VirtualMachine{}
@@ -582,6 +595,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 			},
 		})).To(Succeed())
 		kvvm.SetGroupVersionKind(virtv1.VirtualMachineGroupVersionKind)
+
 		kvvmi := makeKVVMI()
 
 		fakeClient, reconcileObj, vmState = setupEnvironment(vm, kvvm, kvvmi, ip, vmClass)
@@ -630,6 +644,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 
 			awaitCond, awaitExists := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, newVM.Status.Conditions)
 			Expect(awaitExists).To(Equal(expectedExistence))
+
 			if awaitExists {
 				Expect(awaitCond.Status).To(Equal(expectedStatus))
 			}
@@ -666,8 +681,10 @@ var _ = Describe("SyncKvvmHandler", func() {
 
 			awaitCond, awaitExists := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, newVM.Status.Conditions)
 			Expect(awaitExists).To(Equal(expectedExistence))
+
 			if awaitExists {
 				Expect(awaitCond.Status).To(Equal(expectedStatus))
+
 				for _, expectedMessage := range expectedMessages {
 					Expect(awaitCond.Message).To(ContainSubstring(expectedMessage))
 				}
@@ -748,10 +765,12 @@ var _ = Describe("SyncKvvmHandler", func() {
 					Reason: "BlockDevicesNotReady",
 				})
 			}
+
 			kvvm := makeKVVM(vm)
 			kvvmi := makeKVVMI()
 
 			fakeClient, reconcileObj, vmState = setupEnvironment(vm, kvvm, kvvmi, ip, vmClass)
+
 			reconcile()
 
 			newVM := &v1alpha2.VirtualMachine{}
@@ -760,6 +779,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 
 			confAppliedCond, confAppliedExists := conditions.GetCondition(vmcondition.TypeConfigurationApplied, newVM.Status.Conditions)
 			Expect(confAppliedExists).To(Equal(expectedExistence))
+
 			if confAppliedExists {
 				Expect(confAppliedCond.Status).To(Equal(expectedStatus))
 			}
@@ -791,15 +811,19 @@ var _ = Describe("SyncKvvmHandler", func() {
 			kvvm := makeKVVM(vm)
 			fakeClient, reconcileObj, vmState = setupEnvironment(vm, kvvm, kvvmi, ip, vmClass)
 			featureGates = featureGate
+
 			reconcile()
+
 			newVM := &v1alpha2.VirtualMachine{}
 			err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 			Expect(err).NotTo(HaveOccurred())
+
 			confAppliedCond, confAppliedExists := conditions.GetCondition(vmcondition.TypeConfigurationApplied, newVM.Status.Conditions)
 			Expect(confAppliedExists).To(BeTrue())
 			Expect(confAppliedCond.Status).To(Equal(metav1.ConditionFalse))
 			Expect(confAppliedCond.Reason).To(Equal(vmcondition.ReasonConfigurationNotApplied.String()))
 			Expect(confAppliedCond.Message).To(Equal(expectedMessage))
+
 			_, awaitingRestart := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, newVM.Status.Conditions)
 			Expect(awaitingRestart).To(BeFalse())
 		},
@@ -846,6 +870,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 		kvvmi := makeResizingKVVMI("UnexpectedReason", "unexpected", "")
 		fakeClient, reconcileObj, vmState = setupEnvironment(vm, kvvm, kvvmi, ip, vmClass)
 		featureGates = newFeatureGateEnableResourceInPlaceResize()
+
 		reconcile()
 
 		newVM := &v1alpha2.VirtualMachine{}
@@ -877,6 +902,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 			vm.Spec.Memory.Size = resource.MustParse("4Gi")
 			vm.Status.Resources.CPU.Cores = 2
 			vm.Status.Resources.Memory.Size = resource.MustParse("2Gi")
+
 			return vm
 		}
 
@@ -884,6 +910,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 			kvvmi := makeKVVMI()
 			kvvmi.UID = types.UID("kvvmi-test-uid")
 			kvvmi.Status.NodeName = nodeName
+
 			kvvmi.Status.ActivePods = map[types.UID]string{podUID: nodeName}
 			for _, conditionType := range conditionTypes {
 				kvvmi.Status.Conditions = append(kvvmi.Status.Conditions, virtv1.VirtualMachineInstanceCondition{
@@ -891,6 +918,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 					Status: corev1.ConditionTrue,
 				})
 			}
+
 			return kvvmi
 		}
 
@@ -903,6 +931,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 				Reason:  virtv1.VirtualMachineInstanceReasonPodResizePending,
 				Message: podMessage,
 			})
+
 			return &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "virt-launcher-test",
@@ -956,6 +985,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 					vmop.Status.Conditions[0].LastTransitionTime = metav1.NewTime(created.Add(time.Second))
 				}
 			}
+
 			return vmop
 		}
 
@@ -989,14 +1019,18 @@ var _ = Describe("SyncKvvmHandler", func() {
 			objs = append(objs, kvvm, makeVMIP(), makeVMClass())
 			fakeClient, reconcileObj, vmState = setupEnvironment(vm, objs...)
 			featureGates = gate
+
 			reconcile()
+
 			newVM := &v1alpha2.VirtualMachine{}
 			Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)).To(Succeed())
+
 			return newVM
 		}
 
 		expect := func(newVM *v1alpha2.VirtualMachine, e expectation) {
 			GinkgoHelper()
+
 			confApplied, exists := conditions.GetCondition(vmcondition.TypeConfigurationApplied, newVM.Status.Conditions)
 			Expect(exists).To(BeTrue())
 			Expect(confApplied.Status).To(Equal(metav1.ConditionFalse))
@@ -1004,23 +1038,27 @@ var _ = Describe("SyncKvvmHandler", func() {
 
 			awaitingRestart, exists := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, newVM.Status.Conditions)
 			Expect(exists).To(Equal(e.restartRequired))
+
 			if e.restartRequired {
 				Expect(awaitingRestart.Reason).To(Equal(vmcondition.ReasonChangesPendingRestart.String()))
 				Expect(awaitingRestart.Message).To(Equal(e.message))
 			}
 
 			var paths []string
+
 			for _, change := range newVM.Status.RestartAwaitingChanges {
 				var fields map[string]interface{}
 				Expect(json.Unmarshal(change.Raw, &fields)).To(Succeed())
 				paths = append(paths, fields["path"].(string))
 			}
+
 			Expect(paths).To(ConsistOf(e.restartChangesPaths))
 
 			eventType := corev1.EventTypeNormal
 			if e.warning {
 				eventType = corev1.EventTypeWarning
 			}
+
 			Expect(events).To(ContainElement(HavePrefix(eventType + "/" + v1alpha2.ReasonVMCPUResizing + ": " + e.message)))
 		}
 
@@ -1096,14 +1134,18 @@ var _ = Describe("SyncKvvmHandler", func() {
 		// failedMigrations returns the last allowed number of failed migrations, finished a minute apart.
 		failedMigrations := func(vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) []client.Object {
 			now := time.Now()
+
 			var vmops []client.Object
+
 			for i := range hotplugmigration.MaxAttempts {
 				message := "earlier"
 				if i == hotplugmigration.MaxAttempts-1 {
 					message = "The migration target is unschedulable."
 				}
+
 				vmops = append(vmops, makeHotplugVMOP(vm, kvvmi, fmt.Sprintf("hotplug-resources-%d", i), v1alpha2.VMOPPhaseFailed, message, now.Add(time.Duration(i-hotplugmigration.MaxAttempts)*time.Minute)))
 			}
+
 			return vmops
 		}
 
@@ -1113,6 +1155,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 			newVM := run(vm, newFeatureGateEnableResourceHotplug(), append(failedMigrations(vm, kvvmi), kvvmi)...)
 			confApplied, _ := conditions.GetCondition(vmcondition.TypeConfigurationApplied, newVM.Status.Conditions)
 			Expect(confApplied.Message).To(Equal("Live migration to apply the CPU and memory changes failed 4 times: The migration target is unschedulable. Restart the virtual machine to apply the changes."))
+
 			awaitingRestart, exists := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, newVM.Status.Conditions)
 			Expect(exists).To(BeTrue())
 			Expect(awaitingRestart.Reason).To(Equal(vmcondition.ReasonChangesPendingRestart.String()))
@@ -1133,6 +1176,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 			vm := makeHotplugVM()
 			kvvmi := makePendingKVVMI(virtv1.VirtualMachineInstanceVCPUChange)
 			metav1.SetMetaDataAnnotation(&kvvmi.ObjectMeta, hotplugmigration.Annotation, string(podUID)+"/"+hotplugmigration.Key(kvvmi)+"/retried")
+
 			podCreated := time.Now().Add(-10 * time.Minute)
 			produced := makeHotplugVMOP(vm, kvvmi, "hotplug-resources-1", v1alpha2.VMOPPhaseCompleted, "", podCreated.Add(-time.Second))
 			newVM := run(vm, newFeatureGateEnableResourceHotplug(), kvvmi, produced, makeLauncherPod(kvvmi, podCreated))
@@ -1182,22 +1226,27 @@ var _ = Describe("SyncKvvmHandler", func() {
 				mutate(vm)
 				fakeClient, reconcileObj, vmState = setupEnvironment(vm, kvvm, makePendingKVVMI(conditionTypes...), makeVMIP(), makeVMClass())
 				featureGates = newFeatureGateEnableResourceHotplug()
+
 				reconcile()
 
 				newVM := &v1alpha2.VirtualMachine{}
 				Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)).To(Succeed())
+
 				newKVVM := &virtv1.VirtualMachine{}
 				Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(kvvm), newKVVM)).To(Succeed())
 				lastApplied, err := kvbuilder.LoadLastAppliedSpec(newKVVM)
 				Expect(err).NotTo(HaveOccurred())
+
 				return newVM, lastApplied
 			}
 
 			It("holds the newer CPU change until the pending one is applied", func() {
 				newVM, lastApplied := runChanged(func(vm *v1alpha2.VirtualMachine) { vm.Spec.CPU.Cores = 3 }, virtv1.VirtualMachineInstanceVCPUChange)
 				Expect(lastApplied.CPU.Cores).To(Equal(2), "the newer number of cores must not reach the internal virtual machine")
+
 				confApplied, _ := conditions.GetCondition(vmcondition.TypeConfigurationApplied, newVM.Status.Conditions)
 				Expect(confApplied.Message).To(HaveSuffix("The newer CPU changes wait until these are applied."))
+
 				_, awaitingRestart := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, newVM.Status.Conditions)
 				Expect(awaitingRestart).To(BeFalse())
 			})
@@ -1238,6 +1287,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 				sizingpolicy.SetRecommendedCoreFraction(vm, "50%")
 				vm.Status.Resources.CPU.Cores = vm.Spec.CPU.Cores
 				vm.Status.Resources.CPU.CoreFraction = "10%"
+
 				return vm
 			}
 
@@ -1247,9 +1297,12 @@ var _ = Describe("SyncKvvmHandler", func() {
 				objs = append(objs, kvvm, makeVMIP(), makeVMClass())
 				fakeClient, reconcileObj, vmState = setupEnvironment(vm, objs...)
 				featureGates = newFeatureGateEnableResourceHotplug()
+
 				reconcile()
+
 				newVM := &v1alpha2.VirtualMachine{}
 				Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)).To(Succeed())
+
 				return newVM
 			}
 
@@ -1284,6 +1337,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 				vm := makeAutoscaledVM()
 				kvvmi := makePendingKVVMI(virtv1.VirtualMachineInstanceVCPUChange)
 				metav1.SetMetaDataAnnotation(&kvvmi.ObjectMeta, hotplugmigration.Annotation, string(podUID)+"/"+hotplugmigration.Key(kvvmi)+"/retried")
+
 				podCreated := time.Now().Add(-10 * time.Minute)
 				produced := makeHotplugVMOP(vm, kvvmi, "hotplug-resources-1", v1alpha2.VMOPPhaseCompleted, "", podCreated.Add(-time.Second))
 				newVM := runAutoscaled(vm, kvvmi, produced, runningAt(makeLauncherPod(kvvmi, podCreated), "10"))
@@ -1310,10 +1364,13 @@ var _ = Describe("SyncKvvmHandler", func() {
 				vm := makeAutoscaledVM()
 				kvvm := makeKVVM(vm)
 				mutateCoreFraction("50%", string(v1alpha2.CoreFractionAuto), "50%")(nil, vm, kvvm)
+
 				kvvmi := makePendingKVVMI(virtv1.VirtualMachineInstanceVCPUChange)
 				fakeClient, reconcileObj, vmState = setupEnvironment(vm, kvvm, kvvmi, runningAt(makeLauncherPod(kvvmi, time.Now().Add(-time.Hour)), "10"), makeVMIP(), makeVMClass())
 				featureGates = newFeatureGateEnableResourceInPlaceResize()
+
 				reconcile()
+
 				newVM := &v1alpha2.VirtualMachine{}
 				Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)).To(Succeed())
 				expect(newVM, expectation{
@@ -1457,6 +1514,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 		kvvmi.Status.Phase = virtv1.Succeeded
 		kvvmi.DeletionTimestamp = ptr.To(metav1.Now())
 		kvvmi.Finalizers = []string{"test"}
+
 		return kvvmi
 	}
 
@@ -1468,16 +1526,19 @@ var _ = Describe("SyncKvvmHandler", func() {
 			vm := makeVM(v1alpha2.MachineStopped)
 			kvvm := makeKVVM(vm)
 			kvvm.Spec.RunStrategy = ptr.To(runStrategy)
+
 			kvvm.Status.Created = kvvmi != nil
 			if startRequested {
 				kvvm.Status.StateChangeRequests = []virtv1.VirtualMachineStateChangeRequest{{Action: virtv1.StartRequest}}
 			}
+
 			mutateCPUCores(3)(nil, vm, kvvm)
 
 			objs := []client.Object{kvvm, ip, vmClass}
 			if kvvmi != nil {
 				objs = append(objs, kvvmi)
 			}
+
 			fakeClient, reconcileObj, vmState = setupEnvironment(vm, objs...)
 
 			h := NewSyncKvvmHandler(nil, fakeClient, recorder, featuregates.Default(), vmservice.NewMigrationVolumesService(fakeClient, MakeKVVMFromVMSpec, 10*time.Second))
@@ -1486,10 +1547,12 @@ var _ = Describe("SyncKvvmHandler", func() {
 
 			updatedKVVM := &virtv1.VirtualMachine{}
 			Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(kvvm), updatedKVVM)).To(Succeed())
+
 			if expectSynced {
 				Expect(updatedKVVM.Spec.Template.Spec.Domain.CPU).NotTo(BeNil())
 				return
 			}
+
 			Expect(updatedKVVM.Spec.Template.Spec.Domain.CPU).To(BeNil(), "KVVM must not be rewritten while the instance still exists")
 			Expect(result.RequeueAfter).To(BeNumerically(">", 0))
 		},
@@ -1498,6 +1561,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 		Entry("syncs while a completed instance is not deleted yet", virtv1.RunStrategyManual, false, func() *virtv1.VirtualMachineInstance {
 			kvvmi := newEmptyKVVMI(name, namespace)
 			kvvmi.Status.Phase = virtv1.Succeeded
+
 			return kvvmi
 		}(), true),
 		Entry("syncs a KVVM that starts on its own", virtv1.RunStrategyAlways, false, deletingKVVMI(), true),
@@ -1525,10 +1589,12 @@ func newFeatureGate(enabled ...featuregate.Feature) featuregate.FeatureGate {
 
 	gate, setFromMap, err := featuregates.NewUnlocked()
 	Expect(err).NotTo(HaveOccurred())
+
 	featureMap := map[string]bool{}
 	for _, feature := range enabled {
 		featureMap[string(feature)] = true
 	}
+
 	err = setFromMap(featureMap)
 	Expect(err).NotTo(HaveOccurred())
 

@@ -90,6 +90,7 @@ func (m *fakeVolumeAndAccessModesGetter) GetVolumeAndAccessModes(_ context.Conte
 	if m.shouldError {
 		return "", "", fmt.Errorf("mock error")
 	}
+
 	return m.volumeMode, m.accessMode, nil
 }
 
@@ -696,6 +697,7 @@ var _ = Describe("MigrationHandler", func() {
 		Context("when migration is successful", func() {
 			BeforeEach(func() {
 				Expect(fakeClient.Create(ctx, storageClass)).To(Succeed())
+
 				pvc.Status.Capacity = corev1.ResourceList{
 					corev1.ResourceStorage: resource.MustParse("10Gi"),
 				}
@@ -705,6 +707,7 @@ var _ = Describe("MigrationHandler", func() {
 						Mounted: true,
 					},
 				}
+
 				Expect(fakeClient.Create(ctx, pvc)).To(Succeed())
 				Expect(fakeClient.Create(ctx, kvvmi)).To(Succeed())
 			})
@@ -1080,6 +1083,7 @@ var _ = Describe("MigrationHandler", func() {
 			It("should complete migration when the quota rejects the target claim", func() {
 				sourcePVC := newEmptyPVC("source-pvc", "default")
 				withOwner(sourcePVC, vd)
+
 				targetPVC := newLabeledPVC("target-pvc", "default")
 				withOwner(targetPVC, vd)
 				targetPVC.Status = corev1.PersistentVolumeClaimStatus{Phase: corev1.ClaimBound}
@@ -1094,6 +1098,7 @@ var _ = Describe("MigrationHandler", func() {
 									errors.New("exceeded quota: storage-quota"),
 								)
 							}
+
 							return cl.Patch(ctx, obj, p, opts...)
 						},
 					}).Build()
@@ -1159,6 +1164,7 @@ var _ = Describe("MigrationHandler", func() {
 				vd.Status.AttachedToVirtualMachines = []v1alpha2.AttachedVirtualMachine{
 					{Name: "test-vm", Mounted: true},
 				}
+
 				Expect(fakeClient.Create(ctx, vm)).To(Succeed())
 			})
 
@@ -1204,6 +1210,7 @@ var _ = Describe("MigrationHandler", func() {
 					canDelete, reason, err := migrationHandler.canDeletePersistentVolumeClaim(ctx, vd, "target-pvc", targetPVCRole)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(canDelete).To(Equal(expectedCanDelete))
+
 					if !expectedCanDelete {
 						Expect(reason).To(Equal(`The target PersistentVolumeClaim "target-pvc" is still in use by the running VirtualMachine "test-vm".`))
 					}
@@ -1236,6 +1243,7 @@ var _ = Describe("MigrationHandler", func() {
 				vd.Status.AttachedToVirtualMachines = []v1alpha2.AttachedVirtualMachine{
 					{Name: "test-vm", Mounted: true},
 				}
+
 				Expect(fakeClient.Create(ctx, vm)).To(Succeed())
 
 				sourcePVC := newEmptyPVC("source-pvc", "default")
@@ -1281,6 +1289,7 @@ var _ = Describe("MigrationHandler", func() {
 			vd.Status.AttachedToVirtualMachines = []v1alpha2.AttachedVirtualMachine{
 				{Name: "test-vm", Mounted: true},
 			}
+
 			Expect(fakeClient.Create(ctx, vm)).To(Succeed())
 
 			sourcePVC := newEmptyPVC("source-pvc", "default")
@@ -1408,6 +1417,7 @@ var _ = Describe("MigrationHandler", func() {
 func newLabeledPVC(name, namespace string) *corev1.PersistentVolumeClaim {
 	pvc := newEmptyPVC(name, namespace)
 	pvc.Labels = map[string]string{annotations.QuotaExcludeLabel: annotations.QuotaExcludeValue}
+
 	return pvc
 }
 

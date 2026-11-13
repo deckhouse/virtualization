@@ -88,6 +88,7 @@ func (s *SnapshotService) CanFreeze(ctx context.Context, kvvmi *virtv1.VirtualMa
 	if err != nil {
 		return false, err
 	}
+
 	if isFrozen {
 		return false, nil
 	}
@@ -176,6 +177,7 @@ func (s *SnapshotService) canUnfreeze(ctx context.Context, vm *v1alpha2.VirtualM
 		}
 
 		var vdSnapshots v1alpha2.VirtualDiskSnapshotList
+
 		err := s.client.List(ctx, &vdSnapshots,
 			client.InNamespace(vm.Namespace),
 			client.MatchingFields{indexer.IndexFieldVDSnapshotByVD: bdr.Name},
@@ -203,6 +205,7 @@ func (s *SnapshotService) canUnfreeze(ctx context.Context, vm *v1alpha2.VirtualM
 				if err != nil {
 					return false, err
 				}
+
 				if abandoned {
 					continue
 				}
@@ -213,6 +216,7 @@ func (s *SnapshotService) canUnfreeze(ctx context.Context, vm *v1alpha2.VirtualM
 	}
 
 	var vmSnapshots v1alpha2.VirtualMachineSnapshotList
+
 	err := s.client.List(ctx, &vmSnapshots,
 		client.InNamespace(vm.Namespace),
 		client.MatchingFields{indexer.IndexFieldVMSnapshotByVM: vm.Name},
@@ -244,6 +248,7 @@ func (s *SnapshotService) isAbandonedChild(ctx context.Context, vdSnapshot *v1al
 		}
 
 		parent := &v1alpha2.VirtualMachineSnapshot{}
+
 		err := s.client.Get(ctx, types.NamespacedName{Namespace: vdSnapshot.Namespace, Name: ref.Name}, parent)
 		switch {
 		case k8serrors.IsNotFound(err):
@@ -336,6 +341,7 @@ func (s *SnapshotService) Unfreeze(ctx context.Context, kvvmi *virtv1.VirtualMac
 
 func (s *SnapshotService) CreateVolumeSnapshot(ctx context.Context, vs *vsv1.VolumeSnapshot) (*vsv1.VolumeSnapshot, error) {
 	annotations.AddAnnotation(vs, annotations.AnnAllowDelete, "true")
+
 	err := s.client.Create(ctx, vs)
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return nil, err
@@ -395,6 +401,7 @@ func (s *SnapshotService) GetVolumeSnapshot(ctx context.Context, name, namespace
 	if meta.IsNoMatchError(err) {
 		return nil, nil
 	}
+
 	return vs, err
 }
 
@@ -415,6 +422,7 @@ func (s *SnapshotService) GetVirtualMachineInstance(ctx context.Context, vm *v1a
 	if vm == nil {
 		return nil, nil
 	}
+
 	return object.FetchObject(ctx, client.ObjectKeyFromObject(vm), s.client, &virtv1.VirtualMachineInstance{})
 }
 
@@ -494,12 +502,14 @@ func (s *SnapshotService) SyncFSFreezeRequest(ctx context.Context, kvvmi *virtv1
 		if err != nil {
 			return fmt.Errorf("failed to sync kvvmi %s/%s fsFreezeStatus: request: %s: %w", kvvmi.Namespace, kvvmi.Name, request, err)
 		}
+
 		return nil
 	case request == RequestFSUnfreeze && kvvmi.Status.FSFreezeStatus != FSFrozen:
 		err := s.removeAnnFSFreezeRequest(ctx, kvvmi)
 		if err != nil {
 			return fmt.Errorf("failed to sync kvvmi %s/%s fsFreezeStatus: request: %s: %w", kvvmi.Namespace, kvvmi.Name, request, err)
 		}
+
 		return nil
 	default:
 		return fmt.Errorf("failed to sync kvvmi %s/%s fsFreezeStatus: request: %s: %w", kvvmi.Namespace, kvvmi.Name, request, ErrUntrustedFilesystemFrozenCondition)

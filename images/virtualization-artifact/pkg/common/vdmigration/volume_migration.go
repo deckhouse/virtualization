@@ -54,6 +54,7 @@ func IsTargetInKVVM(vd *v1alpha2.VirtualDisk, kvvm *virtv1.VirtualMachine) bool 
 	if vd == nil || vd.Status.MigrationState.TargetPVC == "" || kvvm == nil || kvvm.Spec.Template == nil {
 		return false
 	}
+
 	return slices.ContainsFunc(kvvm.Spec.Template.Spec.Volumes, func(v virtv1.Volume) bool {
 		return v.PersistentVolumeClaim != nil && v.PersistentVolumeClaim.ClaimName == vd.Status.MigrationState.TargetPVC
 	})
@@ -88,6 +89,7 @@ func IsMigrationReverting(vds map[string]*v1alpha2.VirtualDisk) bool {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -95,10 +97,12 @@ func IsMigrationReverting(vds map[string]*v1alpha2.VirtualDisk) bool {
 // would start the migration again.
 func IsRevertedByOtherDisks(vd *v1alpha2.VirtualDisk, vds map[string]*v1alpha2.VirtualDisk, now time.Time) bool {
 	var reverted bool
+
 	for _, other := range vds {
 		if other == nil || other.Name == vd.Name || !other.GetDeletionTimestamp().IsZero() || !InSameMigration(vd, other, now) {
 			continue
 		}
+
 		switch {
 		case IsWaitingForTargetRelease(other), isFailed(other):
 			reverted = true
@@ -106,6 +110,7 @@ func IsRevertedByOtherDisks(vd *v1alpha2.VirtualDisk, vds map[string]*v1alpha2.V
 			return false
 		}
 	}
+
 	return reverted
 }
 
@@ -114,12 +119,14 @@ func IsMigrationCompleting(vds map[string]*v1alpha2.VirtualDisk, now time.Time) 
 		if !IsMigrating(vd) {
 			continue
 		}
+
 		for _, other := range vds {
 			if IsSwitchedToTarget(other) && InSameMigration(vd, other, now) {
 				return true
 			}
 		}
 	}
+
 	return false
 }
 
@@ -136,5 +143,6 @@ func migrationEnd(vd *v1alpha2.VirtualDisk, now time.Time) time.Time {
 	if vd.Status.MigrationState.EndTimestamp.IsZero() {
 		return now
 	}
+
 	return vd.Status.MigrationState.EndTimestamp.Time
 }

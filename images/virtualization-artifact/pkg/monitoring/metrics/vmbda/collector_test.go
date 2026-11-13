@@ -47,6 +47,7 @@ func (s stubIterator) Iter(_ context.Context, h handler) error {
 			return nil
 		}
 	}
+
 	return nil
 }
 
@@ -63,6 +64,7 @@ func collectorOf(attachments ...*v1alpha2.VirtualMachineBlockDeviceAttachment) C
 func registryOf(c Collector) *prometheus.Registry {
 	reg := prometheus.NewRegistry()
 	reg.MustRegister(c)
+
 	return reg
 }
 
@@ -90,10 +92,12 @@ func phaseSeries(name string, current v1alpha2.BlockDeviceAttachmentPhase) strin
 	var b strings.Builder
 	b.WriteString("# HELP d8_virtualization_virtualmachineblockdeviceattachment_status_phase The virtualmachineblockdeviceattachment current phase.\n")
 	b.WriteString("# TYPE d8_virtualization_virtualmachineblockdeviceattachment_status_phase gauge\n")
+
 	for _, p := range attachmentPhases {
 		fmt.Fprintf(&b, "d8_virtualization_virtualmachineblockdeviceattachment_status_phase{name=%q,namespace=\"team-a\",phase=%q,uid=%q} %v\n",
 			name, string(p), "uid-"+name, common.BoolFloat64(p == current))
 	}
+
 	return b.String()
 }
 

@@ -57,10 +57,12 @@ func UntilObjectsDeleted(ctx context.Context, timeout time.Duration, objs ...cli
 		err := observer.WaitForDeleted(ctx, watcher, obj.GetName(), obj.GetNamespace(), timeout,
 			func(ctx context.Context) (bool, error) {
 				current := u.DeepCopy()
+
 				getErr := framework.GetClients().GenericClient().Get(ctx, client.ObjectKeyFromObject(obj), current)
 				if k8serrors.IsNotFound(getErr) {
 					return true, nil
 				}
+
 				return false, getErr
 			})
 		Expect(err).NotTo(HaveOccurred(), "object %s must be removed", extractObjectNamespacedNameString(obj))
@@ -73,11 +75,14 @@ func extractField(obj client.Object, fieldPath string) string {
 	if !ok {
 		return "Unknown"
 	}
+
 	path := strings.Split(fieldPath, ".")
+
 	value, found, err := unstructured.NestedString(u.Object, path...)
 	if err != nil || !found {
 		return "Unknown"
 	}
+
 	return value
 }
 
@@ -136,8 +141,10 @@ func dynamicWatcherFor(gvk schema.GroupVersionKind, namespace string) observer.W
 
 func getTemplateUnstructured(obj client.Object) *unstructured.Unstructured {
 	// Convert the template object to unstructured once
-	var templateUnstructured *unstructured.Unstructured
-	var gvk schema.GroupVersionKind
+	var (
+		templateUnstructured *unstructured.Unstructured
+		gvk                  schema.GroupVersionKind
+	)
 
 	// Handle two possible input formats:
 	// 1. If the object is already unstructured, use it directly with its GVK
@@ -150,6 +157,7 @@ func getTemplateUnstructured(obj client.Object) *unstructured.Unstructured {
 		// Object is a typed struct - convert to unstructured format
 		objMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
 		Expect(err).NotTo(HaveOccurred(), "failed to convert object to unstructured")
+
 		templateUnstructured = &unstructured.Unstructured{Object: objMap}
 
 		// Get GVK from the scheme (which knows about registered types)
@@ -160,12 +168,14 @@ func getTemplateUnstructured(obj client.Object) *unstructured.Unstructured {
 		gvk = gvks[0]
 		templateUnstructured.SetGroupVersionKind(gvk)
 	}
+
 	return templateUnstructured
 }
 
 func extractObjectNamespacedNameString(obj client.Object) string {
 	name := obj.GetName()
 	namespace := obj.GetNamespace()
+
 	divider := ""
 	if namespace != "" {
 		divider = "/"

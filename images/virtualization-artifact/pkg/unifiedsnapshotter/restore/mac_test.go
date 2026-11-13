@@ -31,6 +31,7 @@ func vmmacObj(name, specAddress, statusAddress string) unstructured.Unstructured
 	o := obj(v1alpha2.VirtualMachineMACAddressKind, name)
 	o.Object["spec"] = map[string]interface{}{"address": specAddress}
 	o.Object["status"] = map[string]interface{}{"address": statusAddress}
+
 	return o
 }
 
@@ -45,11 +46,14 @@ func vmWithNetworks(specLinks, statusLinks []string) unstructured.Unstructured {
 		if i == 0 {
 			network["type"] = v1alpha2.NetworksTypeMain
 		}
+
 		if link != "" {
 			network["virtualMachineMACAddressName"] = link
 		}
+
 		specNetworks = append(specNetworks, network)
 	}
+
 	o.Object["spec"] = map[string]interface{}{"networks": specNetworks}
 
 	statusNetworks := make([]interface{}, 0, len(statusLinks))
@@ -58,8 +62,10 @@ func vmWithNetworks(specLinks, statusLinks []string) unstructured.Unstructured {
 		if link != "" {
 			network["virtualMachineMACAddressName"] = link
 		}
+
 		statusNetworks = append(statusNetworks, network)
 	}
+
 	o.Object["status"] = map[string]interface{}{"networks": statusNetworks}
 
 	return o
@@ -67,24 +73,29 @@ func vmWithNetworks(specLinks, statusLinks []string) unstructured.Unstructured {
 
 func macLinks(t *testing.T, vm unstructured.Unstructured) []string {
 	t.Helper()
+
 	networks, _, err := unstructured.NestedSlice(vm.Object, "spec", "networks")
 	if err != nil {
 		t.Fatalf("read spec.networks: %v", err)
 	}
+
 	links := make([]string, 0, len(networks))
 	for _, n := range networks {
 		name, _ := n.(map[string]interface{})["virtualMachineMACAddressName"].(string)
 		links = append(links, name)
 	}
+
 	return links
 }
 
 func specAddress(t *testing.T, o unstructured.Unstructured) string {
 	t.Helper()
+
 	address, _, err := unstructured.NestedString(o.Object, "spec", "address")
 	if err != nil {
 		t.Fatalf("read spec.address: %v", err)
 	}
+
 	return address
 }
 
@@ -103,6 +114,7 @@ func TestApplyCapturedMACAddresses_PinsAllocatedAddresses(t *testing.T) {
 	if got := specAddress(t, objs[0]); got != "be:5e:2b:ae:c7:b3" {
 		t.Errorf("spec.address = %q, want the allocated be:5e:2b:ae:c7:b3", got)
 	}
+
 	if got := specAddress(t, objs[1]); got != "be:5e:2b:c4:ab:d1" {
 		t.Errorf("spec.address = %q, want the allocated be:5e:2b:c4:ab:d1", got)
 	}
@@ -115,6 +127,7 @@ func TestApplyCapturedMACAddresses_KeepsAnExplicitAddress(t *testing.T) {
 	if err := applyCapturedMACAddresses(objs); err != nil {
 		t.Fatalf("applyCapturedMACAddresses: %v", err)
 	}
+
 	if got := specAddress(t, objs[0]); got != "be:5e:2b:00:00:01" {
 		t.Errorf("spec.address = %q, want be:5e:2b:00:00:01", got)
 	}
@@ -145,6 +158,7 @@ func TestApplyCapturedMACAddresses_RelinksInterfacesWithNoNameInSpec(t *testing.
 	}
 
 	got := macLinks(t, objs[0])
+
 	want := []string{"", "vm-auto-1", "vm-auto-2"}
 	for i := range want {
 		if got[i] != want[i] {
@@ -169,6 +183,7 @@ func TestApplyCapturedMACAddresses_UnlinksWhatWasNotCaptured(t *testing.T) {
 	}
 
 	got := macLinks(t, objs[0])
+
 	want := []string{"", "", "vm-auto-2"}
 	for i := range want {
 		if got[i] != want[i] {
@@ -233,6 +248,7 @@ func TestCompileVirtualMachineSnapshot_KeepsTheCapturedMACAddresses(t *testing.T
 	}
 
 	var vm, vmmac *unstructured.Unstructured
+
 	for i := range objs {
 		switch objs[i].GetKind() {
 		case v1alpha2.VirtualMachineKind:
@@ -241,6 +257,7 @@ func TestCompileVirtualMachineSnapshot_KeepsTheCapturedMACAddresses(t *testing.T
 			vmmac = &objs[i]
 		}
 	}
+
 	if vm == nil || vmmac == nil {
 		t.Fatal("compiled output is missing the virtual machine or its MAC address")
 	}
@@ -248,9 +265,11 @@ func TestCompileVirtualMachineSnapshot_KeepsTheCapturedMACAddresses(t *testing.T
 	if got := specAddress(t, *vmmac); got != "be:5e:2b:ae:c7:b3" {
 		t.Errorf("spec.address = %q, want the captured be:5e:2b:ae:c7:b3", got)
 	}
+
 	if _, found, _ := unstructured.NestedMap(vmmac.Object, "status"); found {
 		t.Error("status survived into the restore output")
 	}
+
 	if got := macLinks(t, *vm); got[1] != "vm-auto-1" {
 		t.Errorf("spec.networks[1].virtualMachineMACAddressName = %q, want vm-auto-1", got[1])
 	}

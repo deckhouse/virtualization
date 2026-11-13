@@ -56,9 +56,11 @@ func TestReconcileStorageProfileCreatesSnapshotStrategy(t *testing.T) {
 	if err := c.Get(ctx, types.NamespacedName{Name: sc.Name}, sp); err != nil {
 		t.Fatalf("storageprofile not found: %v", err)
 	}
+
 	if sp.Status.CloneStrategy == nil || *sp.Status.CloneStrategy != cdiv1.CloneStrategySnapshot {
 		t.Fatalf("unexpected clone strategy: %#v", sp.Status.CloneStrategy)
 	}
+
 	if sp.Status.SnapshotClass == nil || *sp.Status.SnapshotClass != vsc.Name {
 		t.Fatalf("unexpected snapshot class: %#v", sp.Status.SnapshotClass)
 	}
@@ -90,12 +92,15 @@ func TestReconcileStorageProfileUsesSnapshotForSDSReplicated(t *testing.T) {
 	if err := c.Get(ctx, types.NamespacedName{Name: sc.Name}, sp); err != nil {
 		t.Fatalf("storageprofile not found: %v", err)
 	}
+
 	if sp.Spec.CloneStrategy == nil || *sp.Spec.CloneStrategy != cdiv1.CloneStrategySnapshot {
 		t.Fatalf("spec clone strategy must stay snapshot: %#v", sp.Spec.CloneStrategy)
 	}
+
 	if sp.Status.CloneStrategy == nil || *sp.Status.CloneStrategy != cdiv1.CloneStrategySnapshot {
 		t.Fatalf("unexpected clone strategy: %#v", sp.Status.CloneStrategy)
 	}
+
 	if sp.Status.SnapshotClass == nil || *sp.Status.SnapshotClass != vsc.Name {
 		t.Fatalf("unexpected snapshot class: %#v", sp.Status.SnapshotClass)
 	}
@@ -121,6 +126,7 @@ func TestReconcileStorageProfileHonorsStorageClassAnnotation(t *testing.T) {
 	if err := c.Get(ctx, types.NamespacedName{Name: sc.Name}, sp); err != nil {
 		t.Fatalf("storageprofile not found: %v", err)
 	}
+
 	if sp.Status.CloneStrategy == nil || *sp.Status.CloneStrategy != cdiv1.CloneStrategyCsiClone {
 		t.Fatalf("unexpected clone strategy: %#v", sp.Status.CloneStrategy)
 	}
@@ -140,6 +146,7 @@ func TestReconcileStorageProfileRequeuesOnStaleCacheCreate(t *testing.T) {
 				if _, ok := obj.(*storagev1alpha1.StorageProfile); ok {
 					return k8serrors.NewNotFound(schema.GroupResource{Group: storagev1alpha1.SchemeGroupVersion.Group, Resource: "storageprofiles"}, key.Name)
 				}
+
 				return cl.Get(ctx, key, obj, opts...)
 			},
 		}).Build()
@@ -149,6 +156,7 @@ func TestReconcileStorageProfileRequeuesOnStaleCacheCreate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("an already-existing profile behind a stale cache must requeue, not fail: %v", err)
 	}
+
 	if res.RequeueAfter == 0 {
 		t.Fatalf("expected a requeue to retry after the cache catches up, got %#v", res)
 	}
@@ -156,15 +164,19 @@ func TestReconcileStorageProfileRequeuesOnStaleCacheCreate(t *testing.T) {
 
 func storageProfileTestScheme(t *testing.T) *runtime.Scheme {
 	t.Helper()
+
 	scheme := runtime.NewScheme()
 	if err := storagev1.AddToScheme(scheme); err != nil {
 		t.Fatal(err)
 	}
+
 	if err := vsv1.AddToScheme(scheme); err != nil {
 		t.Fatal(err)
 	}
+
 	if err := storagev1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatal(err)
 	}
+
 	return scheme
 }

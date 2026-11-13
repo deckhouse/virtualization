@@ -74,6 +74,7 @@ func (v *FirstBlockDeviceValidator) ValidateCVI(ctx context.Context, name string
 	if err != nil {
 		return err
 	}
+
 	if cvi == nil {
 		return nil
 	}
@@ -94,6 +95,7 @@ func (v *FirstBlockDeviceValidator) ValidateVI(ctx context.Context, name, namesp
 	if err != nil {
 		return err
 	}
+
 	if vi == nil {
 		return nil
 	}

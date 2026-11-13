@@ -98,6 +98,7 @@ func TestProgress_StallBump(t *testing.T) {
 	})
 
 	var progress int32
+
 	for i := 1; i <= 5; i++ {
 		stallDuration := time.Duration(i) * time.Duration(bulkStallSeconds+2) * time.Second
 		progress = p.SyncProgress(Record{
@@ -306,6 +307,7 @@ func TestProgress_SmoothGrowthOverMultipleSyncs(t *testing.T) {
 	start := now.Add(-10 * time.Second)
 
 	var values []int32
+
 	prev := SyncRangeMin
 	totalMiB := 1024.0
 	remaining := 900.0
@@ -317,6 +319,7 @@ func TestProgress_SmoothGrowthOverMultipleSyncs(t *testing.T) {
 
 		iter := uint32(0)
 		hasIter := false
+
 		if i >= 5 {
 			iter = uint32(i - 4)
 			hasIter = true
@@ -346,12 +349,14 @@ func TestProgress_SmoothGrowthOverMultipleSyncs(t *testing.T) {
 	}
 
 	maxJump := int32(0)
+
 	for i := 1; i < len(values); i++ {
 		jump := values[i] - values[i-1]
 		if jump > maxJump {
 			maxJump = jump
 		}
 	}
+
 	if maxJump > 15 {
 		t.Fatalf("max single-step jump too large: %d (values: %v)", maxJump, values)
 	}
@@ -437,12 +442,14 @@ func TestObserveRemaining_EMA(t *testing.T) {
 	state := State{SmoothedRemaining: 100}
 
 	observeRemaining(Record{DataRemainingMiB: 80}, &state)
+
 	if state.SmoothedRemaining >= 100 || state.SmoothedRemaining <= 80 {
 		t.Fatalf("expected EMA to move smoothed remaining between 80 and 100, got=%v", state.SmoothedRemaining)
 	}
 
 	prev := state.SmoothedRemaining
 	observeRemaining(Record{DataRemainingMiB: 120}, &state)
+
 	if state.SmoothedRemaining <= prev {
 		t.Fatalf("expected EMA to increase smoothed remaining from %v, got=%v", prev, state.SmoothedRemaining)
 	}
@@ -458,12 +465,14 @@ func TestProgress_AdaptiveStallWindow(t *testing.T) {
 	}
 
 	state.Progress = int32(iterativeCeiling) - 2
+
 	w = stallWindow(record, &state, true)
 	if w != 24.0 {
 		t.Fatalf("expected late-stage stall window=24, got=%v", w)
 	}
 
 	state.Progress = int32(iterativeCeiling) - 4
+
 	w = stallWindow(record, &state, true)
 	if w != 14.0 {
 		t.Fatalf("expected near-end stall window=14, got=%v", w)

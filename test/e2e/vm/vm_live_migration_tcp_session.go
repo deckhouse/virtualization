@@ -103,8 +103,10 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", Label(label.SIGCompute
 
 			iperfServerObs = vmobs.StartObserver(ctx, f, iperfServer)
 			iperfServerObs.Never(vmobs.BeFailed())
+
 			iperfClientObs := vmobs.StartObserver(ctx, f, iperfClient)
 			iperfClientObs.Never(vmobs.BeFailed())
+
 			err = iperfServerObs.WaitFor(vmobs.BeRunning(), framework.LongTimeout)
 			Expect(err).NotTo(HaveOccurred())
 			err = iperfClientObs.WaitFor(vmobs.BeRunning(), framework.LongTimeout)
@@ -128,12 +130,14 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", Label(label.SIGCompute
 		By("Migrate the iPerf server", func() {
 			vmop := util.MigrateVirtualMachine(f, iperfServer)
 			util.UntilVMOPMigrationSucceeded(ctx, vmop, framework.MaxTimeout)
+
 			err := iperfServerObs.WaitFor(vmobs.HaveMigrationSucceeded(), framework.MaxTimeout)
 			if err != nil {
 				// TODO: remove temporary migration skip logic when both known issues are
 				// fixed: kubevirt "client socket is closed" and Volume(s)UpdateError.
 				util.SkipIfKnownMigrationFailureWithContext(ctx, iperfServer)
 			}
+
 			Expect(err).NotTo(HaveOccurred())
 		})
 

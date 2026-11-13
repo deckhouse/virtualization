@@ -114,6 +114,7 @@ func newOptions(opts ...Option) *options {
 	for _, opt := range opts {
 		opt(o)
 	}
+
 	return o
 }
 
@@ -130,6 +131,7 @@ func WithSystemNodeToleration() Option {
 		if o.nodePlacement == nil {
 			o.nodePlacement = &provisioner.NodePlacement{}
 		}
+
 		provisioner.AddTolerationForSystemNodes(o.nodePlacement)
 	}
 }
@@ -144,6 +146,7 @@ func (u *uploaderService) Apply(ctx context.Context, obj client.Object, sup supp
 	if err != nil {
 		return fmt.Errorf("build uploader pod: %w", err)
 	}
+
 	pod, err = createOrGet(ctx, u.client, pod)
 	if err != nil {
 		return fmt.Errorf("ensure uploader pod: %w", err)
@@ -177,6 +180,7 @@ func (u *uploaderService) Apply(ctx context.Context, obj client.Object, sup supp
 		if err = u.validateAPIGatewaySettings(); err != nil {
 			return err
 		}
+
 		if err = u.apply(ctx, f.HTTPRoute(uploadPath)); err != nil {
 			return fmt.Errorf("ensure uploader httproute: %w", err)
 		}
@@ -214,6 +218,7 @@ func (u *uploaderService) EnsureExposure(ctx context.Context, obj client.Object,
 	if err != nil {
 		return err
 	}
+
 	if !drifted {
 		return nil
 	}
@@ -234,9 +239,11 @@ func (u *uploaderService) EnsureExposure(ctx context.Context, obj client.Object,
 		if err = u.validateAPIGatewaySettings(); err != nil {
 			return err
 		}
+
 		if err = u.apply(ctx, f.HTTPRoute(uploadPath)); err != nil {
 			return fmt.Errorf("reconcile uploader httproute: %w", err)
 		}
+
 		return nil
 	}
 
@@ -244,6 +251,7 @@ func (u *uploaderService) EnsureExposure(ctx context.Context, obj client.Object,
 	if err = u.apply(ctx, ing); err != nil {
 		return fmt.Errorf("reconcile uploader ingress: %w", err)
 	}
+
 	if err = supplements.EnsureForIngress(ctx, u.client, sup, ing, u.dvcrSettings); err != nil {
 		return err
 	}
@@ -269,6 +277,7 @@ func (u *uploaderService) exposureDrifted(ctx context.Context, sup supplements.G
 
 		expectedHost := u.dvcrSettings.UploaderListenerSetSettings.Host
 		uploadPath := route.GetAnnotations()[annotations.AnnUploadPath]
+
 		return uploadPath == "" || len(hostnames) == 0 || hostnames[0] != expectedHost, uploadPath, nil
 	}
 
@@ -291,6 +300,7 @@ func (u *uploaderService) exposureDrifted(ctx context.Context, sup supplements.G
 		if err != nil {
 			return false, "", err
 		}
+
 		if tlsSecret == nil {
 			return true, uploadPath, nil
 		}
@@ -307,9 +317,11 @@ func (u *uploaderService) uploadPath(ctx context.Context, sup supplements.Genera
 	if err != nil {
 		return "", err
 	}
+
 	if exposure.UploadPath != "" {
 		return exposure.UploadPath, nil
 	}
+
 	return GenerateUploadPath(), nil
 }
 
@@ -327,6 +339,7 @@ func (u *uploaderService) GetInClusterURL(svc *corev1.Service) string {
 	if svc == nil || svc.Spec.ClusterIP == "" {
 		return ""
 	}
+
 	return fmt.Sprintf("http://%s/upload", svc.Spec.ClusterIP)
 }
 
@@ -379,6 +392,7 @@ func (u *uploaderService) GetExposure(ctx context.Context, sup supplements.Gener
 		}
 
 		anns := route.GetAnnotations()
+
 		return UploaderExposure{
 			Required:   required,
 			Exists:     true,
@@ -416,14 +430,17 @@ func (u *uploaderService) Cleanup(ctx context.Context, sup supplements.Generator
 	if err != nil {
 		return false, "", err
 	}
+
 	svc, err := u.GetService(ctx, sup)
 	if err != nil {
 		return false, "", err
 	}
+
 	ing, err := u.getIngress(ctx, sup)
 	if err != nil {
 		return false, "", err
 	}
+
 	route, err := u.getHTTPRoute(ctx, sup)
 	if err != nil {
 		return false, "", err
@@ -447,11 +464,13 @@ func (u *uploaderService) Cleanup(ctx context.Context, sup supplements.Generator
 	}
 
 	var reasons []string
+
 	for _, target := range targets {
 		deleted, err := u.deleteIfPresent(ctx, target.obj)
 		if err != nil {
 			return false, "", err
 		}
+
 		if deleted {
 			reasons = append(reasons, service.CleanUpReasonForObject(target.role, target.obj))
 		}
@@ -483,6 +502,7 @@ func (u *uploaderService) newFactory(sup supplements.Generator, ownerRef metav1.
 
 func (u *uploaderService) listenerSetSettings() ListenerSetSettings {
 	s := u.dvcrSettings.UploaderListenerSetSettings
+
 	return ListenerSetSettings{
 		Host:         s.Host,
 		Name:         s.Name,
@@ -502,6 +522,7 @@ func (u *uploaderService) networkPolicySettings(sup supplements.Generator) *Netw
 	} else {
 		ingressNS = u.dvcrSettings.UploaderIngressNamespace
 	}
+
 	return &NetworkPolicySettings{
 		ControllerNamespace: u.dvcrSettings.ControllerNamespace,
 		IngressNamespace:    ingressNS,
@@ -516,6 +537,7 @@ func (u *uploaderService) validateAPIGatewaySettings() error {
 	if s.Host == "" || s.Name == "" || s.Namespace == "" || s.ListenerName == "" || u.dvcrSettings.UploaderListenerSetSettings.TLSSecretName == "" {
 		return fmt.Errorf("the %s feature gate is enabled but the uploader ListenerSet is not configured", featuregates.UploadViaAPIGateway)
 	}
+
 	return nil
 }
 
@@ -576,11 +598,14 @@ func createOrGet[T client.Object](ctx context.Context, c client.Client, obj T) (
 	if err == nil {
 		return obj, nil
 	}
+
 	if k8serrors.IsAlreadyExists(err) {
 		err = c.Get(ctx, client.ObjectKeyFromObject(obj), obj)
 		return obj, err
 	}
+
 	var zero T
+
 	return zero, err
 }
 
@@ -600,12 +625,15 @@ func (u *uploaderService) apply(ctx context.Context, obj client.Object) error {
 func (u *uploaderService) getHTTPRoute(ctx context.Context, sup supplements.Generator) (*unstructured.Unstructured, error) {
 	route := &unstructured.Unstructured{}
 	route.SetGroupVersionKind(httpRouteGVK)
+
 	if err := u.client.Get(ctx, sup.UploaderHTTPRoute(), route); err != nil {
 		if k8serrors.IsNotFound(err) || meta.IsNoMatchError(err) {
 			return nil, nil
 		}
+
 		return nil, err
 	}
+
 	return route, nil
 }
 
@@ -654,11 +682,14 @@ func (u *uploaderService) deleteIfPresent(ctx context.Context, obj client.Object
 	if obj == nil || reflect.ValueOf(obj).IsNil() {
 		return false, nil
 	}
+
 	if err := u.client.Delete(ctx, obj); err != nil {
 		if k8serrors.IsNotFound(err) || meta.IsNoMatchError(err) {
 			return false, nil
 		}
+
 		return false, err
 	}
+
 	return true, nil
 }

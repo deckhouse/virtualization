@@ -60,6 +60,7 @@ func (h *usbDeviceHandlerBase) getResourceClaimTemplate(
 	templateName string,
 ) (*resourcev1.ResourceClaimTemplate, error) {
 	template := &resourcev1.ResourceClaimTemplate{}
+
 	key := types.NamespacedName{
 		Name:      templateName,
 		Namespace: namespace,
@@ -67,6 +68,7 @@ func (h *usbDeviceHandlerBase) getResourceClaimTemplate(
 	if err := h.client.Get(ctx, key, template); err != nil {
 		return nil, fmt.Errorf("failed to get ResourceClaimTemplate: %w", err)
 	}
+
 	return template, nil
 }
 
@@ -74,15 +76,19 @@ func (h *usbDeviceHandlerBase) isUSBDeviceReady(usbDevice *v1alpha2.USBDevice) b
 	if usbDevice.Status.Attributes.VendorID == "" || usbDevice.Status.Attributes.ProductID == "" {
 		return false
 	}
+
 	if usbDevice.Status.NodeName == "" {
 		return false
 	}
+
 	readyCondition, found := conditions.GetCondition(usbdevicecondition.ReadyType, usbDevice.Status.Conditions)
+
 	return found && readyCondition.Status == metav1.ConditionTrue
 }
 
 func (h *usbDeviceHandlerBase) hostDeviceMapsByName(kvvmi *virtv1.VirtualMachineInstance) (map[string]struct{}, map[string]struct{}) {
 	hostDeviceReadyByName := make(map[string]struct{})
+
 	hostDeviceExistsByName := make(map[string]struct{})
 	if kvvmi == nil || kvvmi.Status.DeviceStatus == nil {
 		return hostDeviceReadyByName, hostDeviceExistsByName
@@ -114,6 +120,7 @@ func (h *usbDeviceHandlerBase) attachUSBDevice(
 		ResourceClaimTemplateName: templateName,
 		RequestName:               requestName,
 	}
+
 	return h.virtClient.VirtualMachines(vm.Namespace).AddResourceClaim(ctx, vm.Name, opts)
 }
 
@@ -125,6 +132,7 @@ func (h *usbDeviceHandlerBase) detachUSBDevice(
 	opts := subv1alpha2.VirtualMachineRemoveResourceClaim{
 		Name: usbDeviceName,
 	}
+
 	return h.virtClient.VirtualMachines(vm.Namespace).RemoveResourceClaim(ctx, vm.Name, opts)
 }
 
@@ -132,6 +140,7 @@ func (h *usbDeviceHandlerBase) getUSBAddressFromKVVMI(deviceName string, kvvmi *
 	if kvvmi == nil || kvvmi.Status.DeviceStatus == nil {
 		return nil
 	}
+
 	for _, st := range kvvmi.Status.DeviceStatus.HostDeviceStatuses {
 		if st.Name != deviceName {
 			continue
@@ -143,6 +152,7 @@ func (h *usbDeviceHandlerBase) getUSBAddressFromKVVMI(deviceName string, kvvmi *
 
 		return parseUSBAddress(st.Address)
 	}
+
 	return nil
 }
 
@@ -153,6 +163,7 @@ func parseUSBAddress(address string) *v1alpha2.USBAddress {
 	}
 
 	busPart := strings.TrimSpace(parts[0])
+
 	portPart := strings.TrimSpace(parts[1])
 	if busPart == "" || portPart == "" {
 		return nil
@@ -185,5 +196,6 @@ func (h *usbDeviceHandlerBase) hasPendingMigrationOp(ctx context.Context, s stat
 			return true, nil
 		}
 	}
+
 	return false, nil
 }

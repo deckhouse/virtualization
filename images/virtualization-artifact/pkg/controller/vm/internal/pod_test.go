@@ -88,6 +88,7 @@ var _ = Describe("PodHandler", func() {
 		pod := &corev1.Pod{}
 		err := fakeClient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, pod)
 		Expect(err).NotTo(HaveOccurred())
+
 		return controllerutil.ContainsFinalizer(pod, v1alpha2.FinalizerPodProtection)
 	}
 

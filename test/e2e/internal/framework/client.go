@@ -68,12 +68,14 @@ type retryOnDialError struct {
 
 func (t retryOnDialError) RoundTrip(req *http.Request) (*http.Response, error) {
 	deadline := time.Now().Add(t.window)
+
 	resp, err := t.next.RoundTrip(req)
 	for attempt := 2; isDialError(err) && time.Now().Before(deadline); attempt++ {
 		// The transport closes a sent body. Without GetBody it cannot be sent again.
 		if req.Body != nil && req.Body != http.NoBody && req.GetBody == nil {
 			return resp, err
 		}
+
 		select {
 		case <-req.Context().Done():
 			return resp, err
@@ -86,12 +88,14 @@ func (t retryOnDialError) RoundTrip(req *http.Request) (*http.Response, error) {
 			if bodyErr != nil {
 				return resp, err
 			}
+
 			retry.Body = body
 		}
 		// The log line shows in the report which requests were repeated.
 		GinkgoWriter.Printf("retryOnDialError: %s %s, attempt %d after: %v\n", req.Method, req.URL.Path, attempt, err)
 		resp, err = t.next.RoundTrip(retry)
 	}
+
 	return resp, err
 }
 
@@ -107,6 +111,7 @@ var clientsOnce sync.Once
 func GetClients() Clients {
 	onceLoadConfig()
 	InitClients()
+
 	return clients
 }
 
@@ -150,6 +155,7 @@ func (c Clients) ControllerSAClient() client.Client {
 func (c Clients) ImpersonatedClient(user string, groups ...string) (client.Client, error) {
 	cfg := rest.CopyConfig(c.restConfig)
 	cfg.Impersonate = rest.ImpersonationConfig{UserName: user, Groups: groups}
+
 	return client.New(cfg, client.Options{Scheme: c.scheme})
 }
 
@@ -183,26 +189,33 @@ func InitClients() {
 		if err != nil {
 			panic(err)
 		}
+
 		restConfig.Wrap(func(rt http.RoundTripper) http.RoundTripper {
 			return retryOnDialError{next: rt, window: dialRetryWindow, interval: dialRetryInterval}
 		})
+
 		clients.virtClient, err = kubeclient.GetClientFromRESTConfig(restConfig)
 		if err != nil {
 			panic(err)
 		}
+
 		clients.kubeClient, err = kubernetes.NewForConfig(restConfig)
 		if err != nil {
 			panic(err)
 		}
+
 		clients.dynamic, err = dynamic.NewForConfig(restConfig)
 		if err != nil {
 			panic(err)
 		}
+
 		clients.rewriteClient = rewrite.NewRewriteClient(clients.dynamic)
+
 		clients.kubectl, err = kubectl.NewKubectl(kubectl.KubectlConf(conf.ClusterTransport))
 		if err != nil {
 			panic(err)
 		}
+
 		clients.d8virtualization, err = d8.NewD8Virtualization(d8.D8VirtualizationConf(conf.ClusterTransport))
 		if err != nil {
 			panic(err)
@@ -225,16 +238,19 @@ func InitClients() {
 				panic(err)
 			}
 		}
+
 		clients.client, err = client.New(restConfig, client.Options{Scheme: scheme})
 		if err != nil {
 			panic(err)
 		}
+
 		clients.restConfig, clients.scheme = restConfig, scheme
 
 		controllerSAConfig := rest.CopyConfig(restConfig)
 		controllerSAConfig.Impersonate = rest.ImpersonationConfig{
 			UserName: ControllerServiceAccountUser,
 		}
+
 		clients.controllerSAClient, err = client.New(controllerSAConfig, client.Options{Scheme: scheme})
 		if err != nil {
 			panic(err)

@@ -59,11 +59,14 @@ func (r PortForwardREST) Connect(ctx context.Context, name string, opts runtime.
 	if !ok {
 		return nil, fmt.Errorf("invalid options object: %#v", opts)
 	}
+
 	location, transport, err := PortForwardLocation(ctx, r.vmLister, name, options, r.kubevirt, r.proxyCertManager)
 	if err != nil {
 		return nil, err
 	}
+
 	handler := newThrottledUpgradeAwareProxyHandler(location, transport, true, responder, r.kubevirt.ServiceAccount)
+
 	return handler, nil
 }
 
@@ -86,6 +89,7 @@ func PortForwardLocation(
 	proxyCertManager certmanager.CertificateManager,
 ) (*url.URL, *http.Transport, error) {
 	streamPath := buildPortForwardResourcePath(opts)
+
 	return streamLocation(
 		ctx,
 		getter,

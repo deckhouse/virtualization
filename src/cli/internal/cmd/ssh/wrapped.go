@@ -48,6 +48,7 @@ func WarnDeprecatedSSHFlags(cmd *cobra.Command) {
 	if cmd.Flags().Changed(wrapLocalSSHFlag) {
 		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Warning: --%s is deprecated and has no effect; local SSH/SCP client is always used.\n", wrapLocalSSHFlag)
 	}
+
 	if cmd.Flags().Changed(additionalLocalOpts) {
 		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Warning: --%s is deprecated; use --%s instead.\n", additionalLocalOpts, additionalOpts)
 	}
@@ -61,6 +62,7 @@ func flattenSSHArgs(additionalArgs []string) []string {
 	for _, entry := range additionalArgs {
 		flat = append(flat, strings.Fields(entry)...)
 	}
+
 	return flat
 }
 
@@ -71,12 +73,15 @@ func RunLocalClient(cmd *cobra.Command, namespace, name string, options *SSHOpti
 	if len(options.AdditionalSSHOptions) > 0 {
 		args = append(args, flattenSSHArgs(options.AdditionalSSHOptions)...)
 	}
+
 	if len(options.AdditionalSSHLocalOptions) > 0 {
 		args = append(args, flattenSSHArgs(options.AdditionalSSHLocalOptions)...)
 	}
+
 	if options.KnownHostsFilePathProvided {
 		args = append(args, "-o", "UserKnownHostsFile="+options.KnownHostsFilePath)
 	}
+
 	if options.IdentityFilePathProvided {
 		args = append(args, "-i", options.IdentityFilePath)
 	}
@@ -97,10 +102,12 @@ func buildProxyCommandOption(cmd *cobra.Command, namespace, name string, port in
 	globalFlags := clientconfig.ForwardedFlags(cmd, clientconfig.ShellQuote)
 
 	parents := make([]string, 0, 2)
+
 	for cmd.HasParent() {
 		cmd = cmd.Parent()
 		parents = append(parents, cmd.Name())
 	}
+
 	parents[len(parents)-1] = os.Args[0]
 	pcmd := strings.Builder{}
 
@@ -132,6 +139,7 @@ func (o *SSH) buildSSHTarget(namespace, name string) (opts []string) {
 		target.WriteString(o.options.SSHUsername)
 		target.WriteRune('@')
 	}
+
 	target.WriteString(name)
 	target.WriteRune('.')
 	target.WriteString(namespace)
@@ -140,5 +148,6 @@ func (o *SSH) buildSSHTarget(namespace, name string) (opts []string) {
 	if o.command != "" {
 		opts = append(opts, o.command)
 	}
+
 	return opts
 }

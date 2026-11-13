@@ -47,14 +47,17 @@ var (
 // are not available, and then the vulnerability check is skipped.
 func check(releases []Release, changelogDir string) []string {
 	var problems []string
+
 	add := func(format string, args ...any) {
 		problems = append(problems, fmt.Sprintf(format, args...))
 	}
 
 	seen := map[string]bool{}
 	previous := []int(nil)
+
 	for i := range releases {
 		release := &releases[i]
+
 		where := release.Version
 		if where == "" {
 			add("release %d: no version", i+1)
@@ -62,16 +65,20 @@ func check(releases []Release, changelogDir string) []string {
 		} else if !versionRe.MatchString(where) {
 			add("%s: not a version, expected vX.Y.Z", where)
 		}
+
 		if release.Version != "" {
 			if seen[release.Version] {
 				add("%s: the version appears twice", where)
 			}
+
 			seen[release.Version] = true
 		}
+
 		current := versionKey(release.Version)
 		if previous != nil && current != nil && !less(current, previous) {
 			add("%s: releases go from the newest to the oldest", where)
 		}
+
 		if current != nil {
 			previous = current
 		}
@@ -79,6 +86,7 @@ func check(releases []Release, changelogDir string) []string {
 		if _, err := release.date(); err != nil {
 			add("%s: %v", where, err)
 		}
+
 		if changelogDir != "" {
 			problems = append(problems, checkAdvisories(release, changelogDir)...)
 		}
@@ -96,16 +104,19 @@ func check(releases []Release, changelogDir string) []string {
 			if section == nil {
 				continue
 			}
+
 			key := sections[index].Key
 			if section.empty() {
 				add("%s/%s: an empty section, remove it", where, key)
 				continue
 			}
+
 			known, unknown := section.groupsInOrder()
 			if len(unknown) > 0 {
 				add("%s/%s: unknown groups %v, expected one of %v", where, key,
 					unknown, groupKeys())
 			}
+
 			for _, group := range groups {
 				if items, ok := section.Groups[group.Key]; ok && len(items) == 0 {
 					add("%s/%s/%s: an empty group, remove it", where, key, group.Key)
@@ -116,6 +127,7 @@ func check(releases []Release, changelogDir string) []string {
 			for _, item := range section.Items {
 				problems = append(problems, checkItem(where+"/"+key, item)...)
 			}
+
 			for _, group := range append(known, unknown...) {
 				for _, item := range section.Groups[group] {
 					problems = append(problems, checkItem(where+"/"+key+"/"+group, item)...)
@@ -123,6 +135,7 @@ func check(releases []Release, changelogDir string) []string {
 			}
 		}
 	}
+
 	return problems
 }
 
@@ -132,12 +145,14 @@ func check(releases []Release, changelogDir string) []string {
 // vulnerability fixes has to say so.
 func checkAdvisories(release *Release, changelogDir string) []string {
 	path := filepath.Join(changelogDir, "CHANGELOG-"+release.Version+".yml")
+
 	changelog, err := os.ReadFile(path)
 	if err != nil {
 		return nil // a release without a generated changelog: nothing to compare with
 	}
 
 	named := map[string]bool{}
+
 	for _, section := range release.bySection() {
 		for _, item := range section.allItems() {
 			for _, id := range advisoryRe.FindAllString(item.En+" "+item.Ru, -1) {
@@ -147,6 +162,7 @@ func checkAdvisories(release *Release, changelogDir string) []string {
 	}
 
 	var missing []string
+
 	seen := map[string]bool{}
 	for _, id := range advisoryRe.FindAllString(string(changelog), -1) {
 		if !named[id] && !seen[id] {
@@ -154,10 +170,13 @@ func checkAdvisories(release *Release, changelogDir string) []string {
 			missing = append(missing, id)
 		}
 	}
+
 	if len(missing) == 0 {
 		return nil
 	}
+
 	sort.Strings(missing)
+
 	return []string{fmt.Sprintf("%s: %s lists %s, and the notes do not name them; a "+
 		"vulnerability fix is announced in every release that carries it",
 		release.Version, filepath.Base(path), strings.Join(missing, ", "))}
@@ -165,6 +184,7 @@ func checkAdvisories(release *Release, changelogDir string) []string {
 
 func checkItem(where string, item Item) []string {
 	var problems []string
+
 	report := func(problem, text string) {
 		problems = append(problems, fmt.Sprintf("%s: %s:\n      %s", where, problem, cut(text)))
 	}
@@ -174,11 +194,13 @@ func checkItem(where string, item Item) []string {
 	} else if hasCyrillic(item.En) {
 		report("Cyrillic in the en text, it reaches the Console as is", item.En)
 	}
+
 	if strings.TrimSpace(item.Ru) == "" {
 		report("an item has no ru text", item.En)
 	} else if !hasCyrillic(item.Ru) {
 		report("an item is not translated", item.Ru)
 	}
+
 	for _, text := range []string{item.En, item.Ru} {
 		if domainRe.MatchString(text) {
 			report("a link with a domain, release notes link to documentation by path", text)
@@ -193,6 +215,7 @@ func checkItem(where string, item Item) []string {
 			}
 		}
 	}
+
 	return problems
 }
 
@@ -202,6 +225,7 @@ func hasCyrillic(text string) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -210,19 +234,23 @@ func cut(text string) string {
 	if symbols := []rune(first); len(symbols) > 110 {
 		return string(symbols[:110])
 	}
+
 	return first
 }
 
 func versionKey(version string) []int {
 	parts := strings.Split(strings.TrimPrefix(version, "v"), ".")
+
 	key := make([]int, 0, len(parts))
 	for _, part := range parts {
 		number, err := strconv.Atoi(part)
 		if err != nil {
 			return nil
 		}
+
 		key = append(key, number)
 	}
+
 	return key
 }
 
@@ -232,6 +260,7 @@ func less(left, right []int) bool {
 			return i < len(right) && left[i] < right[i]
 		}
 	}
+
 	return len(left) < len(right)
 }
 
@@ -240,5 +269,6 @@ func groupKeys() []string {
 	for _, group := range groups {
 		keys = append(keys, group.Key)
 	}
+
 	return keys
 }

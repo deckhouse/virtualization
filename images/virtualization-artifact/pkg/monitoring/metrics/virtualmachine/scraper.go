@@ -66,6 +66,7 @@ func (s *scraper) updateMetricVirtualMachineStatusPhase(m *dataMetric) {
 	if phase == "" {
 		phase = v1alpha2.MachinePending
 	}
+
 	phases := []struct {
 		value bool
 		name  string
@@ -95,6 +96,7 @@ func (s *scraper) updateMetricVirtualMachinePhaseTransitionTimestamp(m *dataMetr
 		if pt.Phase == "" || pt.Timestamp.IsZero() {
 			continue
 		}
+
 		if ts := pt.Timestamp.Unix(); ts > latest[pt.Phase] {
 			latest[pt.Phase] = ts
 		}
@@ -157,6 +159,7 @@ func (s *scraper) updateMetricVirtualMachineAgentReady(m *dataMetric) {
 
 func (s *scraper) updateMetricVirtualMachineConfigurationRunPolicy(m *dataMetric) {
 	policy := m.RunPolicy
+
 	policies := []struct {
 		value bool
 		name  string
@@ -198,6 +201,7 @@ func (s *scraper) updateMetricVirtualMachineMigratable(m *dataMetric) {
 	if !m.MigratableKnown {
 		return
 	}
+
 	s.defaultUpdate(MetricVirtualMachineMigratable, common.BoolFloat64(m.Migratable), m, m.MigratableReason)
 }
 
@@ -205,6 +209,7 @@ func (s *scraper) updateMetricVirtualMachineEvictionRequired(m *dataMetric) {
 	if m.EvictionRequiredReason == "" {
 		return
 	}
+
 	s.defaultUpdate(MetricVirtualMachineEvictionRequired, 1, m, m.EvictionRequiredReason)
 }
 
@@ -212,6 +217,7 @@ func (s *scraper) updateMetricVirtualMachineMigration(m *dataMetric) {
 	if m.Migration == nil {
 		return
 	}
+
 	s.defaultUpdate(MetricVirtualMachineMigrationInfo, 1, m,
 		m.Migration.SourceNode, m.Migration.TargetNode, m.Migration.Result,
 		strconv.FormatBool(m.Migration.VolumeMigration))
@@ -219,6 +225,7 @@ func (s *scraper) updateMetricVirtualMachineMigration(m *dataMetric) {
 	if m.Migration.Start > 0 {
 		s.defaultUpdate(MetricVirtualMachineMigrationStartTimestampSeconds, m.Migration.Start, m)
 	}
+
 	if m.Migration.End > 0 {
 		s.defaultUpdate(MetricVirtualMachineMigrationEndTimestampSeconds, m.Migration.End, m)
 	}
@@ -226,6 +233,7 @@ func (s *scraper) updateMetricVirtualMachineMigration(m *dataMetric) {
 
 func (s *scraper) defaultUpdate(name string, value float64, m *dataMetric, labelValues ...string) {
 	info := virtualMachineMetrics[name]
+
 	metric, err := prometheus.NewConstMetric(
 		info.Desc,
 		info.Type,
@@ -236,11 +244,13 @@ func (s *scraper) defaultUpdate(name string, value float64, m *dataMetric, label
 		s.log.Warn(fmt.Sprintf("Error creating the new const dataMetric for %s: %s", info.Desc, err))
 		return
 	}
+
 	s.ch <- metric
 }
 
 func (s *scraper) updateDynamic(name string, value float64, m *dataMetric, labelValues []string, extraLabels prometheus.Labels) {
 	info := virtualMachineMetrics[name]
+
 	metric, err := promutil.NewDynamicMetric(
 		info.Desc,
 		info.Type,
@@ -252,5 +262,6 @@ func (s *scraper) updateDynamic(name string, value float64, m *dataMetric, label
 		s.log.Warn(fmt.Sprintf("Error creating the new dynamic dataMetric for %s: %s", info.Desc, err))
 		return
 	}
+
 	s.ch <- metric
 }

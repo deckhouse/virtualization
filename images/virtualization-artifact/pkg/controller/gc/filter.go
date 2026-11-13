@@ -66,12 +66,15 @@ func DefaultFilter(objs []client.Object, isCandidate IsCandidate, ttl time.Durat
 
 	// Keep maxCount first items (most recently created) for each common index. Index example: virtual machine name.
 	indexed := make(map[string]int)
+
 	for _, obj := range nonExpired {
 		index := indexFunc(obj)
+
 		count := indexed[index]
 		if count >= maxCount {
 			result = append(result, obj)
 		}
+
 		indexed[index]++
 	}
 

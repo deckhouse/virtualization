@@ -50,6 +50,7 @@ import (
 var _ = Describe("PowerState", Label(label.SIGCompute, precheck.NoPrecheck), func() {
 	DescribeTable("manages power state of a virtual machine", func(runPolicy v1alpha2.RunPolicy) {
 		var namespaceSuffix string
+
 		switch runPolicy {
 		case v1alpha2.AlwaysOnPolicy:
 			namespaceSuffix = "always-on"
@@ -58,6 +59,7 @@ var _ = Describe("PowerState", Label(label.SIGCompute, precheck.NoPrecheck), fun
 		case v1alpha2.ManualPolicy:
 			namespaceSuffix = "manual"
 		}
+
 		ctx := context.Background()
 		f := framework.NewFramework(fmt.Sprintf("power-state-%s", namespaceSuffix))
 		DeferCleanup(f.After)
@@ -75,6 +77,7 @@ var _ = Describe("PowerState", Label(label.SIGCompute, precheck.NoPrecheck), fun
 
 			vmObs = vmobs.StartObserver(ctx, f, t.VM)
 			vmObs.Never(vmobs.BeFailed())
+
 			vmbdaObs = vmbdaobs.StartObserver(ctx, f, t.VMBDA)
 			vmbdaObs.Never(vmbdaobs.BeFailed())
 
@@ -113,6 +116,7 @@ var _ = Describe("PowerState", Label(label.SIGCompute, precheck.NoPrecheck), fun
 			if t.VM.Spec.RunPolicy == v1alpha2.AlwaysOnPolicy {
 				f.ExpectFailure(vmopStop)
 			}
+
 			vmopStopObs := vmopobs.StartObserver(ctx, vmopStop)
 			err := f.CreateWithDeferredDeletion(ctx, vmopStop)
 			Expect(err).NotTo(HaveOccurred())
@@ -152,6 +156,7 @@ var _ = Describe("PowerState", Label(label.SIGCompute, precheck.NoPrecheck), fun
 		By("Shutdown VM by SSH", func() {
 			err := f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VM), t.VM)
 			Expect(err).NotTo(HaveOccurred())
+
 			runningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, t.VM.Status.Conditions)
 			runningLastTransitionTime := runningCondition.LastTransitionTime.Time
 
@@ -205,6 +210,7 @@ var _ = Describe("PowerState", Label(label.SIGCompute, precheck.NoPrecheck), fun
 			err = vmopRestartObs.WaitFor(vmopobs.BeCompleted(), framework.LongTimeout)
 			Expect(err).NotTo(HaveOccurred())
 			expectVMRebooted(ctx, vmObs, t.VM, runningLastTransitionTime, framework.MiddleTimeout)
+
 			err = vmbdaObs.WaitFor(vmbdaobs.BeAttached(), framework.LongTimeout)
 			Expect(err).NotTo(HaveOccurred())
 			eventually.SSHReadyAsRoot(f, t.VM, framework.LongTimeout)
@@ -360,6 +366,7 @@ func expectVMRunningSkippingStuckGuestShutdown(ctx context.Context, vmObs vmobs.
 	if err != nil {
 		util.SkipIfGuestPowerActionStuck(ctx, crclient.ObjectKeyFromObject(vm))
 	}
+
 	Expect(err).NotTo(HaveOccurred())
 }
 
@@ -375,5 +382,6 @@ func expectVMRebooted(ctx context.Context, vmObs vmobs.Observer, vm *v1alpha2.Vi
 	if err != nil {
 		util.SkipIfGuestPowerActionStuck(ctx, crclient.ObjectKeyFromObject(vm))
 	}
+
 	Expect(err).NotTo(HaveOccurred())
 }

@@ -48,6 +48,7 @@ func NewVolumeAndAccessModesGetter(client client.Client, storageProfileGetter fu
 	if getter.storageProfileGetter == nil {
 		getter.storageProfileGetter = getter.getStorageProfile
 	}
+
 	return getter
 }
 
@@ -62,13 +63,16 @@ func (s volumeAndAccessModesGetter) GetVolumeAndAccessModes(ctx context.Context,
 	}
 
 	// Priority: storage class > storage profile.
-	var accessMode corev1.PersistentVolumeAccessMode
-	var volumeMode corev1.PersistentVolumeMode
+	var (
+		accessMode corev1.PersistentVolumeAccessMode
+		volumeMode corev1.PersistentVolumeMode
+	)
 
 	// 1. Get modes from annotations on the storage class.
 	if m, exists := s.parseAccessMode(sc); exists {
 		accessMode = m
 	}
+
 	if m, exists := s.parseVolumeMode(sc); exists {
 		volumeMode = m
 	}
@@ -91,6 +95,7 @@ func (s volumeAndAccessModesGetter) GetVolumeAndAccessModes(ctx context.Context,
 	if accessMode == "" && storageCaps.AccessMode != "" {
 		accessMode = storageCaps.AccessMode
 	}
+
 	if volumeMode == "" && storageCaps.VolumeMode != "" {
 		volumeMode = storageCaps.VolumeMode
 	}
@@ -112,13 +117,16 @@ var volumeModeWeights = map[corev1.PersistentVolumeMode]int{
 
 func getAccessModeMax(modes []corev1.PersistentVolumeAccessMode) corev1.PersistentVolumeAccessMode {
 	weight := -1
+
 	var m corev1.PersistentVolumeAccessMode
+
 	for _, mode := range modes {
 		if accessModeWeights[mode] > weight {
 			weight = accessModeWeights[mode]
 			m = mode
 		}
 	}
+
 	return m
 }
 
@@ -126,6 +134,7 @@ func (s volumeAndAccessModesGetter) parseVolumeMode(obj client.Object) (corev1.P
 	if obj == nil {
 		return "", false
 	}
+
 	switch obj.GetAnnotations()[annotations.AnnVirtualDiskVolumeMode] {
 	case string(corev1.PersistentVolumeBlock):
 		return corev1.PersistentVolumeBlock, true
@@ -140,6 +149,7 @@ func (s volumeAndAccessModesGetter) parseAccessMode(obj client.Object) (corev1.P
 	if obj == nil {
 		return "", false
 	}
+
 	switch obj.GetAnnotations()[annotations.AnnVirtualDiskAccessMode] {
 	case string(corev1.ReadWriteOnce):
 		return corev1.ReadWriteOnce, true
@@ -152,6 +162,7 @@ func (s volumeAndAccessModesGetter) parseAccessMode(obj client.Object) (corev1.P
 
 func (s volumeAndAccessModesGetter) parseStorageCapabilities(status storagev1alpha1.StorageProfileStatus) StorageCapabilities {
 	var storageCapabilities []StorageCapabilities
+
 	for _, cp := range status.ClaimPropertySets {
 		var mode corev1.PersistentVolumeMode
 		if cp.VolumeMode == nil || *cp.VolumeMode == "" {
@@ -159,15 +170,18 @@ func (s volumeAndAccessModesGetter) parseStorageCapabilities(status storagev1alp
 		} else {
 			mode = *cp.VolumeMode
 		}
+
 		storageCapabilities = append(storageCapabilities, StorageCapabilities{
 			AccessMode: getAccessModeMax(cp.AccessModes),
 			VolumeMode: mode,
 		})
 	}
+
 	slices.SortFunc(storageCapabilities, func(a, b StorageCapabilities) int {
 		if c := cmp.Compare(accessModeWeights[a.AccessMode], accessModeWeights[b.AccessMode]); c != 0 {
 			return c
 		}
+
 		return cmp.Compare(volumeModeWeights[a.VolumeMode], volumeModeWeights[b.VolumeMode])
 	})
 

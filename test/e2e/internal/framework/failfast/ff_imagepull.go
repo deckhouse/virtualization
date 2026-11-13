@@ -31,11 +31,13 @@ func ImagePull(pods Client[*corev1.Pod], namespace string) FailFast {
 		if pod.DeletionTimestamp != nil {
 			return nil
 		}
+
 		for _, status := range allContainerStatuses(pod) {
 			waiting := status.State.Waiting
 			if waiting == nil {
 				continue
 			}
+
 			switch waiting.Reason {
 			case "InvalidImageName", "ErrImageNeverPull":
 				return &Finding{
@@ -50,6 +52,7 @@ func ImagePull(pods Client[*corev1.Pod], namespace string) FailFast {
 				}
 			}
 		}
+
 		return nil
 	})
 }
@@ -57,5 +60,6 @@ func ImagePull(pods Client[*corev1.Pod], namespace string) FailFast {
 func allContainerStatuses(pod *corev1.Pod) []corev1.ContainerStatus {
 	statuses := make([]corev1.ContainerStatus, 0, len(pod.Status.InitContainerStatuses)+len(pod.Status.ContainerStatuses))
 	statuses = append(statuses, pod.Status.InitContainerStatuses...)
+
 	return append(statuses, pod.Status.ContainerStatuses...)
 }

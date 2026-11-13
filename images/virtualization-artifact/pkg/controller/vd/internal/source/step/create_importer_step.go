@@ -125,6 +125,7 @@ func (s CreateImporterStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) 
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.QuotaExceeded).
 			Message(fmt.Sprintf("Quota exceeded during the importer provisioning: %s", err))
+
 		return &reconcile.Result{}, nil
 	default:
 		return nil, fmt.Errorf("start importer: %w", err)

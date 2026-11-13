@@ -47,6 +47,7 @@ func (c *comparatorCPU) Compare(current, desired *v1alpha2.VirtualMachineSpec) [
 	coresChangedAction := ActionApplyImmediate
 	// ... but sockets count change requires a reboot.
 	currentSockets, _, _ := vm.CalculateCoresAndSockets(current.CPU.Cores)
+
 	desiredSockets, _, _ := vm.CalculateCoresAndSockets(desired.CPU.Cores)
 	if currentSockets != desiredSockets {
 		coresRestartMsg = "Changing the number of CPU cores requires changing the CPU topology (number of sockets)."
@@ -81,6 +82,7 @@ func (c *comparatorCPU) Compare(current, desired *v1alpha2.VirtualMachineSpec) [
 	if HasChanges(coresChanges) && coresRestartMsg != "" {
 		coresChanges[0].RestartMessage = coresRestartMsg
 	}
+
 	fractionChanges := compareStrings("cpu.coreFraction", current.CPU.CoreFraction, desired.CPU.CoreFraction, DefaultCPUCoreFraction, fractionChangedAction)
 	if HasChanges(fractionChanges) && fractionRestartMsg != "" {
 		fractionChanges[0].RestartMessage = fractionRestartMsg
@@ -92,6 +94,7 @@ func (c *comparatorCPU) Compare(current, desired *v1alpha2.VirtualMachineSpec) [
 		if restartMsg == "" {
 			restartMsg = fractionRestartMsg
 		}
+
 		return []FieldChange{
 			{
 				Operation:      ChangeReplace,
@@ -123,9 +126,11 @@ func isCPUGuaranteed(coreFraction string) bool {
 	if coreFraction == "" {
 		coreFraction = DefaultCPUCoreFraction
 	}
+
 	fraction, err := sizingpolicy.ParsePercent(coreFraction)
 	if err != nil {
 		return false
 	}
+
 	return fraction >= sizingpolicy.MaxCoreFraction
 }

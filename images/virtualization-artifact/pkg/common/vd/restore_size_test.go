@@ -41,6 +41,7 @@ var _ = Describe("RestoreFloors", func() {
 		scheme := runtime.NewScheme()
 		Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
 		Expect(vsv1.AddToScheme(scheme)).To(Succeed())
+
 		return scheme
 	}
 
@@ -62,6 +63,7 @@ var _ = Describe("RestoreFloors", func() {
 		if artifact != "" {
 			vds.Status.Data = &v1alpha2.UnifiedSnapshotterDataBinding{Size: artifact}
 		}
+
 		return vds
 	}
 
@@ -70,9 +72,11 @@ var _ = Describe("RestoreFloors", func() {
 		if declared != "" {
 			vs.Annotations = map[string]string{annotations.AnnVirtualDiskOriginalSize: declared}
 		}
+
 		if restoreSize != "" {
 			vs.Status = &vsv1.VolumeSnapshotStatus{RestoreSize: ptr.To(resource.MustParse(restoreSize))}
 		}
+
 		return vs
 	}
 
@@ -80,6 +84,7 @@ var _ = Describe("RestoreFloors", func() {
 		fakeClient := fake.NewClientBuilder().WithScheme(newScheme()).WithObjects(objects...).Build()
 		floors, err := ResolveRestoreFloors(context.Background(), fakeClient, vds)
 		Expect(err).NotTo(HaveOccurred())
+
 		return floors
 	}
 

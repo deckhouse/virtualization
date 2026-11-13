@@ -60,14 +60,17 @@ func (s *state) VirtualMachines(ctx context.Context) ([]v1alpha2.VirtualMachine,
 	if s.vmClass == nil || s.vmClass.IsEmpty() {
 		return nil, nil
 	}
+
 	name := s.vmClass.Current().GetName()
 	vms := &v1alpha2.VirtualMachineList{}
+
 	err := s.client.List(ctx, vms, client.MatchingFields{
 		indexer.IndexFieldVMByClass: name,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list virtual machines by vmclass %s: %w", name, err)
 	}
+
 	return vms.Items, nil
 }
 
@@ -84,10 +87,12 @@ func (s *state) Nodes(ctx context.Context) ([]corev1.Node, error) {
 		curr        = s.vmClass.Current()
 		matchLabels map[string]string
 	)
+
 	virtHandlerNodes, err := s.getVirtHandlerNodeNames(ctx)
 	if err != nil {
 		return nil, err
 	}
+
 	filters := []array.FilterFunc[corev1.Node]{
 		func(node *corev1.Node) (keep bool) {
 			_, found := virtHandlerNodes[node.GetName()]
@@ -110,11 +115,14 @@ func (s *state) Nodes(ctx context.Context) ([]corev1.Node, error) {
 		for _, feature := range curr.Spec.CPU.Features {
 			ml[virtv1.CPUFeatureLabel+feature] = "true"
 		}
+
 		matchLabels = ml
 	default:
 		return nil, fmt.Errorf("unexpected cpu type %s", curr.Spec.CPU.Type)
 	}
+
 	nodes := &corev1.NodeList{}
+
 	err = s.client.List(
 		ctx,
 		nodes,
@@ -135,6 +143,7 @@ func (s *state) DiscoveryNodes(ctx context.Context) ([]corev1.Node, error) {
 	if s.vmClass == nil || s.vmClass.IsEmpty() {
 		return nil, nil
 	}
+
 	curr := s.vmClass.Current()
 	if curr.Spec.CPU.Type != v1alpha2.CPUTypeDiscovery {
 		return nil, nil
@@ -153,6 +162,7 @@ func (s *state) DiscoveryNodes(ctx context.Context) ([]corev1.Node, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	filters := []array.FilterFunc[corev1.Node]{
 		func(node *corev1.Node) bool {
 			_, found := virtHandlerNodes[node.GetName()]
@@ -164,6 +174,7 @@ func (s *state) DiscoveryNodes(ctx context.Context) ([]corev1.Node, error) {
 	}
 
 	nodes := &corev1.NodeList{}
+
 	err = s.client.List(
 		ctx,
 		nodes,
@@ -177,6 +188,7 @@ func (s *state) DiscoveryNodes(ctx context.Context) ([]corev1.Node, error) {
 
 func (s *state) getVirtHandlerNodeNames(ctx context.Context) (map[string]struct{}, error) {
 	pods := &corev1.PodList{}
+
 	err := s.client.List(ctx, pods, client.InNamespace(s.controllerNamespace),
 		client.MatchingLabelsSelector{
 			Selector: labels.SelectorFromSet(map[string]string{
@@ -186,10 +198,12 @@ func (s *state) getVirtHandlerNodeNames(ctx context.Context) (map[string]struct{
 	if err != nil {
 		return nil, fmt.Errorf("failed to list pods: %w", err)
 	}
+
 	nodes := make(map[string]struct{}, len(pods.Items))
 	for _, pod := range pods.Items {
 		nodes[pod.Spec.NodeName] = struct{}{}
 	}
+
 	return nodes, nil
 }
 
@@ -197,6 +211,7 @@ func (s *state) AvailableNodes(nodes []corev1.Node) ([]corev1.Node, error) {
 	if s.vmClass == nil || s.vmClass.IsEmpty() {
 		return nil, nil
 	}
+
 	if len(nodes) == 0 {
 		return nodes, nil
 	}
@@ -221,5 +236,6 @@ func (s *state) AvailableNodes(nodes []corev1.Node) ([]corev1.Node, error) {
 			return ns.Match(node)
 		})
 	}
+
 	return nodeFilter(nodes, filters...), nil
 }

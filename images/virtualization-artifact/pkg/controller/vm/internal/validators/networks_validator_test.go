@@ -49,7 +49,9 @@ type networkValidatorOpts struct {
 
 func newNetworksValidator(t *testing.T, opts networkValidatorOpts) *NetworksValidator {
 	t.Helper()
+
 	scheme := runtime.NewScheme()
+
 	builder := fake.NewClientBuilder().WithScheme(scheme)
 	if len(opts.objects) > 0 {
 		builder = builder.WithObjects(opts.objects...)
@@ -133,6 +135,7 @@ func TestNetworksValidateCreate(t *testing.T) {
 			if test.valid && err != nil {
 				t.Errorf("Validation failed for spec %v: expected valid, but got an error: %v", test.networks, err)
 			}
+
 			if !test.valid && err == nil {
 				t.Errorf("Validation succeeded for spec %v: expected error, but got none", test.networks)
 			}
@@ -416,6 +419,7 @@ func TestNetworksValidateUpdate(t *testing.T) {
 					test.oldNetworksSpec, test.newNetworksSpec, err,
 				)
 			}
+
 			if !test.valid && err == nil {
 				t.Errorf(
 					"Validation succeeded for old spec %v and new spec %v: expected error, but got none",
@@ -430,9 +434,11 @@ func newUnstructured(gvk schema.GroupVersionKind, name, namespace string) *unstr
 	u := &unstructured.Unstructured{}
 	u.SetGroupVersionKind(gvk)
 	u.SetName(name)
+
 	if namespace != "" {
 		u.SetNamespace(namespace)
 	}
+
 	return u
 }
 
@@ -450,6 +456,7 @@ func TestNetworksValidateUpdateReordering(t *testing.T) {
 
 	t.Run("moving Main out of the first position is rejected even though the set of networks is unchanged", func(t *testing.T) {
 		oldVM := &v1alpha2.VirtualMachine{Spec: v1alpha2.VirtualMachineSpec{Networks: []v1alpha2.NetworksSpec{mainNetwork, networkTest}}}
+
 		newVM := &v1alpha2.VirtualMachine{Spec: v1alpha2.VirtualMachineSpec{Networks: []v1alpha2.NetworksSpec{networkTest, mainNetwork}}}
 		if _, err := networkValidator.ValidateUpdate(t.Context(), oldVM, newVM); err == nil {
 			t.Fatalf("expected error: reordering must not bypass the Main-must-be-first validation")
@@ -458,6 +465,7 @@ func TestNetworksValidateUpdateReordering(t *testing.T) {
 
 	t.Run("reordering two non-Main networks without changing IDs is allowed", func(t *testing.T) {
 		oldVM := &v1alpha2.VirtualMachine{Spec: v1alpha2.VirtualMachineSpec{Networks: []v1alpha2.NetworksSpec{mainNetwork, networkTest, clusterNetworkTest}}}
+
 		newVM := &v1alpha2.VirtualMachine{Spec: v1alpha2.VirtualMachineSpec{Networks: []v1alpha2.NetworksSpec{mainNetwork, clusterNetworkTest, networkTest}}}
 		if _, err := networkValidator.ValidateUpdate(t.Context(), oldVM, newVM); err != nil {
 			t.Fatalf("expected reordering non-Main networks to be allowed, got: %v", err)
@@ -475,6 +483,7 @@ func TestNetworksValidatorMainRequiresCIDRs(t *testing.T) {
 
 	t.Run("create: explicit Main without CIDRs is rejected", func(t *testing.T) {
 		vm := &v1alpha2.VirtualMachine{Spec: v1alpha2.VirtualMachineSpec{Networks: []v1alpha2.NetworksSpec{mainNetwork}}}
+
 		_, err := newValidatorWithDCVROnly.ValidateCreate(t.Context(), vm)
 		if err == nil || !strings.Contains(err.Error(), "cannot explicitly include Main") {
 			t.Fatalf("expected the explicit Main error without CIDRs, got: %v", err)
@@ -483,6 +492,7 @@ func TestNetworksValidatorMainRequiresCIDRs(t *testing.T) {
 
 	t.Run("create: implicit Main without CIDRs is rejected", func(t *testing.T) {
 		vm := &v1alpha2.VirtualMachine{}
+
 		_, err := newValidatorWithDCVROnly.ValidateCreate(t.Context(), vm)
 		if err == nil || !strings.Contains(err.Error(), "cannot be empty") {
 			t.Fatalf("expected the empty spec.networks error without CIDRs, got: %v", err)
@@ -492,6 +502,7 @@ func TestNetworksValidatorMainRequiresCIDRs(t *testing.T) {
 	t.Run("update: newly setting explicit Main without CIDRs is rejected", func(t *testing.T) {
 		oldVM := &v1alpha2.VirtualMachine{Spec: v1alpha2.VirtualMachineSpec{Networks: []v1alpha2.NetworksSpec{networkTest}}}
 		newVM := &v1alpha2.VirtualMachine{Spec: v1alpha2.VirtualMachineSpec{Networks: []v1alpha2.NetworksSpec{mainNetwork}}}
+
 		_, err := newValidatorWithDCVROnly.ValidateUpdate(t.Context(), oldVM, newVM)
 		if err == nil || !strings.Contains(err.Error(), "cannot explicitly include Main") {
 			t.Fatalf("expected the explicit Main update error without CIDRs, got: %v", err)
@@ -501,6 +512,7 @@ func TestNetworksValidatorMainRequiresCIDRs(t *testing.T) {
 	t.Run("update: clearing spec.networks to implicit Main without CIDRs is rejected", func(t *testing.T) {
 		oldVM := &v1alpha2.VirtualMachine{Spec: v1alpha2.VirtualMachineSpec{Networks: []v1alpha2.NetworksSpec{networkTest}}}
 		newVM := &v1alpha2.VirtualMachine{}
+
 		_, err := newValidatorWithDCVROnly.ValidateUpdate(t.Context(), oldVM, newVM)
 		if err == nil || !strings.Contains(err.Error(), "cannot be empty") {
 			t.Fatalf("expected the empty spec.networks update error without CIDRs, got: %v", err)
@@ -515,6 +527,7 @@ func TestNetworksValidatorMainRequiresCIDRs(t *testing.T) {
 	t.Run("update: unrelated changes are allowed on a VM already having explicit Main without CIDRs", func(t *testing.T) {
 		oldVM := &v1alpha2.VirtualMachine{Spec: v1alpha2.VirtualMachineSpec{Networks: []v1alpha2.NetworksSpec{mainNetwork}}}
 		newVM := oldVM.DeepCopy()
+
 		newVM.Finalizers = []string{"test-finalizer"}
 		if _, err := newValidatorWithDCVROnly.ValidateUpdate(t.Context(), oldVM, newVM); err != nil {
 			t.Fatalf("expected success for an unrelated update on a grandfathered VM without CIDRs, got: %v", err)
@@ -524,6 +537,7 @@ func TestNetworksValidatorMainRequiresCIDRs(t *testing.T) {
 	t.Run("update: unrelated changes are allowed on a VM already having implicit Main without CIDRs", func(t *testing.T) {
 		oldVM := &v1alpha2.VirtualMachine{}
 		newVM := oldVM.DeepCopy()
+
 		newVM.Finalizers = []string{"test-finalizer"}
 		if _, err := newValidatorWithDCVROnly.ValidateUpdate(t.Context(), oldVM, newVM); err != nil {
 			t.Fatalf("expected success for an unrelated update on a grandfathered VM with implicit Main and no CIDRs, got: %v", err)
@@ -564,13 +578,16 @@ func TestNetworksValidateSDNRequiredWithoutCIDRs(t *testing.T) {
 	})
 
 	vm := &v1alpha2.VirtualMachine{Spec: v1alpha2.VirtualMachineSpec{Networks: []v1alpha2.NetworksSpec{networkTest}}}
+
 	_, err := v.ValidateCreate(t.Context(), vm)
 	if err == nil {
 		t.Fatalf("expected error: a non-Main network requires SDN, which is disabled")
 	}
+
 	if !strings.Contains(err.Error(), "SDN") {
 		t.Fatalf("expected the error to mention SDN, got: %v", err)
 	}
+
 	if !strings.Contains(err.Error(), "virtualMachineCIDRs") {
 		t.Fatalf("expected the error to explain that Main is unavailable due to missing virtualMachineCIDRs, got: %v", err)
 	}
@@ -592,6 +609,7 @@ func TestNetworksValidatesExistence(t *testing.T) {
 	t.Run("create: missing networks are allowed (no existence check)", func(t *testing.T) {
 		vm := &v1alpha2.VirtualMachine{}
 		vm.Namespace = "default"
+
 		vm.Spec.Networks = []v1alpha2.NetworksSpec{mainNetwork, {Type: v1alpha2.NetworksTypeClusterNetwork, Name: "ghost"}}
 		if _, err := v.ValidateCreate(t.Context(), vm); err != nil {
 			t.Fatalf("ValidateCreate must not check network existence; got: %v", err)
@@ -603,6 +621,7 @@ func TestNetworksValidatesExistence(t *testing.T) {
 		oldVM.Namespace = "default"
 		oldVM.Spec.Networks = []v1alpha2.NetworksSpec{mainNetwork}
 		newVM := oldVM.DeepCopy()
+
 		newVM.Spec.Networks = append(newVM.Spec.Networks, v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "exists-cn"})
 		if _, err := v.ValidateUpdate(t.Context(), oldVM, newVM); err != nil {
 			t.Fatalf("expected no error; got: %v", err)
@@ -614,6 +633,7 @@ func TestNetworksValidatesExistence(t *testing.T) {
 		oldVM.Namespace = "default"
 		oldVM.Spec.Networks = []v1alpha2.NetworksSpec{mainNetwork}
 		newVM := oldVM.DeepCopy()
+
 		newVM.Spec.Networks = append(newVM.Spec.Networks, v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeNetwork, Name: "exists-net"})
 		if _, err := v.ValidateUpdate(t.Context(), oldVM, newVM); err != nil {
 			t.Fatalf("expected no error; got: %v", err)
@@ -637,6 +657,7 @@ func TestNetworksValidatesExistence(t *testing.T) {
 		oldVM.Namespace = "default"
 		oldVM.Spec.Networks = []v1alpha2.NetworksSpec{mainNetwork, {Type: v1alpha2.NetworksTypeClusterNetwork, Name: "exists-cn"}}
 		newVM := oldVM.DeepCopy()
+
 		newVM.Spec.Networks = append(newVM.Spec.Networks, v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "ghost"})
 		if _, err := v.ValidateUpdate(t.Context(), oldVM, newVM); err == nil {
 			t.Fatalf("expected error when adding a missing network")
@@ -650,6 +671,7 @@ func TestNetworksValidateUnderlayNetwork(t *testing.T) {
 		if mutate != nil {
 			mutate(&n)
 		}
+
 		return n
 	}
 
@@ -677,10 +699,12 @@ func TestNetworksValidateUnderlayNetwork(t *testing.T) {
 			vm := &v1alpha2.VirtualMachine{Spec: v1alpha2.VirtualMachineSpec{
 				Networks: []v1alpha2.NetworksSpec{mainNetwork, tt.network},
 			}}
+
 			_, err := v.ValidateCreate(t.Context(), vm)
 			if tt.valid && err != nil {
 				t.Fatalf("expected valid, got error: %v", err)
 			}
+
 			if !tt.valid && err == nil {
 				t.Fatal("expected error, got none")
 			}
@@ -694,6 +718,7 @@ func TestNetworksValidateVLANIDOnNonUnderlay(t *testing.T) {
 		sdnEnabled:          true,
 		sriovEnabled:        true,
 	})
+
 	vm := &v1alpha2.VirtualMachine{Spec: v1alpha2.VirtualMachineSpec{
 		Networks: []v1alpha2.NetworksSpec{
 			mainNetwork,

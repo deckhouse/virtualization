@@ -28,6 +28,7 @@ func IndexVMMACLeaseByVMMAC() (obj client.Object, field string, extractValue cli
 		if !ok || lease == nil {
 			return nil
 		}
+
 		return []string{lease.Spec.VirtualMachineMACAddressRef.Name}
 	}
 }

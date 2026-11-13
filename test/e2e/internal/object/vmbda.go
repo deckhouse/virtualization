@@ -29,5 +29,6 @@ func NewVMBDAFromDisk(name, vmName string, vd *v1alpha2.VirtualDisk, opts ...vmb
 		vmbda.WithBlockDeviceRef(v1alpha2.VMBDAObjectRefKindVirtualDisk, vd.Name),
 	)
 	vmbda.ApplyOptions(bda, opts...)
+
 	return bda
 }

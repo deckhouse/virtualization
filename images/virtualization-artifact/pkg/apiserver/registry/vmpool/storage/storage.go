@@ -85,13 +85,16 @@ func (store VirtualMachinePoolStorage) GetSingularName() string {
 // meta-object for a pool that exists and NotFound only when it truly does not.
 func (store VirtualMachinePoolStorage) Get(ctx context.Context, name string, opts *metav1.GetOptions) (runtime.Object, error) {
 	namespace := genericreq.NamespaceValue(ctx)
+
 	pool, err := store.client.VirtualMachinePools(namespace).Get(ctx, name, *opts)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil, k8serrors.NewNotFound(subresources.Resource("virtualmachinepools"), name)
 		}
+
 		return nil, k8serrors.NewInternalError(err)
 	}
+
 	return &subresources.VirtualMachinePool{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: subresources.SchemeGroupVersion.String(),

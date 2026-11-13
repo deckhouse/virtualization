@@ -34,6 +34,7 @@ var _ = Describe("VirtualDiskWatcher", func() {
 		if owner != "" {
 			vd.Status.AttachedToVirtualMachines = []v1alpha2.AttachedVirtualMachine{{Name: owner, Mounted: true}}
 		}
+
 		return vd
 	}
 

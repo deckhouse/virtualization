@@ -53,6 +53,7 @@ func NewCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&c.preserve, preserveFlag, c.preserve,
 		"Preserves modification times, access times, and modes from the original file.")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
+
 	return cmd
 }
 
@@ -72,6 +73,7 @@ func (o *SCP) Run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+
 	local, remote, toRemote, err := PrepareCommand(cmd, defaultNamespace, &o.options, args)
 	if err != nil {
 		return err
@@ -80,12 +82,14 @@ func (o *SCP) Run(cmd *cobra.Command, args []string) error {
 	ssh.WarnDeprecatedSSHFlags(cmd)
 
 	clientArgs := o.buildSCPTarget(local, remote, toRemote)
+
 	return ssh.RunLocalClient(cmd, remote.Namespace, remote.Name, &o.options, clientArgs)
 }
 
 func PrepareCommand(cmd *cobra.Command, defaultNamespace string, opts *ssh.SSHOptions, args []string) (local templates.LocalSCPArgument, remote templates.RemoteSCPArgument, toRemote bool, err error) {
 	opts.IdentityFilePathProvided = cmd.Flags().Changed(ssh.IdentityFilePathFlag)
 	opts.KnownHostsFilePathProvided = cmd.Flags().Changed("known-hosts")
+
 	local, remote, toRemote, err = templates.ParseSCPArguments(args[0], args[1])
 	if err != nil {
 		return local, remote, toRemote, err
@@ -98,6 +102,7 @@ func PrepareCommand(cmd *cobra.Command, defaultNamespace string, opts *ssh.SSHOp
 	if len(remote.Username) > 0 {
 		opts.SSHUsername = remote.Username
 	}
+
 	return local, remote, toRemote, err
 }
 

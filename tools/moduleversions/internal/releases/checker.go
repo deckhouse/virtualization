@@ -44,9 +44,11 @@ type ModuleVersionInfo struct {
 func (v ModuleVersionInfo) String() string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "Module: %s\n", v.Module)
+
 	for _, version := range v.Versions {
 		fmt.Fprintf(&b, "%-7s %s %s\n", version.Edition, version.Channel, version.Number)
 	}
+
 	return b.String()
 }
 
@@ -91,6 +93,7 @@ func VerifyVersionOnModulePage(moduleURL, channel, expectedVersion, moduleName s
 	if !ok {
 		return false, nil, fmt.Errorf("unknown channel: %s", channel)
 	}
+
 	if index < 0 || index >= expectedCellsCount {
 		return false, nil, fmt.Errorf("unknown channel: %s", channel)
 	}
@@ -157,16 +160,19 @@ func CheckVersionWithRetries(channel, version, moduleName string, attempts int) 
 				fmt.Printf("Attempt %d/%d failed: %v", attempt, attempts, err)
 				fmt.Printf("Waiting %v before next attempt...\n", retryDelay)
 				time.Sleep(retryDelay)
+
 				continue
 			}
 			// Last attempt failed
 			fmt.Printf("Version %s validation failed on %s after %d attempts: %v", version, moduleURL, attempts, err)
+
 			return err
 		}
 
 		if checkPassed {
 			fmt.Printf("Version %s is valid on channel %s\n", version, channel)
 			fmt.Println(versionInfo)
+
 			return nil
 		}
 	}

@@ -70,5 +70,6 @@ func EnsureVMClassConversionWebhook(ctx context.Context, c client.Client, contro
 	}
 
 	logger.Info("Successfully configured VirtualMachineClass CRD with webhook conversion")
+
 	return nil
 }

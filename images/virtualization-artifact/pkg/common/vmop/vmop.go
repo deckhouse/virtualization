@@ -67,5 +67,6 @@ func PeerName(vmop *v1alpha2.VirtualMachineOperation) string {
 	if vmop == nil || vmop.Spec.Migrate == nil {
 		return ""
 	}
+
 	return vmop.Spec.Migrate.ProjectPeerName
 }

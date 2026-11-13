@@ -69,6 +69,7 @@ func HaveAttachedCondition(status metav1.ConditionStatus) Predicate {
 		if cond == nil {
 			return false, nil
 		}
+
 		return cond.Status == status, nil
 	}
 }

@@ -59,6 +59,7 @@ func newKVVMWithMainInterfaceSpec(name, namespace string) *virtv1.VirtualMachine
 	}}
 	value, err := specs.ToString()
 	Expect(err).NotTo(HaveOccurred())
+
 	return &virtv1.VirtualMachine{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
 		Spec: virtv1.VirtualMachineSpec{
@@ -76,6 +77,7 @@ func newKVVMWithMainInterfaceSpec(name, namespace string) *virtv1.VirtualMachine
 func newMainPrimaryCNINetwork() *unstructured.Unstructured {
 	u := newReadyClusterNetworkWithPool(commonnetwork.MainClusterNetworkName, "d8-virtualization")
 	Expect(unstructured.SetNestedField(u.Object, "PrimaryCNI", "spec", "type")).To(Succeed())
+
 	return u
 }
 
@@ -88,19 +90,23 @@ func withoutIPAddressKind(cl client.WithWatch) client.WithWatch {
 		case *sdnapi.IPAddress, *sdnapi.IPAddressList:
 			return true
 		}
+
 		return false
 	}
+
 	return interceptor.NewClient(cl, interceptor.Funcs{
 		Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
 			if isIPAddress(obj) {
 				return noMatch
 			}
+
 			return c.Get(ctx, key, obj, opts...)
 		},
 		List: func(ctx context.Context, c client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
 			if isIPAddress(list) {
 				return noMatch
 			}
+
 			return c.List(ctx, list, opts...)
 		},
 	})
@@ -151,24 +157,28 @@ var _ = Describe("IPAMHandler for a VM on an IPAddress", func() {
 	getVM := func() *v1alpha2.VirtualMachine {
 		newVM := &v1alpha2.VirtualMachine{}
 		Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)).To(Succeed())
+
 		return newVM
 	}
 
 	getCondition := func() metav1.Condition {
 		cond, exists := conditions.GetCondition(vmcondition.TypeIPAddressReady, getVM().Status.Conditions)
 		Expect(exists).To(BeTrue())
+
 		return cond
 	}
 
 	listVMIPs := func() []v1alpha2.VirtualMachineIPAddress {
 		list := &v1alpha2.VirtualMachineIPAddressList{}
 		Expect(fakeClient.List(ctx, list, client.InNamespace(namespace))).To(Succeed())
+
 		return list.Items
 	}
 
 	It("waits for the IPAddress to be created and does not create a vmip", func() {
 		vm.Spec.Networks = []v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain, IPAddressName: "vm-main"}}
 		fakeClient, resource, vmState = setupEnvironment(vm, newMainPrimaryCNINetwork())
+
 		reconcile()
 
 		cond := getCondition()
@@ -187,6 +197,7 @@ var _ = Describe("IPAMHandler for a VM on an IPAddress", func() {
 			Reason: sdnapi.ReasonNoFreeIPAddress,
 		}}
 		fakeClient, resource, vmState = setupEnvironment(vm, newMainPrimaryCNINetwork(), ipAddr)
+
 		reconcile()
 
 		cond := getCondition()
@@ -204,6 +215,7 @@ var _ = Describe("IPAMHandler for a VM on an IPAddress", func() {
 			Reason: sdnapi.ReasonIPAddressIsUsed,
 		}}
 		fakeClient, resource, vmState = setupEnvironment(vm, newMainPrimaryCNINetwork(), ipAddr)
+
 		reconcile()
 
 		cond := getCondition()
@@ -216,11 +228,13 @@ var _ = Describe("IPAMHandler for a VM on an IPAddress", func() {
 		vm.Spec.Networks = []v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain, IPAddressName: "vm-main"}}
 		ipAddr := newSDNIPAddress("vm-main", namespace, "vm-uid", "ClusterNetwork", "main", "10.66.10.14", true)
 		fakeClient, resource, vmState = setupEnvironment(vm, newMainPrimaryCNINetwork(), ipAddr)
+
 		reconcile()
 
 		cond := getCondition()
 		Expect(cond.Status).To(Equal(metav1.ConditionTrue))
 		Expect(cond.Reason).To(Equal(vmcondition.ReasonIPAddressReady.String()))
+
 		newVM := getVM()
 		Expect(newVM.Status.IPAddress).To(Equal("10.66.10.14"))
 		Expect(newVM.Status.VirtualMachineIPAddress).To(BeEmpty())
@@ -231,6 +245,7 @@ var _ = Describe("IPAMHandler for a VM on an IPAddress", func() {
 		vm.Spec.Networks = []v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain, IPAddressName: "my-static-ip"}}
 		ipAddr := newSDNIPAddress("my-static-ip", namespace, "", "ClusterNetwork", "main", "10.66.10.20", true)
 		fakeClient, resource, vmState = setupEnvironment(vm, newMainPrimaryCNINetwork(), ipAddr)
+
 		reconcile()
 
 		Expect(getCondition().Status).To(Equal(metav1.ConditionTrue))
@@ -246,6 +261,7 @@ var _ = Describe("IPAMHandler for a VM on an IPAddress", func() {
 		ipAddr.SetFinalizers([]string{"network.deckhouse.io/ipaddress"})
 		ipAddr.SetDeletionTimestamp(ptr.To(metav1.Now()))
 		fakeClient, resource, vmState = setupEnvironment(vm, newMainPrimaryCNINetwork(), ipAddr)
+
 		reconcile()
 
 		cond := getCondition()
@@ -258,6 +274,7 @@ var _ = Describe("IPAMHandler for a VM on an IPAddress", func() {
 		ipAddr.SetFinalizers([]string{"network.deckhouse.io/ipaddress"})
 		ipAddr.SetDeletionTimestamp(ptr.To(metav1.Now()))
 		fakeClient, resource, vmState = setupEnvironment(vm, newMainPrimaryCNINetwork(), ipAddr)
+
 		reconcile()
 
 		cond := getCondition()
@@ -273,6 +290,7 @@ var _ = Describe("IPAMHandler for a VM on an IPAddress", func() {
 		ipAddr.SetFinalizers([]string{"network.deckhouse.io/ipaddress"})
 		ipAddr.SetDeletionTimestamp(ptr.To(metav1.Now()))
 		fakeClient, resource, vmState = setupEnvironment(vm, newMainPrimaryCNINetwork(), ipAddr)
+
 		reconcile()
 
 		Expect(getCondition().Status).To(Equal(metav1.ConditionTrue), "the replacement is created once the pod is gone")
@@ -283,6 +301,7 @@ var _ = Describe("IPAMHandler for a VM on an IPAddress", func() {
 		vm.Status.VirtualMachineIPAddress = "old-vmip"
 		ipAddr := newSDNIPAddress("my-static-ip", namespace, "", "ClusterNetwork", "main", "10.66.10.20", true)
 		fakeClient, resource, vmState = setupEnvironment(vm, newMainPrimaryCNINetwork(), ipAddr)
+
 		reconcile()
 
 		Expect(getCondition().Status).To(Equal(metav1.ConditionTrue))
@@ -300,6 +319,7 @@ var _ = Describe("IPAMHandler for a VM on an IPAddress", func() {
 		vm.Status.VirtualMachineIPAddress = "old-vmip"
 		ipAddr := newSDNIPAddress("vm-main", namespace, "vm-uid", "ClusterNetwork", "main", "10.66.10.14", true)
 		fakeClient, resource, vmState = setupEnvironment(vm, kvvm, ipAddr)
+
 		reconcile()
 
 		Expect(getCondition().Status).To(Equal(metav1.ConditionTrue))
@@ -309,6 +329,7 @@ var _ = Describe("IPAMHandler for a VM on an IPAddress", func() {
 	It("creates no vmip for a machine that has none: its address comes from an IPAddress", func() {
 		kvvm := &virtv1.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace}}
 		fakeClient, resource, vmState = setupEnvironment(vm, newMainPrimaryCNINetwork(), kvvm)
+
 		reconcile()
 
 		Expect(listVMIPs()).To(BeEmpty(), "the deprecated resource is not created any more where the sdn module serves the Main network")
@@ -318,6 +339,7 @@ var _ = Describe("IPAMHandler for a VM on an IPAddress", func() {
 		kvvm := &virtv1.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace}}
 		existing := newManagedVMIPForVM()
 		fakeClient, resource, vmState = setupEnvironment(vm, newMainPrimaryCNINetwork(), kvvm, existing)
+
 		reconcile()
 
 		vmips := listVMIPs()
@@ -331,6 +353,7 @@ var _ = Describe("IPAMHandler for a VM on an IPAddress", func() {
 		// would end up with two addresses and a route to neither.
 		own := newSDNIPAddress("vm-main-ip", namespace, "vm-uid", "ClusterNetwork", "main", "10.66.10.14", true)
 		fakeClient, resource, vmState = setupEnvironment(vm, newKVVMWithMainInterfaceSpec(name, namespace), own)
+
 		reconcile()
 
 		Expect(listVMIPs()).To(BeEmpty())
@@ -338,6 +361,7 @@ var _ = Describe("IPAMHandler for a VM on an IPAddress", func() {
 
 	It("keeps the address on the vmip while the sdn module does not serve the Main network", func() {
 		fakeClient, resource, vmState = setupEnvironment(vm)
+
 		reconcile()
 
 		Expect(listVMIPs()).To(HaveLen(1))
@@ -348,6 +372,7 @@ var _ = Describe("IPAMHandler for a VM on an IPAddress", func() {
 		res, err := h.Handle(ctx, vmState)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(resource.Update(context.Background())).To(Succeed())
+
 		return res.RequeueAfter
 	}
 
@@ -359,11 +384,14 @@ var _ = Describe("IPAMHandler for a VM on an IPAddress", func() {
 			Status:     v1alpha2.VirtualMachineStatus{IPAddress: "10.66.10.20"},
 		}
 		ipAddr := newSDNIPAddress("shared-ip", namespace, "", "ClusterNetwork", "main", "10.66.10.20", true)
+
 		var events []string
+
 		recorder.EventFunc = func(_ client.Object, _, reason, _ string) { events = append(events, reason) }
 		fakeClient, resource, vmState = setupEnvironment(vm, newMainPrimaryCNINetwork(), ipAddr, holder)
 
 		Expect(requeueAfter(fakeClient)).To(Equal(addressConflictRetryInterval), "nothing links the two machines to wake this one up")
+
 		cond := getCondition()
 		Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 		Expect(cond.Reason).To(Equal(vmcondition.ReasonIPAddressNotAvailable.String()))
@@ -375,6 +403,7 @@ var _ = Describe("IPAMHandler for a VM on an IPAddress", func() {
 		vm.Spec.Networks = []v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain, IPAddressName: "corp-ip"}}
 		ipAddr := newSDNIPAddress("corp-ip", namespace, "", "ClusterNetwork", "corp", "192.168.1.10", true)
 		fakeClient, resource, vmState = setupEnvironment(vm, newMainPrimaryCNINetwork(), ipAddr)
+
 		reconcile()
 
 		cond := getCondition()
@@ -390,6 +419,7 @@ var _ = Describe("IPAMHandler for a VM on an IPAddress", func() {
 		vmState = state.New(cl, resource)
 
 		Expect(requeueAfter(cl)).To(Equal(ipAddressKindRetryInterval), "no watch wakes the machine up while the kind is gone")
+
 		cond := getCondition()
 		Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 		Expect(cond.Message).To(ContainSubstring("does not serve the IPAddress kind"))
@@ -411,6 +441,7 @@ var _ = Describe("IPAMHandler for a VM on an IPAddress", func() {
 			vm.Status.IPAddress = "10.66.10.14"
 			ipAddr := newSDNIPAddress("vm-main", namespace, "vm-uid", "ClusterNetwork", "main", "10.66.10.14", true)
 			fakeClient, resource, vmState = setupEnvironment(vm, newMainPrimaryCNINetwork(), ipAddr, newRunningKVVMI(guestIPs...))
+
 			reconcile()
 
 			cond := getCondition()
@@ -453,11 +484,13 @@ var _ = Describe("IPAddressHandler for the Main network", func() {
 	listIPAddresses := func() []sdnapi.IPAddress {
 		list := &sdnapi.IPAddressList{}
 		Expect(fakeClient.List(ctx, list, client.InNamespace(namespace))).To(Succeed())
+
 		return list.Items
 	}
 
 	It("creates the auto Main IPAddress for a VM without a networks section", func() {
 		fakeClient, resource, vmState = setupEnvironment(vm, newMainPrimaryCNINetwork(), newKVVMWithMainInterfaceSpec(name, namespace))
+
 		reconcile()
 
 		items := listIPAddresses()
@@ -473,6 +506,7 @@ var _ = Describe("IPAddressHandler for the Main network", func() {
 	// The address of a machine on a vmip comes from the vmip.
 	It("does not create an IPAddress while the vmip holds the address", func() {
 		fakeClient, resource, vmState = setupEnvironment(vm, newMainPrimaryCNINetwork(), newManagedVMIPForVM())
+
 		reconcile()
 
 		Expect(listIPAddresses()).To(BeEmpty(), "the address of the machine comes from its vmip")
@@ -480,6 +514,7 @@ var _ = Describe("IPAddressHandler for the Main network", func() {
 
 	It("creates the IPAddress of a machine that has no vmip", func() {
 		fakeClient, resource, vmState = setupEnvironment(vm, newMainPrimaryCNINetwork())
+
 		reconcile()
 
 		Expect(listIPAddresses()).To(HaveLen(1))
@@ -492,6 +527,7 @@ var _ = Describe("IPAddressHandler for the Main network", func() {
 			Spec:       intvirtv1alpha1.VirtualMachineReceiverSpec{IPAddress: "10.66.10.1"},
 		}
 		fakeClient, resource, vmState = setupEnvironment(vm, newMainPrimaryCNINetwork(), receiver)
+
 		reconcile()
 
 		items := listIPAddresses()
@@ -508,6 +544,7 @@ var _ = Describe("IPAddressHandler for the Main network", func() {
 				Spec:       intvirtv1alpha1.VirtualMachineReceiverSpec{IPAddress: "10.66.10.1"},
 			}
 			fakeClient, resource, vmState = setupEnvironment(vm, newMainPrimaryCNINetwork(), receiver, ipa)
+
 			reconcile()
 
 			Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(receiver), receiver)).To(Succeed())
@@ -518,6 +555,7 @@ var _ = Describe("IPAddressHandler for the Main network", func() {
 		Entry("the sdn module does not allocate it", func() *sdnapi.IPAddress {
 			ipa := newSDNIPAddress("vm-a", namespace, "vm-uid", "ClusterNetwork", "main", "", false)
 			ipa.Status.Conditions[0].LastTransitionTime = metav1.NewTime(time.Now().Add(-2 * receivedAddressAllocationWait))
+
 			return ipa
 		}()),
 	)
@@ -525,6 +563,7 @@ var _ = Describe("IPAddressHandler for the Main network", func() {
 	It("does not create an IPAddress for a static Main network", func() {
 		vm.Spec.Networks = []v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain, IPAddressName: "my-static-ip"}}
 		fakeClient, resource, vmState = setupEnvironment(vm, newMainPrimaryCNINetwork())
+
 		reconcile()
 
 		Expect(listIPAddresses()).To(BeEmpty())
@@ -532,6 +571,7 @@ var _ = Describe("IPAddressHandler for the Main network", func() {
 
 	It("does not create an IPAddress while the sdn module does not serve the Main network", func() {
 		fakeClient, resource, vmState = setupEnvironment(vm)
+
 		reconcile()
 
 		Expect(listIPAddresses()).To(BeEmpty())
@@ -543,6 +583,7 @@ var _ = Describe("IPAddressHandler for the Main network", func() {
 		newer := newSDNIPAddress("vm-a", namespace, "vm-uid", "ClusterNetwork", "main", "10.66.10.14", true)
 		newer.CreationTimestamp = metav1.NewTime(time.Now())
 		fakeClient, resource, vmState = setupEnvironment(vm, newMainPrimaryCNINetwork(), older, newer)
+
 		reconcile()
 
 		items := listIPAddresses()
@@ -556,6 +597,7 @@ var _ = Describe("IPAddressHandler for the Main network", func() {
 	It("does not create an IPAddress for a machine that names its vmip", func() {
 		vm.Spec.VirtualMachineIPAddress = "my-vmip"
 		fakeClient, resource, vmState = setupEnvironment(vm, newMainPrimaryCNINetwork())
+
 		reconcile()
 
 		Expect(listIPAddresses()).To(BeEmpty())
@@ -565,6 +607,7 @@ var _ = Describe("IPAddressHandler for the Main network", func() {
 		h := NewIPAddressHandler(cl, nil)
 		res, err := h.Handle(ctx, vmState)
 		Expect(err).NotTo(HaveOccurred())
+
 		return res.RequeueAfter
 	}
 

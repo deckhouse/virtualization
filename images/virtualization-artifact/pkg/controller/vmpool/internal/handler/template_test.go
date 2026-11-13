@@ -34,11 +34,13 @@ import (
 func getVM(ctx context.Context, c client.Client, name string) *v1alpha2.VirtualMachine {
 	vm := &v1alpha2.VirtualMachine{}
 	Expect(c.Get(ctx, types.NamespacedName{Namespace: poolNamespace, Name: name}, vm)).To(Succeed())
+
 	return vm
 }
 
 var _ = Describe("TemplateHandler", func() {
 	var ctx context.Context
+
 	BeforeEach(func() {
 		ctx = context.Background()
 	})
@@ -46,6 +48,7 @@ var _ = Describe("TemplateHandler", func() {
 	poolWithRunPolicy := func() *v1alpha2.VirtualMachinePool {
 		pool := newPool(1)
 		pool.Spec.VirtualMachineTemplate.Spec.RunPolicy = v1alpha2.AlwaysOnPolicy
+
 		return pool
 	}
 

@@ -87,6 +87,7 @@ var _ = Describe("MigrationHandler with disks of the same migration", func() {
 		conditions.RemoveCondition(vdcondition.MigratingType, &vd.Status.Conditions)
 		vd.Status.MigrationState.Result = result
 		vd.Status.MigrationState.EndTimestamp = metav1.NewTime(end)
+
 		return vd
 	}
 
@@ -132,6 +133,7 @@ var _ = Describe("MigrationHandler with disks of the same migration", func() {
 				}},
 			},
 		}
+
 		kvvm := &virtv1.VirtualMachine{
 			ObjectMeta: metav1.ObjectMeta{Name: vmName, Namespace: namespace},
 			Spec:       virtv1.VirtualMachineSpec{Template: &virtv1.VirtualMachineInstanceTemplateSpec{}},
@@ -144,6 +146,7 @@ var _ = Describe("MigrationHandler with disks of the same migration", func() {
 				}},
 			})
 		}
+
 		fakeClient = fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, kvvm).Build()
 
 		recorder := &eventrecord.EventRecorderLoggerMock{
@@ -174,6 +177,7 @@ var _ = Describe("MigrationHandler with disks of the same migration", func() {
 		DescribeTable("should complete a disk whose migration is completed by another disk",
 			func(other func() *v1alpha2.VirtualDisk) {
 				vd := newDisk("disk-a", vdcondition.MigratingInProgressReason.String())
+
 				Expect(fakeClient.Create(ctx, other())).To(Succeed())
 
 				action, err := handler.getAction(ctx, vd, log)
@@ -202,6 +206,7 @@ var _ = Describe("MigrationHandler with disks of the same migration", func() {
 		It("should not follow the other disks when KubeVirt has not got the target of the disk", func() {
 			vd := newDisk("disk-a", vdcondition.MigratingInProgressReason.String())
 			vd.Status.MigrationState.TargetPVC = "disk-a-late-target"
+
 			Expect(fakeClient.Create(ctx, newDisk("disk-b", vdcondition.MigratingWaitForSourceVolumeReleaseReason.String()))).To(Succeed())
 
 			action, err := handler.getAction(ctx, vd, log)
@@ -214,8 +219,10 @@ var _ = Describe("MigrationHandler with disks of the same migration", func() {
 				ObjectMeta: metav1.ObjectMeta{Name: "other-vm", Namespace: namespace},
 				Spec:       virtv1.VirtualMachineSpec{Template: &virtv1.VirtualMachineInstanceTemplateSpec{}},
 			})).To(Succeed())
+
 			vd := newDisk("disk-a", vdcondition.MigratingInProgressReason.String())
 			vd.Status.AttachedToVirtualMachines = []v1alpha2.AttachedVirtualMachine{{Name: "other-vm"}, {Name: vmName}}
+
 			Expect(fakeClient.Create(ctx, newDisk("disk-b", vdcondition.MigratingWaitForSourceVolumeReleaseReason.String()))).To(Succeed())
 
 			action, err := handler.getAction(ctx, vd, log)
@@ -270,6 +277,7 @@ var _ = Describe("MigrationHandler with disks of the same migration", func() {
 			func(reason string, expected bool) {
 				vd := newDisk("disk-a", "")
 				vd.Status.MigrationState = v1alpha2.VirtualDiskMigrationState{}
+
 				Expect(fakeClient.Create(ctx, newDisk("disk-b", reason))).To(Succeed())
 
 				vm := &v1alpha2.VirtualMachine{}
@@ -286,7 +294,9 @@ var _ = Describe("MigrationHandler with disks of the same migration", func() {
 		It("should wait for a disk that started migrating before the operation", func() {
 			vd := newDisk("disk-a", "")
 			vd.Status.MigrationState = v1alpha2.VirtualDiskMigrationState{}
+
 			Expect(fakeClient.Create(ctx, newDisk("disk-b", vdcondition.MigratingInProgressReason.String()))).To(Succeed())
+
 			vmop := &v1alpha2.VirtualMachineOperation{
 				ObjectMeta: metav1.ObjectMeta{Name: "migrate", Namespace: namespace, CreationTimestamp: metav1.NewTime(migrationStart.Add(time.Minute))},
 				Spec:       v1alpha2.VirtualMachineOperationSpec{Type: v1alpha2.VMOPTypeMigrate, VirtualMachine: vmName},

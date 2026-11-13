@@ -73,6 +73,7 @@ func (s *OneShotMigrationService) OnceMigrate(ctx context.Context, vm *v1alpha2.
 		log.Debug("Migration already handled for this trigger. Skipping...",
 			slog.String("annotationKey", annotationKey),
 			slog.String("annotationValue", annotationExpectedValue))
+
 		return false, nil
 	}
 
@@ -86,17 +87,21 @@ func (s *OneShotMigrationService) OnceMigrate(ctx context.Context, vm *v1alpha2.
 		succeeded      bool
 		failedAttempts int
 	)
+
 	for _, vmop := range vmops {
 		if !commonvmop.IsFinished(&vmop) {
 			activeExists = true
 			continue
 		}
+
 		if _, managed := vmop.GetAnnotations()[annotations.AnnVMOPWorkloadUpdate]; !managed {
 			continue
 		}
+
 		if vmop.GetAnnotations()[annotationKey] != annotationExpectedValue {
 			continue
 		}
+
 		switch vmop.Status.Phase {
 		case v1alpha2.VMOPPhaseCompleted:
 			succeeded = true
@@ -115,6 +120,7 @@ func (s *OneShotMigrationService) OnceMigrate(ctx context.Context, vm *v1alpha2.
 			slog.Int("failedAttempts", failedAttempts))
 		s.recorder.WithLogging(log).Eventf(vm, corev1.EventTypeWarning, v1alpha2.ReasonWorkloadUpdateFailed,
 			"Live migration for the workload update failed %d times, giving up; the VirtualMachine may require a restart to apply the update.", failedAttempts)
+
 		return false, s.setAnnoExpectedValueToKVVMI(ctx, kvvmi, annotationKey, annotationExpectedValue)
 	}
 
@@ -136,6 +142,7 @@ func (s *OneShotMigrationService) Migrate(ctx context.Context, vm *v1alpha2.Virt
 	log := logger.FromContext(ctx)
 
 	log.Info("Create VMOP")
+
 	vmop := newVMOP(s.prefix, vm.GetNamespace(), vm.GetName(), annotationKey, annotationValue)
 	if err := s.client.Create(ctx, vmop); err != nil {
 		// The cached VMOP list can lag behind the webhook's live view, so a
@@ -145,6 +152,7 @@ func (s *OneShotMigrationService) Migrate(ctx context.Context, vm *v1alpha2.Virt
 			log.Debug("VMOP creation denied because another operation is active. Skipping...", logger.SlogErr(err))
 			return false, nil
 		}
+
 		return false, err
 	}
 
@@ -156,12 +164,15 @@ func (s *OneShotMigrationService) listVMOPMigrate(ctx context.Context, vmName, v
 	if err := s.client.List(ctx, vmopList, client.InNamespace(vmNamespace)); err != nil {
 		return nil, fmt.Errorf("failed to list virtual machine operations: %w", err)
 	}
+
 	var vmops []v1alpha2.VirtualMachineOperation
+
 	for _, vmop := range vmopList.Items {
 		if vmop.Spec.VirtualMachine == vmName && commonvmop.IsMigration(&vmop) {
 			vmops = append(vmops, vmop)
 		}
 	}
+
 	return vmops, nil
 }
 

@@ -40,6 +40,7 @@ func NewController(client client.Client, mgr manager.Manager, featureGate featur
 	recorder := eventrecord.NewEventRecorderLogger(mgr, controllerName)
 	baseSvc := genericservice.NewBaseVMOPService(client, recorder)
 	migration := service.NewMigrationService(client, featureGate)
+
 	return &Controller{
 		watchers: []reconciler.Watcher{
 			watcher.NewVMOPWatcher(),

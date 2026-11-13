@@ -50,9 +50,11 @@ func (c *USBIPDConfig) Complete(monitor libusb.Monitor) (*USBIPD, error) {
 	if c.GracefulShutdownTimeout > 0 {
 		opts = append(opts, WithGracefulShutdownTimeout(c.GracefulShutdownTimeout))
 	}
+
 	if c.MaxTcpConnections > 0 {
 		opts = append(opts, WithMaxTCPConnection(c.MaxTcpConnections))
 	}
+
 	if c.ExportEnabled {
 		opts = append(opts, WithExport(true))
 	}

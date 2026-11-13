@@ -152,6 +152,7 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	if receiver != nil || isMigrationReceiver(s.VirtualMachine().Changed()) {
 		synced, err := h.syncMigrationReceiver(ctx, s, receiver)
 		if err != nil || !synced {
@@ -165,8 +166,10 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 			Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonConfigurationNotApplied).
 			Message(service.CapitalizeFirstLetter(err.Error()) + ".")
+
 		return reconcile.Result{}, err
 	}
+
 	class, err := s.Class(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -183,18 +186,24 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 	// detection and quota math run on a concrete value. The original VM (and its
 	// persisted spec) is untouched — the user-facing coreFraction stays "Auto".
 	resolved := resolveCoreFraction(current, class)
+
 	var cpuHeld bool
+
 	if kvvm != nil {
 		lastAppliedSpec = h.loadLastAppliedSpec(current, kvvm)
 		lastClassAppliedSpec := h.loadClassLastAppliedSpec(class, kvvm)
+
 		kvvmi, kvvmiErr := s.KVVMI(ctx)
 		if kvvmiErr != nil {
 			return reconcile.Result{}, kvvmiErr
 		}
+
 		resolved, cpuHeld = holdPendingCPU(resolved, lastAppliedSpec, kvvmi)
+
 		changes = h.detectSpecChanges(ctx, kvvm, &resolved.Spec, lastAppliedSpec)
 		if !changes.IsEmpty() {
 			nonHotpluggableVolumes := nonHotpluggableVolumeRefs(kvvmi)
+
 			changes.UpgradeBlockDeviceChangesToRestartMatching(func(change vmchange.FieldChange) bool {
 				return blockDeviceChangeTouchesRefs(change, nonHotpluggableVolumes)
 			})
@@ -212,14 +221,18 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 						Status(metav1.ConditionFalse).
 						Reason(vmcondition.ReasonConfigurationNotApplied).
 						Message(service.CapitalizeFirstLetter(err.Error()) + ".")
+
 					return reconcile.Result{}, err
 				}
+
 				if insufficientQuota {
 					changes.UpgradeHotplugComputeChangesToRestartWithMessage(quotaMessage)
 				}
 			}
+
 			allChanges.Add(changes.GetAll()...)
 		}
+
 		if class != nil {
 			classChanges := h.detectClassSpecChanges(ctx, &class.Spec, lastClassAppliedSpec)
 			if !classChanges.IsEmpty() {
@@ -239,6 +252,7 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 				Status(metav1.ConditionFalse).
 				Reason(vmcondition.ReasonConfigurationNotApplied).
 				Message(service.CapitalizeFirstLetter(err.Error()) + ".")
+
 			return reconcile.Result{}, err
 		}
 	}
@@ -253,6 +267,7 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 					"the virtual machine cannot be restarted immediately to apply pending configuration changes " +
 					"as it is awaiting the availability of dependent resources.",
 			)
+
 		return reconcile.Result{RequeueAfter: time.Minute}, nil
 	}
 
@@ -262,6 +277,7 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 	synced, kvvmSyncErr := h.syncKVVM(ctx, s, allChanges)
 	waitForNetwork := errors.Is(kvvmSyncErr, errWaitForNetworkReady)
 	waitForMainIPAddress := errors.Is(kvvmSyncErr, network.ErrMainIPAddressNotReady)
+
 	waitForVMITeardown := errors.Is(kvvmSyncErr, errWaitForVMITeardown)
 	if kvvmSyncErr != nil && !waitForNetwork && !waitForMainIPAddress && !waitForVMITeardown {
 		errs = errors.Join(errs, fmt.Errorf("failed to sync the internal virtual machine: %w", kvvmSyncErr))
@@ -281,6 +297,7 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("observe the pending CPU and memory changes: %w", err)
 	}
+
 	if cpuHeld && hotplug != nil {
 		hotplug.message += " The newer CPU changes wait until these are applied."
 	}
@@ -314,11 +331,14 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 			Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonConfigurationNotApplied).
 			Message("Waiting for the user to restart in order to apply the configuration changes.")
+
 		restartMessages := changes.GetRestartMessages()
+
 		additionalMessage := ""
 		if len(restartMessages) > 0 {
 			additionalMessage = strings.Join(restartMessages, " ")
 		}
+
 		cbAwaitingRestart.
 			Status(metav1.ConditionTrue).
 			Reason(vmcondition.ReasonChangesPendingRestart).
@@ -337,11 +357,13 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 		h.recorder.Event(current, hotplug.eventType(), hotplug.eventReason(), hotplug.eventMessage())
 		cbConfApplied.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonConfigurationNotApplied).Message(hotplug.message)
 		cbAwaitingRestart.Status(metav1.ConditionTrue).Reason(vmcondition.ReasonChangesPendingRestart).Message(hotplug.message)
+
 		if len(changed.Status.RestartAwaitingChanges) == 0 {
 			pending, convErr := hotplugRestartAwaitingChanges(hotplug, current)
 			if convErr != nil {
 				return reconcile.Result{}, fmt.Errorf("list the pending CPU and memory changes: %w", convErr)
 			}
+
 			changed.Status.RestartAwaitingChanges = pending
 		}
 	case hotplug != nil:
@@ -367,6 +389,7 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 			if prev.Status != metav1.ConditionTrue || prev.Reason != vmcondition.ReasonUnexpectedState.String() {
 				log.Info(msg, "kvvmRestartRequiredReason", cond.Reason, "kvvmRestartRequiredMessage", cond.Message)
 			}
+
 			cbAwaitingRestart.
 				Status(metav1.ConditionTrue).
 				Reason(vmcondition.ReasonUnexpectedState).
@@ -379,9 +402,11 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 	if migrateVolumesErr != nil {
 		errs = errors.Join(errs, fmt.Errorf("failed to sync migrating volumes: %w", migrateVolumesErr))
 	}
+
 	if (waitForNetwork || waitForMainIPAddress || waitForVMITeardown) && result.RequeueAfter == 0 {
 		result.RequeueAfter = 5 * time.Second
 	}
+
 	return result, errs
 }
 
@@ -416,6 +441,7 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 	if err != nil {
 		return false, fmt.Errorf("find the internal virtual machine instance: %w", err)
 	}
+
 	pod, err := s.Pod(ctx)
 	if err != nil {
 		return false, fmt.Errorf("find the virtual machine pod: %w", err)
@@ -430,10 +456,12 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 		if err != nil {
 			return false, fmt.Errorf("failed to update internal virtual machine: %w", err)
 		}
+
 		err = object.DeleteObject(ctx, h.client, pod)
 		if err != nil {
 			return false, fmt.Errorf("failed to delete the internal virtual machine instance's pod: %w", err)
 		}
+
 		return true, nil
 	// Wait for the deleting instance of a KVVM that is not going to start: otherwise KubeVirt reports
 	// WaitingForVolumeBinding for a not yet bound PVC, the Stopped VM flips to Pending and Start is rejected.
@@ -441,6 +469,7 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 		if allChanges.IsEmpty() {
 			return true, nil
 		}
+
 		return false, errWaitForVMITeardown
 	case h.isVMStopped(s.VirtualMachine().Current(), kvvm, kvvmi, pod):
 		// KVVM should be updated when VM become stopped.
@@ -452,6 +481,7 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 		if err != nil {
 			return false, fmt.Errorf("update internal virtual machine in 'Stopped' state: %w", err)
 		}
+
 		return true, nil
 	case h.hasNoneDisruptiveChanges(s.VirtualMachine().Current(), kvvm, kvvmi, allChanges):
 		// No need to wait, apply changes to KVVM immediately.
@@ -468,13 +498,16 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 		if err != nil {
 			return false, fmt.Errorf("sync the Main interface spec: %w", err)
 		}
+
 		if kvvmPatched {
 			return true, nil
 		}
+
 		outOfSync, err := h.networksOutOfSync(ctx, s, kvvm)
 		if err != nil {
 			return false, fmt.Errorf("check network sync: %w", err)
 		}
+
 		if outOfSync {
 			if err := h.applyNetworkReadinessSync(ctx, s); err != nil {
 				return false, fmt.Errorf("apply network readiness sync: %w", err)
@@ -494,6 +527,7 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 				return false, fmt.Errorf("restore hotplug volumes of the internal virtual machine: %w", err)
 			}
 		}
+
 		return true, nil
 	default:
 		// Delay changes propagation to KVVM until user restarts VM.
@@ -508,6 +542,7 @@ func (h *SyncKvvmHandler) createKVVM(ctx context.Context, s state.VirtualMachine
 	if s.VirtualMachine().IsEmpty() {
 		return fmt.Errorf("the virtual machine is empty, please report a bug")
 	}
+
 	kvvm, err := MakeKVVMFromVMSpec(ctx, s)
 	if err != nil {
 		return fmt.Errorf("failed to make the internal virtual machine: %w", err)
@@ -533,6 +568,7 @@ func (h *SyncKvvmHandler) createKVVM(ctx context.Context, s state.VirtualMachine
 		if k8serrors.IsAlreadyExists(err) {
 			log.Warn("The KubeVirt VM already exists", "name", kvvm.Name)
 			delete(changed.Annotations, annotations.AnnVMRestorePowerState)
+
 			return nil
 		}
 
@@ -593,10 +629,12 @@ func (h *SyncKvvmHandler) updateKVVM(ctx context.Context, s state.VirtualMachine
 				patch.WithRemove("/spec/template/spec/domain/memory/maxGuest"),
 				patch.WithReplace("/spec/template/spec/domain/memory/guest", domainMemory.Guest.String()),
 			)
+
 			patchBytes, err := jsonPatch.Bytes()
 			if err != nil {
 				return fmt.Errorf("prepare json patch for internal virtual machine: %w", err)
 			}
+
 			if err = h.client.Patch(ctx, newKVVM, client.RawPatch(types.JSONPatchType, patchBytes)); err != nil {
 				return fmt.Errorf("patch internal virtual machine before update: %w", err)
 			}
@@ -616,11 +654,13 @@ func (h *SyncKvvmHandler) updateKVVM(ctx context.Context, s state.VirtualMachine
 // once it was set previously.
 func saveKVVMDomainMemoryForPatching(prevKVVM, newKVVM *virtv1.VirtualMachine) *virtv1.Memory {
 	prevMemory := prevKVVM.Spec.Template.Spec.Domain.Memory
+
 	newMemory := newKVVM.Spec.Template.Spec.Domain.Memory
 	if newMemory != nil && newMemory.MaxGuest != nil && newMemory.MaxGuest.IsZero() &&
 		prevMemory != nil && prevMemory.MaxGuest != nil && !prevMemory.MaxGuest.IsZero() {
 		return newMemory.DeepCopy()
 	}
+
 	return nil
 }
 
@@ -628,6 +668,7 @@ func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virt
 	if s.VirtualMachine().IsEmpty() {
 		return nil, nil
 	}
+
 	current := s.VirtualMachine().Current()
 	kvvmName := object.NamespacedName(current)
 
@@ -637,23 +678,28 @@ func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virt
 	if err != nil {
 		return nil, err
 	}
+
 	var kvvmBuilder *kvbuilder.KVVM
 	if kvvm == nil {
 		kvvmBuilder = kvbuilder.NewEmptyKVVM(kvvmName, kvvmOpts)
 	} else {
 		kvvmBuilder = kvbuilder.NewKVVM(kvvm.DeepCopy(), kvvmOpts)
 	}
+
 	bdState := NewBlockDeviceState(s)
+
 	err = bdState.Reload(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to reload blockdevice state for the virtual machine: %w", err)
 	}
+
 	class, err := s.Class(ctx)
 	if err != nil {
 		return nil, err
 	}
 	// Render KVVM from the effective coreFraction when the spec value is "Auto".
 	current = resolveCoreFraction(current, class)
+
 	if kvvm != nil {
 		kvvmi, err := s.KVVMI(ctx)
 		if err != nil {
@@ -670,10 +716,12 @@ func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virt
 	if err != nil {
 		return nil, err
 	}
+
 	mainInterfaceSpecEnabled, err := s.MainInterfaceSpecEnabled(ctx)
 	if err != nil {
 		return nil, err
 	}
+
 	mainInterfaceSpecRequired := network.MainInterfaceSpecRequired(usesVMIP, kvvm)
 
 	vmmacs, err := s.VirtualMachineMACAddresses(ctx)
@@ -685,7 +733,9 @@ func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virt
 	if err != nil {
 		return nil, err
 	}
+
 	networkSpec := network.CreateNetworkSpec(current, readyNetworks, vmmacs, kvvm != nil)
+
 	networkSpec, err = network.ProvisionableInterfaceSpecs(ctx, s.Client(), current, networkSpec, mainInterfaceSpecEnabled)
 	if err != nil {
 		return nil, err
@@ -700,15 +750,18 @@ func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virt
 
 	// cni.cilium.io/ipAddress stays next to the Main interface spec: an older cni-cilium reads only it.
 	ipAddress := ""
+
 	if usesVMIP {
 		ip, err := s.IPAddress(ctx)
 		if err != nil {
 			return nil, err
 		}
+
 		if ip != nil {
 			if ip.Status.Address == "" {
 				return nil, fmt.Errorf("the IP address is not found for the virtual machine")
 			}
+
 			ipAddress = ip.Status.Address
 		}
 	} else if mainSpec := networkSpec.MainWithAddress(); mainSpec != nil {
@@ -741,6 +794,7 @@ func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virt
 	if err != nil {
 		return nil, fmt.Errorf("failed to collect PV node affinities: %w", err)
 	}
+
 	kvvmBuilder.ApplyPVNodeAffinity(pvTerms)
 
 	newKVVM := kvvmBuilder.GetResource()
@@ -764,6 +818,7 @@ func IsKVVMChanged(prevKVVM, newKVVM *virtv1.VirtualMachine) bool {
 	if !ok {
 		prevKVVMLastAppliedSpecAnnotations = prevKVVM.Annotations[annotations.AnnVMLastAppliedSpecLegacy]
 	}
+
 	newKVVMLastAppliedSpecAnnotations, ok := newKVVM.Annotations[annotations.AnnVMLastAppliedSpec]
 	if !ok {
 		newKVVMLastAppliedSpecAnnotations = newKVVM.Annotations[annotations.AnnVMLastAppliedSpecLegacy]
@@ -777,6 +832,7 @@ func IsKVVMChanged(prevKVVM, newKVVM *virtv1.VirtualMachine) bool {
 	if !ok {
 		prevKVVMClassLastAppliedSpecAnnotations = prevKVVM.Annotations[annotations.AnnVMClassLastAppliedSpecLegacy]
 	}
+
 	newKVVMClassLastAppliedSpecAnnotations, ok := newKVVM.Annotations[annotations.AnnVMClassLastAppliedSpec]
 	if !ok {
 		newKVVMClassLastAppliedSpecAnnotations = newKVVM.Annotations[annotations.AnnVMClassLastAppliedSpecLegacy]
@@ -798,8 +854,10 @@ func (h *SyncKvvmHandler) loadLastAppliedSpec(vm *v1alpha2.VirtualMachine, kvvm 
 	// TODO Add smarter handler for empty/invalid annotation.
 	if lastSpec == nil && err == nil {
 		h.recorder.Event(vm, corev1.EventTypeWarning, v1alpha2.ReasonVMLastAppliedSpecIsInvalid, "Could not find last applied spec. Possible old VM or partial backup restore. Restart or recreate VM to adopt it.")
+
 		lastSpec = &v1alpha2.VirtualMachineSpec{}
 	}
+
 	if err != nil {
 		msg := fmt.Sprintf("Could not restore last applied spec: %v. Possible old VM or partial backup restore. Restart or recreate VM to adopt it.", err)
 		h.recorder.Event(vm, corev1.EventTypeWarning, v1alpha2.ReasonVMLastAppliedSpecIsInvalid, msg)
@@ -807,6 +865,7 @@ func (h *SyncKvvmHandler) loadLastAppliedSpec(vm *v1alpha2.VirtualMachine, kvvm 
 		if vmutil.ApprovalMode(vm) == v1alpha2.Automatic {
 			lastSpec = &v1alpha2.VirtualMachineSpec{}
 		}
+
 		if vmutil.ApprovalMode(vm) == v1alpha2.Manual {
 			// Manual mode requires meaningful content in status.pendingChanges.
 			// There are different paths:
@@ -834,11 +893,14 @@ func (h *SyncKvvmHandler) loadClassLastAppliedSpec(class *v1alpha2.VirtualMachin
 	// TODO Add smarter handler for empty/invalid annotation.
 	if lastSpec == nil && err == nil {
 		h.recorder.Event(class, corev1.EventTypeWarning, v1alpha2.ReasonVMClassLastAppliedSpecInvalid, "Could not find last applied spec. Possible old VMClass or partial backup restore. Restart or recreate VM to adopt it.")
+
 		lastSpec = &v1alpha2.VirtualMachineClassSpec{}
 	}
+
 	if err != nil {
 		msg := fmt.Sprintf("Could not restore last applied spec: %v. Possible old VMClass or partial backup restore. Restart or recreate VM to adopt it.", err)
 		h.recorder.Event(class, corev1.EventTypeWarning, v1alpha2.ReasonVMClassLastAppliedSpecInvalid, msg)
+
 		lastSpec = &v1alpha2.VirtualMachineClassSpec{}
 	}
 
@@ -908,6 +970,7 @@ func (h *SyncKvvmHandler) isVMStopped(
 	}
 
 	podStopped := true
+
 	if pod != nil {
 		phase := pod.Status.Phase
 		podStopped = phase != corev1.PodPending && phase != corev1.PodRunning
@@ -928,6 +991,7 @@ func (h *SyncKvvmHandler) hasNoneDisruptiveChanges(
 	if vm == nil || changes.IsEmpty() {
 		return false
 	}
+
 	if !changes.IsDisruptive() || kvvmi == nil {
 		return true
 	}
@@ -946,6 +1010,7 @@ func (h *SyncKvvmHandler) applyVMChangesToKVVM(ctx context.Context, s state.Virt
 	if changes.IsEmpty() || s.VirtualMachine().IsEmpty() {
 		return nil
 	}
+
 	current := s.VirtualMachine().Current()
 	action := changes.ActionType()
 
@@ -953,9 +1018,11 @@ func (h *SyncKvvmHandler) applyVMChangesToKVVM(ctx context.Context, s state.Virt
 	if err != nil {
 		return err
 	}
+
 	if kvvmi == nil && action == vmchange.ActionRestart {
 		action = vmchange.ActionApplyImmediate
 	}
+
 	kvvm, err := s.KVVM(ctx)
 	if err != nil {
 		return err
@@ -973,6 +1040,7 @@ func (h *SyncKvvmHandler) applyVMChangesToKVVM(ctx context.Context, s state.Virt
 		if changes.IsDisruptive() {
 			message = "Apply disruptive changes without restart"
 		}
+
 		h.recorder.Event(current, corev1.EventTypeNormal, v1alpha2.ReasonVMChangesApplied, message)
 		log.Debug(message, "vm.name", current.GetName(), "changes", changes)
 
@@ -986,10 +1054,12 @@ func (h *SyncKvvmHandler) applyVMChangesToKVVM(ctx context.Context, s state.Virt
 			if err != nil {
 				return fmt.Errorf("unable to check pod network status: %w", err)
 			}
+
 			if !ready {
 				msg := "Waiting for SDN to configure network interfaces"
 				log.Info(msg)
 				h.recorder.Event(current, corev1.EventTypeNormal, v1alpha2.ReasonVMChangesApplied, msg)
+
 				return errWaitForNetworkReady
 			}
 		}
@@ -1005,10 +1075,12 @@ func (h *SyncKvvmHandler) applyVMChangesToKVVM(ctx context.Context, s state.Virt
 		if err != nil {
 			return fmt.Errorf("failed to get vmclass: %w", err)
 		}
+
 		if err = h.updateKVVMLastAppliedSpec(ctx, current, kvvm, class); err != nil {
 			return fmt.Errorf("unable to update last-applied-spec on KVVM: %w", err)
 		}
 	}
+
 	return nil
 }
 
@@ -1027,6 +1099,7 @@ func (h *SyncKvvmHandler) updateKVVMLastAppliedSpec(
 	if err != nil {
 		return fmt.Errorf("set vm last applied spec on KubeVirt VM '%s': %w", kvvm.GetName(), err)
 	}
+
 	err = kvbuilder.SetLastAppliedClassSpec(kvvm, class)
 	if err != nil {
 		return fmt.Errorf("set vmclass last applied spec on KubeVirt VM '%s': %w", kvvm.GetName(), err)
@@ -1065,15 +1138,19 @@ func holdPendingCPU(vm *v1alpha2.VirtualMachine, lastApplied *v1alpha2.VirtualMa
 	if lastApplied == nil || kvvmi == nil || lastApplied.CPU.Cores == 0 || lastApplied.CPU.CoreFraction == v1alpha2.CoreFractionAuto {
 		return vm, false
 	}
+
 	if cond, _ := conditions.GetKVVMICondition(virtv1.VirtualMachineInstanceVCPUChange, kvvmi.Status.Conditions); cond.Status != corev1.ConditionTrue {
 		return vm, false
 	}
+
 	if vm.Spec.CPU.Cores == lastApplied.CPU.Cores && coreFractionOrDefault(vm.Spec.CPU.CoreFraction) == coreFractionOrDefault(lastApplied.CPU.CoreFraction) {
 		return vm, false
 	}
+
 	held := vm.DeepCopy()
 	held.Spec.CPU.Cores = lastApplied.CPU.Cores
 	held.Spec.CPU.CoreFraction = lastApplied.CPU.CoreFraction
+
 	return held, true
 }
 
@@ -1081,6 +1158,7 @@ func coreFractionOrDefault(coreFraction string) string {
 	if coreFraction == "" {
 		return vmchange.DefaultCPUCoreFraction
 	}
+
 	return coreFraction
 }
 
@@ -1090,11 +1168,13 @@ func autoscaledChanges(vm *v1alpha2.VirtualMachine, changes *vmchange.SpecChange
 	if vm.Spec.CPU.CoreFraction != v1alpha2.CoreFractionAuto {
 		return false
 	}
+
 	for _, change := range changes.GetAll() {
 		if change.Path != "cpu.coreFraction" {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -1121,6 +1201,7 @@ func (h *SyncKvvmHandler) hasInsufficientHotplugMigrationQuota(ctx context.Conte
 	}
 
 	var messages []string
+
 	requests := []struct {
 		name corev1.ResourceName
 		req  resource.Quantity
@@ -1148,11 +1229,13 @@ func (h *SyncKvvmHandler) hasInsufficientHotplugMigrationQuota(ctx context.Conte
 func hasHotplugComputeApplyImmediateChange(changes vmchange.SpecChanges) bool {
 	for _, change := range changes.GetAll() {
 		isCPUChange := change.Path == "cpu" || strings.HasPrefix(change.Path, "cpu.")
+
 		isMemoryChange := change.Path == "memory" || strings.HasPrefix(change.Path, "memory.")
 		if (isCPUChange || isMemoryChange) && change.ActionRequired == vmchange.ActionApplyImmediate {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -1165,8 +1248,10 @@ func resolveCoreFraction(vm *v1alpha2.VirtualMachine, class *v1alpha2.VirtualMac
 	if vm.Spec.CPU.CoreFraction != v1alpha2.CoreFractionAuto {
 		return vm
 	}
+
 	resolved := vm.DeepCopy()
 	resolved.Spec.CPU.CoreFraction = sizingpolicy.EffectiveCoreFraction(vm, class)
+
 	return resolved
 }
 
@@ -1184,6 +1269,7 @@ func quotaAllowsHotplugMigration(quota *corev1.ResourceQuota, resourceName corev
 	if !hasHard {
 		hard, hasHard = quota.Spec.Hard[resourceName]
 	}
+
 	if !hasHard {
 		return "", true
 	}
@@ -1195,12 +1281,15 @@ func quotaAllowsHotplugMigration(quota *corev1.ResourceQuota, resourceName corev
 	used := quota.Status.Used[resourceName]
 	duringMigration := used.DeepCopy()
 	duringMigration.Add(newReq)
+
 	if duringMigration.Cmp(hard) == common.CmpGreater {
 		available := hard.DeepCopy()
 		available.Sub(used)
+
 		if available.Sign() < 0 {
 			available.Set(0)
 		}
+
 		return hotplugMigrationQuotaMessage(quota, resourceName, newReq, available, hard), false
 	}
 
@@ -1248,6 +1337,7 @@ func hotplugVolumesOutOfSync(kvvm *virtv1.VirtualMachine, kvvmi *virtv1.VirtualM
 		if !kvbuilder.IsHotpluggableVolume(volume) {
 			continue
 		}
+
 		if !slices.ContainsFunc(kvvm.Spec.Template.Spec.Volumes, func(v virtv1.Volume) bool { return v.Name == volume.Name }) {
 			return true
 		}
@@ -1260,7 +1350,9 @@ func (h *SyncKvvmHandler) networksOutOfSync(ctx context.Context, s state.Virtual
 	if kvvm == nil {
 		return false, nil
 	}
+
 	vm := s.VirtualMachine().Current()
+
 	kvvmi, err := s.KVVMI(ctx)
 	if err != nil {
 		return false, err
@@ -1286,15 +1378,19 @@ func (h *SyncKvvmHandler) networksOutOfSync(ctx context.Context, s state.Virtual
 
 	if !implicitDefaultDrift {
 		actual := make(map[string]struct{})
+
 		for _, iface := range kvvm.Spec.Template.Spec.Domain.Devices.Interfaces {
 			if iface.State == virtv1.InterfaceStateAbsent {
 				continue
 			}
+
 			actual[iface.Name] = struct{}{}
 		}
+
 		if len(desired.specs) != len(actual) {
 			return true, nil
 		}
+
 		for _, spec := range desired.specs {
 			if _, ok := actual[spec.InterfaceName]; !ok {
 				return true, nil
@@ -1312,33 +1408,40 @@ func (h *SyncKvvmHandler) networksOutOfSync(ctx context.Context, s state.Virtual
 	if err != nil {
 		return false, err
 	}
+
 	for i := range pods.Items {
 		pod := &pods.Items[i]
 		if !isActiveLauncherPod(kvvmi, pod) {
 			continue
 		}
+
 		podSpecs, leaveAlone := desired.interfaceSpecsFor(ctx, pod)
 		if leaveAlone {
 			continue
 		}
+
 		podConfigStr, err := podSpecs.ToString()
 		if err != nil {
 			return false, err
 		}
+
 		if pod.Annotations[annotations.AnnNetworksSpec] != podConfigStr {
 			return true, nil
 		}
+
 		tapExpected, tapKnown, err := h.tapProvisionByDVPExpected(ctx, pod)
 		if err != nil {
 			return false, err
 		}
 		// A pod with the Main interface spec alone must not ask SDN for a veth.
 		tapExpected = tapExpected && podSpecs.HasAdditional()
+
 		_, tapPresent := pod.Annotations[annotations.AnnTapProvisionByDVPSupported]
 		if tapKnown && tapPresent != tapExpected {
 			return true, nil
 		}
 	}
+
 	return false, nil
 }
 
@@ -1350,12 +1453,15 @@ func hasActiveAdditionalInterfaces(kvvm *virtv1.VirtualMachine) bool {
 	if kvvm == nil || kvvm.Spec.Template == nil {
 		return false
 	}
+
 	for _, iface := range kvvm.Spec.Template.Spec.Domain.Devices.Interfaces {
 		if iface.Name == network.NameDefaultInterface || iface.State == virtv1.InterfaceStateAbsent {
 			continue
 		}
+
 		return true
 	}
+
 	return false
 }
 
@@ -1374,6 +1480,7 @@ func (h *SyncKvvmHandler) applyNetworkReadinessSync(ctx context.Context, s state
 		if err != nil {
 			return fmt.Errorf("find the internal virtual machine: %w", err)
 		}
+
 		kvvmi, err := s.KVVMI(ctx)
 		if err != nil {
 			return fmt.Errorf("find the internal virtual machine instance: %w", err)
@@ -1388,14 +1495,17 @@ func (h *SyncKvvmHandler) applyNetworkReadinessSync(ctx context.Context, s state
 			return nil
 		}
 	}
+
 	ready, err := h.isNetworkReadyOnPod(ctx, s, desired)
 	if err != nil {
 		return fmt.Errorf("check pod network status: %w", err)
 	}
+
 	if !ready {
 		logger.FromContext(ctx).Info("Waiting for SDN to configure network interfaces on the pod before updating KVVM")
 		return errWaitForNetworkReady
 	}
+
 	return h.updateKVVM(ctx, s)
 }
 
@@ -1407,21 +1517,25 @@ func filterReadyNetworks(ctx context.Context, c client.Client, vm *v1alpha2.Virt
 	if vm == nil {
 		return nil, nil
 	}
+
 	networks := network.WithEffectiveMain(vm.Spec.Networks)
 	if c == nil {
 		// Readiness cannot be checked; keep every network rather than strip the machine bare.
 		return networks, nil
 	}
+
 	kept := make([]v1alpha2.NetworksSpec, 0, len(networks))
 	for _, ns := range networks {
 		ready, err := network.IsNetworkSpecReady(ctx, c, vm.Namespace, ns)
 		if err != nil {
 			return nil, fmt.Errorf("check readiness for network %s: %w", network.SpecKey(ns), err)
 		}
+
 		if ready {
 			kept = append(kept, ns)
 		}
 	}
+
 	return kept, nil
 }
 
@@ -1431,6 +1545,7 @@ func hasNetworkChange(changes vmchange.SpecChanges) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -1439,13 +1554,16 @@ func (h *SyncKvvmHandler) isNetworkReadyOnPod(ctx context.Context, s state.Virtu
 	if err != nil {
 		return false, err
 	}
+
 	if pods == nil || len(pods.Items) == 0 {
 		return false, nil
 	}
+
 	errMsg, err := extractNetworkStatusFromPods(pods, desired, additionalNetworkKeys(s.VirtualMachine().Current()))
 	if err != nil {
 		return false, err
 	}
+
 	return errMsg == "", nil
 }
 
@@ -1460,6 +1578,7 @@ func (h *SyncKvvmHandler) patchPodNetworkAnnotation(ctx context.Context, s state
 	if err != nil {
 		return nil, err
 	}
+
 	if pods == nil || len(pods.Items) == 0 {
 		return nil, nil
 	}
@@ -1479,14 +1598,17 @@ func (h *SyncKvvmHandler) patchPodNetworkAnnotation(ctx context.Context, s state
 		if !isActiveLauncherPod(kvvmi, pod) {
 			continue
 		}
+
 		podSpecs, leaveAlone := desired.interfaceSpecsFor(ctx, pod)
 		if leaveAlone {
 			continue
 		}
+
 		podConfigStr, err := podSpecs.ToString()
 		if err != nil {
 			return nil, fmt.Errorf("build the network annotation of pod %s: %w", pod.Name, err)
 		}
+
 		tapExpected, tapKnown, err := h.tapProvisionByDVPExpected(ctx, pod)
 		if err != nil {
 			return nil, err
@@ -1494,6 +1616,7 @@ func (h *SyncKvvmHandler) patchPodNetworkAnnotation(ctx context.Context, s state
 		// A pod with the Main interface spec alone must not ask SDN for a veth.
 		tapExpected = tapExpected && podSpecs.HasAdditional()
 		_, tapPresent := pod.Annotations[annotations.AnnTapProvisionByDVPSupported]
+
 		tapInSync := !tapKnown || tapPresent == tapExpected
 		if pod.Annotations[annotations.AnnNetworksSpec] == podConfigStr && tapInSync {
 			continue
@@ -1503,7 +1626,9 @@ func (h *SyncKvvmHandler) patchPodNetworkAnnotation(ctx context.Context, s state
 		if pod.Annotations == nil {
 			pod.Annotations = make(map[string]string)
 		}
+
 		pod.Annotations[annotations.AnnNetworksSpec] = podConfigStr
+
 		if tapKnown {
 			if tapExpected {
 				pod.Annotations[annotations.AnnTapProvisionByDVPSupported] = "true"
@@ -1511,9 +1636,11 @@ func (h *SyncKvvmHandler) patchPodNetworkAnnotation(ctx context.Context, s state
 				delete(pod.Annotations, annotations.AnnTapProvisionByDVPSupported)
 			}
 		}
+
 		if err := h.client.Patch(ctx, pod, patch); err != nil {
 			return nil, fmt.Errorf("failed to patch pod %s network annotation: %w", pod.Name, err)
 		}
+
 		log.Info("Patched pod network annotation", "pod", pod.Name, "networks", podConfigStr)
 	}
 
@@ -1560,6 +1687,7 @@ type podNetworks struct {
 func (n podNetworks) interfaceSpecsFor(ctx context.Context, pod *corev1.Pod) (specs network.InterfaceSpecList, leaveAlone bool) {
 	current, annotated := pod.Annotations[annotations.AnnNetworksSpec]
 	specs = n.retainInterfacesAwaitingRemoval(ctx, current)
+
 	return specs, !annotated && len(specs.ForAnnotation()) == 0
 }
 
@@ -1567,14 +1695,17 @@ func (n podNetworks) interfaceSpecsFor(ctx context.Context, pod *corev1.Pod) (sp
 // with the interfaces that are on their way out of the virtual machine.
 func (h *SyncKvvmHandler) resolvePodNetworks(ctx context.Context, s state.VirtualMachineState) (podNetworks, error) {
 	vm := s.VirtualMachine().Current()
+
 	vmmacs, err := s.VirtualMachineMACAddresses(ctx)
 	if err != nil {
 		return podNetworks{}, err
 	}
+
 	readyNetworks, err := filterReadyNetworks(ctx, s.Client(), vm)
 	if err != nil {
 		return podNetworks{}, err
 	}
+
 	kvvm, err := s.KVVM(ctx)
 	if err != nil {
 		return podNetworks{}, err
@@ -1586,16 +1717,19 @@ func (h *SyncKvvmHandler) resolvePodNetworks(ctx context.Context, s state.Virtua
 	}
 
 	specs := network.CreateNetworkSpec(vm, readyNetworks, vmmacs, kvvm != nil)
+
 	specs, err = network.ProvisionableInterfaceSpecs(ctx, s.Client(), vm, specs, mainInterfaceSpecEnabled)
 	if err != nil {
 		return podNetworks{}, fmt.Errorf("get the provisionable interface specs: %w", err)
 	}
 
 	var additional []string
+
 	for _, netSpec := range readyNetworks {
 		if netSpec.Type == v1alpha2.NetworksTypeMain {
 			continue
 		}
+
 		additional = append(additional, netSpec.Name)
 	}
 
@@ -1620,20 +1754,26 @@ func interfacesAwaitingRemoval(kvvm *virtv1.VirtualMachine, desired network.Inte
 	if kvvm == nil || kvvm.Spec.Template == nil {
 		return nil
 	}
+
 	desiredByName := make(map[string]struct{}, len(desired))
 	for _, spec := range desired {
 		desiredByName[spec.InterfaceName] = struct{}{}
 	}
+
 	awaiting := make(map[string]struct{})
+
 	for _, iface := range kvvm.Spec.Template.Spec.Domain.Devices.Interfaces {
 		if iface.Name == network.NameDefaultInterface {
 			continue
 		}
+
 		if _, wanted := desiredByName[iface.Name]; wanted {
 			continue
 		}
+
 		awaiting[iface.Name] = struct{}{}
 	}
+
 	return awaiting
 }
 
@@ -1654,22 +1794,27 @@ func (n podNetworks) retainInterfacesAwaitingRemoval(ctx context.Context, curren
 		// of an interface still leaving the machine going early.
 		logger.FromContext(ctx).Warn("Cannot parse the current pod network annotation, advertising the desired spec as is",
 			logger.SlogErr(err), "networks", currentStr)
+
 		return n.specs
 	}
 
 	kept := make(network.InterfaceSpecList, 0, len(n.specs)+len(current))
 	kept = append(kept, n.specs...)
+
 	present := make(map[string]struct{}, len(n.specs))
 	for _, spec := range n.specs {
 		present[spec.InterfaceName] = struct{}{}
 	}
+
 	for _, spec := range current {
 		if _, awaiting := n.awaitingRemoval[spec.InterfaceName]; !awaiting {
 			continue
 		}
+
 		if _, alreadyThere := present[spec.InterfaceName]; alreadyThere {
 			continue
 		}
+
 		present[spec.InterfaceName] = struct{}{}
 		kept = append(kept, spec)
 	}
@@ -1690,17 +1835,22 @@ func (h *SyncKvvmHandler) tapProvisionByDVPExpected(ctx context.Context, pod *co
 	if _, configured := pod.Annotations[annotations.AnnNetworksStatus]; configured {
 		return false, false, nil
 	}
+
 	if pod.Spec.NodeName == "" {
 		return false, false, nil
 	}
+
 	node := &corev1.Node{}
 	if err := h.client.Get(ctx, types.NamespacedName{Name: pod.Spec.NodeName}, node); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return false, false, nil
 		}
+
 		return false, false, err
 	}
+
 	_, ok := node.Annotations[annotations.AnnTapProvisionByDVPSupported]
+
 	return ok, true, nil
 }
 
@@ -1708,10 +1858,13 @@ func isActiveLauncherPod(kvvmi *virtv1.VirtualMachineInstance, pod *corev1.Pod) 
 	if pod == nil || pod.DeletionTimestamp != nil {
 		return false
 	}
+
 	if kvvmi == nil {
 		return true
 	}
+
 	_, active := kvvmi.Status.ActivePods[pod.GetUID()]
+
 	return active
 }
 
@@ -1728,6 +1881,7 @@ func nonHotpluggableVolumeRefs(kvvmi *virtv1.VirtualMachineInstance) map[nameKin
 			if kind == "" {
 				continue
 			}
+
 			refs[nameKindKey{kind: kind, name: name}] = struct{}{}
 		}
 	}
@@ -1745,6 +1899,7 @@ func blockDeviceChangeTouchesRefs(change vmchange.FieldChange, refs map[nameKind
 			return true
 		}
 	}
+
 	for _, ref := range blockDeviceRefsFromValue(change.DesiredValue) {
 		if _, ok := refs[nameKindKey{kind: ref.Kind, name: ref.Name}]; ok {
 			return true
@@ -1787,11 +1942,14 @@ func (h *SyncKvvmHandler) addMainInterfaceSpec(ctx context.Context, s state.Virt
 	if err != nil || !enabled {
 		return false, err
 	}
+
 	kvvmi, err := s.KVVMI(ctx)
 	if err != nil {
 		return false, err
 	}
+
 	templateLacksSpec := !network.KVVMHasMainInterfaceSpec(kvvm)
+
 	instanceLacksSpec := kvvmi != nil && !network.HasMainInterfaceSpec(kvvmi.Annotations)
 	if !templateLacksSpec && !instanceLacksSpec {
 		return false, nil
@@ -1801,6 +1959,7 @@ func (h *SyncKvvmHandler) addMainInterfaceSpec(ctx context.Context, s state.Virt
 	if err != nil || specs == nil {
 		return false, err
 	}
+
 	annotationsToSet, annotationsToRemove, err := specs.BuildNetworksAnnotations()
 	if err != nil {
 		return false, err
@@ -1819,6 +1978,7 @@ func (h *SyncKvvmHandler) addMainInterfaceSpec(ctx context.Context, s state.Virt
 			return templateLacksSpec, err
 		}
 	}
+
 	return templateLacksSpec, nil
 }
 
@@ -1830,18 +1990,22 @@ func (h *SyncKvvmHandler) mainInterfaceSpecsToAdd(ctx context.Context, s state.V
 	if err != nil {
 		return nil, err
 	}
+
 	mainSpec := desired.specs.MainWithAddress()
 	if mainSpec == nil {
 		return nil, nil
 	}
+
 	usesVMIP, err := s.UsesVMIP(ctx)
 	if err != nil || !usesVMIP {
 		return desired.specs, err
 	}
+
 	vmip, err := s.IPAddress(ctx)
 	if err != nil || vmip == nil || vmip.Status.Address != mainSpec.IPAddress {
 		return nil, err
 	}
+
 	return desired.specs, nil
 }
 
@@ -1849,6 +2013,7 @@ func (h *SyncKvvmHandler) mainInterfaceSpecsToAdd(ctx context.Context, s state.V
 // cni-cilium predates the Main interface spec keeps serving the address from it.
 func (h *SyncKvvmHandler) addMainInterfaceSpecToTemplate(ctx context.Context, s state.VirtualMachineState, kvvm *virtv1.VirtualMachine, annotationsToSet map[string]string, annotationsToRemove []string) error {
 	kvvmWithSpec := kvvm.DeepCopy()
+
 	kvvmWithSpec.Spec.Template.ObjectMeta.Annotations = updateAnnotations(kvvmWithSpec.Spec.Template.ObjectMeta.Annotations, annotationsToSet, annotationsToRemove)
 	if err := h.client.Patch(ctx, kvvmWithSpec, client.MergeFrom(kvvm)); err != nil {
 		return fmt.Errorf("write the Main interface spec into the internal virtual machine: %w", err)
@@ -1858,15 +2023,18 @@ func (h *SyncKvvmHandler) addMainInterfaceSpecToTemplate(ctx context.Context, s 
 	msg := "The Main network address management has been migrated to the sdn module; the running pod is not affected."
 	logger.FromContext(ctx).Info(msg, "vm", vm.Name)
 	h.recorder.Event(vm, corev1.EventTypeNormal, v1alpha2.ReasonMainIPAMMigrated, msg)
+
 	return nil
 }
 
 func (h *SyncKvvmHandler) addMainInterfaceSpecToInstance(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance, annotationsToSet map[string]string, annotationsToRemove []string) error {
 	kvvmiWithSpec := kvvmi.DeepCopy()
 	kvvmiWithSpec.SetAnnotations(updateAnnotations(kvvmiWithSpec.GetAnnotations(), annotationsToSet, annotationsToRemove))
+
 	if err := h.client.Patch(ctx, kvvmiWithSpec, client.MergeFrom(kvvmi)); err != nil {
 		return fmt.Errorf("write the Main interface spec into the internal virtual machine instance: %w", err)
 	}
+
 	return nil
 }
 
@@ -1874,11 +2042,14 @@ func updateAnnotations(anno, annotationsToSet map[string]string, annotationsToRe
 	if anno == nil {
 		anno = map[string]string{}
 	}
+
 	for k, v := range annotationsToSet {
 		anno[k] = v
 	}
+
 	for _, k := range annotationsToRemove {
 		delete(anno, k)
 	}
+
 	return anno
 }

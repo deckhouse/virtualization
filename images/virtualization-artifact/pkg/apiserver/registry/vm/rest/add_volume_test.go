@@ -43,6 +43,7 @@ var _ = Describe("AddVolumeREST.genMutateRequestHook", func() {
 
 		var hotplugRequest virtv1.AddVolumeOptions
 		Expect(json.Unmarshal(body, &hotplugRequest)).To(Succeed())
+
 		return hotplugRequest
 	}
 

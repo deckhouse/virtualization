@@ -43,6 +43,7 @@ func VirtualMachineNameCompletionFunc(cmd *cobra.Command, args []string, toCompl
 	}
 
 	var comps []string
+
 	for _, vm := range vms.Items {
 		if strings.HasPrefix(vm.Name, toComplete) {
 			comps = append(comps, vm.Name)

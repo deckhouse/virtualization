@@ -30,6 +30,7 @@ func BeEnforced() Predicate {
 				return false, nil
 			}
 		}
+
 		if len(rq.Spec.Hard) == 0 {
 			return false, nil
 		}

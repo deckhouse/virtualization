@@ -57,6 +57,7 @@ func (r RemoveResourceClaimREST) Connect(ctx context.Context, name string, opts 
 	if !ok {
 		return nil, fmt.Errorf("invalid options object: %#v", opts)
 	}
+
 	var (
 		removeResourceClaimPather pather
 		hooks                     []mutateRequestHook
@@ -66,10 +67,12 @@ func (r RemoveResourceClaimREST) Connect(ctx context.Context, name string, opts 
 		removeResourceClaimPather = newKVVMIPather("removeresourceclaim")
 	} else {
 		removeResourceClaimPather = newKVVMPather("removeresourceclaim")
+
 		h, err := r.genMutateRequestHook(removeResourceClaimOpts)
 		if err != nil {
 			return nil, err
 		}
+
 		hooks = append(hooks, h)
 	}
 
@@ -77,7 +80,9 @@ func (r RemoveResourceClaimREST) Connect(ctx context.Context, name string, opts 
 	if err != nil {
 		return nil, err
 	}
+
 	handler := newThrottledUpgradeAwareProxyHandler(location, transport, false, responder, r.kubevirt.ServiceAccount, hooks...)
+
 	return handler, nil
 }
 

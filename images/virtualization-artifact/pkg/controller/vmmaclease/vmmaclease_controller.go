@@ -73,5 +73,6 @@ func NewController(
 	}
 
 	log.Info("Initialized VirtualMachineMACLease controller")
+
 	return c, nil
 }

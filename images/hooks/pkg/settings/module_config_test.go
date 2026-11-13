@@ -43,11 +43,13 @@ func TestCanRunWithModuleConfig(t *testing.T) {
 	newInput := func(client pkg.KubernetesClient, err error) *pkg.HookInput {
 		dc := mock.NewDependencyContainerMock(t)
 		dc.GetK8sClientMock.Return(client, err)
+
 		return &pkg.HookInput{DC: dc}
 	}
 
 	t.Run("returns true when internal values copy exists", func(t *testing.T) {
 		dc := mock.NewDependencyContainerMock(t)
+
 		values, err := patchablevalues.NewPatchableValues(map[string]any{
 			"virtualization": map[string]any{
 				"internal": map[string]any{
@@ -60,10 +62,12 @@ func TestCanRunWithModuleConfig(t *testing.T) {
 		}
 
 		input := &pkg.HookInput{DC: dc, Values: values}
+
 		ok, err := CanRunWithModuleConfig(context.Background(), input)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
+
 		if !ok {
 			t.Fatalf("expected CanRunWithModuleConfig to return true")
 		}
@@ -78,6 +82,7 @@ func TestCanRunWithModuleConfig(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
+
 		if ok {
 			t.Fatalf("expected CanRunWithModuleConfig to return false")
 		}
@@ -87,6 +92,7 @@ func TestCanRunWithModuleConfig(t *testing.T) {
 		input := newInput(&fakeKubernetesClient{get: func(ctx context.Context, key ctrlclient.ObjectKey, obj ctrlclient.Object) error {
 			mc := obj.(*mcapi.ModuleConfig)
 			*mc = *NewModuleConfigForTest(nil)
+
 			return nil
 		}}, nil)
 
@@ -94,6 +100,7 @@ func TestCanRunWithModuleConfig(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
+
 		if ok {
 			t.Fatalf("expected CanRunWithModuleConfig to return false")
 		}
@@ -103,6 +110,7 @@ func TestCanRunWithModuleConfig(t *testing.T) {
 		input := newInput(&fakeKubernetesClient{get: func(ctx context.Context, key ctrlclient.ObjectKey, obj ctrlclient.Object) error {
 			mc := obj.(*mcapi.ModuleConfig)
 			*mc = *NewModuleConfigForTest(map[string]any{})
+
 			return nil
 		}}, nil)
 
@@ -110,6 +118,7 @@ func TestCanRunWithModuleConfig(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
+
 		if ok {
 			t.Fatalf("expected CanRunWithModuleConfig to return false")
 		}
@@ -121,6 +130,7 @@ func TestCanRunWithModuleConfig(t *testing.T) {
 			*mc = *NewModuleConfigForTest(map[string]any{
 				"dvcr": map[string]any{},
 			})
+
 			return nil
 		}}, nil)
 
@@ -128,6 +138,7 @@ func TestCanRunWithModuleConfig(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
+
 		if !ok {
 			t.Fatalf("expected CanRunWithModuleConfig to return true")
 		}
@@ -140,6 +151,7 @@ func TestCanRunWithModuleConfig(t *testing.T) {
 				"virtualMachineCIDRs": []any{"10.0.0.0/24"},
 				"dvcr":                map[string]any{},
 			})
+
 			return nil
 		}}, nil)
 
@@ -147,6 +159,7 @@ func TestCanRunWithModuleConfig(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
+
 		if !ok {
 			t.Fatalf("expected CanRunWithModuleConfig to return true")
 		}
@@ -159,6 +172,7 @@ func TestCanRunWithModuleConfig(t *testing.T) {
 		if err == nil {
 			t.Fatalf("expected error")
 		}
+
 		if ok {
 			t.Fatalf("expected CanRunWithModuleConfig to return false")
 		}

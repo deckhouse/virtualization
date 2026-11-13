@@ -87,6 +87,7 @@ var _ = Describe("ProvisionerRestorer", func() {
 				if obj.GetName() == secret.Name {
 					_, ok := obj.(*corev1.Secret)
 					Expect(ok).To(BeTrue())
+
 					secretCreated = true
 				}
 

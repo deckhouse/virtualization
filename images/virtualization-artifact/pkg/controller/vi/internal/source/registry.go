@@ -79,14 +79,18 @@ func (ds RegistryDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.Virtua
 	log, ctx := logger.GetDataSourceContext(ctx, registryDataSource)
 
 	condition, _ := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
+
 	cb := conditions.NewConditionBuilder(vicondition.ReadyType).Generation(vi.Generation)
+
 	defer func() { conditions.SetCondition(cb, &vi.Status.Conditions) }()
 
 	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
+
 	pod, err := ds.importerService.GetPod(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -118,6 +122,7 @@ func (ds RegistryDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.Virtua
 		vi.Status.Progress = "0%"
 
 		envSettings := ds.getEnvSettings(vi, supgen)
+
 		err = ds.importerService.Start(ctx, envSettings, vi, supgen, datasource.NewCABundleForVMI(vi.GetNamespace(), vi.Spec.DataSource), service.WithSystemNodeToleration())
 		switch {
 		case err == nil:
@@ -159,7 +164,9 @@ func (ds RegistryDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.Virtua
 		}
 	default:
 		log.Info("Start import to PVC")
+
 		source := ds.getSource(supgen, ds.statService.GetDVCRImageName(pod))
+
 		return reconcilePVCImportFromDVCR(ctx, vi, pod, pvc, source, cb, supgen, ds.statService, ds.diskService)
 	}
 
@@ -170,10 +177,13 @@ func (ds RegistryDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virtu
 	log, ctx := logger.GetDataSourceContext(ctx, "registry")
 
 	condition, _ := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
+
 	cb := conditions.NewConditionBuilder(vicondition.ReadyType).Generation(vi.Generation)
+
 	defer func() { conditions.SetCondition(cb, &vi.Status.Conditions) }()
 
 	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
+
 	pod, err := ds.importerService.GetPod(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -205,6 +215,7 @@ func (ds RegistryDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virtu
 		vi.Status.Progress = "0%"
 
 		envSettings := ds.getEnvSettings(vi, supgen)
+
 		err = ds.importerService.Start(ctx, envSettings, vi, supgen, datasource.NewCABundleForVMI(vi.GetNamespace(), vi.Spec.DataSource), service.WithSystemNodeToleration())
 		switch {
 		case err == nil:
@@ -238,6 +249,7 @@ func (ds RegistryDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virtu
 					Status(metav1.ConditionFalse).
 					Reason(vicondition.ProvisioningFailed).
 					Message(service.CapitalizeFirstLetter(err.Error() + "."))
+
 				return reconcile.Result{}, nil
 			default:
 				return reconcile.Result{}, err
@@ -307,6 +319,7 @@ func (ds RegistryDataSource) Validate(ctx context.Context, vi *v1alpha2.VirtualI
 			Namespace: vi.GetNamespace(),
 			Name:      vi.Spec.DataSource.ContainerImage.ImagePullSecret.Name,
 		}
+
 		secret, err := object.FetchObject[*corev1.Secret](ctx, secretName, ds.client, &corev1.Secret{})
 		if err != nil {
 			return fmt.Errorf("failed to get secret %s: %w", secretName, err)

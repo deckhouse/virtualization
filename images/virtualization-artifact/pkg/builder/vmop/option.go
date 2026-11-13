@@ -57,6 +57,7 @@ func WithVMOPRestoreMode(mode v1alpha2.SnapshotOperationMode) Option {
 		if vmop.Spec.Restore == nil {
 			vmop.Spec.Restore = &v1alpha2.VirtualMachineOperationRestoreSpec{}
 		}
+
 		vmop.Spec.Restore.Mode = mode
 	}
 }
@@ -66,6 +67,7 @@ func WithVirtualMachineSnapshotName(name string) Option {
 		if vmop.Spec.Restore == nil {
 			vmop.Spec.Restore = &v1alpha2.VirtualMachineOperationRestoreSpec{}
 		}
+
 		vmop.Spec.Restore.VirtualMachineSnapshotName = name
 	}
 }
@@ -75,6 +77,7 @@ func WithVMOPMigrateNodeSelector(nodeSelector map[string]string) Option {
 		if vmop.Spec.Migrate == nil {
 			vmop.Spec.Migrate = &v1alpha2.VirtualMachineOperationMigrateSpec{}
 		}
+
 		vmop.Spec.Migrate.NodeSelector = nodeSelector
 	}
 }

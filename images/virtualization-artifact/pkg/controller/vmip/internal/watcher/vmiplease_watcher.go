@@ -53,11 +53,13 @@ func (w VirtualMachineIPAddressLeaseWatcher) Watch(mgr manager.Manager, ctr cont
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualMachineIPAddressLease: %w", err)
 	}
+
 	return nil
 }
 
 func (w VirtualMachineIPAddressLeaseWatcher) enqueueRequests(ctx context.Context, lease *v1alpha2.VirtualMachineIPAddressLease) (requests []reconcile.Request) {
 	var opts client.ListOptions
+
 	vmipRef := lease.Spec.VirtualMachineIPAddressRef
 	if vmipRef != nil && vmipRef.Namespace != "" {
 		if vmipRef.Name != "" {
@@ -73,6 +75,7 @@ func (w VirtualMachineIPAddressLeaseWatcher) enqueueRequests(ctx context.Context
 	}
 
 	var vmips v1alpha2.VirtualMachineIPAddressList
+
 	err := w.client.List(ctx, &vmips, &opts)
 	if err != nil {
 		w.logger.Error(fmt.Sprintf("failed to list vmips: %s", err))

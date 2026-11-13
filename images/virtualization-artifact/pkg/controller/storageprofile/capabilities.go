@@ -161,6 +161,7 @@ func claimPropertySetsForProvisioner(provisioner string) ([]cdiv1.ClaimPropertyS
 			VolumeMode:  &volumeMode,
 		})
 	}
+
 	return sets, true
 }
 

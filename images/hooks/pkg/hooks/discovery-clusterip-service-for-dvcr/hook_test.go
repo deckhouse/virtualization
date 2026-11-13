@@ -71,8 +71,10 @@ var _ = Describe("DiscoveryClusterIPServiceForDVCR", func() {
 		dc.GetK8sClientMock.Return(&fakeKubernetesClient{get: func(ctx context.Context, key ctrlclient.ObjectKey, obj ctrlclient.Object) error {
 			mc := obj.(*mcapi.ModuleConfig)
 			*mc = *settings.NewModuleConfigForTest(map[string]any{"dvcr": map[string]any{}, "virtualMachineCIDRs": []any{"10.0.0.0/24"}})
+
 			return nil
 		}}, nil)
+
 		return &pkg.HookInput{
 			Snapshots: snapshots,
 			Values:    values,

@@ -60,5 +60,6 @@ func (v *ProvisioningValidator) Validate(vm *v1alpha2.VirtualMachine) (admission
 	for _, warning := range warnings {
 		admissionWarnings = append(admissionWarnings, "spec.provisioning.userData: "+warning)
 	}
+
 	return admissionWarnings, nil
 }
