@@ -20,56 +20,133 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	commonvm "github.com/deckhouse/virtualization-controller/pkg/common/vm"
+	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/peering"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	intvirtv1alpha1 "github.com/deckhouse/virtualization/api/internalvirtualization/v1alpha1"
 )
 
-const migrationReceiverRequeueDelay = 10 * time.Second
+const (
+	migrationReceiverRequeueDelay = 10 * time.Second
+	// migrationReceiverUndecidedDelay paces a VM not yet known to be the request's or not: the cache of the
+	// request catches up within seconds.
+	migrationReceiverUndecidedDelay = 2 * time.Second
+)
 
-// isMigrationReceiver tells whether the VM was created to receive a migration from a peer cluster and has
-// not received it: such a VM is not started or synchronized as usual. The mark stays after a failed or
-// withdrawn receive, so a VM with blank disks never starts; the request deletes it.
-func isMigrationReceiver(vm *v1alpha2.VirtualMachine) bool {
-	return vm != nil && vm.GetAnnotations()[annotations.AnnVMMigrationReceiver] != ""
-}
-
-// loadMigrationReceiver returns the request the VM was created for: the InternalVirtualizationVirtualMachineReceiver with the
-// name of the VM, nil when there is none or it is the request of another VM.
-func loadMigrationReceiver(ctx context.Context, cl client.Client, vm *v1alpha2.VirtualMachine) (*intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver, error) {
-	if !isMigrationReceiver(vm) {
-		return nil, nil
+// loadMigrationReceiver returns the receiver and whether its association with the VM is decided.
+// Wait on unresolved owner references to avoid starting a regular VM with blank disks.
+func loadMigrationReceiver(ctx context.Context, cl client.Client, vm *v1alpha2.VirtualMachine) (*intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver, bool, error) {
+	if vm == nil {
+		return nil, true, nil
 	}
+
+	referred := slices.ContainsFunc(vm.GetOwnerReferences(), func(ref metav1.OwnerReference) bool {
+		return ref.Kind == intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiverKind
+	})
 
 	var r intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver
 
 	err := cl.Get(ctx, types.NamespacedName{Namespace: vm.Namespace, Name: vm.Name}, &r)
 	if k8serrors.IsNotFound(err) {
-		return nil, nil
+		return nil, !referred, nil
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("get the migration receiver: %w", err)
+		return nil, false, fmt.Errorf("get the migration receiver: %w", err)
 	}
 
-	if string(r.UID) != vm.GetAnnotations()[annotations.AnnVMMigrationReceiver] {
-		return nil, nil
+	if peering.CreatedVirtualMachine(&r, vm) {
+		return &r, true, nil
 	}
 
-	return &r, nil
+	return nil, !referred, nil
+}
+
+// isReceivingKVVM also protects an orphaned WaitAsReceiver VM from regular synchronization.
+// Normally the receiver stays under its finalizer until the KVVM is ready for regular handling.
+func isReceivingKVVM(kvvm *virtv1.VirtualMachine) bool {
+	return kvvm != nil && kvvm.Spec.RunStrategy != nil && *kvvm.Spec.RunStrategy == virtv1.RunStrategyWaitAsReceiver
+}
+
+// mayBeReceivingVM tells whether the VM receives a migration from a peer cluster, or may: such a VM is not
+// started or synchronized as usual.
+func mayBeReceivingVM(ctx context.Context, cl client.Client, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) (bool, error) {
+	r, decided, err := loadMigrationReceiver(ctx, cl, vm)
+	if err != nil {
+		return false, err
+	}
+
+	return (r != nil && r.Status.Phase != intvirtv1alpha1.ReceiverRunning) || !decided || isReceivingKVVM(kvvm), nil
+}
+
+// syncReceivingFromPeer shows in the status of the VM that it is being received and from which cluster. The
+// migration state is rebuilt from the KVVMI before, so prev keeps the peer while the request is not
+// yet known to be the VM's, or an orphaned KVVM still waits to receive.
+func syncReceivingFromPeer(ctx context.Context, cl client.Client, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine, prev *v1alpha2.VirtualMachineMigrationState) error {
+	r, decided, err := loadMigrationReceiver(ctx, cl, vm)
+	if err != nil {
+		return err
+	}
+
+	if decided && !isReceiving(r) && !isReceivingKVVM(kvvm) {
+		conditions.RemoveCondition(vmcondition.TypeReceivingFromPeer, &vm.Status.Conditions)
+		return nil
+	}
+
+	peer := ""
+	if prev != nil {
+		peer = prev.Source.ProjectPeerName
+	}
+
+	if r != nil && r.Spec.SourcePeer != "" {
+		peer = r.Spec.SourcePeer
+	}
+
+	if decided {
+		msg := "The virtual machine is being received from a peer cluster."
+		if peer != "" {
+			msg = fmt.Sprintf("The virtual machine is being received from peer cluster %q.", peer)
+		}
+
+		conditions.SetCondition(conditions.NewConditionBuilder(vmcondition.TypeReceivingFromPeer).
+			Generation(vm.GetGeneration()).
+			Status(metav1.ConditionTrue).
+			Reason(vmcondition.ReasonReceivingFromPeerInProgress).
+			Message(msg),
+			&vm.Status.Conditions)
+	}
+
+	if peer == "" {
+		return nil
+	}
+
+	if vm.Status.MigrationState == nil {
+		vm.Status.MigrationState = &v1alpha2.VirtualMachineMigrationState{}
+	}
+
+	vm.Status.MigrationState.Source.ProjectPeerName = peer
+
+	return nil
 }
 
 // isReceiving tells whether the request still waits for the VM to arrive.
@@ -87,17 +164,12 @@ func receiverMigrationName(r *intvirtv1alpha1.InternalVirtualizationVirtualMachi
 	return string(r.UID)
 }
 
-// receivingMigration returns the migration that receives the VM. The request may already be gone: its UID
-// stays in the annotation of the VM, and the migration is named after it.
 func (h *SyncKvvmHandler) receivingMigration(ctx context.Context, vm *v1alpha2.VirtualMachine, r *intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver) (*virtv1.VirtualMachineInstanceMigration, error) {
-	name := vm.GetAnnotations()[annotations.AnnVMMigrationReceiver]
-	if r != nil {
-		name = receiverMigrationName(r)
-	}
-
-	if name == "" {
+	if r == nil {
 		return nil, nil
 	}
+
+	name := receiverMigrationName(r)
 
 	var received virtv1.VirtualMachineInstanceMigration
 
@@ -119,6 +191,35 @@ func (h *SyncKvvmHandler) receivingMigration(ctx context.Context, vm *v1alpha2.V
 func (h *SyncKvvmHandler) syncMigrationReceiver(ctx context.Context, s state.VirtualMachineState, r *intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver) (bool, error) {
 	vm := s.VirtualMachine().Changed()
 
+	kvvm, err := s.KVVM(ctx)
+	if err != nil {
+		return false, err
+	}
+
+	// Running is published only after finalization. Retaining the receiver for history or
+	// TTL must not reapply the receive strategy or constrain a later KVVM replacement.
+	if r != nil && r.Status.Phase == intvirtv1alpha1.ReceiverRunning {
+		return true, nil
+	}
+
+	// Record the identity before touching an existing KVVM or completing the receive. A same-name
+	// replacement must never inherit an earlier receive. Owner UID recovers a Create/status-patch gap.
+	if kvvm != nil && r != nil {
+		if r.Status.InternalVirtualMachineUID != "" && r.Status.InternalVirtualMachineUID != kvvm.UID {
+			return false, fmt.Errorf("receiving internal virtual machine UID changed: expected %s, got %s", r.Status.InternalVirtualMachineUID, kvvm.UID)
+		}
+
+		if r.Status.InternalVirtualMachineUID == "" {
+			if !metav1.IsControlledBy(kvvm, vm) {
+				return false, fmt.Errorf("receiving internal virtual machine is not owned by the received virtual machine")
+			}
+
+			if err = peering.PatchReceiverStatus(ctx, h.client, r, func(st *intvirtv1alpha1.VirtualMachineReceiverStatus) { st.InternalVirtualMachineUID = kvvm.UID }); err != nil {
+				return false, err
+			}
+		}
+	}
+
 	// The receiving migration is the only reliable sign of the end: the VMI is briefly Running with the
 	// migration completed and not yet failed while the source still finishes, and taking that for a
 	// success hands the KVVM back to the regular synchronization in the middle of the migration.
@@ -127,24 +228,18 @@ func (h *SyncKvvmHandler) syncMigrationReceiver(ctx context.Context, s state.Vir
 		return false, err
 	}
 
-	// The request may already be gone or deleting while the guest has arrived: the source rolls back on a
-	// deleted operation, and deleting the KVVM then would kill the received guest. The succeeded receiving
-	// migration is the fact that wins over the missing request.
+	// The request may be deleting while the guest has arrived: the source rolls back on a
+	// deleted operation, and deleting the KVVM then would kill the received guest. Success wins over cancellation.
 	if received != nil && received.Status.Phase == virtv1.MigrationSucceeded {
-		return h.completeMigrationReceiver(ctx, s, r)
+		return h.finalizeReceivingVM(ctx, s, r)
 	}
 
 	if !isReceiving(r) {
-		if r != nil && r.Status.Phase == intvirtv1alpha1.ReceiverRunning {
-			delete(vm.Annotations, annotations.AnnVMMigrationReceiver)
-			return true, nil
-		}
-
 		if received != nil && received.Status.Phase == virtv1.MigrationFailed && r != nil {
-			return false, peering.SetReceiverFailed(ctx, h.client, r, peering.ReceiverReasonMigrationFailed, "the receiving migration failed")
+			return false, h.setReceivingMigrationFailed(ctx, s, r, received)
 		}
 
-		return false, h.cancelMigrationReceiver(ctx, s)
+		return false, h.cancelVMReception(ctx, s, r)
 	}
 
 	rcv, err := peering.ParseReceiver(r)
@@ -154,7 +249,7 @@ func (h *SyncKvvmHandler) syncMigrationReceiver(ctx context.Context, s state.Vir
 
 	receiving := received != nil
 	if received != nil && received.Status.Phase == virtv1.MigrationFailed {
-		return false, peering.SetReceiverFailed(ctx, h.client, r, peering.ReceiverReasonMigrationFailed, "the receiving migration failed")
+		return false, h.setReceivingMigrationFailed(ctx, s, r, received)
 	}
 
 	// Nothing is received until the address is reserved here: the one of the source, or one of this cluster
@@ -170,12 +265,13 @@ func (h *SyncKvvmHandler) syncMigrationReceiver(ctx context.Context, s state.Vir
 		return false, nil
 	}
 
-	kvvm, err := s.KVVM(ctx)
-	if err != nil {
-		return false, err
-	}
-
 	if kvvm == nil {
+		// The cache may not have observed a just-created KVVM. Never recreate a recorded receive:
+		// a replacement would have a different UID and could restart with blank disks.
+		if r.Status.InternalVirtualMachineUID != "" {
+			return false, nil
+		}
+
 		vds, err := s.VirtualDisksByName(ctx)
 		if err != nil {
 			return false, err
@@ -196,8 +292,16 @@ func (h *SyncKvvmHandler) syncMigrationReceiver(ctx context.Context, s state.Vir
 			return false, peering.SetReceiverFailed(ctx, h.client, r, peering.ReceiverReasonInvalidRequest, err.Error())
 		}
 
-		if err = h.client.Create(ctx, kvvm); err != nil && !k8serrors.IsAlreadyExists(err) {
+		if err = h.client.Create(ctx, kvvm); err != nil {
+			if k8serrors.IsAlreadyExists(err) {
+				return false, nil
+			}
+
 			return false, fmt.Errorf("create the receiving internal virtual machine: %w", err)
+		}
+
+		if err = peering.PatchReceiverStatus(ctx, h.client, r, func(st *intvirtv1alpha1.VirtualMachineReceiverStatus) { st.InternalVirtualMachineUID = kvvm.UID }); err != nil {
+			return false, err
 		}
 	}
 
@@ -229,14 +333,161 @@ func (h *SyncKvvmHandler) syncMigrationReceiver(ctx context.Context, s state.Vir
 		}
 	}
 
+	events, err := h.receivingEvents(ctx, kvvmi)
+	if err != nil {
+		return false, err
+	}
+
+	if msg := receivingQuotaExceeded(kvvmi, events); msg != "" {
+		return false, peering.SetReceiverFailed(ctx, h.client, r, peering.ReceiverReasonQuotaExceeded, msg)
+	}
+
+	problems := append([]string{receivingPodMessage(kvvm)}, receivingTargetFailures(kvvmi, events)...)
+
 	return false, peering.PatchReceiverStatus(ctx, h.client, r, func(st *intvirtv1alpha1.VirtualMachineReceiverStatus) {
 		st.Phase = intvirtv1alpha1.ReceiverReady
-		st.Message = receivingPodMessage(kvvm)
+		st.Message = receivingProblemsMessage(st.Message, problems)
 	})
 }
 
+// receivingProblemsMessage adds the problems seen now to those seen before. With none seen now, the receive
+// is no longer held up, and what held it up before is no longer the story of a failure that may follow.
+func receivingProblemsMessage(history string, problems []string) string {
+	if !slices.ContainsFunc(problems, func(p string) bool { return p != "" }) {
+		return ""
+	}
+
+	return peering.AppendReceiverProblems(history, problems...)
+}
+
+// receivingEvents returns the events of the receiving VMI: why its pod cannot be created, and why the node
+// of the pod cannot prepare the VM (the pod runs, but virt-handler fails to set up the target, for example
+// to mount a volume whose mode differs from the one of the source). Both show only there.
+func (h *SyncKvvmHandler) receivingEvents(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) ([]corev1.Event, error) {
+	var events corev1.EventList
+
+	err := h.client.List(ctx, &events, client.InNamespace(kvvmi.Namespace),
+		client.MatchingFields{indexer.IndexFieldEventByInvolvedObjectName: kvvmi.Name})
+	if err != nil {
+		return nil, fmt.Errorf("list the events of the receiving internal virtual machine instance: %w", err)
+	}
+
+	return events.Items, nil
+}
+
+// receivingTargetFailures returns virt-handler synchronization failures
+// for the receiving VMI in the order they first occurred.
+func receivingTargetFailures(kvvmi *virtv1.VirtualMachineInstance, events []corev1.Event) []string {
+	var failures []*corev1.Event
+
+	for i := range events {
+		e := &events[i]
+		if e.InvolvedObject.UID == kvvmi.UID && e.Type == corev1.EventTypeWarning && e.Reason == string(virtv1.SyncFailed) {
+			failures = append(failures, e)
+		}
+	}
+
+	slices.SortStableFunc(failures, func(a, b *corev1.Event) int { return a.FirstTimestamp.Compare(b.FirstTimestamp.Time) })
+
+	problems := make([]string, 0, len(failures))
+	for _, e := range failures {
+		problems = append(problems, fmt.Sprintf("the receiving node cannot prepare the virtual machine: %s: %s", e.Reason, e.Message))
+	}
+
+	return problems
+}
+
+// receivingQuotaExceeded tells the source that a ResourceQuota here refuses the receiving pod. KubeVirt retries
+// the pod with no end, and the source would only see a migration that does not begin.
+func receivingQuotaExceeded(kvvmi *virtv1.VirtualMachineInstance, events []corev1.Event) string {
+	for _, e := range events {
+		if e.InvolvedObject.UID != kvvmi.UID || e.Type != corev1.EventTypeWarning || e.Reason != failedCreatePodReason {
+			continue
+		}
+
+		if quota := common.ParseQuotaExceeded(e.Message); quota != nil {
+			return fmt.Sprintf("the ResourceQuota %q of namespace %q does not allow the virtual machine (requested: %s, used: %s, limited: %s): free resources there or raise the quota",
+				quota.Name, kvvmi.Namespace, quota.Requested, quota.Used, quota.Limited)
+		}
+	}
+
+	return ""
+}
+
+// setReceivingMigrationFailed ends the request when the receiving migration fails. The source reads the
+// request after the failure, and a bare "failed" tells it nothing: the cause KubeVirt found ends the chain of
+// problems seen before.
+func (h *SyncKvvmHandler) setReceivingMigrationFailed(ctx context.Context, s state.VirtualMachineState, r *intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver, received *virtv1.VirtualMachineInstanceMigration) error {
+	kvvmi, err := s.KVVMI(ctx)
+	if err != nil {
+		return err
+	}
+
+	return peering.SetReceiverFailed(ctx, h.client, r, peering.ReceiverReasonMigrationFailed, receivingMigrationFailedMessage(r, received, kvvmi))
+}
+
+func receivingMigrationFailedMessage(r *intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver, received *virtv1.VirtualMachineInstanceMigration, kvvmi *virtv1.VirtualMachineInstance) string {
+	if r.Status.Phase == intvirtv1alpha1.ReceiverFailed && r.Status.Message != "" {
+		return r.Status.Message
+	}
+
+	failed := "the receiving migration failed"
+	if reason := receivingMigrationFailureReason(received, kvvmi); reason != "" {
+		failed += ": " + reason
+	}
+
+	if receivingVMShutDown(received) {
+		failed = "the receiving virtual machine was shut down before the migration ended"
+	}
+
+	return peering.AppendReceiverProblems(r.Status.Message, failed)
+}
+
+// receivingVMShutDown tells a receiving migration that failed because its VMI or pod here went away: the
+// words of KubeVirt for it ("vmi shutdown during migration") mean nothing to the user of the source.
+func receivingVMShutDown(received *virtv1.VirtualMachineInstanceMigration) bool {
+	for _, c := range received.Status.Conditions {
+		if c.Type != virtv1.VirtualMachineInstanceMigrationFailed || c.Status != corev1.ConditionTrue {
+			continue
+		}
+
+		switch c.Reason {
+		case virtv1.VirtualMachineInstanceMigrationFailedReasonVMIIsShutdown,
+			virtv1.VirtualMachineInstanceMigrationFailedReasonTargetPodShutdownDuringMigration,
+			virtv1.VirtualMachineInstanceMigrationFailedReasonTargetPodDisappearedDuringMigration:
+			return true
+		}
+	}
+
+	return false
+}
+
+// The Failed condition carries the cause; failureReason is a fallback:
+// KubeVirt 1.6 doesn't set it when the target pod disappears before the migration starts.
+func receivingMigrationFailureReason(received *virtv1.VirtualMachineInstanceMigration, kvvmi *virtv1.VirtualMachineInstance) string {
+	for _, c := range received.Status.Conditions {
+		if c.Type == virtv1.VirtualMachineInstanceMigrationFailed && c.Status == corev1.ConditionTrue && c.Message != "" {
+			return c.Message
+		}
+	}
+
+	if st := received.Status.MigrationState; st != nil && st.FailureReason != "" {
+		return st.FailureReason
+	}
+
+	if kvvmi != nil {
+		if st := kvvmi.Status.MigrationState; st != nil && st.MigrationUID == received.UID && st.FailureReason != "" {
+			return st.FailureReason
+		}
+	}
+
+	return ""
+}
+
 // receivingPodMessage tells the source why the receiving pod does not start: otherwise the source sees only a
-// migration that does not begin.
+// migration that does not begin and blames the network. A pod that cannot be created, or is scheduled but
+// cannot pull its image, shows in the Synchronized condition of the KVVM. Its message is passed on as is: the
+// cause (an authorization error, a missing image, a denied admission) is at its end.
 func receivingPodMessage(kvvm *virtv1.VirtualMachine) string {
 	for _, c := range kvvm.Status.Conditions {
 		if c.Type == virtv1.VirtualMachineConditionType(corev1.PodScheduled) && c.Status == corev1.ConditionFalse {
@@ -244,13 +495,19 @@ func receivingPodMessage(kvvm *virtv1.VirtualMachine) string {
 		}
 	}
 
+	for _, c := range kvvm.Status.Conditions {
+		if c.Type == conditions.VirtualMachineSynchronized && c.Status == corev1.ConditionFalse {
+			return fmt.Sprintf("the receiving pod cannot start: %s: %s", c.Reason, c.Message)
+		}
+	}
+
 	return ""
 }
 
-// completeMigrationReceiver turns the received VM into a regular one: KubeVirt leaves the receiving
+// finalizeReceivingVM turns the received VM into a regular one: KubeVirt leaves the receiving
 // strategy on the KVVM, so the one the VM controller gives the run policy is set here, and the request
 // confirms to the source that the VM runs here.
-func (h *SyncKvvmHandler) completeMigrationReceiver(ctx context.Context, s state.VirtualMachineState, r *intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver) (bool, error) {
+func (h *SyncKvvmHandler) finalizeReceivingVM(ctx context.Context, s state.VirtualMachineState, r *intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver) (bool, error) {
 	vm := s.VirtualMachine().Changed()
 
 	kvvm, err := s.KVVM(ctx)
@@ -259,6 +516,8 @@ func (h *SyncKvvmHandler) completeMigrationReceiver(ctx context.Context, s state
 	}
 
 	if kvvm != nil {
+		// Match kvbuilder.SetRunPolicy; explicitly restore Always for
+		// AlwaysOnUnlessStoppedManually when leaving WaitAsReceiver.
 		strategy := virtv1.RunStrategyManual
 		if vm.Spec.RunPolicy == v1alpha2.AlwaysOnUnlessStoppedManually {
 			strategy = virtv1.RunStrategyAlways
@@ -278,8 +537,24 @@ func (h *SyncKvvmHandler) completeMigrationReceiver(ctx context.Context, s state
 			}
 		}
 	}
+	// The VM and its disks stop referring to the request before it confirms the arrival: the source deletes
+	// the request then, and a reference left would hand the received VM to the garbage collector.
+	vds, err := s.VirtualDisksByName(ctx)
+	if err != nil {
+		return false, err
+	}
 
-	if r != nil && r.DeletionTimestamp == nil {
+	for _, vd := range vds {
+		if err = peering.ReleaseFromReceiver(ctx, h.client, vd); err != nil {
+			return false, err
+		}
+	}
+
+	if err = peering.ReleaseFromReceiver(ctx, h.client, s.VirtualMachine().Current()); err != nil {
+		return false, err
+	}
+
+	if r != nil {
 		if err = peering.PatchReceiverStatus(ctx, h.client, r, func(st *intvirtv1alpha1.VirtualMachineReceiverStatus) {
 			st.Phase = intvirtv1alpha1.ReceiverRunning
 			st.ReceiverStarted = true
@@ -287,23 +562,7 @@ func (h *SyncKvvmHandler) completeMigrationReceiver(ctx context.Context, s state
 			return false, err
 		}
 	}
-
-	delete(vm.Annotations, annotations.AnnVMMigrationReceiver)
-	delete(vm.Labels, annotations.LabelVMReceiver)
-
-	for _, ref := range vm.Spec.BlockDeviceRefs {
-		if ref.Kind != v1alpha2.DiskDevice {
-			continue
-		}
-
-		vd := &v1alpha2.VirtualDisk{ObjectMeta: metav1.ObjectMeta{Namespace: vm.Namespace, Name: ref.Name}}
-
-		patch, _ := json.Marshal(map[string]any{"metadata": map[string]any{"labels": map[string]any{annotations.LabelVMReceiver: nil}}})
-		if err = h.client.Patch(ctx, vd, client.RawPatch(types.MergePatchType, patch)); client.IgnoreNotFound(err) != nil {
-			return false, fmt.Errorf("unmark the received disk %q: %w", ref.Name, err)
-		}
-	}
-
+	// Running is recorded last; receiver cleanup keeps its finalizer until this point.
 	return true, nil
 }
 
@@ -322,7 +581,7 @@ func checkReceiverDisks(source, kvvmi *virtv1.VirtualMachineInstance) string {
 
 	for _, v := range kvvmi.Status.VolumeStatus {
 		if want := sizes[v.Name]; v.Size > 0 && v.Size < want {
-			return fmt.Sprintf("the disk %q there is %d bytes, smaller than %d bytes here", v.Name, v.Size, want)
+			return fmt.Sprintf("the disk %q in the receiving cluster is %d bytes, smaller than the disk in the source cluster (%d bytes)", v.Name, v.Size, want)
 		}
 	}
 
@@ -343,20 +602,28 @@ func checkReceiverCapacity(source *virtv1.VirtualMachineInstance, vds map[string
 
 		capacity, err := resource.ParseQuantity(vd.Status.Capacity)
 		if err == nil && capacity.Value() < v.Size {
-			return fmt.Sprintf("the disk %q there is %d bytes, larger than its capacity %s here", name, v.Size, vd.Status.Capacity)
+			return fmt.Sprintf("the disk %q in the receiving cluster has a capacity of %s, smaller than the disk in the source cluster (%d bytes)", name, vd.Status.Capacity, v.Size)
 		}
 	}
 
 	return ""
 }
 
-// cancelMigrationReceiver undoes an unfinished receive: the receiving KubeVirt objects go. The VM keeps
-// its mark and is not started: the request deletes it with its disks.
-func (h *SyncKvvmHandler) cancelMigrationReceiver(ctx context.Context, s state.VirtualMachineState) error {
+// cancelVMReception undoes an unfinished receive: the receiving KubeVirt objects go. The VM is not
+// started: the request that records it stays until it has deleted the VM with its disks.
+func (h *SyncKvvmHandler) cancelVMReception(ctx context.Context, s state.VirtualMachineState, r *intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver) error {
+	// With a forcibly removed receiver the migration identity is unknown. Keep the guest safe;
+	// ordinary cancellation retains the receiver under its cleanup finalizer.
+	if r == nil {
+		return nil
+	}
+
 	vm := s.VirtualMachine().Changed()
 
 	// Never delete a receiving VM whose guest already runs: a succeeded migration and a missing request
-	// can race, and the completed path must win.
+	// can race, and the completed path must win. The migration is checked as well as the instance: the
+	// source removes the request as soon as its receiving migration succeeded, a moment before the instance
+	// of this cluster reports Running, and the guest must not go with it.
 	kvvmi, err := s.KVVMI(ctx)
 	if err != nil {
 		return err
@@ -371,22 +638,24 @@ func (h *SyncKvvmHandler) cancelMigrationReceiver(ctx context.Context, s state.V
 		return err
 	}
 
+	received, err := h.receivingMigration(ctx, vm, r)
+	if err != nil {
+		return err
+	}
+
+	if received != nil && received.Status.Phase == virtv1.MigrationSucceeded {
+		return nil
+	}
+
 	if kvvm != nil && kvvm.Spec.RunStrategy != nil && *kvvm.Spec.RunStrategy == virtv1.RunStrategyWaitAsReceiver && kvvm.DeletionTimestamp == nil {
 		if err = h.client.Delete(ctx, kvvm, client.PropagationPolicy(metav1.DeletePropagationForeground)); err != nil && !k8serrors.IsNotFound(err) {
 			return fmt.Errorf("delete the receiving internal virtual machine: %w", err)
 		}
 	}
 
-	var vmims virtv1.VirtualMachineInstanceMigrationList
-	if err = h.client.List(ctx, &vmims, client.InNamespace(vm.Namespace)); err != nil {
-		return err
-	}
-
-	for i := range vmims.Items {
-		if vmims.Items[i].Spec.Receive != nil && vmims.Items[i].Spec.VMIName == vm.Name {
-			if err = h.client.Delete(ctx, &vmims.Items[i]); err != nil && !k8serrors.IsNotFound(err) {
-				return fmt.Errorf("delete the receiving migration: %w", err)
-			}
+	if received != nil && received.Spec.Receive != nil && received.Spec.Receive.MigrationID == string(r.UID) && received.Spec.VMIName == vm.Name {
+		if err = h.client.Delete(ctx, received, client.Preconditions{UID: &received.UID, ResourceVersion: &received.ResourceVersion}); err != nil && !k8serrors.IsNotFound(err) {
+			return fmt.Errorf("delete the receiving migration: %w", err)
 		}
 	}
 
@@ -441,6 +710,68 @@ func setSourceVolumeSizes(kvvm *virtv1.VirtualMachine, source *virtv1.VirtualMac
 	}
 
 	kvvm.Spec.Template.ObjectMeta.Annotations[annotations.AnnSourceVolumeSizes] = string(raw)
+
+	return nil
+}
+
+// peerMigrationInProgress identifies the outgoing operation from the KVVM annotation.
+// The MovedToPeer condition guards against a second guest while the KVVM is not visible.
+func peerMigrationInProgress(vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) (string, bool) {
+	if op := commonvm.PeerMigrationVMOP(kvvm); op != "" {
+		return op, true
+	}
+
+	return "", kvvm == nil && vm != nil && meta.IsStatusConditionTrue(vm.Status.Conditions, vmcondition.TypeMovedToPeer.String())
+}
+
+// syncMovedToPeer shows in the status of the VM that it moves and to which cluster. The migration state is
+// rebuilt from the KVVMI before, so prev keeps the peer while the operation is not seen.
+func syncMovedToPeer(ctx context.Context, cl client.Client, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine, prev *v1alpha2.VirtualMachineMigrationState) error {
+	op, moved := peerMigrationInProgress(vm, kvvm)
+	if !moved {
+		conditions.RemoveCondition(vmcondition.TypeMovedToPeer, &vm.Status.Conditions)
+		return nil
+	}
+
+	peer := ""
+	if prev != nil {
+		peer = prev.Target.ProjectPeerName
+	}
+
+	if op != "" {
+		var vmop v1alpha2.VirtualMachineOperation
+
+		err := cl.Get(ctx, types.NamespacedName{Namespace: vm.Namespace, Name: op}, &vmop)
+		if client.IgnoreNotFound(err) != nil {
+			return fmt.Errorf("get the operation that moves the virtual machine: %w", err)
+		}
+
+		if err == nil && commonvmop.PeerName(&vmop) != "" {
+			peer = commonvmop.PeerName(&vmop)
+		}
+
+		msg := fmt.Sprintf("The virtual machine is being moved to a peer cluster by VirtualMachineOperation %q.", op)
+		if peer != "" {
+			msg = fmt.Sprintf("The virtual machine is being moved to peer cluster %q by VirtualMachineOperation %q.", peer, op)
+		}
+
+		conditions.SetCondition(conditions.NewConditionBuilder(vmcondition.TypeMovedToPeer).
+			Generation(vm.GetGeneration()).
+			Status(metav1.ConditionTrue).
+			Reason(vmcondition.ReasonMovedToPeerInProgress).
+			Message(msg),
+			&vm.Status.Conditions)
+	}
+
+	if peer == "" {
+		return nil
+	}
+
+	if vm.Status.MigrationState == nil {
+		vm.Status.MigrationState = &v1alpha2.VirtualMachineMigrationState{}
+	}
+
+	vm.Status.MigrationState.Target.ProjectPeerName = peer
 
 	return nil
 }

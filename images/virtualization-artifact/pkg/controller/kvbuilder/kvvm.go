@@ -314,7 +314,7 @@ func (b *KVVM) SetRunPolicy(runPolicy v1alpha2.RunPolicy) error {
 
 // lastAppliedRunPolicy must be called before SetLastAppliedSpec overwrites the previous spec.
 func (b *KVVM) lastAppliedRunPolicy() v1alpha2.RunPolicy {
-	spec, err := LoadLastAppliedSpec(b.Resource)
+	spec, err := vm.LoadLastAppliedSpec(b.Resource)
 	if err != nil || spec == nil {
 		return ""
 	}

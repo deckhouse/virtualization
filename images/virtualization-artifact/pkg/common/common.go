@@ -18,6 +18,7 @@ package common
 
 import (
 	"errors"
+	"regexp"
 	"strings"
 )
 
@@ -31,6 +32,25 @@ var (
 // ErrQuotaExceeded checked is the error is of exceeded quota
 func ErrQuotaExceeded(err error) bool {
 	return strings.Contains(err.Error(), "exceeded quota:")
+}
+
+type QuotaExceededDetails struct {
+	Name      string
+	Requested string
+	Used      string
+	Limited   string
+}
+
+var quotaExceededPattern = regexp.MustCompile(`exceeded quota: ([^,]+), requested: (.+), used: (.+), limited: (.+)$`)
+
+// ParseQuotaExceeded extracts ResourceQuota admission details, or returns nil for other messages.
+func ParseQuotaExceeded(message string) *QuotaExceededDetails {
+	m := quotaExceededPattern.FindStringSubmatch(strings.TrimSpace(message))
+	if m == nil {
+		return nil
+	}
+
+	return &QuotaExceededDetails{Name: m[1], Requested: m[2], Used: m[3], Limited: m[4]}
 }
 
 // ErrNamespaceTerminating reports whether err is an admission rejection caused by the

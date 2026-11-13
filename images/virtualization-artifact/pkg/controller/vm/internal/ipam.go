@@ -161,9 +161,13 @@ func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (
 		log.Info("VirtualMachineIPAddress not found: create the new one", slog.String("vmipName", vm.GetName()))
 		cb.Message(fmt.Sprintf("VirtualMachineIPAddress %q was not found: it may be in the process of being created.", vm.GetName()))
 
-		receiver, err := loadMigrationReceiver(ctx, h.client, vm)
+		receiver, decided, err := loadMigrationReceiver(ctx, h.client, vm)
 		if err != nil {
 			return reconcile.Result{}, err
+		}
+		// An address allocated now could take the place of the one of the source.
+		if !decided {
+			return reconcile.Result{RequeueAfter: migrationReceiverUndecidedDelay}, nil
 		}
 
 		if address := peering.ReceiverIPAddress(receiver); isReceiving(receiver) && address != "" {

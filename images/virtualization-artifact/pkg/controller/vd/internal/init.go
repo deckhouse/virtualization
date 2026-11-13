@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/pwgen"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -36,6 +37,12 @@ func NewInitHandler() *InitHandler {
 }
 
 func (h *InitHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error) {
+	// The serial is fixed once: a disk that came from another cluster gets the one it had there instead,
+	// and a later change of the way it is computed must not change it for the guest.
+	if vd.Status.Serial == "" {
+		vd.Status.Serial = kvbuilder.GenerateSerialFromObject(vd)
+	}
+
 	// INIT PersistentVolumeClaim Name.
 	// Required for correct work virtual disk supplements.
 	// We should have different names for support migration volumes.

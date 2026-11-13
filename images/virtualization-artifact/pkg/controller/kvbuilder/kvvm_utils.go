@@ -206,11 +206,10 @@ func GenerateSerialFromObject(obj metav1.Object) string {
 	return GenerateSerial(string(obj.GetUID()))
 }
 
-// VirtualDiskSerial is the serial of the device of a VirtualDisk: the one it came with from another
-// cluster, or one derived from its UID.
+// A received disk keeps the source serial in its status.
 func VirtualDiskSerial(vd *v1alpha2.VirtualDisk) string {
-	if serial := vd.GetAnnotations()[annotations.AnnVDSerial]; serial != "" {
-		return serial
+	if vd.Status.Serial != "" {
+		return vd.Status.Serial
 	}
 
 	return GenerateSerialFromObject(vd)

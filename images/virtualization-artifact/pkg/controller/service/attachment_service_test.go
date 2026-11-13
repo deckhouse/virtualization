@@ -240,3 +240,13 @@ var _ = Describe("AttachmentService method HotPlugDisk", func() {
 		Expect(s.ensureDiskGivenToVM(context.Background(), ad, vm)).To(Succeed())
 	})
 })
+
+var _ = Describe("NewAttachmentDiskFromVirtualDisk", func() {
+	It("hot-plugs a disk with the serial of its status, the one the guest knows it by", func() {
+		vd := &v1alpha2.VirtualDisk{
+			ObjectMeta: metav1.ObjectMeta{Name: "data", Namespace: "ns", UID: "vd-uid"},
+			Status:     v1alpha2.VirtualDiskStatus{Serial: "3f2a"},
+		}
+		Expect(NewAttachmentDiskFromVirtualDisk(vd).Serial).To(Equal("3f2a"))
+	})
+})

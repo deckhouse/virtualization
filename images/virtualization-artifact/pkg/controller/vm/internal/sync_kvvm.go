@@ -143,17 +143,32 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 	}
 
 	// The KVVM of a VM that moves to a peer cluster is kept as the move set it: synchronizing it would
-	// restart the guest here after it has left.
-	if current.GetAnnotations()[annotations.AnnVMMovedToPeer] != "" {
-		return reconcile.Result{}, nil
-	}
-
-	receiver, err := loadMigrationReceiver(ctx, h.client, current)
+	// restart the guest here after it has left, and creating one while it is not seen would start a second
+	// guest here.
+	movingKVVM, err := s.KVVM(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	if receiver != nil || isMigrationReceiver(s.VirtualMachine().Changed()) {
+	if _, moved := peerMigrationInProgress(current, movingKVVM); moved {
+		return reconcile.Result{}, nil
+	}
+
+	receiver, decided, err := loadMigrationReceiver(ctx, h.client, current)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	// A KVVM built now could start a VM that is still to receive its guest, with blank disks.
+	if !decided {
+		return reconcile.Result{RequeueAfter: migrationReceiverUndecidedDelay}, nil
+	}
+
+	receivingKVVM, err := s.KVVM(ctx)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	if receiver != nil || isReceivingKVVM(receivingKVVM) {
 		synced, err := h.syncMigrationReceiver(ctx, s, receiver)
 		if err != nil || !synced {
 			return reconcile.Result{RequeueAfter: migrationReceiverRequeueDelay}, err
@@ -706,7 +721,7 @@ func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virt
 			return nil, err
 		}
 		// An invalid annotation is reported by Handle; nothing is held without the last applied spec.
-		lastApplied, err := kvbuilder.LoadLastAppliedSpec(kvvm)
+		lastApplied, err := vmutil.LoadLastAppliedSpec(kvvm)
 		if err == nil {
 			current, _ = holdPendingCPU(current, lastApplied, kvvmi)
 		}
@@ -799,12 +814,12 @@ func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virt
 
 	newKVVM := kvvmBuilder.GetResource()
 
-	err = kvbuilder.SetLastAppliedSpec(newKVVM, current)
+	err = vmutil.SetLastAppliedSpec(newKVVM, current)
 	if err != nil {
 		return nil, fmt.Errorf("set vm last applied spec on the internal virtual machine: %w", err)
 	}
 
-	err = kvbuilder.SetLastAppliedClassSpec(newKVVM, class)
+	err = vmutil.SetLastAppliedClassSpec(newKVVM, class)
 	if err != nil {
 		return nil, fmt.Errorf("set vmclass last applied spec on the internal virtual machine: %w", err)
 	}
@@ -850,7 +865,7 @@ func (h *SyncKvvmHandler) loadLastAppliedSpec(vm *v1alpha2.VirtualMachine, kvvm 
 		return nil
 	}
 
-	lastSpec, err := kvbuilder.LoadLastAppliedSpec(kvvm)
+	lastSpec, err := vmutil.LoadLastAppliedSpec(kvvm)
 	// TODO Add smarter handler for empty/invalid annotation.
 	if lastSpec == nil && err == nil {
 		h.recorder.Event(vm, corev1.EventTypeWarning, v1alpha2.ReasonVMLastAppliedSpecIsInvalid, "Could not find last applied spec. Possible old VM or partial backup restore. Restart or recreate VM to adopt it.")
@@ -889,7 +904,7 @@ func (h *SyncKvvmHandler) loadClassLastAppliedSpec(class *v1alpha2.VirtualMachin
 		return nil
 	}
 
-	lastSpec, err := kvbuilder.LoadLastAppliedClassSpec(kvvm)
+	lastSpec, err := vmutil.LoadLastAppliedClassSpec(kvvm)
 	// TODO Add smarter handler for empty/invalid annotation.
 	if lastSpec == nil && err == nil {
 		h.recorder.Event(class, corev1.EventTypeWarning, v1alpha2.ReasonVMClassLastAppliedSpecInvalid, "Could not find last applied spec. Possible old VMClass or partial backup restore. Restart or recreate VM to adopt it.")
@@ -1095,12 +1110,12 @@ func (h *SyncKvvmHandler) updateKVVMLastAppliedSpec(
 		return nil
 	}
 
-	err := kvbuilder.SetLastAppliedSpec(kvvm, vm)
+	err := vmutil.SetLastAppliedSpec(kvvm, vm)
 	if err != nil {
 		return fmt.Errorf("set vm last applied spec on KubeVirt VM '%s': %w", kvvm.GetName(), err)
 	}
 
-	err = kvbuilder.SetLastAppliedClassSpec(kvvm, class)
+	err = vmutil.SetLastAppliedClassSpec(kvvm, class)
 	if err != nil {
 		return fmt.Errorf("set vmclass last applied spec on KubeVirt VM '%s': %w", kvvm.GetName(), err)
 	}

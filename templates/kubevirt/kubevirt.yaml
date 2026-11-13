@@ -282,7 +282,7 @@ spec:
       resourceName: virt-synchronization-controller
       patch: {{ include "pod_spec_priority_class_name_patch" $priorityClassName }}
       type: strategic
-    {{- if has "Peering" (.Values.virtualization.internal | dig "moduleConfig" "featureGates" list) }}
+    {{- if include "virtualization.peeringEnabled" . }}
     # Pod addresses are not routable between clusters: the synchronization controller listens
     # on the node's address, which it then publishes to the other cluster. One replica, replaced
     # rather than rolled: two pods cannot share the node port, and a pod left on the pod network

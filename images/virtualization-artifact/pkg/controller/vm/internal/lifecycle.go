@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -33,6 +34,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
+	commonvm "github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -100,7 +102,7 @@ func (h *LifeCycleHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 
 	if updated := addAllUnknown(changed, vmcondition.TypeRunning); updated || changed.Status.Phase == "" {
 		changed.Status.Phase = v1alpha2.MachinePending
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{RequeueAfter: time.Second}, nil
 	}
 
 	kvvm, err := s.KVVM(ctx)
@@ -115,7 +117,7 @@ func (h *LifeCycleHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 		return reconcile.Result{}, err
 	}
 
-	if err = h.syncMovePhase(ctx, changed, kvvmi); err != nil {
+	if err = h.syncPeerMigrationPhase(ctx, changed, kvvm, kvvmi); err != nil {
 		return reconcile.Result{}, err
 	}
 
@@ -129,18 +131,18 @@ func (h *LifeCycleHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 	return reconcile.Result{}, h.syncRunning(ctx, changed, kvvm, kvvmi, pod, log)
 }
 
-// syncMovePhase shows a move to a peer cluster as one migration: the receiving KVVM starts its instance on
+// syncPeerMigrationPhase shows a move to a peer cluster as one migration: the receiving KVVM starts its instance on
 // the way, and the source instance runs on for a moment after the guest left it. Only the state of the
 // migration of the move counts: the VMI keeps the state of the migration it arrived with, and the KVVM may
 // report Running after the switchover before the VMI reports it.
-func (h *LifeCycleHandler) syncMovePhase(ctx context.Context, changed *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) error {
+func (h *LifeCycleHandler) syncPeerMigrationPhase(ctx context.Context, changed *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) error {
 	switch {
-	case changed.Status.Phase == v1alpha2.MachineStarting && changed.Annotations[annotations.AnnVMMigrationReceiver] != "":
+	case changed.Status.Phase == v1alpha2.MachineStarting && isReceivingKVVM(kvvm):
 		changed.Status.Phase = v1alpha2.MachineMigrating
-	case changed.Annotations[annotations.AnnVMMovedToPeer] != "" && kvvmi != nil && kvvmi.Status.MigrationState != nil:
+	case commonvm.PeerMigrationVMOP(kvvm) != "" && kvvmi != nil && kvvmi.Status.MigrationState != nil:
 		var vmim virtv1.VirtualMachineInstanceMigration
 
-		err := h.client.Get(ctx, types.NamespacedName{Namespace: changed.Namespace, Name: commonvmop.MigrationName(changed.Annotations[annotations.AnnVMMovedToPeer])}, &vmim)
+		err := h.client.Get(ctx, types.NamespacedName{Namespace: changed.Namespace, Name: commonvmop.MigrationName(commonvm.PeerMigrationVMOP(kvvm))}, &vmim)
 		if client.IgnoreNotFound(err) != nil {
 			return err
 		}

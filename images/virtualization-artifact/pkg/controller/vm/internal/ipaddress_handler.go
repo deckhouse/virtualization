@@ -229,9 +229,13 @@ func (h *IPAddressHandler) ensureMainIPAddress(ctx context.Context, vm *v1alpha2
 
 	address := vm.Status.IPAddress
 
-	receiver, err := loadMigrationReceiver(ctx, h.client, vm)
+	receiver, decided, err := loadMigrationReceiver(ctx, h.client, vm)
 	if err != nil {
 		return reconcile.Result{}, err
+	}
+	// An address allocated now could take the place of the one of the source.
+	if !decided {
+		return reconcile.Result{RequeueAfter: migrationReceiverUndecidedDelay}, nil
 	}
 
 	if source := peering.ReceiverIPAddress(receiver); isReceiving(receiver) && source != "" {

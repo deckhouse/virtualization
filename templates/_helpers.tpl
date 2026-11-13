@@ -142,3 +142,7 @@ httproute-tls
 {{- end -}}
 {{- end -}}
 
+
+{{- define "virtualization.peeringEnabled" -}}
+{{- if ne .Values.global.deckhouseEdition "CE" -}}true{{- end -}}
+{{- end -}}

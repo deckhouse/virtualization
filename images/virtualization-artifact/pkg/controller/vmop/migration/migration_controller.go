@@ -50,7 +50,7 @@ func NewController(client client.Client, mgr manager.Manager, featureGate featur
 		},
 		handlers: []reconciler.Handler[*v1alpha2.VirtualMachineOperation]{
 			handler.NewDeletionHandler(migration),
-			handler.NewPeerMigrationHandler(client, peers, migration, recorder),
+			handler.NewPeerMigrationHandler(client, mgr.GetAPIReader(), peers, migration, recorder),
 			handler.NewLifecycleHandler(client, migration, baseSvc, recorder, systemNetworkName),
 		},
 		observer: statistic.NewObserver(migration),

@@ -41,6 +41,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	sizingpolicy "github.com/deckhouse/virtualization-controller/pkg/common/sizing_policy"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
+	commonvm "github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
@@ -146,7 +147,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 		// Printable status is required for proper detection if changes are disruptive.
 		kvvm.Status.PrintableStatus = mapVMPhaseToKVVMPrintableStatus(vm.Status.Phase)
 
-		Expect(kvbuilder.SetLastAppliedSpec(kvvm, &v1alpha2.VirtualMachine{
+		Expect(commonvm.SetLastAppliedSpec(kvvm, &v1alpha2.VirtualMachine{
 			Spec: v1alpha2.VirtualMachineSpec{
 				CPU: v1alpha2.CPUSpec{
 					Cores: vm.Spec.CPU.Cores,
@@ -164,7 +165,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 			},
 		})).To(Succeed())
 
-		Expect(kvbuilder.SetLastAppliedClassSpec(kvvm, &v1alpha2.VirtualMachineClass{
+		Expect(commonvm.SetLastAppliedClassSpec(kvvm, &v1alpha2.VirtualMachineClass{
 			Spec: v1alpha2.VirtualMachineClassSpec{
 				CPU: v1alpha2.CPU{
 					Type: v1alpha2.CPUTypeHost,
@@ -273,7 +274,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 	}
 
 	mutateKVVM := func(vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) {
-		Expect(kvbuilder.SetLastAppliedSpec(kvvm, &v1alpha2.VirtualMachine{
+		Expect(commonvm.SetLastAppliedSpec(kvvm, &v1alpha2.VirtualMachine{
 			Spec: v1alpha2.VirtualMachineSpec{
 				CPU: v1alpha2.CPUSpec{
 					Cores: 1,
@@ -288,7 +289,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 			},
 		})).To(Succeed())
 
-		Expect(kvbuilder.SetLastAppliedClassSpec(kvvm, &v1alpha2.VirtualMachineClass{
+		Expect(commonvm.SetLastAppliedClassSpec(kvvm, &v1alpha2.VirtualMachineClass{
 			Spec: v1alpha2.VirtualMachineClassSpec{
 				CPU: v1alpha2.CPU{
 					Type: v1alpha2.CPUTypeHost,
@@ -320,11 +321,11 @@ var _ = Describe("SyncKvvmHandler", func() {
 	// asks for recommended.
 	mutateCoreFraction := func(applied, desired, recommended string) func(fakeClient client.WithWatch, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) {
 		return func(fakeClient client.WithWatch, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) {
-			lastApplied, err := kvbuilder.LoadLastAppliedSpec(kvvm)
+			lastApplied, err := commonvm.LoadLastAppliedSpec(kvvm)
 			Expect(err).NotTo(HaveOccurred())
 
 			lastApplied.CPU.CoreFraction = applied
-			Expect(kvbuilder.SetLastAppliedSpec(kvvm, &v1alpha2.VirtualMachine{Spec: *lastApplied})).To(Succeed())
+			Expect(commonvm.SetLastAppliedSpec(kvvm, &v1alpha2.VirtualMachine{Spec: *lastApplied})).To(Succeed())
 			vm.Spec.CPU.CoreFraction = desired
 			sizingpolicy.SetRecommendedCoreFraction(vm, recommended)
 		}
@@ -576,7 +577,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 		vm := makeVM(v1alpha2.MachineRunning)
 		vm.Spec.GPUs = []v1alpha2.GPUDeviceSpec{{GPUClassName: "nvidia-h100"}}
 		kvvm := makeKVVM(vm)
-		Expect(kvbuilder.SetLastAppliedSpec(kvvm, &v1alpha2.VirtualMachine{
+		Expect(commonvm.SetLastAppliedSpec(kvvm, &v1alpha2.VirtualMachine{
 			Spec: v1alpha2.VirtualMachineSpec{
 				CPU: v1alpha2.CPUSpec{
 					Cores: vm.Spec.CPU.Cores,
@@ -1234,7 +1235,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 
 				newKVVM := &virtv1.VirtualMachine{}
 				Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(kvvm), newKVVM)).To(Succeed())
-				lastApplied, err := kvbuilder.LoadLastAppliedSpec(newKVVM)
+				lastApplied, err := commonvm.LoadLastAppliedSpec(newKVVM)
 				Expect(err).NotTo(HaveOccurred())
 
 				return newVM, lastApplied
@@ -1398,7 +1399,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 		})
 
 		kvvm := makeKVVM(vm)
-		Expect(kvbuilder.SetLastAppliedSpec(kvvm, &v1alpha2.VirtualMachine{
+		Expect(commonvm.SetLastAppliedSpec(kvvm, &v1alpha2.VirtualMachine{
 			Spec: v1alpha2.VirtualMachineSpec{
 				CPU: v1alpha2.CPUSpec{
 					Cores: vm.Spec.CPU.Cores,

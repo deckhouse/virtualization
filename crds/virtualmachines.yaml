@@ -1162,7 +1162,7 @@ spec:
                     * `Pending`: The VM is waiting for its dependent resources, such as disks, images, or IP addresses, to become ready.
                     * `Starting`: All dependent resources are ready, and the VM is being started on one of the cluster nodes.
                     * `Running`: The VM is running.
-                    * `Migrating`: The VM is being moved to another cluster node by live migration.
+                    * `Migrating`: The VM is being moved to another node of the cluster or to another site by live migration.
                     * `Stopping`: The VM is shutting down or restarting.
                     * `Stopped`: The VM is stopped and consumes no compute resources.
                     * `Pause`: The VM is paused.
@@ -1257,6 +1257,10 @@ spec:
                         pod:
                           description: Name of the module where the VM is currently migrating to."
                           type: string
+                        projectPeerName:
+                          description: |
+                            Name of the ProjectPeer resource in this project that identifies the destination site. Empty for a migration within this cluster.
+                          type: string
                     source:
                       description: ""
                       type: object
@@ -1266,6 +1270,10 @@ spec:
                           type: string
                         pod:
                           description: Name of the pod where the VM is currently running.
+                          type: string
+                        projectPeerName:
+                          description: |
+                            Name of the ProjectPeer resource in this project that identifies the source site. Empty for a migration within this cluster.
                           type: string
                     result:
                       description: |

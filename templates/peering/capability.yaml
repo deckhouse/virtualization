@@ -1,4 +1,4 @@
-{{- if has "Peering" (.Values.virtualization.internal | dig "moduleConfig" "featureGates" list) }}
+{{- if include "virtualization.peeringEnabled" . }}
 {{- $peeringAPI := "peering.deckhouse.io/v1alpha1/PeeringCapability" }}
 {{- if or (.Values.global.discovery.apiVersions | has $peeringAPI) (.Capabilities.APIVersions.Has $peeringAPI) }}
 ---

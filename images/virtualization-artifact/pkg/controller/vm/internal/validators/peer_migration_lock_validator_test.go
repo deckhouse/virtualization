@@ -25,17 +25,19 @@ import (
 	authnv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 var _ = Describe("PeerMigrationLockValidator", func() {
-	newVM := func(ann map[string]string) *v1alpha2.VirtualMachine {
+	newVM := func() *v1alpha2.VirtualMachine {
 		return &v1alpha2.VirtualMachine{
-			ObjectMeta: metav1.ObjectMeta{Name: "web", Namespace: "app-x", Annotations: ann},
+			ObjectMeta: metav1.ObjectMeta{Name: "web", Namespace: "app-x"},
 			Spec:       v1alpha2.VirtualMachineSpec{RunPolicy: v1alpha2.AlwaysOnPolicy},
 		}
 	}
@@ -45,58 +47,52 @@ var _ = Describe("PeerMigrationLockValidator", func() {
 	BeforeEach(func() {
 		scheme := runtime.NewScheme()
 		Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
+		Expect(virtv1.AddToScheme(scheme)).To(Succeed())
 		v = NewPeerMigrationLockValidator(fake.NewClientBuilder().WithScheme(scheme).WithObjects(
 			&v1alpha2.VirtualMachineOperation{
 				ObjectMeta: metav1.ObjectMeta{Name: "move", Namespace: "app-x"},
 				Spec:       v1alpha2.VirtualMachineOperationSpec{Type: v1alpha2.VMOPTypeMigrate, VirtualMachine: "web", Migrate: &v1alpha2.VirtualMachineOperationMigrateSpec{ProjectPeerName: "cluster-b"}},
-			}).Build())
-	})
-
-	It("refuses a change of a VM that moves to a peer cluster, naming the cluster", func() {
-		oldVM := newVM(map[string]string{annotations.AnnVMMovedToPeer: "move"})
-		newVM := oldVM.DeepCopy()
-		newVM.Spec.RunPolicy = v1alpha2.ManualPolicy
-		_, err := v.ValidateUpdate(context.Background(), oldVM, newVM)
-		Expect(err).To(MatchError(ContainSubstring(`migrated to cluster "cluster-b"`)))
+			},
+			&virtv1.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: "web", Namespace: "app-x", Annotations: map[string]string{annotations.AnnPeerMigrationVMOP: "move"}}},
+		).Build())
 	})
 
 	as := func(user string) context.Context {
 		return admission.NewContextWithRequest(context.Background(), admission.Request{AdmissionRequest: admissionv1.AdmissionRequest{UserInfo: authnv1.UserInfo{Username: user}}})
 	}
 
-	It("lets the move release the lock together with a change", func() {
-		oldVM := newVM(map[string]string{annotations.AnnVMMovedToPeer: "move"})
-		newVM := newVM(nil)
+	It("refuses a change of a VM that moves to a peer cluster, naming the cluster", func() {
+		oldVM := newVM()
+		newVM := oldVM.DeepCopy()
+		newVM.Spec.RunPolicy = v1alpha2.ManualPolicy
+		_, err := v.ValidateUpdate(as("editor"), oldVM, newVM)
+		Expect(err).To(MatchError(ContainSubstring(`migrated to peer cluster "cluster-b"`)))
+	})
+
+	// The move hands the VM back with the Manual run policy before it lifts the mark.
+	It("lets the controller change a VM that moves", func() {
+		oldVM := newVM()
+		newVM := oldVM.DeepCopy()
 		newVM.Spec.RunPolicy = v1alpha2.ManualPolicy
 		_, err := v.ValidateUpdate(as(controllerUser), oldVM, newVM)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
-	It("refuses a user to release the lock, even without a change of the spec", func() {
-		oldVM := newVM(map[string]string{annotations.AnnVMMovedToPeer: "move"})
-		_, err := v.ValidateUpdate(as("editor"), oldVM, newVM(nil))
-		Expect(err).To(MatchError(ContainSubstring(annotations.AnnVMMovedToPeer)))
-	})
-
-	It("refuses a user to release a VM that is being received", func() {
-		oldVM := newVM(map[string]string{annotations.AnnVMMigrationReceiver: "uid-1"})
-		_, err := v.ValidateUpdate(as("editor"), oldVM, newVM(nil))
-		Expect(err).To(MatchError(ContainSubstring(annotations.AnnVMMigrationReceiver)))
-	})
-
 	It("refuses a change of a VM that is being received from a peer cluster", func() {
-		oldVM := newVM(map[string]string{annotations.AnnVMMigrationReceiver: "uid-1"})
+		oldVM := newVM()
+		oldVM.Name = "db"
+		oldVM.Status.Conditions = []metav1.Condition{{Type: vmcondition.TypeReceivingFromPeer.String(), Status: metav1.ConditionTrue}}
 		newVM := oldVM.DeepCopy()
 		newVM.Spec.RunPolicy = v1alpha2.ManualPolicy
-		_, err := v.ValidateUpdate(context.Background(), oldVM, newVM)
+		_, err := v.ValidateUpdate(as("editor"), oldVM, newVM)
 		Expect(err).To(MatchError(ContainSubstring("migrated from a peer cluster")))
 	})
 
 	It("ignores changes outside the spec", func() {
-		oldVM := newVM(map[string]string{annotations.AnnVMMovedToPeer: "move"})
+		oldVM := newVM()
 		newVM := oldVM.DeepCopy()
 		newVM.Labels = map[string]string{"x": "y"}
-		_, err := v.ValidateUpdate(context.Background(), oldVM, newVM)
+		_, err := v.ValidateUpdate(as("editor"), oldVM, newVM)
 		Expect(err).NotTo(HaveOccurred())
 	})
 })

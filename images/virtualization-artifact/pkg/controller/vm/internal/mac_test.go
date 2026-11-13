@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -34,6 +35,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
+	intvirtv1alpha1 "github.com/deckhouse/virtualization/api/internalvirtualization/v1alpha1"
 )
 
 var _ = Describe("MACHandler", func() {
@@ -133,15 +135,87 @@ var _ = Describe("MACHandler", func() {
 			Expect(vmmacList.Items).To(HaveLen(2))
 		})
 
-		It("takes the MAC addresses of a received VM from the domain of the source", func() {
-			const sourceMAC = "aa:bb:cc:dd:ee:01"
+		DescribeTable("allocates no MAC address to a VM of a request",
+			func(recorded types.UID, withRequest bool) {
+				vm.UID = "vm-uid"
+				vm.OwnerReferences = []metav1.OwnerReference{{Kind: intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiverKind, Name: name, UID: "uid-1"}}
+				vm.Spec.Networks = []v1alpha2.NetworksSpec{
+					{Type: v1alpha2.NetworksTypeMain},
+					{Type: v1alpha2.NetworksTypeNetwork, Name: "net-a"},
+				}
 
-			vm.Annotations = map[string]string{annotations.AnnVMMigrationReceiver: "uid-1"}
+				objs := []client.Object{vm}
+				if withRequest {
+					objs = append(objs, &intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{
+						ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace, UID: "uid-1"},
+						Status:     intvirtv1alpha1.VirtualMachineReceiverStatus{VirtualMachineUID: recorded},
+					})
+				}
+
+				fakeClient, resource, vmState = setupEnvironment(objs[0].(*v1alpha2.VirtualMachine), objs[1:]...)
+
+				reconcile()
+
+				vmmacList := &v1alpha2.VirtualMachineMACAddressList{}
+				Expect(fakeClient.List(ctx, vmmacList, client.InNamespace(namespace))).To(Succeed())
+				Expect(vmmacList.Items).To(BeEmpty())
+			},
+			Entry("the request recorded the VM", types.UID("vm-uid"), true),
+			Entry("the request has not recorded the VM yet", types.UID(""), true),
+			Entry("the request is not seen yet", types.UID(""), false),
+		)
+
+		// A VM of the user waits for nothing, even while a request of the same name receives.
+		It("allocates the MAC addresses of a VM of the user of the same name as a request at once", func() {
+			vm.UID = "vm-uid"
 			vm.Spec.Networks = []v1alpha2.NetworksSpec{
 				{Type: v1alpha2.NetworksTypeMain},
 				{Type: v1alpha2.NetworksTypeNetwork, Name: "net-a"},
 			}
-			fakeClient, resource, vmState = setupEnvironment(vm)
+			receiver := &intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{
+				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace, UID: "uid-1"},
+			}
+			fakeClient, resource, vmState = setupEnvironment(vm, receiver)
+
+			reconcile()
+
+			vmmacList := &v1alpha2.VirtualMachineMACAddressList{}
+			Expect(fakeClient.List(ctx, vmmacList, client.InNamespace(namespace))).To(Succeed())
+			Expect(vmmacList.Items).To(HaveLen(1))
+		})
+
+		It("allocates the MAC addresses of a VM of the same name as a request that recorded another", func() {
+			vm.UID = "vm-uid"
+			vm.Spec.Networks = []v1alpha2.NetworksSpec{
+				{Type: v1alpha2.NetworksTypeMain},
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "net-a"},
+			}
+			receiver := &intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{
+				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace, UID: "uid-1"},
+				Status:     intvirtv1alpha1.VirtualMachineReceiverStatus{VirtualMachineUID: "other-uid"},
+			}
+			fakeClient, resource, vmState = setupEnvironment(vm, receiver)
+
+			reconcile()
+
+			vmmacList := &v1alpha2.VirtualMachineMACAddressList{}
+			Expect(fakeClient.List(ctx, vmmacList, client.InNamespace(namespace))).To(Succeed())
+			Expect(vmmacList.Items).To(HaveLen(1))
+		})
+
+		It("takes the MAC addresses of a received VM from the domain of the source", func() {
+			const sourceMAC = "aa:bb:cc:dd:ee:01"
+
+			vm.UID = "vm-uid"
+			vm.Spec.Networks = []v1alpha2.NetworksSpec{
+				{Type: v1alpha2.NetworksTypeMain},
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "net-a"},
+			}
+			receiver := &intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{
+				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace, UID: "uid-1"},
+				Status:     intvirtv1alpha1.VirtualMachineReceiverStatus{VirtualMachineUID: "vm-uid"},
+			}
+			fakeClient, resource, vmState = setupEnvironment(vm, receiver)
 
 			reconcile()
 
@@ -155,7 +229,7 @@ var _ = Describe("MACHandler", func() {
 					Domain: virtv1.DomainSpec{Devices: virtv1.Devices{Interfaces: []virtv1.Interface{{Name: "veth_n1", MacAddress: sourceMAC}}}},
 				}}},
 			}
-			fakeClient, resource, vmState = setupEnvironment(vm, kvvm)
+			fakeClient, resource, vmState = setupEnvironment(vm, receiver, kvvm)
 
 			reconcile()
 			Expect(fakeClient.List(ctx, vmmacList, client.InNamespace(namespace))).To(Succeed())

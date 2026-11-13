@@ -33,6 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
+	vmutil "github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	vmservice "github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/service"
@@ -173,8 +174,8 @@ var _ = Describe("SyncKvvmHandler: hotplug volume dropped from the KVVM", func()
 		kvvm.Status.Created = true
 		kvvm.Status.Ready = true
 
-		Expect(kvbuilder.SetLastAppliedSpec(kvvm, &v1alpha2.VirtualMachine{Spec: vm.Spec})).To(Succeed())
-		Expect(kvbuilder.SetLastAppliedClassSpec(kvvm, &v1alpha2.VirtualMachineClass{
+		Expect(vmutil.SetLastAppliedSpec(kvvm, &v1alpha2.VirtualMachine{Spec: vm.Spec})).To(Succeed())
+		Expect(vmutil.SetLastAppliedClassSpec(kvvm, &v1alpha2.VirtualMachineClass{
 			Spec: v1alpha2.VirtualMachineClassSpec{CPU: v1alpha2.CPU{Type: v1alpha2.CPUTypeHost}},
 		})).To(Succeed())
 

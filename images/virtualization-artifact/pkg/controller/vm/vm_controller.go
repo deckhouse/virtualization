@@ -89,6 +89,9 @@ func SetupController(
 		internal.NewPodHandler(client),
 		internal.NewSizePolicyHandler(),
 		internal.NewNetworkInterfaceHandler(featuregates.Default(), virtualMachineCIDRs),
+		// PeerHandler goes before the handlers that skip a VM which moves to a peer cluster: it releases one
+		// whose operation is gone.
+		internal.NewPeerHandler(client, mgr.GetAPIReader(), recorder),
 		internal.NewSyncKvvmHandler(dvcrSettings, client, recorder, featuregates.Default(), migrateVolumesService),
 		internal.NewHotplugHandler(attachmentService),
 		// SyncPowerStateHandler should be executed after PodHandler, because PodHandler store SharedShutdownInfo, which is used by SyncPowerStateHandler.
@@ -127,6 +130,7 @@ func SetupController(
 	if err = builder.WebhookManagedBy(mgr).
 		For(&intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{}).
 		WithValidator(NewMigrationReceiverValidator()).
+		WithDefaulter(NewMigrationReceiverDefaulter()).
 		Complete(); err != nil {
 		return err
 	}

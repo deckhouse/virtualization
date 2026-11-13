@@ -175,15 +175,18 @@ spec:
                         Node selector for scheduling the VM onto a node. Must match the target node's labels.
                         [Same](https://kubernetes.io/docs/tasks/configure-pod-container/assign-pods-nodes/) as the Pod `spec.nodeSelector` field in Kubernetes.
 
-                        > The `nodeSelector` field is not available in the Community Edition.
+                        > The `nodeSelector` field is available only in commercial Deckhouse Platform editions.
                       type: object
                     projectPeerName:
                       description: |-
-                        Peer cluster to move the virtual machine to: the name of its ClusterPeer, which
-                        must be paired with the project. The virtual machine moves to the paired project of that cluster with
-                        its disks, without stopping the guest, keeps its address, and is deleted in this cluster once the peer
-                        confirms that it runs there. Without the field, the virtual machine migrates within this cluster.
-                        Only the Migrate operation can set this field.
+                        Name of the ProjectPeer resource in the project that identifies the destination site. The ProjectPeer
+                        must be in the `Paired` state and offer virtual machine migration. The virtual machine moves with its
+                        disks to the project with the same name on the destination site and keeps its IP address. The guest OS
+                        continues to run. When the destination site confirms that the virtual machine runs there, the platform
+                        deletes the virtual machine in this cluster. Without this field, the virtual machine migrates within this
+                        cluster. Only the `Migrate` operation can set this field.
+
+                        > The `projectPeerName` field is available only in commercial Deckhouse Platform editions.
                       minLength: 1
                       type: string
                   type: object

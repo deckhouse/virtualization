@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
@@ -26,10 +27,10 @@ const (
 	VirtualMachineReceiverResource                   = "internalvirtualizationvirtualmachinereceivers"
 )
 
-// InternalVirtualizationVirtualMachineReceiver asks this cluster to receive a live migration of a virtual machine from a
-// peer cluster. Only the peer creates it, in the namespace of the paired project and with the
-// name of the virtual machine. This cluster creates the virtual machine, its disks and its address from it,
-// and the UID of the request identifies the migration on both sides.
+// InternalVirtualizationVirtualMachineReceiver is a request to receive a live migration of a virtual machine
+// from another site. Only the source site creates it, in the namespace of the paired project and with the
+// name of the virtual machine. From this request, this cluster creates the virtual machine, its disks and its
+// IP address. The UID of the request identifies the migration on both sites.
 // +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization}
@@ -56,29 +57,52 @@ type InternalVirtualizationVirtualMachineReceiverList struct {
 	Items           []InternalVirtualizationVirtualMachineReceiver `json:"items"`
 }
 
-// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="the spec is immutable"
-type VirtualMachineReceiverSpec struct {
-	// The VirtualMachine of the source: its labels and annotations and the spec it runs with.
-	// +kubebuilder:pruning:PreserveUnknownFields
-	// +kubebuilder:validation:Schemaless
-	// +kubebuilder:validation:Type=object
-	VirtualMachineTemplate runtime.RawExtension `json:"virtualMachineTemplate"`
-	// The VirtualDisks of the virtual machine in the order of its block devices: their names, labels,
-	// annotations, StorageClass and size. The disks here are created blank and receive the data.
+// MigrationSynchronizationEndpoint is the address and the public key pin of a synchronization controller.
+// The endpoint is updated when the controller restarts.
+type MigrationSynchronizationEndpoint struct {
+	// Address of the synchronization controller, including its port.
 	// +optional
-	VirtualDiskTemplates []runtime.RawExtension `json:"virtualDiskTemplates,omitempty"`
-	// The KubeVirt virtual machine instance of the source, spec and status: the receiving virtual machine
-	// runs its domain, and the disks here are checked against the size of its block devices.
+	SyncAddress string `json:"syncAddress,omitempty"`
+	// SHA-256 pin of the public key that the synchronization controller generated for this migration.
+	// +optional
+	SyncPin string `json:"syncPin,omitempty"`
+}
+
+type VirtualMachineReceiverSpec struct {
+	// Name of the ClusterPeer resource that identifies the source site in the receiving cluster.
+	// Set by the admission webhook from the authenticated identity of the source site.
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="sourcePeer is immutable"
+	SourcePeer string `json:"sourcePeer,omitempty"`
+	// Synchronization endpoint of the source site. It may change after a restart of the synchronization
+	// controller there.
+	// +optional
+	SourceSynchronization MigrationSynchronizationEndpoint `json:"sourceSynchronization,omitempty"`
+	// VirtualMachine of the source site: its labels and annotations and the specification it runs with.
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Schemaless
 	// +kubebuilder:validation:Type=object
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="the receive template is immutable"
+	VirtualMachineTemplate runtime.RawExtension `json:"virtualMachineTemplate"`
+	// VirtualDisks of the virtual machine in the order of its block devices: their names, labels, annotations,
+	// StorageClass and size. This cluster creates the disks blank, and they receive the data.
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="the receive template is immutable"
+	VirtualDiskTemplates []runtime.RawExtension `json:"virtualDiskTemplates,omitempty"`
+	// KubeVirt virtual machine instance of the source site, its spec and status. The receiving virtual machine
+	// runs its domain, and the disks of this cluster are checked against the size of its block devices.
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:validation:Type=object
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="the receive template is immutable"
 	InternalVirtualizationVirtualMachineInstance runtime.RawExtension `json:"internalVirtualizationVirtualMachineInstance"`
-	// Address of the main network: the virtual machine keeps it in this cluster.
+	// IP address of the virtual machine in the main network. The virtual machine keeps it in this cluster.
 	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="the receive template is immutable"
 	IPAddress string `json:"ipAddress"`
 }
 
-// VirtualMachineReceiverPhase is the progress of the receive.
+// VirtualMachineReceiverPhase is the phase of the receive.
 // +kubebuilder:validation:Enum={Pending,Ready,Running,Failed}
 type VirtualMachineReceiverPhase string
 
@@ -95,25 +119,39 @@ const (
 )
 
 type VirtualMachineReceiverStatus struct {
+	// Phase of the receive:
+	//
+	// * `Pending`: This cluster prepares the virtual machine, its disks and its IP address.
+	// * `Ready`: The receiving migration exists, and the source site may start its migration.
+	// * `Running`: The virtual machine runs in this cluster as a regular one, and the source site may delete its copy.
+	// * `Failed`: This cluster does not receive the virtual machine. The reason is in the `reason` field.
 	Phase VirtualMachineReceiverPhase `json:"phase,omitempty"`
-	// Why the receive failed.
+	// Reason of the failed receive.
 	// +optional
 	Reason string `json:"reason,omitempty"`
-	// Message for the user of the source cluster.
+	// Message for the user of the source site: why the receive failed or what holds it up.
 	// +optional
 	Message string `json:"message,omitempty"`
-	// Whether the receiving virtual machine has run in this cluster: after a failure the source learns
-	// whether the guest may run here.
+	// Whether the received virtual machine has run in this cluster. After a failure, the source site learns
+	// from it whether the guest may run here.
 	// +optional
 	ReceiverStarted bool `json:"receiverStarted,omitempty"`
-	// Where the synchronization controller of this cluster listens: the address the migration from the
-	// source connects to.
+	// Synchronization endpoint of this cluster. The source site reads it for its migration.
 	// +optional
-	SynchronizationAddress string `json:"synchronizationAddress,omitempty"`
-	// The pin (sha256 of the public key) of the key the synchronization controller of this cluster generated
-	// for this migration: the source gives it to its migration, and the migrations trust each other by the pins.
+	Synchronization MigrationSynchronizationEndpoint `json:"synchronization,omitempty"`
+	// Time when the receive entered the `Running` or `Failed` phase. The time to live of the request counts
+	// from it. A later transition from `Failed` to `Running` records a new time.
 	// +optional
-	SyncPin string `json:"syncPin,omitempty"`
+	FinishedAt *metav1.Time `json:"finishedAt,omitempty"`
+	// UID of the virtual machine this cluster created for the request.
+	// +optional
+	VirtualMachineUID types.UID `json:"virtualMachineUID,omitempty"`
+	// UID of the KubeVirt virtual machine this cluster created for the request.
+	// +optional
+	InternalVirtualMachineUID types.UID `json:"internalVirtualMachineUID,omitempty"`
+	// UIDs of the virtual disks this cluster created for the request, by disk name.
+	// +optional
+	VirtualDiskUIDs map[string]types.UID `json:"virtualDiskUIDs,omitempty"`
 	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }

@@ -1,0 +1,57 @@
+{{- /*
+  Peer migration guard. While a virtual machine moves to a peer cluster, deleting it here does not stop the
+  move: KubeVirt keeps the source running until the migration ends, and the guest then runs in the peer.
+  Deny the deletion until the move ends, so the user cancels it by deleting the VirtualMachineOperation;
+  the module controller still deletes the machine once the guest runs in the peer. Deleting the machine
+  that receives a move is left allowed: it fails the move, and the guest keeps running in the source.
+*/ -}}
+{{- $kubeVersion := .Values.global.discovery.kubernetesVersion }}
+{{- $apiVersion := "" }}
+{{- if semverCompare ">=1.30.0" $kubeVersion }}
+{{- $apiVersion = "admissionregistration.k8s.io/v1" }}
+{{- else if semverCompare ">=1.28.0" $kubeVersion }}
+{{- $apiVersion = "admissionregistration.k8s.io/v1beta1" }}
+{{- end }}
+
+{{- if and $apiVersion (include "virtualization.peeringEnabled" .) }}
+apiVersion: {{ $apiVersion }}
+kind: ValidatingAdmissionPolicy
+metadata:
+  {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
+  name: virtualization-peer-migration-policy
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["virtualization.deckhouse.io"]
+        apiVersions: ["*"]
+        operations: ["DELETE"]
+        resources: ["virtualmachines"]
+  matchConditions:
+    - name: in-peer-migration
+      expression: >
+        has(oldObject.status) && has(oldObject.status.conditions) &&
+        oldObject.status.conditions.exists(c, c.type == "MovedToPeer" && c.status == "True")
+    - name: not-module-controller
+      expression: >
+        request.userInfo.username != "system:serviceaccount:d8-virtualization:virtualization-controller"
+  validations:
+    - expression: "false"
+      message: >-
+        the virtual machine is being migrated to a peer cluster: deleting it now would leave it running there.
+        Cancel the migration by deleting the VirtualMachineOperation first
+      reason: Forbidden
+---
+apiVersion: {{ $apiVersion }}
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
+  name: virtualization-peer-migration-policy-binding
+spec:
+  policyName: virtualization-peer-migration-policy
+  validationActions:
+    - "Deny"
+  matchResources:
+    namespaceSelector: {}
+    objectSelector: {}
+{{- end }}

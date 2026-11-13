@@ -69,6 +69,10 @@ const (
 	// TypeMovedToPeer indicates that the virtual machine is being moved to a peer cluster:
 	// it cannot be started, changed or operated on until the move ends.
 	TypeMovedToPeer Type = "MovedToPeer"
+
+	// TypeReceivingFromPeer indicates that the virtual machine is being received from a peer cluster:
+	// it is not started and cannot be changed until the move ends.
+	TypeReceivingFromPeer Type = "ReceivingFromPeer"
 )
 
 type MovedToPeerReason string
@@ -80,6 +84,17 @@ func (r MovedToPeerReason) String() string {
 const (
 	// ReasonMovedToPeerInProgress indicates that the move to a peer cluster is in progress.
 	ReasonMovedToPeerInProgress MovedToPeerReason = "InProgress"
+)
+
+type ReceivingFromPeerReason string
+
+func (r ReceivingFromPeerReason) String() string {
+	return string(r)
+}
+
+const (
+	// ReasonReceivingFromPeerInProgress indicates that the move from a peer cluster is in progress.
+	ReasonReceivingFromPeerInProgress ReceivingFromPeerReason = "InProgress"
 )
 
 type AgentReadyReason string

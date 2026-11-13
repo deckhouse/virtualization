@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -68,7 +69,7 @@ func (h *ProvisioningHandler) Handle(ctx context.Context, s state.VirtualMachine
 	changed := s.VirtualMachine().Changed()
 
 	if update := addAllUnknown(changed, vmcondition.TypeProvisioningReady); update {
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{RequeueAfter: time.Second}, nil
 	}
 
 	if isDeletion(current) {

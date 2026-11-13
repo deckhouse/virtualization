@@ -124,7 +124,8 @@ const (
 	// receiver to be ready or for its confirmation that the virtual machine runs there.
 	ReasonWaitingForPeer ReasonCompleted = "WaitingForPeer"
 
-	// ReasonPeerRejected indicates that the peer cluster refused to receive the virtual machine.
+	// ReasonPeerRejected indicates that the peer cluster refused to receive the virtual machine, or stopped
+	// receiving it after the copy had started.
 	ReasonPeerRejected ReasonCompleted = "PeerRejected"
 
 	// ReasonPeerNotSupported indicates that the peer cluster stopped being usable for the move after it

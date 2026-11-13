@@ -94,3 +94,13 @@ func testKnownFeatures(t *testing.T, gate featuregate.FeatureGate) {
 		require.True(t, ok)
 	}
 }
+
+func TestPeeringIsLockedToEdition(t *testing.T) {
+	gate, _, setFromMap, err := New()
+	require.NoError(t, err)
+
+	enabled := version.GetEdition() == version.EditionEE
+	require.Equal(t, enabled, gate.Enabled(Peering))
+	require.NoError(t, setFromMap(map[string]bool{string(Peering): enabled}))
+	require.Error(t, setFromMap(map[string]bool{string(Peering): !enabled}))
+}

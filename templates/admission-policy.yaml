@@ -33,17 +33,17 @@ spec:
           - "UPDATE"
           - "DELETE"
         resources: ["*"]
-  # A peer of the peering module acts here as peering:peer:<peer>:cap:virtualization and may write
-  # only the requests to receive a virtual machine; every other internal resource stays closed to it.
+  # A peer of the peering module comes here in the group peering:peer:<peer>:cap:virtualization and may
+  # write only the requests to receive a virtual machine; every other internal resource stays closed to it.
   # Deleting a request is left to RBAC: an administrator cancels an incoming move by deleting it.
   validations:
     - expression: |
-        {{- if has "Peering" (.Values.virtualization.internal | dig "moduleConfig" "featureGates" list) }}
+        {{- if include "virtualization.peeringEnabled" . }}
         (request.resource.group == "internal.virtualization.deckhouse.io" &&
          request.resource.resource == "internalvirtualizationvirtualmachinereceivers" &&
          (request.operation == "DELETE" ||
-          (request.userInfo.username.startsWith("peering:peer:") &&
-           request.userInfo.username.endsWith(":cap:virtualization")))) ||
+          (has(request.userInfo.groups) && request.userInfo.groups.exists(g,
+            g.startsWith("peering:peer:") && g.endsWith(":cap:virtualization"))))) ||
         {{- end }}
         request.userInfo.username.startsWith("system:serviceaccount:kube-system:") ||
         request.userInfo.username.startsWith("system:serviceaccount:d8-system:") ||

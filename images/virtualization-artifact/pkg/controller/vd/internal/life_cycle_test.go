@@ -50,6 +50,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 			vd := v1alpha2.VirtualDisk{
 				Status: v1alpha2.VirtualDiskStatus{
 					StorageClassName: "",
+					Serial:           "3f2a",
 					Conditions: []metav1.Condition{
 						args.ReadyCondition,
 						{
@@ -98,6 +99,8 @@ var _ = Describe("LifeCycleHandler Run", func() {
 			_, _ = handler.Handle(ctx, &vd)
 
 			Expect(cleanUpCalled).Should(Equal(args.ExpectCleanup))
+			// The guest knows the disk by its serial: a restarted import keeps it.
+			Expect(vd.Status.Serial).To(Equal("3f2a"))
 		},
 		Entry(
 			"CleanUp should be called",

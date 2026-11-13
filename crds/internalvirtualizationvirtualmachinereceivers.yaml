@@ -35,10 +35,10 @@ spec:
       schema:
         openAPIV3Schema:
           description: |-
-            InternalVirtualizationVirtualMachineReceiver asks this cluster to receive a live migration of a virtual machine from a
-            peer cluster. Only the peer creates it, in the namespace of the paired project and with the
-            name of the virtual machine. This cluster creates the virtual machine, its disks and its address from it,
-            and the UID of the request identifies the migration on both sides.
+            InternalVirtualizationVirtualMachineReceiver is a request to receive a live migration of a virtual machine
+            from another site. Only the source site creates it, in the namespace of the paired project and with the
+            name of the virtual machine. From this request, this cluster creates the virtual machine, its disks and its
+            IP address. The UID of the request identifies the migration on both sites.
           properties:
             apiVersion:
               description: |-
@@ -61,48 +61,100 @@ spec:
               properties:
                 internalVirtualizationVirtualMachineInstance:
                   description: |-
-                    The KubeVirt virtual machine instance of the source, spec and status: the receiving virtual machine
-                    runs its domain, and the disks here are checked against the size of its block devices.
+                    KubeVirt virtual machine instance of the source site, its spec and status. The receiving virtual machine
+                    runs its domain, and the disks of this cluster are checked against the size of its block devices.
                   type: object
                   x-kubernetes-preserve-unknown-fields: true
+                  x-kubernetes-validations:
+                    - message: the receive template is immutable
+                      rule: self == oldSelf
                 ipAddress:
                   description:
-                    "Address of the main network: the virtual machine keeps
-                    it in this cluster."
+                    IP address of the virtual machine in the main network.
+                    The virtual machine keeps it in this cluster.
                   minLength: 1
                   type: string
+                  x-kubernetes-validations:
+                    - message: the receive template is immutable
+                      rule: self == oldSelf
+                sourcePeer:
+                  description: |-
+                    Name of the ClusterPeer resource that identifies the source site in the receiving cluster.
+                    Set by the admission webhook from the authenticated identity of the source site.
+                  type: string
+                  x-kubernetes-validations:
+                    - message: sourcePeer is immutable
+                      rule: self == oldSelf
+                sourceSynchronization:
+                  description: |-
+                    Synchronization endpoint of the source site. It may change after a restart of the synchronization
+                    controller there.
+                  properties:
+                    syncAddress:
+                      description:
+                        Address of the synchronization controller, including
+                        its port.
+                      type: string
+                    syncPin:
+                      description:
+                        SHA-256 pin of the public key that the synchronization
+                        controller generated for this migration.
+                      type: string
+                  type: object
                 virtualDiskTemplates:
                   description: |-
-                    The VirtualDisks of the virtual machine in the order of its block devices: their names, labels,
-                    annotations, StorageClass and size. The disks here are created blank and receive the data.
+                    VirtualDisks of the virtual machine in the order of its block devices: their names, labels, annotations,
+                    StorageClass and size. This cluster creates the disks blank, and they receive the data.
                   items:
                     type: object
                     x-kubernetes-preserve-unknown-fields: true
                   type: array
+                  x-kubernetes-validations:
+                    - message: the receive template is immutable
+                      rule: self == oldSelf
                 virtualMachineTemplate:
                   description:
-                    "The VirtualMachine of the source: its labels and annotations
-                    and the spec it runs with."
+                    "VirtualMachine of the source site: its labels and annotations
+                    and the specification it runs with."
                   type: object
                   x-kubernetes-preserve-unknown-fields: true
+                  x-kubernetes-validations:
+                    - message: the receive template is immutable
+                      rule: self == oldSelf
               required:
                 - internalVirtualizationVirtualMachineInstance
                 - ipAddress
                 - virtualMachineTemplate
               type: object
-              x-kubernetes-validations:
-                - message: the spec is immutable
-                  rule: self == oldSelf
             status:
               properties:
+                finishedAt:
+                  description: |-
+                    Time when the receive entered the `Running` or `Failed` phase. The time to live of the request counts
+                    from it. A later transition from `Failed` to `Running` records a new time.
+                  format: date-time
+                  type: string
+                internalVirtualMachineUID:
+                  description:
+                    UID of the KubeVirt virtual machine this cluster created
+                    for the request.
+                  type: string
                 message:
-                  description: Message for the user of the source cluster.
+                  description:
+                    "Message for the user of the source site: why the receive
+                    failed or what holds it up."
                   type: string
                 observedGeneration:
                   format: int64
                   type: integer
                 phase:
-                  description: VirtualMachineReceiverPhase is the progress of the receive.
+                  description: |-
+                    Phase of the receive:
+
+                    * `Pending`: This cluster prepares the virtual machine, its disks and its IP address.
+                    * `Ready`: The receiving migration exists, and the source site may start its migration.
+                    * `Running`: The virtual machine runs in this cluster as a regular one, and the source site may delete its copy.
+                    * `Failed`: This cluster does not receive the virtual machine. The reason is in the `reason` field.
                   enum:
                     - Pending
                     - Ready
@@ -110,22 +162,44 @@ spec:
                     - Failed
                   type: string
                 reason:
-                  description: Why the receive failed.
+                  description: Reason of the failed receive.
                   type: string
                 receiverStarted:
                   description: |-
-                    Whether the receiving virtual machine has run in this cluster: after a failure the source learns
-                    whether the guest may run here.
+                    Whether the received virtual machine has run in this cluster. After a failure, the source site learns
+                    from it whether the guest may run here.
                   type: boolean
-                syncPin:
-                  description: |-
-                    The pin (sha256 of the public key) of the key the synchronization controller of this cluster generated
-                    for this migration: the source gives it to its migration, and the migrations trust each other by the pins.
-                  type: string
-                synchronizationAddress:
-                  description: |-
-                    Where the synchronization controller of this cluster listens: the address the migration from the
-                    source connects to.
+                synchronization:
+                  description:
+                    Synchronization endpoint of this cluster. The source
+                    site reads it for its migration.
+                  properties:
+                    syncAddress:
+                      description:
+                        Address of the synchronization controller, including
+                        its port.
+                      type: string
+                    syncPin:
+                      description:
+                        SHA-256 pin of the public key that the synchronization
+                        controller generated for this migration.
+                      type: string
+                  type: object
+                virtualDiskUIDs:
+                  additionalProperties:
+                    description: |-
+                      UID is a type that holds unique ID values, including UUIDs.  Because we
+                      don't ONLY use UUIDs, this is an alias to string.  Being a type captures
+                      intent and helps make sure that UIDs and names do not get conflated.
+                    type: string
+                  description:
+                    UIDs of the virtual disks this cluster created for the
+                    request, by disk name.
+                  type: object
+                virtualMachineUID:
+                  description:
+                    UID of the virtual machine this cluster created for the
+                    request.
                   type: string
               type: object
           required:
@@ -138,6 +212,10 @@ spec:
                 name: example
               spec:
                 ipAddress: string
+                sourcePeer: string
+                sourceSynchronization:
+                  syncAddress: string
+                  syncPin: string
       served: true
       storage: true
       subresources:

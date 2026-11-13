@@ -52,27 +52,7 @@ func (w *KVVMWatcher) Watch(mgr manager.Manager, ctr controller.Controller) erro
 			),
 			predicate.TypedFuncs[*virtv1.VirtualMachine]{
 				UpdateFunc: func(e event.TypedUpdateEvent[*virtv1.VirtualMachine]) bool {
-					oldVM := e.ObjectOld
-					newVM := e.ObjectNew
-					oldSynchronizedCondition, _ := conditions.GetKVVMCondition(conditions.VirtualMachineSynchronized, oldVM.Status.Conditions)
-					newSynchronizedCondition, _ := conditions.GetKVVMCondition(conditions.VirtualMachineSynchronized, newVM.Status.Conditions)
-
-					// Whether the cluster still has a node to migrate to changes without the machine
-					// itself changing at all — a node is cordoned, a label is removed. Without this,
-					// the Migratable condition would keep the answer of the last reconcile.
-					migrationTarget := virtv1.VirtualMachineConditionType(virtv1.VirtualMachineInstanceMigrationTargetAvailable)
-					oldTargetCondition, _ := conditions.GetKVVMCondition(migrationTarget, oldVM.Status.Conditions)
-					newTargetCondition, _ := conditions.GetKVVMCondition(migrationTarget, newVM.Status.Conditions)
-
-					return oldVM.Status.PrintableStatus != newVM.Status.PrintableStatus ||
-						oldSynchronizedCondition.Status != newSynchronizedCondition.Status ||
-						oldSynchronizedCondition.Reason != newSynchronizedCondition.Reason ||
-						oldTargetCondition.Status != newTargetCondition.Status ||
-						oldTargetCondition.Reason != newTargetCondition.Reason ||
-						oldVM.Status.Ready != newVM.Status.Ready ||
-						oldVM.Annotations[annotations.AnnVMStartRequested] != newVM.Annotations[annotations.AnnVMStartRequested] ||
-						oldVM.Annotations[annotations.AnnVMRestartRequested] != newVM.Annotations[annotations.AnnVMRestartRequested] ||
-						!equality.Semantic.DeepEqual(oldVM.Status.VolumeSnapshotStatuses, newVM.Status.VolumeSnapshotStatuses)
+					return kvvmChanged(e.ObjectOld, e.ObjectNew)
 				},
 			},
 		),
@@ -81,4 +61,30 @@ func (w *KVVMWatcher) Watch(mgr manager.Manager, ctr controller.Controller) erro
 	}
 
 	return nil
+}
+
+func kvvmChanged(oldVM, newVM *virtv1.VirtualMachine) bool {
+	oldSynchronizedCondition, _ := conditions.GetKVVMCondition(conditions.VirtualMachineSynchronized, oldVM.Status.Conditions)
+	newSynchronizedCondition, _ := conditions.GetKVVMCondition(conditions.VirtualMachineSynchronized, newVM.Status.Conditions)
+
+	// Whether the cluster still has a node to migrate to changes without the machine
+	// itself changing at all — a node is cordoned, a label is removed. Without this,
+	// the Migratable condition would keep the answer of the last reconcile.
+	migrationTarget := virtv1.VirtualMachineConditionType(virtv1.VirtualMachineInstanceMigrationTargetAvailable)
+	oldTargetCondition, _ := conditions.GetKVVMCondition(migrationTarget, oldVM.Status.Conditions)
+	newTargetCondition, _ := conditions.GetKVVMCondition(migrationTarget, newVM.Status.Conditions)
+
+	return oldVM.Status.PrintableStatus != newVM.Status.PrintableStatus ||
+		oldSynchronizedCondition.Status != newSynchronizedCondition.Status ||
+		oldSynchronizedCondition.Reason != newSynchronizedCondition.Reason ||
+		oldTargetCondition.Status != newTargetCondition.Status ||
+		oldTargetCondition.Reason != newTargetCondition.Reason ||
+		oldVM.Status.Ready != newVM.Status.Ready ||
+		oldVM.Annotations[annotations.AnnVMStartRequested] != newVM.Annotations[annotations.AnnVMStartRequested] ||
+		oldVM.Annotations[annotations.AnnVMRestartRequested] != newVM.Annotations[annotations.AnnVMRestartRequested] ||
+		// The marks of a move lock the VM and show in its MovedToPeer and ReceivingFromPeer conditions;
+		// the operation waits for the condition before it asks the peer.
+		oldVM.Annotations[annotations.AnnPeerMigrationVMOP] != newVM.Annotations[annotations.AnnPeerMigrationVMOP] ||
+		!equality.Semantic.DeepEqual(oldVM.Spec.RunStrategy, newVM.Spec.RunStrategy) ||
+		!equality.Semantic.DeepEqual(oldVM.Status.VolumeSnapshotStatuses, newVM.Status.VolumeSnapshotStatuses)
 }

@@ -2813,7 +2813,7 @@ A few specifics of the condition that matter when planning maintenance and readi
 A migration is started by the `Migrate` operation of the [VirtualMachineOperation](cr.html#virtualmachineoperation) resource, which you create manually or with a `d8` command. You can interrupt the migration while it's in the `Pending` or `InProgress` phase by deleting that resource.
 
 {{< alert level="info" >}}
-Targeted migration to a specific node is available in commercial DP editions.
+Targeted migration to a specific node is available in commercial Deckhouse Platform editions.
 {{< /alert >}}
 
 {{< alert level="warning" >}}
@@ -3060,12 +3060,12 @@ NAME                         PHASE       PROGRESS   TYPE    VIRTUALMACHINE   AGE
 nodeplacement-update-dabk4   Completed   100%       Evict   linux-vm         1m
 ```
 
-### Moving a VM to another cluster
+### Moving a VM to another site
 
-Deckhouse Platform moves a running virtual machine (VM) from the source cluster to the target peering cluster with live migration. The VM moves to the project with the same name together with its disks. The guest OS continues to run without a reboot, and the VM keeps its IP address. When the target cluster confirms that the VM runs there, the Platform deletes the VM and its disks in the source cluster.
+Deckhouse Platform moves a running virtual machine (VM) to another site with live migration. A site is a Deckhouse Platform cluster that the current cluster is connected to with a peering. The VM moves to the project with the same name together with its disks and keeps its IP address, and the guest OS continues to run without a reboot. When the destination site confirms that the VM runs there, the platform deletes the VM and its disks on the source site.
 
 {{< alert level="info" >}}
-Moving VMs between clusters is an experimental feature available in commercial DP editions. The move works if the administrator prepared both clusters and gave you the name of the target cluster.
+Moving VMs to another site is available in commercial Deckhouse Platform editions as an experimental feature. In Deckhouse Platform Open, a VirtualMachineOperation resource with the `projectPeerName` field is rejected at creation. The move works if the administrator prepared both sites and gave you the name of the destination site.
 {{< /alert >}}
 
 #### Move requirements
@@ -3077,46 +3077,68 @@ You can move a VM if it meets the following conditions:
 - The VM has its disks in the [`.spec.blockDeviceRefs`](cr.html#virtualmachine-v1alpha2-spec-blockdevicerefs) block, not in a [VirtualMachineBlockDeviceAttachment](cr.html#virtualmachineblockdeviceattachment) resource.
 - The VM has no USB and PCI devices.
 - The VM is not a part of a [VirtualMachinePool](cr.html#virtualmachinepool) pool.
-- No other operation is in progress for the VM.
+- No other operation is in progress for the VM, including a move from another site.
 
-DP creates only the VM, its disks, and its IP address in the target cluster. Thus, prepare the project in the target cluster before the move:
+The platform creates only the VM, its disks, and its IP address on the destination site. Thus, prepare the project on the destination site before the move:
 
 - Make sure that the project has no VMs and disks with the same names.
 - Create the objects that the VM specification refers to, with the same names. For example, create the secret with the initialization script and the additional networks.
 - Make sure that the project quotas have enough space for the VM and its disks.
 
-The VM moves with the configuration that it runs with now. Changes to the specification that wait for a VM restart do not go to the target cluster, so restart the VM before the move.
+The VM moves with the configuration that it runs with now. Changes to the specification that wait for a VM restart do not go to the destination site, so restart the VM before the move. The labels and annotations of the VM and its disks move with them, except the system ones with `deckhouse.io/` in the key, which the destination site sets anew. The disks keep the serial numbers of their devices, so the guest OS sees the same links in `/dev/disk/by-id`.
 
 #### Starting a move
 
-To move a VM, run the following command:
+Below is how to move a VM to another site.
 
-```bash
-d8 v migrate -n <NAMESPACE> <VM_NAME> --project-peer <CLUSTER_NAME>
-```
+{{< tabs name="vm-move-site" >}}
 
-Here, `<NAMESPACE>` is the project namespace, `<VM_NAME>` is the VM name, and `<CLUSTER_NAME>` is the name of the target cluster that the administrator gave you. The scheduler of the target cluster selects the node for the VM, so you cannot use the `--target-node-name` flag together with `--project-peer`.
+{{% tab name="Using the CLI" %}}
 
-The command creates a [VirtualMachineOperation](cr.html#virtualmachineoperation) resource of the `Migrate` type. You can also create this resource manually. Specify the name of the target cluster in the [`.spec.migrate.projectPeerName`](cr.html#virtualmachineoperation-v1alpha2-spec-migrate-projectpeername) field:
+1. Move the VM:
 
-```bash
-d8 k create -f - <<EOF
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineOperation
-metadata:
-  generateName: move-linux-vm-
-  namespace: project-1
-spec:
-  # Name of the virtual machine.
-  virtualMachineName: linux-vm
-  type: Migrate
-  migrate:
-    # Name of the target cluster.
-    projectPeerName: cluster-b
-EOF
-```
+   ```bash
+   d8 v migrate -n <NAMESPACE> <VM_NAME> --project-peer <SITE_NAME>
+   ```
 
-The `projectPeerName` field is valid only for `Migrate` operations; the API rejects it for other operation types. The value is the name of the peer as it is paired with this project (the `ProjectPeer` resource of the project); it is the same name the administrator gives you as the `ClusterPeer` name.
+   Here, `<NAMESPACE>` is the project namespace, `<VM_NAME>` is the VM name, and `<SITE_NAME>` is the name of the destination site that the administrator gave you. The scheduler of the destination site selects the node for the VM, so you cannot use the `--target-node-name` flag together with `--project-peer`.
+
+   The command creates a [VirtualMachineOperation](cr.html#virtualmachineoperation) resource of the `Migrate` type. You can also create this resource manually and specify the name of the destination site in the [`.spec.migrate.projectPeerName`](cr.html#virtualmachineoperation-v1alpha2-spec-migrate-projectpeername) field:
+
+   ```bash
+   d8 k create -f - <<EOF
+   apiVersion: virtualization.deckhouse.io/v1alpha2
+   kind: VirtualMachineOperation
+   metadata:
+     generateName: move-linux-vm-
+     namespace: project-1
+   spec:
+     # Name of the virtual machine.
+     virtualMachineName: linux-vm
+     type: Migrate
+     migrate:
+       # Name of the destination site.
+       projectPeerName: site-b
+   EOF
+   ```
+
+   The `projectPeerName` field is valid only for `Migrate` operations, and the API rejects it for other operation types. The value is the name of the ProjectPeer resource of the project and of the ClusterPeer resource of the site.
+
+{{% /tab %}}
+
+{{% tab name="Using the web interface" %}}
+
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Virtualization** → **Virtual machines**.
+1. Select the virtual machine from the list and click the ellipsis button.
+1. In the menu that opens, select **Migrate**.
+1. In the **Migrate virtual machine** window, select **Move to another site**.
+1. In the **Destination site** field, select the site. The list shows the sites paired with the project.
+1. Click **Migrate**, or cancel the operation with **Cancel**.
+
+{{% /tab %}}
+
+{{< /tabs >}}
 
 #### Move progress
 
@@ -3126,39 +3148,41 @@ To monitor the move, run the following command:
 d8 k get vmop -n <NAMESPACE> -w
 ```
 
-Here, `<NAMESPACE>` is the project namespace. While the move is in progress, the [VirtualMachineOperation](cr.html#virtualmachineoperation) resource is in the `InProgress` phase. At this time, the VM in the source cluster gets the `MovedToPeer` [condition](cr.html#virtualmachine-v1alpha2-status-conditions). DP does not start or restart this VM and rejects new operations on it until the move ends.
+Here, `<NAMESPACE>` is the project namespace. While the move is in progress, the [VirtualMachineOperation](cr.html#virtualmachineoperation) resource is in the `InProgress` phase. The `Completed` condition in its [`.status.conditions`](cr.html#virtualmachineoperation-v1alpha2-status-conditions) block shows the current stage. The stages are the preparation of the VM on the destination site, the wait for the connection between the sites, the data transfer, and the wait for the confirmation. The platform gives 5 minutes to the preparation, 5 minutes to the start of the transfer, and 10 minutes to the confirmation.
 
-When the data transfer ends, the VM switches over to the target cluster. After the switchover, the guest OS runs in the target cluster. The VM in the source cluster stays stopped until the target cluster confirms the move.
+At this time, the VM on the source site gets the `MovedToPeer` [condition](cr.html#virtualmachine-v1alpha2-status-conditions), and the name of the destination site appears in its `.status.migrationState.target.projectPeerName` field. Until the move ends, the platform does not start or restart this VM. It also rejects new operations on the VM, changes to its specification, resizing of its disks, and snapshots of the VM and its disks. On the destination site, the VM appears in the `Migrating` phase with the `ReceivingFromPeer` condition, and the name of the source site is in its `.status.migrationState.source.projectPeerName` field. This VM cannot be changed either. If you delete the VM that is being received on the destination site, the move fails, and the VM continues to run on the source site.
 
-After the switchover, the guest may keep the network settings it received by DHCP in the source cluster: the default gateway, DNS server, search domain, and MTU. The guest switches to the target cluster's settings after a reboot or an explicit DHCP renewal. Until then, do not use ping to the default gateway as a health check; check an external address or a service in the target cluster instead.
+When the data transfer ends, the VM switches over to the destination site. After the switchover, the guest OS runs on the destination site, and the VM on the source site stays stopped until the destination site confirms the move.
 
-When the target cluster confirms the move, the [VirtualMachineOperation](cr.html#virtualmachineoperation) resource goes to the `Completed` phase. Then DP deletes the VM and its disks in the source cluster. DP also deletes the IP address that the VM got automatically. A [VirtualMachineIPAddress](cr.html#virtualmachineipaddress) resource that you created and the disk snapshots stay in the source cluster. In the target cluster, the VM runs as a usual VM of the project.
+After the switchover, the guest may keep the network settings it received by DHCP on the source site, such as the default gateway, DNS server, search domain, and MTU. The guest switches to the settings of the destination site after a reboot or an explicit DHCP renewal. Until then, do not use ping to the default gateway as a health check, and check an external address or a service on the destination site instead.
+
+When the destination site confirms the move, the [VirtualMachineOperation](cr.html#virtualmachineoperation) resource goes to the `Completed` phase, and the platform deletes the VM and its disks on the source site. The platform also deletes the IP address that the VM got automatically. A [VirtualMachineIPAddress](cr.html#virtualmachineipaddress) resource that you created and the disk snapshots stay on the source site, and the platform writes the names of the kept snapshots to an event of the VirtualMachineOperation resource. On the destination site, the VM runs as a usual VM of the project.
 
 #### Canceling a move
 
-To cancel a move, delete the [VirtualMachineOperation](cr.html#virtualmachineoperation) resource before the VM switches over to the target cluster. DP stops the migration and deletes all that the target cluster created for the VM. The VM continues to run in the source cluster. After the switchover, you cannot cancel the move.
+To cancel a move, delete the [VirtualMachineOperation](cr.html#virtualmachineoperation) resource before the VM switches over to the destination site. The platform stops the migration and deletes all that the destination site created for the VM, and the VM continues to run on the source site. The cancel ends when the destination site has deleted what it created for the VM, and the VM stays locked until then. If the destination site is unreachable, the platform releases the VM itself after 10 minutes, and the destination site deletes what is left there later. After the switchover, you cannot cancel the move. While the move is in progress, you cannot delete the VM on the source site, so cancel the move first.
 
-#### Returning a VM to the source cluster
+#### Returning a VM to the source site
 
-To return a VM, start a move in the opposite direction from the target cluster. At this time, the source cluster must not have VMs and disks with the same names. The IP address of the VM must be free there.
+To return a VM, start a move in the opposite direction from the destination site. At this time, the source site must not have VMs and disks with the same names, and the IP address of the VM must be free there.
 
-After the move, the source cluster releases the IP address that the VM got automatically. Then another VM can get this address. To keep the address for the VM, set it in advance with a [VirtualMachineIPAddress](cr.html#virtualmachineipaddress) resource. This resource stays in the source cluster after the move and keeps the address, and DP uses it again when the VM returns.
+After the move, the source site releases the IP address that the VM got automatically, and another VM can get this address. To keep the address for the VM, set it in advance with a [VirtualMachineIPAddress](cr.html#virtualmachineipaddress) resource. This resource stays on the source site after the move and keeps the address, and the platform uses it again when the VM returns.
 
 #### Move errors
 
-A wrong name of the target cluster, a project without a pair in that cluster, or a cluster without the `virtualization` capability prevents the creation of the VirtualMachineOperation resource: DP refuses it at once with the message `the cluster "<name>" is not paired with this project or does not support virtual machine migration`. Check the name of the target cluster. If the name is correct, contact the administrator.
+A wrong site name, a project without a pair on that site, or a site without the `virtualization` capability prevents the creation of the VirtualMachineOperation resource. The platform rejects it at once with the message `the cluster "<name>" is not paired with this project or does not support virtual machine migration`. Check the name of the destination site. If the name is correct, contact the administrator.
 
-If the move fails before the switchover, the [VirtualMachineOperation](cr.html#virtualmachineoperation) resource goes to the `Failed` phase. DP deletes what it created in the target cluster, and the VM continues to run in the source cluster. The `Completed` condition contains the error reason, and its `message` field contains the details. The table below shows the typical reasons.
+If the move fails before the switchover, the [VirtualMachineOperation](cr.html#virtualmachineoperation) resource goes to the `Failed` phase, and the platform deletes what it created on the destination site. The `Completed` condition contains the error reason, and its `message` field contains the details, including the cause that the destination site reported. The table below shows the typical reasons.
 
-| Reason                        | Meaning                                                                                                                                                                                   | Action                                                                                    |
-| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `PeerNotSupported`            | The target cluster stopped being available for the move after the start: its ClusterPeer resource is deleted, left the `Active` phase, or no longer gives the `virtualization` capability | Contact the administrator                                                                 |
-| `PeerRejected`                | The target cluster refused to receive the VM. The `message` field contains the cause                                                                                                      | Make the necessary changes in the target cluster and start the move again                 |
-| `MigrationNetworkUnreachable` | The migration did not start. The nodes of the clusters probably cannot reach each other                                                                                                   | Contact the administrator to check the network connectivity between the clusters          |
-| `OperationFailed`             | The migration failed                                                                                                                                                                      | Read the `message` field and start the move again                                         |
-| `PeerNotConfirmed`            | After the switchover, the target cluster did not confirm that the VM runs there                                                                                                           | Check the VM in the target cluster. If it runs there, delete the VM in the source cluster |
+| Reason                        | Meaning                                                                                                                                                                                            | Action                                                                                                                        |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `PeerNotSupported`            | The destination site stopped being available for the move after the start because its ClusterPeer resource is deleted, left the `Active` phase, or no longer gives the `virtualization` capability | Contact the administrator                                                                                                     |
+| `PeerRejected`                | The destination site refused to receive the VM or stopped receiving it. The `message` field contains the cause                                                                                     | Make the necessary changes on the destination site and start the move again                                                   |
+| `MigrationNetworkUnreachable` | The data transfer did not start in 5 minutes. The nodes of the sites probably cannot reach each other                                                                                              | Contact the administrator to check the network connectivity between the sites                                                 |
+| `OperationFailed`             | The migration failed                                                                                                                                                                               | Read the `message` field and start the move again                                                                             |
+| `PeerNotConfirmed`            | After the switchover, the destination site did not confirm in 10 minutes that the VM runs there                                                                                                    | Check the VM on the destination site. If it runs there, delete the VM on the source site. If not, start it on the source site |
 
-The `PeerNotConfirmed` reason is different from the others, because it occurs after the switchover. In this case, the VM in the source cluster stays stopped. DP does not delete or start it, so that the VM does not run in two clusters at the same time.
+After a failure, the VM usually continues to run on the source site, and the `message` field says so. Sometimes the guest OS on the source site is not running at the time of the failure, and the outcome of the move is unknown. Then the platform leaves the VM stopped with the `Manual` run policy. This way, the VM does not run on two sites at the same time. The `message` field then asks to check the VM on the destination site before starting it. The platform does the same for the `PeerNotConfirmed` reason.
 
 ### Collecting debug information
 

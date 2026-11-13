@@ -521,10 +521,10 @@ var _ = Describe("IPAddressHandler for the Main network", func() {
 	})
 
 	It("keeps the address of the source for a VM received from another cluster", func() {
-		vm.Annotations = map[string]string{annotations.AnnVMMigrationReceiver: "receiver-uid"}
 		receiver := &intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{
 			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace, UID: "receiver-uid"},
 			Spec:       intvirtv1alpha1.VirtualMachineReceiverSpec{IPAddress: "10.66.10.1"},
+			Status:     intvirtv1alpha1.VirtualMachineReceiverStatus{VirtualMachineUID: "vm-uid"},
 		}
 		fakeClient, resource, vmState = setupEnvironment(vm, newMainPrimaryCNINetwork(), receiver)
 
@@ -536,12 +536,41 @@ var _ = Describe("IPAddressHandler for the Main network", func() {
 		Expect(items[0].Spec.Static.IP).To(Equal("10.66.10.1"))
 	})
 
+	// A VM of a request whose request is not seen yet waits: an address allocated meanwhile would take the
+	// place of the one of the source.
+	It("allocates no address to a VM that refers to a request not seen yet", func() {
+		vm.OwnerReferences = []metav1.OwnerReference{{Kind: intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiverKind, Name: name, UID: "receiver-uid"}}
+		fakeClient, resource, vmState = setupEnvironment(vm, newMainPrimaryCNINetwork())
+		h := NewIPAddressHandler(fakeClient, nil)
+		res, err := h.Handle(ctx, vmState)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.RequeueAfter).To(Equal(migrationReceiverUndecidedDelay))
+		Expect(listIPAddresses()).To(BeEmpty())
+	})
+
+	// A VM of the user waits for nothing, even while a request of the same name receives.
+	It("allocates the address of a VM of the user of the same name as a request at once", func() {
+		receiver := &intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace, UID: "receiver-uid"},
+			Spec:       intvirtv1alpha1.VirtualMachineReceiverSpec{IPAddress: "10.66.10.1"},
+		}
+		fakeClient, resource, vmState = setupEnvironment(vm, newMainPrimaryCNINetwork(), receiver)
+		h := NewIPAddressHandler(fakeClient, nil)
+		res, err := h.Handle(ctx, vmState)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.RequeueAfter).NotTo(Equal(migrationReceiverUndecidedDelay))
+
+		items := listIPAddresses()
+		Expect(items).To(HaveLen(1))
+		Expect(items[0].Spec.Type).NotTo(Equal(sdnapi.IPAddressTypeStatic), "not the address of the source")
+	})
+
 	DescribeTable("fails the receive when this cluster cannot give the address of the source",
 		func(ipa *sdnapi.IPAddress) {
-			vm.Annotations = map[string]string{annotations.AnnVMMigrationReceiver: "receiver-uid"}
 			receiver := &intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{
 				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace, UID: "receiver-uid"},
 				Spec:       intvirtv1alpha1.VirtualMachineReceiverSpec{IPAddress: "10.66.10.1"},
+				Status:     intvirtv1alpha1.VirtualMachineReceiverStatus{VirtualMachineUID: "vm-uid"},
 			}
 			fakeClient, resource, vmState = setupEnvironment(vm, newMainPrimaryCNINetwork(), receiver, ipa)
 

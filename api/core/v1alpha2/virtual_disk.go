@@ -86,6 +86,12 @@ type VirtualDiskStatus struct {
 
 	// Migration information.
 	MigrationState VirtualDiskMigrationState `json:"migrationState,omitempty"`
+
+	// Serial number of the disk device as the guest OS sees it, for example in `/dev/disk/by-id`. It stays
+	// the same for the life of the disk, also after the disk has moved to another site with its virtual
+	// machine. A backup that does not keep the status of the disk loses the serial number of a disk that came
+	// from another site.
+	Serial string `json:"serial,omitempty"`
 }
 
 // VirtualDisk statistics.

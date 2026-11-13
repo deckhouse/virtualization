@@ -86,9 +86,10 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) 
 			"Spec changes are detected: import process is restarted by controller",
 		)
 
-		// Reset status and start import again.
+		// Reset status and start import again. The serial stays: the guest knows the disk by it.
 		vd.Status = v1alpha2.VirtualDiskStatus{
-			Phase: v1alpha2.DiskPending,
+			Phase:  v1alpha2.DiskPending,
+			Serial: vd.Status.Serial,
 		}
 
 		_, _, err := h.sources.CleanUp(ctx, vd)

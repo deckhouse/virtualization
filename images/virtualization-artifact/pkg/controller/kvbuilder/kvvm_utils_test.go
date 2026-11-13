@@ -1185,3 +1185,15 @@ var _ = Describe("setExtraPVCsAnnotation", func() {
 func namespacedName(name, namespace string) types.NamespacedName {
 	return types.NamespacedName{Name: name, Namespace: namespace}
 }
+
+var _ = Describe("VirtualDiskSerial", func() {
+	It("takes the serial from the status of the disk", func() {
+		vd := &v1alpha2.VirtualDisk{ObjectMeta: metav1.ObjectMeta{UID: "vd-uid"}, Status: v1alpha2.VirtualDiskStatus{Serial: "3f2a"}}
+		Expect(VirtualDiskSerial(vd)).To(Equal("3f2a"))
+	})
+
+	It("derives the serial from the UID of a disk not handled yet, as the controller records it", func() {
+		vd := &v1alpha2.VirtualDisk{ObjectMeta: metav1.ObjectMeta{UID: "vd-uid"}}
+		Expect(VirtualDiskSerial(vd)).To(Equal(GenerateSerial("vd-uid")))
+	})
+})

@@ -20,6 +20,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
+	"net/http"
+	"net/http/httptest"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -27,6 +30,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -216,6 +220,58 @@ current-context: b
 		p.clients["cluster-b"] = c
 		_, err = p.Client(ctx, "cluster-b")
 		Expect(errors.Is(err, ErrPeerNotSupported)).To(BeTrue())
+	})
+
+	It("bounds requests to an unresponsive peer through both ClusterPeer and a dev Secret", func() {
+		server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, req *http.Request) {
+			<-req.Context().Done()
+		}))
+		defer server.Close()
+
+		cp := clusterPeer("Active", []any{Capability}, server.URL)
+		Expect(unstructured.SetNestedField(cp.Object, "", "status", "access", "caBundle")).To(Succeed())
+
+		secret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: DevPeerSecretPrefix + "dev", Namespace: "d8-virtualization"},
+			Data: map[string][]byte{devPeerSecretKey: []byte(fmt.Sprintf(`apiVersion: v1
+kind: Config
+clusters: [{name: peer, cluster: {server: %q}}]
+contexts: [{name: peer, context: {cluster: peer}}]
+current-context: peer
+`, server.URL))},
+		}
+		p, err := NewPeerClients(fake.NewClientBuilder().WithObjects(cp, secret).Build(), nil, "d8-virtualization")
+		Expect(err).NotTo(HaveOccurred())
+
+		p.issueToken = func(context.Context, string) (string, time.Time, error) {
+			return "token", time.Now().Add(time.Hour), nil
+		}
+		// The context is a test backstop; each request must time out first on its own.
+		ctx, cancel := context.WithTimeout(context.Background(), peerRequestTimeout+5*time.Second)
+		defer cancel()
+
+		results := make(chan error, 2)
+
+		for _, peer := range []string{"cluster-b", "dev"} {
+			cl, err := p.Client(ctx, peer)
+			Expect(err).NotTo(HaveOccurred(), "construct the %s client", peer)
+
+			go func() {
+				defer GinkgoRecover()
+
+				results <- cl.Get(ctx, types.NamespacedName{Namespace: "test", Name: "receiver"}, &corev1.Secret{})
+			}()
+		}
+
+		for range 2 {
+			var requestErr error
+			Eventually(results, peerRequestTimeout+3*time.Second).Should(Receive(&requestErr), "a hung peer must release the reconcile worker")
+
+			var timeout net.Error
+			Expect(errors.As(requestErr, &timeout)).To(BeTrue(), "the request must fail with a timeout: %v", requestErr)
+			Expect(timeout.Timeout()).To(BeTrue())
+			Expect(ctx.Err()).NotTo(HaveOccurred(), "the HTTP timeout must fire before the caller's deadline")
+		}
 	})
 
 	It("reports a peer without a ClusterPeer as not supported", func() {

@@ -1469,53 +1469,48 @@ Here's the recovery sequence, using a cluster of three nodes, `master`, `workerA
 
 ![ColdStandBy mechanism diagram](./images/coldstandby.png)
 
-## Moving VMs between peering clusters
+## Moving a VM to another site
 
-Deckhouse Platform moves a running virtual machine (VM) from the source cluster to the target peering cluster with live migration and does not reboot the guest OS. Use the move to free a cluster for maintenance or to move the workload to another data center. After the work, you can bring the VM back. The project owner starts the move, and you prepare both clusters for it.
+Deckhouse Platform moves a running virtual machine (VM) to another site with live migration and does not reboot the guest OS. A site is a Deckhouse Platform cluster that the current cluster is connected to with a peering. Use the move to free a site for maintenance or to move the workload to another data center, and bring the VM back after the work. The project owner starts the move, and you prepare both sites for it.
 
 {{< alert level="info" >}}
-Moving VMs between clusters is an experimental feature available in commercial DP editions.
+Moving VMs to another site is available in commercial Deckhouse Platform editions as an experimental feature.
 {{< /alert >}}
 
-The `peering` module connects the peering clusters with ClusterPeer resources. In each cluster, this resource describes the other cluster. The project owner specifies the name of this resource as the name of the target cluster to start a move.
+The [`peering`](/modules/peering/) module connects sites with ClusterPeer resources. In each cluster, this resource describes the other site, and the project owner selects the name of this resource as the destination site when they start a move. The `peering` module pairs the projects with the same name on the connected sites automatically, and a move works only between paired projects.
 
-### Cluster requirements
+### Site requirements
 
-The Platform does not map the resources of one cluster to the resources of the other. Thus, the move works only between clusters that you prepare in the same way. Prepare both clusters to meet the following conditions:
+The platform does not map the resources of one site to the resources of the other, so a move works only between sites that you prepare in the same way. Prepare both sites to meet the following conditions:
 
-- Both clusters have the `peering` module enabled and the `Peering` feature gate enabled in the `virtualization` module.
-- Both clusters run the same version of the `virtualization` module.
-- The nodes that run VMs in both clusters use the same Linux kernel version.
-- The target cluster has a project with the same name as the project of the VM in the source cluster.
-- The target cluster has the VM classes ([VirtualMachineClass](cr.html#virtualmachineclass)), storage classes (StorageClass), and priority classes (PriorityClass) of the VMs. They have the same names and settings.
-- The subnets in the [`virtualMachineCIDRs`](configuration.html#parameters-virtualmachinecidrs) parameter of the target cluster include the addresses of the VMs, because a VM keeps its IP address.
-- The nodes of the two clusters connect directly, without NAT, and the ports from the table below are open between them.
+- Both sites have the `peering` module enabled, and the peering between them is established.
+- Both sites run the same version of the `virtualization` module.
+- The nodes that run VMs on both sites use the same Linux kernel version.
+- The destination site has a project with the same name as the project of the VM on the source site.
+- The destination site has the VM classes ([VirtualMachineClass](cr.html#virtualmachineclass)), storage classes (StorageClass), and priority classes (PriorityClass) that the VMs use, with the same names and settings, and the storage classes give volumes of the same mode (`Block` or `Filesystem`) as on the source site.
+- The subnets in the [`virtualMachineCIDRs`](configuration.html#parameters-virtualmachinecidrs) parameter of the destination site include the addresses of the VMs, because a VM keeps its IP address.
+- The nodes of the two sites connect directly, without NAT, and the ports from the table below are open between them.
 
-| Port              | Purpose                                                 | Where to open               |
-| ----------------- | ------------------------------------------------------- | --------------------------- |
-| `4135`–`4199`/TCP | Transfer of VM memory and disks                         | On the nodes that run VMs   |
-| `4102`/TCP        | Synchronization of the migration state between clusters | On all nodes of the cluster |
+| Port              | Purpose                                              | Where to open               |
+| ----------------- | ---------------------------------------------------- | --------------------------- |
+| `4135`–`4199`/TCP | Transfer of VM memory and disks                      | On the nodes that run VMs   |
+| `4102`/TCP        | Synchronization of the migration state between sites | On all nodes of the cluster |
 
-The target cluster itself creates the VM, its disks, and its IP address, so the project quotas and checks of the target cluster apply to them.
+The destination site itself creates the VM, its disks, and its IP address, so the project quotas and checks of the destination site apply to them.
 
 ### Enabling the move
 
-To enable the move, do the following steps in both clusters:
+To enable the move, do the following steps on both sites:
 
-1. Add the `Peering` feature gate to the [`.spec.settings.featureGates`](configuration.html#parameters-featuregates) module parameter:
+1. Make sure that the `virtualization` module has declared the `virtualization` capability for the peering:
 
-   ```yaml
-   apiVersion: deckhouse.io/v1alpha1
-   kind: ModuleConfig
-   metadata:
-     name: virtualization
-   spec:
-     settings:
-       featureGates:
-         - Peering
+   ```bash
+   d8 k get peeringcapabilities virtualization
    ```
 
-1. Add the `virtualization` capability to the `.spec.capabilities` field of the ClusterPeer resource that describes the other cluster:
+   The `ACCEPTED` column must show `True`.
+
+1. Add the `virtualization` capability to the `.spec.capabilities` field of the ClusterPeer resource that describes the other site:
 
    ```yaml
    spec:
@@ -1529,17 +1524,23 @@ To enable the move, do the following steps in both clusters:
    d8 k get clusterpeer <CLUSTER_PEER_NAME>
    ```
 
-   Here, `<CLUSTER_PEER_NAME>` is the name of the ClusterPeer resource. The `PHASE` column must show `Active`, and the `CAPABILITIES` column must show the `virtualization` capability.
+   Here, `<CLUSTER_PEER_NAME>` is the name of the ClusterPeer resource. The `PHASE` column must show `Active`, and the `EFFECTIVE` column must show the `virtualization` capability. It appears there when both sites have opened the capability.
 
-Give the names of the ClusterPeer resources to the project owners, because the owner specifies this name as the name of the target cluster.
+The sites that the VMs of a project can move to are listed in the ProjectPeer resources of the project:
+
+```bash
+d8 k -n <PROJECT> get projectpeers
+```
+
+Here, `<PROJECT>` is the project name. The name of a ProjectPeer resource is the name of the ClusterPeer resource of the site, and the `STATE` column must show `Paired`. Give the names of the sites to the project owners, because the owner selects this name as the destination site.
 
 ### Move limitations
 
 When you plan a move, consider the following limitations:
 
-- After the move, the source cluster releases the IP address that the VM got automatically. The source cluster can give this address to a new VM while the moved VM still uses it.
-- The Platform does not change the routes to the VM address outside the clusters. This is a task of the network infrastructure.
-- When the target cluster confirms the move, the Platform deletes the VM and its disks in the source cluster. If the target cluster fails after that, only the disk snapshots of the VM stay.
+- After the move, the source site releases the IP address that the VM got automatically and can give this address to a new VM while the moved VM still uses it.
+- The platform does not change the routes to the VM address outside the sites. This is a task of the network infrastructure.
+- When the destination site confirms the move, the platform deletes the VM and its disks on the source site. If the destination site fails after that, only the disk snapshots of the VM stay.
 
 ## USB devices
 

@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -52,14 +53,14 @@ func (v *MigrationReceiverValidator) ValidateCreate(ctx context.Context, obj run
 		return nil, err
 	}
 
-	if !isPeerUser(req.UserInfo.Username) {
+	if !mayCreateReceiver(req.UserInfo.Username, req.UserInfo.Groups) {
 		return nil, fmt.Errorf("InternalVirtualizationVirtualMachineReceiver can only be created by a peer cluster")
 	}
 
 	return nil, validateReceiver(r)
 }
 
-func (v *MigrationReceiverValidator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+func (v *MigrationReceiverValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	oldR, ok := oldObj.(*intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver)
 	if !ok {
 		return nil, fmt.Errorf("expected an old InternalVirtualizationVirtualMachineReceiver but got a %T", oldObj)
@@ -70,8 +71,23 @@ func (v *MigrationReceiverValidator) ValidateUpdate(_ context.Context, oldObj, n
 		return nil, fmt.Errorf("expected a new InternalVirtualizationVirtualMachineReceiver but got a %T", newObj)
 	}
 
-	if !reflect.DeepEqual(oldR.Spec, newR.Spec) {
+	oldSpec, newSpec := oldR.Spec, newR.Spec
+	oldSpec.SourceSynchronization = intvirtv1alpha1.MigrationSynchronizationEndpoint{}
+
+	newSpec.SourceSynchronization = intvirtv1alpha1.MigrationSynchronizationEndpoint{}
+	if !reflect.DeepEqual(oldSpec, newSpec) {
 		return nil, fmt.Errorf("the spec of InternalVirtualizationVirtualMachineReceiver cannot be changed")
+	}
+	// The finalizer keeps the request until the objects created for it no longer refer to it: a peer that
+	// removed it could have the garbage collector delete the VM received here.
+	req, err := admission.RequestFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if isPeerGroup(req.UserInfo.Groups) &&
+		(!slices.Equal(oldR.Finalizers, newR.Finalizers) || !reflect.DeepEqual(oldR.OwnerReferences, newR.OwnerReferences)) {
+		return nil, fmt.Errorf("the finalizers and the owner references of InternalVirtualizationVirtualMachineReceiver cannot be changed by a peer cluster")
 	}
 
 	return nil, nil
@@ -81,16 +97,61 @@ func (v *MigrationReceiverValidator) ValidateDelete(_ context.Context, _ runtime
 	return nil, nil
 }
 
-// isPeerUser tells the identity of a peer cluster acting for the virtualization capability, as the
-// peering module presents it: peering:peer:<peer>:cap:virtualization.
-func isPeerUser(name string) bool {
-	if name == ownControllerUser {
-		return true
+// MigrationReceiverDefaulter names in the request the peer that asks for it, as this cluster knows the peer:
+// the VM received here shows the cluster it comes from. The name comes from the identity of the peer on
+// every write of the peer, so a peer cannot give another one.
+type MigrationReceiverDefaulter struct{}
+
+func NewMigrationReceiverDefaulter() *MigrationReceiverDefaulter {
+	return &MigrationReceiverDefaulter{}
+}
+
+func (d *MigrationReceiverDefaulter) Default(ctx context.Context, obj runtime.Object) error {
+	r, ok := obj.(*intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver)
+	if !ok {
+		return fmt.Errorf("expected a InternalVirtualizationVirtualMachineReceiver but got a %T", obj)
 	}
 
-	peer, ok := strings.CutPrefix(name, "peering:peer:")
+	req, err := admission.RequestFromContext(ctx)
+	if err != nil {
+		return err
+	}
 
-	return ok && strings.HasSuffix(peer, ":cap:virtualization") && !strings.HasPrefix(peer, ":")
+	peer := peerName(req.UserInfo.Groups)
+	if peer == "" {
+		return nil
+	}
+
+	r.Spec.SourcePeer = peer
+
+	return nil
+}
+
+// peerName returns the name this cluster gives the peer of the virtualization capability in its group,
+// peering:peer:<peer>:cap:virtualization, or nothing for another identity.
+func peerName(groups []string) string {
+	for _, g := range groups {
+		peer, ok := strings.CutPrefix(g, "peering:peer:")
+		if !ok {
+			continue
+		}
+
+		if name, ok := strings.CutSuffix(peer, ":cap:virtualization"); ok && name != "" {
+			return name
+		}
+	}
+
+	return ""
+}
+
+// mayCreateReceiver allows this module's controller and authenticated peers with the virtualization capability.
+func mayCreateReceiver(name string, groups []string) bool {
+	return name == ownControllerUser || isPeerGroup(groups)
+}
+
+// isPeerGroup tells a peer cluster by the group of its capability, unlike the controller of this module.
+func isPeerGroup(groups []string) bool {
+	return peerName(groups) != ""
 }
 
 // validateReceiver checks that the request is readable and that the domain of the source asks for no

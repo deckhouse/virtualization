@@ -94,11 +94,7 @@ func init() {
 		gates: []string{"HotplugCPUAndMemoryWithInPlaceResize"},
 	}, false)
 
-	RegisterPrecheck(&featureGatePrecheck{
-		label: PrecheckPeering,
-		env:   peeringCheckEnvName,
-		gates: []string{"Peering"},
-	}, false)
+	RegisterPrecheck(&peeringPrecheck{}, false)
 }
 
 func getFeatureGates(mc *dv1alpha1.ModuleConfig) ([]string, error) {

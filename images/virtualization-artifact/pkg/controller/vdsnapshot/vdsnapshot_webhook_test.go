@@ -38,7 +38,7 @@ var _ = Describe("Validator", func() {
 				vdSnapshot.Annotations = map[string]string{v1alpha2.AnnUseBuiltInSnapshotter: ""}
 			}
 
-			_, err := NewValidator(log.NewNop(), unifiedSnapshotterPresent, volumeSnapshotAPIAvailable).ValidateCreate(context.Background(), vdSnapshot)
+			_, err := NewValidator(log.NewNop(), nil, unifiedSnapshotterPresent, volumeSnapshotAPIAvailable).ValidateCreate(context.Background(), vdSnapshot)
 			if wantErr {
 				Expect(err).To(MatchError(ContainSubstring("storage-foundation")))
 			} else {

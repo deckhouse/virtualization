@@ -51,6 +51,7 @@ func NewValidator(client client.Client, scService *intsvc.VirtualDiskStorageClas
 			validator.NewMigrationStorageClassValidator(client, scService, modeGetter, featuregates.Default()),
 			validator.NewVirtualImagePVCStorageClassValidator(client, scService),
 			validator.NewVirtualDiskSnapshotStorageClassValidator(client, scService),
+			validator.NewPeerMigrationLockValidator(client),
 		},
 	}
 }

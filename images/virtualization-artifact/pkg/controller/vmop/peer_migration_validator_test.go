@@ -22,6 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 var _ = Describe("checkPeerMigratable", func() {
@@ -38,6 +39,19 @@ var _ = Describe("checkPeerMigratable", func() {
 	It("accepts a running VM with VirtualDisks, hot-plugged as every disk is", func() {
 		Expect(checkPeerMigratable(running())).To(Succeed())
 	})
+
+	DescribeTable("refuses migration until the snapshot or freeze finishes", func(condition vmcondition.Type, cause string) {
+		vm := running()
+		vm.Status.Conditions = []metav1.Condition{{Type: condition.String(), Status: metav1.ConditionTrue}}
+		Expect(checkPeerMigratable(vm)).To(MatchError(And(ContainSubstring(cause), ContainSubstring("retry the migration"))))
+		vm.Status.Conditions[0].Status = metav1.ConditionFalse
+		Expect(checkPeerMigratable(vm)).To(Succeed())
+		vm.Status.Conditions = nil
+		Expect(checkPeerMigratable(vm)).To(Succeed())
+	},
+		Entry("snapshotting", vmcondition.TypeSnapshotting, "snapshot is pending or in progress"),
+		Entry("filesystem frozen", vmcondition.TypeFilesystemFrozen, "filesystem is frozen"),
+	)
 
 	DescribeTable("refuses",
 		func(change func(vm *v1alpha2.VirtualMachine)) {

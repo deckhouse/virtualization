@@ -21,26 +21,32 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/validate"
+	commonvm "github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type Validator struct {
+	client                     client.Client
 	unifiedSnapshotterPresent  bool
 	volumeSnapshotAPIAvailable bool
 }
 
-func NewValidator(unifiedSnapshotterPresent, volumeSnapshotAPIAvailable bool) *Validator {
+func NewValidator(c client.Client, unifiedSnapshotterPresent, volumeSnapshotAPIAvailable bool) *Validator {
 	return &Validator{
+		client:                     c,
 		unifiedSnapshotterPresent:  unifiedSnapshotterPresent,
 		volumeSnapshotAPIAvailable: volumeSnapshotAPIAvailable,
 	}
 }
 
-func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	vmSnapshot, ok := obj.(*v1alpha2.VirtualMachineSnapshot)
 	if !ok {
 		return nil, fmt.Errorf("expected a VirtualMachineSnapshot but got a %T", obj)
@@ -58,7 +64,26 @@ func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admis
 		return nil, err
 	}
 
+	if err := v.validatePeerMigrationLock(ctx, vmSnapshot); err != nil {
+		return nil, err
+	}
+
 	return nil, validate.ImportModeRequiresUnifiedSnapshotter(vmSnapshot, vmSnapshot.Spec.Mode, v.unifiedSnapshotterPresent)
+}
+
+// validatePeerMigrationLock rejects a snapshot of a virtual machine that is moving to or from a peer
+// cluster: the running guest cannot be frozen consistently in the middle of the move.
+func (v *Validator) validatePeerMigrationLock(ctx context.Context, vmSnapshot *v1alpha2.VirtualMachineSnapshot) error {
+	if vmSnapshot.Spec.VirtualMachineName == "" {
+		return nil
+	}
+
+	vm, err := object.FetchObject(ctx, types.NamespacedName{Name: vmSnapshot.Spec.VirtualMachineName, Namespace: vmSnapshot.Namespace}, v.client, &v1alpha2.VirtualMachine{})
+	if err != nil {
+		return err
+	}
+
+	return commonvm.PeerMigrationLockError(ctx, v.client, vm)
 }
 
 func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {

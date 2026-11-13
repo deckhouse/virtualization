@@ -21,11 +21,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
+	"slices"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -43,6 +46,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kubevirt"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service/volumemode"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	intvirtv1alpha1 "github.com/deckhouse/virtualization/api/internalvirtualization/v1alpha1"
 )
@@ -62,7 +66,10 @@ const (
 	ReceiverReasonNotFound              = "NotFound"
 	ReceiverReasonIPAddressNotAvailable = "IPAddressNotAvailable"
 	ReceiverReasonDiskTooSmall          = "DiskTooSmall"
+	ReceiverReasonVolumeModeMismatch    = "VolumeModeMismatch"
 	ReceiverReasonMigrationFailed       = "MigrationFailed"
+	ReceiverReasonQuotaExceeded         = "QuotaExceeded"
+	ReceiverReasonVirtualMachineDeleted = "VirtualMachineDeleted"
 )
 
 // ReceivedObjects is what a request asks this cluster to create.
@@ -106,6 +113,7 @@ func ParseReceiver(r *intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiv
 // must not delete the running VM. While the VM has not run here, the request removes them on deletion.
 type ReceiverReconciler struct {
 	client    client.Client
+	apiReader client.Reader
 	namespace string
 }
 
@@ -166,6 +174,22 @@ func (r *ReceiverReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		}
 	}
 
+	if rcvr.Status.Phase == intvirtv1alpha1.ReceiverRunning {
+		// A retained arrival record must not reserve the name after the VM moves away.
+		// Check the live API: an informer miss must not discard confirmation of an arrival.
+		var vm v1alpha2.VirtualMachine
+
+		err := r.apiReader.Get(ctx, req.NamespacedName, &vm)
+		if err != nil && !k8serrors.IsNotFound(err) {
+			return reconcile.Result{}, err
+		}
+
+		if k8serrors.IsNotFound(err) || (rcvr.Status.VirtualMachineUID != "" && !CreatedVirtualMachine(&rcvr, &vm)) {
+			return reconcile.Result{}, client.IgnoreNotFound(r.client.Delete(ctx, &rcvr,
+				client.Preconditions{UID: &rcvr.UID, ResourceVersion: &rcvr.ResourceVersion}))
+		}
+	}
+
 	if rcvr.Status.Phase == intvirtv1alpha1.ReceiverRunning || rcvr.Status.Phase == intvirtv1alpha1.ReceiverFailed {
 		ttl := receiverRunningTTL
 		if rcvr.Status.Phase == intvirtv1alpha1.ReceiverFailed {
@@ -173,6 +197,10 @@ func (r *ReceiverReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		}
 
 		if left := ttl - time.Since(receiverPhaseSince(&rcvr)); left > 0 {
+			if rcvr.Status.Phase == intvirtv1alpha1.ReceiverRunning {
+				left = min(left, receiverExchangeResync)
+			}
+
 			return reconcile.Result{RequeueAfter: left}, nil
 		}
 
@@ -184,22 +212,35 @@ func (r *ReceiverReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		return reconcile.Result{}, SetReceiverFailed(ctx, r.client, &rcvr, ReceiverReasonInvalidRequest, err.Error())
 	}
 
-	uid := string(rcvr.UID)
-
 	var vm v1alpha2.VirtualMachine
 
 	err = r.client.Get(ctx, types.NamespacedName{Namespace: rcvr.Namespace, Name: rcvr.Name}, &vm)
 	switch {
-	case err == nil && vm.Labels[annotations.LabelVMReceiver] != uid && vm.DeletionTimestamp != nil:
+	case err == nil && CreatedVirtualMachine(&rcvr, &vm) && vm.DeletionTimestamp != nil && !rcvr.Status.ReceiverStarted:
+		// The VM controller leaves a VM being deleted alone, so only the request tells the source why the
+		// guest cannot arrive; otherwise the source sees only a socket closed by libvirt.
+		return reconcile.Result{}, SetReceiverFailed(ctx, r.client, &rcvr, ReceiverReasonVirtualMachineDeleted,
+			fmt.Sprintf("the receiving VirtualMachine %q was deleted", vm.Name))
+	case err == nil && !CreatedVirtualMachine(&rcvr, &vm) && vm.DeletionTimestamp != nil:
 		// Most likely the copy of this VM that has just moved away: wait for it to go.
 		return reconcile.Result{RequeueAfter: receiverCleanupRequeue}, r.setPending(ctx, &rcvr)
-	case err == nil && vm.Labels[annotations.LabelVMReceiver] != uid:
+	case err == nil && !CreatedVirtualMachine(&rcvr, &vm):
 		return reconcile.Result{}, SetReceiverFailed(ctx, r.client, &rcvr, ReceiverReasonVirtualMachineExists,
 			fmt.Sprintf("another virtual machine named %q exists in namespace %q. Rename or delete it there and retry the move", rcvr.Name, rcvr.Namespace))
 	case err == nil:
+		// A VM created before a restart of the controller is recorded now.
+		if err = PatchReceiverStatus(ctx, r.client, &rcvr, func(st *intvirtv1alpha1.VirtualMachineReceiverStatus) { st.VirtualMachineUID = vm.UID }); err != nil {
+			return reconcile.Result{}, err
+		}
+
 		return reconcile.Result{RequeueAfter: receiverExchangeResync}, r.setPending(ctx, &rcvr)
 	case !k8serrors.IsNotFound(err):
 		return reconcile.Result{}, err
+	case k8serrors.IsNotFound(err) && rcvr.Status.VirtualMachineUID != "" && !rcvr.Status.ReceiverStarted:
+		// The VM created for the request is gone: the deletion is the user's, and creating another would
+		// receive the guest into a machine the user removed. A request before the VM is created has no UID.
+		return reconcile.Result{}, SetReceiverFailed(ctx, r.client, &rcvr, ReceiverReasonVirtualMachineDeleted,
+			fmt.Sprintf("the receiving VirtualMachine %q was deleted", rcvr.Name))
 	}
 
 	if reason, msg, err := r.check(ctx, rcv, rcvr.Namespace); err != nil || msg != "" {
@@ -211,24 +252,43 @@ func (r *ReceiverReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 	}
 
 	for _, src := range rcv.VirtualDisks {
-		vd := receivedDisk(src, rcv.Instance, rcvr.Namespace, uid)
+		vd, serial := receivedDisk(src, rcv.Instance, rcvr.Namespace)
+
+		vd.OwnerReferences = receiverOwnerReferences(&rcvr)
 		if err = r.client.Create(ctx, vd); k8serrors.IsAlreadyExists(err) {
 			var existing v1alpha2.VirtualDisk
 			if err = r.client.Get(ctx, client.ObjectKeyFromObject(vd), &existing); err != nil {
 				return reconcile.Result{}, err
 			}
 
-			if existing.Labels[annotations.LabelVMReceiver] != uid && existing.DeletionTimestamp != nil {
+			owned := CreatedVirtualDisk(&rcvr, &existing)
+			if !owned && existing.DeletionTimestamp != nil {
 				return reconcile.Result{RequeueAfter: receiverCleanupRequeue}, r.setPending(ctx, &rcvr)
 			}
 
-			if existing.Labels[annotations.LabelVMReceiver] != uid {
+			if !owned {
 				return reconcile.Result{}, SetReceiverFailed(ctx, r.client, &rcvr, ReceiverReasonVirtualDiskExists,
 					fmt.Sprintf("another virtual disk named %q exists in namespace %q. Rename or delete it there and retry the move", vd.Name, rcvr.Namespace))
 			}
+
+			vd = &existing
 		} else if err != nil {
 			return reconcile.Result{}, SetReceiverFailed(ctx, r.client, &rcvr, ReceiverReasonInvalidRequest,
 				fmt.Sprintf("the virtual disk %q cannot be created: %s", vd.Name, err))
+		}
+
+		if err = PatchReceiverStatus(ctx, r.client, &rcvr, func(st *intvirtv1alpha1.VirtualMachineReceiverStatus) {
+			if st.VirtualDiskUIDs == nil {
+				st.VirtualDiskUIDs = map[string]types.UID{}
+			}
+
+			st.VirtualDiskUIDs[vd.Name] = vd.UID
+		}); err != nil {
+			return reconcile.Result{}, err
+		}
+
+		if err = setDiskSerial(ctx, r.client, vd, serial); err != nil {
+			return reconcile.Result{}, err
 		}
 	}
 
@@ -237,10 +297,19 @@ func (r *ReceiverReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		return reconcile.Result{}, err
 	}
 
-	newVM := receivedVM(rcv.VirtualMachine, rcvr.Namespace, rcvr.Name, uid, ipName)
-	if err = r.client.Create(ctx, newVM); err != nil && !k8serrors.IsAlreadyExists(err) {
+	newVM := receivedVM(rcv.VirtualMachine, rcvr.Namespace, rcvr.Name, ipName)
+
+	newVM.OwnerReferences = receiverOwnerReferences(&rcvr)
+	if err = r.client.Create(ctx, newVM); k8serrors.IsAlreadyExists(err) {
+		// Another VM took the name since the check above: the next reconcile tells whose it is.
+		return reconcile.Result{RequeueAfter: receiverCleanupRequeue}, nil
+	} else if err != nil {
 		return reconcile.Result{}, SetReceiverFailed(ctx, r.client, &rcvr, ReceiverReasonInvalidRequest,
 			fmt.Sprintf("the virtual machine cannot be created: %s", err))
+	}
+
+	if err = PatchReceiverStatus(ctx, r.client, &rcvr, func(st *intvirtv1alpha1.VirtualMachineReceiverStatus) { st.VirtualMachineUID = newVM.UID }); err != nil {
+		return reconcile.Result{}, err
 	}
 
 	return reconcile.Result{}, r.setPending(ctx, &rcvr)
@@ -248,7 +317,7 @@ func (r *ReceiverReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 
 // publishExchange hands across what the synchronization controllers of the clusters need to trust each
 // other: the address of the controller here and the pin of the key it generated for this migration go to
-// the source in the status; the pin of the source comes in an annotation of the request and goes into the
+// the source in the status; the source endpoint comes in the spec of the request and goes into the
 // receiving migration. A controller generates the key anew after a restart, so the pins are read again and
 // again.
 func (r *ReceiverReconciler) publishExchange(ctx context.Context, rcvr *intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver) error {
@@ -257,18 +326,24 @@ func (r *ReceiverReconciler) publishExchange(ctx context.Context, rcvr *intvirtv
 		return err
 	}
 
-	pin, err := MigrationSyncPin(ctx, r.client, types.NamespacedName{Namespace: rcvr.Namespace, Name: rcvr.Name}, "targetState")
+	migration := types.NamespacedName{Namespace: rcvr.Namespace, Name: string(rcvr.UID)}
+
+	var receiving virtv1.VirtualMachineInstanceMigration
+	if err := r.client.Get(ctx, migration, &receiving); client.IgnoreNotFound(err) != nil {
+		return err
+	}
+
+	endpoint, err := MigrationSynchronization(ctx, r.client, types.NamespacedName{Namespace: rcvr.Namespace, Name: rcvr.Name}, "targetState", receiving.UID)
 	if err != nil {
 		return err
 	}
 
-	migration := types.NamespacedName{Namespace: rcvr.Namespace, Name: string(rcvr.UID)}
-	if err = SetMigrationPeerSyncPin(ctx, r.client, migration, rcvr.Annotations[annotations.AnnReceiverSourceSyncPin]); err != nil {
+	if err = SetMigrationSynchronization(ctx, r.client, migration, rcvr.Spec.SourceSynchronization); err != nil {
 		return err
 	}
 
 	return PatchReceiverStatus(ctx, r.client, rcvr, func(st *intvirtv1alpha1.VirtualMachineReceiverStatus) {
-		st.SynchronizationAddress, st.SyncPin = address, pin
+		st.Synchronization = intvirtv1alpha1.MigrationSynchronizationEndpoint{SyncAddress: address, SyncPin: endpoint.SyncPin}
 	})
 }
 
@@ -306,8 +381,12 @@ func (r *ReceiverReconciler) cleanupState(ctx context.Context, rcvr *intvirtv1al
 		return receiverCleanupDeferred, vmErr
 	}
 
-	if migrationErr != nil && vmErr == nil && vm.Labels[annotations.LabelVMReceiver] != string(rcvr.UID) {
+	if migrationErr != nil && vmErr == nil && !CreatedVirtualMachine(rcvr, &vm) {
 		return receiverCleanupUnstarted, nil
+	}
+
+	if migrationErr == nil && vmim.Status.Phase == virtv1.MigrationSucceeded {
+		return receiverCleanupArrived, nil
 	}
 
 	var vmi virtv1.VirtualMachineInstance
@@ -385,45 +464,34 @@ func LocalSynchronizationAddress(ctx context.Context, c client.Client, namespace
 	return kv.Status.SynchronizationAddresses[0], nil
 }
 
-// MigrationSyncPin is the pin of the key the synchronization controller of this cluster generated for the
-// migration of the VMI, from the state of the given side, sourceState or targetState; empty until the
-// controller handles the migration. The field is newer than the KubeVirt API in use, so it is read untyped.
-func MigrationSyncPin(ctx context.Context, reader client.Reader, vmi types.NamespacedName, side string) (string, error) {
+// MigrationSynchronization reads the endpoint this side publishes in the VMI migration state.
+// These fields are newer than the Go API dependency, so they are read untyped.
+func MigrationSynchronization(ctx context.Context, reader client.Reader, vmi types.NamespacedName, side string, migrationUID types.UID) (intvirtv1alpha1.MigrationSynchronizationEndpoint, error) {
+	endpoint := intvirtv1alpha1.MigrationSynchronizationEndpoint{}
+	if migrationUID == "" {
+		return endpoint, nil
+	}
+
 	obj := &unstructured.Unstructured{}
 	obj.SetGroupVersionKind(virtv1.VirtualMachineInstanceGroupVersionKind)
 
 	if err := reader.Get(ctx, vmi, obj); err != nil {
-		return "", client.IgnoreNotFound(err)
+		return endpoint, client.IgnoreNotFound(err)
 	}
 
-	pin, _, err := unstructured.NestedString(obj.Object, "status", "migrationState", side, "syncPin")
-
-	return pin, err
-}
-
-// SetMigrationPeerSyncPin gives the KubeVirt migration the pin of the synchronization controller of the
-// peer, which the controller here checks the peer against. Nothing happens while the pin or the migration
-// is not there yet.
-func SetMigrationPeerSyncPin(ctx context.Context, cl client.Client, migration types.NamespacedName, pin string) error {
-	if pin == "" {
-		return nil
+	stateUID, _, err := unstructured.NestedString(obj.Object, "status", "migrationState", side, "migrationUID")
+	if err != nil || stateUID != string(migrationUID) {
+		return endpoint, err
 	}
 
-	var vmim virtv1.VirtualMachineInstanceMigration
-	if err := cl.Get(ctx, migration, &vmim); err != nil {
-		return client.IgnoreNotFound(err)
+	endpoint.SyncPin, _, err = unstructured.NestedString(obj.Object, "status", "migrationState", side, "syncPin")
+	if err != nil {
+		return endpoint, err
 	}
 
-	if vmim.Annotations[annotations.AnnMigrationPeerSyncPin] == pin {
-		return nil
-	}
+	endpoint.SyncAddress, _, err = unstructured.NestedString(obj.Object, "status", "migrationState", side, "syncAddress")
 
-	patch, _ := json.Marshal(map[string]any{"metadata": map[string]any{"annotations": map[string]string{annotations.AnnMigrationPeerSyncPin: pin}}})
-	if err := cl.Patch(ctx, &vmim, client.RawPatch(types.MergePatchType, patch)); err != nil {
-		return fmt.Errorf("give the receiving migration the pin of the peer: %w", err)
-	}
-
-	return nil
+	return endpoint, err
 }
 
 func (r *ReceiverReconciler) setPending(ctx context.Context, rcvr *intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver) error {
@@ -465,12 +533,20 @@ func (r *ReceiverReconciler) check(ctx context.Context, rcv *ReceivedObjects, na
 			continue
 		}
 
-		if err := r.client.Get(ctx, types.NamespacedName{Name: sc}, &storagev1.StorageClass{}); err != nil {
+		var class storagev1.StorageClass
+		if err := r.client.Get(ctx, types.NamespacedName{Name: sc}, &class); err != nil {
 			if k8serrors.IsNotFound(err) {
-				return ReceiverReasonNotFound, fmt.Sprintf("the StorageClass %q of the disk %q does not exist", sc, vd.Name), nil
+				return ReceiverReasonNotFound, fmt.Sprintf("the StorageClass %q of the disk %q does not exist there: create it with the same volume mode as in the source cluster, or move the disk to a StorageClass both clusters have", sc, vd.Name), nil
 			}
 
 			return "", "", err
+		}
+		// The domain of the source runs here as it is: a block device of the source cannot be mounted from a
+		// filesystem volume, and the other way round. The receiving pod would fail only after the source
+		// had waited for it.
+		source := sourceVolumeMode(rcv.Instance, vd.Name)
+		if here, _, err := volumemode.NewVolumeAndAccessModesGetter(r.client, nil).GetVolumeAndAccessModes(ctx, &class); err == nil && source != "" && here != "" && here != source {
+			return ReceiverReasonVolumeModeMismatch, fmt.Sprintf("the StorageClass %q of the disk %q gives %s volumes there and %s volumes in the source cluster: use a StorageClass with the same volume mode in both clusters", sc, vd.Name, here, source), nil
 		}
 	}
 
@@ -498,6 +574,19 @@ func (r *ReceiverReconciler) check(ctx context.Context, rcv *ReceivedObjects, na
 	return "", "", nil
 }
 
+// sourceVolumeMode is the volume mode of the disk in the source, from the status of its instance; empty when
+// the source did not report it.
+func sourceVolumeMode(instance *virtv1.VirtualMachineInstance, disk string) corev1.PersistentVolumeMode {
+	name := kvbuilder.GenerateVDDiskName(disk)
+	for _, vs := range instance.Status.VolumeStatus {
+		if vs.Name == name && vs.PersistentVolumeClaimInfo != nil && vs.PersistentVolumeClaimInfo.VolumeMode != nil {
+			return *vs.PersistentVolumeClaimInfo.VolumeMode
+		}
+	}
+
+	return ""
+}
+
 // freeIPAddress returns a VirtualMachineIPAddress with the address that no VM uses, left for example by an
 // earlier move: the VM takes it instead of failing on a second address object.
 func (r *ReceiverReconciler) freeIPAddress(ctx context.Context, namespace, address string) (string, error) {
@@ -520,14 +609,14 @@ func (r *ReceiverReconciler) freeIPAddress(ctx context.Context, namespace, addre
 }
 
 // receivedDisk is the blank VirtualDisk that receives a disk of the source: the same StorageClass and
-// size, and the serial of the device of the source.
-func receivedDisk(src *v1alpha2.VirtualDisk, instance *virtv1.VirtualMachineInstance, namespace, uid string) *v1alpha2.VirtualDisk {
+// size. It also returns the serial of the device of the source, which the disk keeps in its status.
+func receivedDisk(src *v1alpha2.VirtualDisk, instance *virtv1.VirtualMachineInstance, namespace string) (*v1alpha2.VirtualDisk, string) {
 	vd := &v1alpha2.VirtualDisk{
 		TypeMeta: metav1.TypeMeta{APIVersion: v1alpha2.SchemeGroupVersion.String(), Kind: v1alpha2.VirtualDiskKind},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        src.Name,
 			Namespace:   namespace,
-			Labels:      withValue(src.Labels, annotations.LabelVMReceiver, uid),
+			Labels:      maps.Clone(src.Labels),
 			Annotations: maps.Clone(src.Annotations),
 		},
 		Spec: v1alpha2.VirtualDiskSpec{PersistentVolumeClaim: v1alpha2.VirtualDiskPersistentVolumeClaim{
@@ -535,20 +624,137 @@ func receivedDisk(src *v1alpha2.VirtualDisk, instance *virtv1.VirtualMachineInst
 			Size:         src.Spec.PersistentVolumeClaim.Size,
 		}},
 	}
+	serial := ""
 
 	diskName := kvbuilder.GenerateVDDiskName(src.Name)
 	for _, d := range instance.Spec.Domain.Devices.Disks {
-		if d.Name == diskName && d.Serial != "" {
-			vd.Annotations = withValue(vd.Annotations, annotations.AnnVDSerial, d.Serial)
+		if d.Name == diskName {
+			serial = d.Serial
 		}
 	}
 
-	return vd
+	return vd, serial
+}
+
+// setDiskSerial gives a received disk the serial it had in the source. The disk controller records one
+// derived from the UID only while there is none, and never changes a recorded one.
+func setDiskSerial(ctx context.Context, cl client.Client, vd *v1alpha2.VirtualDisk, serial string) error {
+	if serial == "" || vd.Status.Serial == serial {
+		return nil
+	}
+
+	before := vd.DeepCopy()
+
+	vd.Status.Serial = serial
+	if err := cl.Status().Patch(ctx, vd, client.MergeFrom(before)); err != nil {
+		return fmt.Errorf("set the serial of the received disk %q: %w", vd.Name, err)
+	}
+
+	return nil
+}
+
+// Mark received objects at creation; release their owner references before receiver deletion
+// so garbage collection preserves the received VM.
+func receiverOwnerReferences(rcvr *intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver) []metav1.OwnerReference {
+	return []metav1.OwnerReference{{
+		APIVersion: intvirtv1alpha1.SchemeGroupVersion.String(),
+		Kind:       intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiverKind,
+		Name:       rcvr.Name,
+		UID:        rcvr.UID,
+		Controller: ptr.To(true),
+	}}
+}
+
+func OwnedByReceiver(obj metav1.Object, uid types.UID) bool {
+	return slices.ContainsFunc(obj.GetOwnerReferences(), func(ref metav1.OwnerReference) bool { return ref.UID == uid })
+}
+
+// ReleaseFromReceiver drops the reference to a request from an object created for it, once the guest has
+// arrived: the object then stays a regular one of the user when the request goes. Every reference to a
+// request goes, whichever request it is, so that no reference is left for the garbage collector to follow.
+func ReleaseFromReceiver(ctx context.Context, cl client.Client, obj client.Object) error {
+	refs := obj.GetOwnerReferences()
+
+	kept := slices.DeleteFunc(slices.Clone(refs), func(ref metav1.OwnerReference) bool {
+		return ref.Kind == intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiverKind
+	})
+	if len(kept) == len(refs) {
+		return nil
+	}
+
+	patched, ok := obj.DeepCopyObject().(client.Object)
+	if !ok {
+		return fmt.Errorf("copy %q", obj.GetName())
+	}
+
+	patched.SetOwnerReferences(kept)
+
+	err := cl.Patch(ctx, patched, client.MergeFromWithOptions(obj, client.MergeFromWithOptimisticLock{}))
+	if client.IgnoreNotFound(err) != nil {
+		return fmt.Errorf("release %q from the request: %w", obj.GetName(), err)
+	}
+
+	return nil
+}
+
+// CreatedVirtualMachine tells whether the VM is the one the request created: it carries the reference to the
+// request, or it is the one the request recorded, which stays after the reference goes.
+func CreatedVirtualMachine(rcvr *intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver, vm *v1alpha2.VirtualMachine) bool {
+	return OwnedByReceiver(vm, rcvr.UID) || (rcvr.Status.VirtualMachineUID != "" && rcvr.Status.VirtualMachineUID == vm.UID)
+}
+
+func CreatedVirtualDisk(rcvr *intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver, vd *v1alpha2.VirtualDisk) bool {
+	uid, ok := rcvr.Status.VirtualDiskUIDs[vd.Name]
+	return OwnedByReceiver(vd, rcvr.UID) || (ok && uid == vd.UID)
+}
+
+// ownObjects returns the VM and the disks of the request that still exist: the ones that carry its reference
+// or that it recorded. A request whose objects cannot be read looks for its disks by the recorded names only.
+func (r *ReceiverReconciler) ownObjects(ctx context.Context, rcvr *intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver) ([]client.Object, error) {
+	rcv, _ := ParseReceiver(rcvr)
+
+	var (
+		owned []client.Object
+		vm    v1alpha2.VirtualMachine
+	)
+
+	err := r.client.Get(ctx, types.NamespacedName{Namespace: rcvr.Namespace, Name: rcvr.Name}, &vm)
+	switch {
+	case err == nil && CreatedVirtualMachine(rcvr, &vm):
+		owned = append(owned, &vm)
+	case client.IgnoreNotFound(err) != nil:
+		return nil, err
+	}
+
+	names := map[string]bool{}
+	for name := range rcvr.Status.VirtualDiskUIDs {
+		names[name] = true
+	}
+
+	if rcv != nil {
+		for _, src := range rcv.VirtualDisks {
+			names[src.Name] = true
+		}
+	}
+
+	for name := range names {
+		vd := &v1alpha2.VirtualDisk{}
+
+		err := r.client.Get(ctx, types.NamespacedName{Namespace: rcvr.Namespace, Name: name}, vd)
+		switch {
+		case err == nil && CreatedVirtualDisk(rcvr, vd):
+			owned = append(owned, vd)
+		case client.IgnoreNotFound(err) != nil:
+			return nil, err
+		}
+	}
+
+	return owned, nil
 }
 
 // receivedVM is the VM of this cluster: the spec of the source as it runs there, with the address object of
 // this cluster. The MAC addresses of the source are in its domain, which the VM runs with.
-func receivedVM(src *v1alpha2.VirtualMachine, namespace, name, uid, ipName string) *v1alpha2.VirtualMachine {
+func receivedVM(src *v1alpha2.VirtualMachine, namespace, name, ipName string) *v1alpha2.VirtualMachine {
 	spec := *src.Spec.DeepCopy()
 
 	spec.VirtualMachineIPAddress = ipName
@@ -565,8 +771,8 @@ func receivedVM(src *v1alpha2.VirtualMachine, namespace, name, uid, ipName strin
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        name,
 			Namespace:   namespace,
-			Labels:      withValue(src.Labels, annotations.LabelVMReceiver, uid),
-			Annotations: withValue(src.Annotations, annotations.AnnVMMigrationReceiver, uid),
+			Labels:      maps.Clone(src.Labels),
+			Annotations: maps.Clone(src.Annotations),
 		},
 		Spec: spec,
 	}
@@ -589,32 +795,58 @@ func (r *ReceiverReconciler) cleanup(ctx context.Context, rcvr *intvirtv1alpha1.
 	}
 
 	if state == receiverCleanupUnstarted {
-		marked := client.MatchingLabels{annotations.LabelVMReceiver: string(rcvr.UID)}
-
-		var vms v1alpha2.VirtualMachineList
-		if err := r.client.List(ctx, &vms, client.InNamespace(rcvr.Namespace), marked); err != nil {
+		owned, err := r.ownObjects(ctx, rcvr)
+		if err != nil {
 			return reconcile.Result{}, err
 		}
 
-		var vds v1alpha2.VirtualDiskList
-		if err := r.client.List(ctx, &vds, client.InNamespace(rcvr.Namespace), marked); err != nil {
-			return reconcile.Result{}, err
-		}
-
-		for i := range vms.Items {
-			if err := r.client.Delete(ctx, &vms.Items[i]); client.IgnoreNotFound(err) != nil {
+		for _, obj := range owned {
+			if err := r.client.Delete(ctx, obj); client.IgnoreNotFound(err) != nil {
 				return reconcile.Result{}, err
 			}
 		}
 
-		for i := range vds.Items {
-			if err := r.client.Delete(ctx, &vds.Items[i]); client.IgnoreNotFound(err) != nil {
-				return reconcile.Result{}, err
-			}
-		}
-
-		if len(vms.Items)+len(vds.Items) > 0 {
+		if len(owned) > 0 {
 			return reconcile.Result{RequeueAfter: receiverCleanupRequeue}, nil
+		}
+	} else {
+		// Keep the receiver available to the VM controller until it has finalized the KVVM.
+		// Its UID and the migration identity must survive a source-side cancellation after arrival.
+		if rcvr.Status.Phase != intvirtv1alpha1.ReceiverRunning {
+			var vm v1alpha2.VirtualMachine
+
+			key := types.NamespacedName{Namespace: rcvr.Namespace, Name: rcvr.Name}
+
+			err := r.client.Get(ctx, key, &vm)
+			if client.IgnoreNotFound(err) != nil {
+				return reconcile.Result{}, err
+			}
+
+			if err == nil && vm.DeletionTimestamp == nil && CreatedVirtualMachine(rcvr, &vm) {
+				var kvvm virtv1.VirtualMachine
+
+				err = r.client.Get(ctx, key, &kvvm)
+				if client.IgnoreNotFound(err) != nil {
+					return reconcile.Result{}, err
+				}
+
+				if err == nil && ((rcvr.Status.InternalVirtualMachineUID != "" && kvvm.UID == rcvr.Status.InternalVirtualMachineUID) ||
+					(rcvr.Status.InternalVirtualMachineUID == "" && metav1.IsControlledBy(&kvvm, &vm))) {
+					return reconcile.Result{RequeueAfter: receiverCleanupRequeue}, nil
+				}
+			}
+		}
+		// The guest has arrived: the objects stay, and none may still refer to the request when it goes, or
+		// the garbage collector would delete the received VM with it.
+		owned, err := r.ownObjects(ctx, rcvr)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		for _, obj := range owned {
+			if err := ReleaseFromReceiver(ctx, r.client, obj); err != nil {
+				return reconcile.Result{}, err
+			}
 		}
 	}
 
@@ -642,6 +874,53 @@ func ReceiverIPAddress(r *intvirtv1alpha1.InternalVirtualizationVirtualMachineRe
 	return r.Spec.IPAddress
 }
 
+// Keep the first and latest problems in order: later failures must not hide the original cause.
+const (
+	receiverProblemSeparator = "; then "
+	receiverProblemsOmitted  = "…"
+	// maxReceiverProblems bounds the message: the first problem and the latest ones are kept, as the first
+	// is most often the cause and the latest tell how it ended.
+	maxReceiverProblems = 5
+)
+
+// AppendReceiverProblems adds the problems not yet in the history to its end.
+func AppendReceiverProblems(history string, problems ...string) string {
+	var seen []string
+	if history != "" {
+		seen = strings.Split(history, receiverProblemSeparator)
+	}
+
+	for _, p := range problems {
+		if p != "" && !slices.Contains(seen, p) {
+			seen = append(seen, p)
+		}
+	}
+
+	if len(seen) > maxReceiverProblems {
+		rest := make([]string, 0, len(seen)-1)
+		for _, p := range seen[1:] {
+			if p != receiverProblemsOmitted {
+				rest = append(rest, p)
+			}
+		}
+
+		rest = rest[len(rest)-(maxReceiverProblems-2):]
+		seen = append([]string{seen[0], receiverProblemsOmitted}, rest...)
+	}
+
+	return strings.Join(seen, receiverProblemSeparator)
+}
+
+// LatestReceiverProblem returns the last problem of the history: what the receive waits on now.
+func LatestReceiverProblem(history string) string {
+	i := strings.LastIndex(history, receiverProblemSeparator)
+	if i < 0 {
+		return history
+	}
+
+	return history[i+len(receiverProblemSeparator):]
+}
+
 // SetReceiverFailed ends the receive with a reason the source shows to its user.
 func SetReceiverFailed(ctx context.Context, cl client.Client, r *intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver, reason, message string) error {
 	return PatchReceiverStatus(ctx, cl, r, func(st *intvirtv1alpha1.VirtualMachineReceiverStatus) {
@@ -655,8 +934,14 @@ func PatchReceiverStatus(ctx context.Context, cl client.Client, r *intvirtv1alph
 	before := r.DeepCopy()
 	mutate(&r.Status)
 
+	if (r.Status.Phase == intvirtv1alpha1.ReceiverRunning || r.Status.Phase == intvirtv1alpha1.ReceiverFailed) &&
+		(before.Status.Phase != r.Status.Phase || r.Status.FinishedAt == nil) {
+		now := metav1.Now()
+		r.Status.FinishedAt = &now
+	}
+
 	r.Status.ObservedGeneration = r.Generation
-	if before.Status != r.Status {
+	if !equality.Semantic.DeepEqual(before.Status, r.Status) {
 		if err := cl.Status().Patch(ctx, r, client.MergeFrom(before)); err != nil {
 			if k8serrors.IsNotFound(err) {
 				return nil
@@ -665,53 +950,17 @@ func PatchReceiverStatus(ctx context.Context, cl client.Client, r *intvirtv1alph
 			return err
 		}
 	}
-	// The TTL of a failed or running request counts from the phase it is in, not from the creation of
-	// the request. The status subresource cannot carry the timestamp, so it goes into an annotation.
-	if r.Status.Phase != intvirtv1alpha1.ReceiverRunning && r.Status.Phase != intvirtv1alpha1.ReceiverFailed {
-		return nil
-	}
-
-	if before.Status.Phase == r.Status.Phase && r.Annotations[annotations.AnnReceiverPhaseSince] != "" {
-		return nil
-	}
-
-	since := time.Now().UTC().Format(time.RFC3339)
-
-	patch, _ := json.Marshal(map[string]any{"metadata": map[string]any{"annotations": map[string]string{annotations.AnnReceiverPhaseSince: since}}})
-	if err := cl.Patch(ctx, r, client.RawPatch(types.MergePatchType, patch)); client.IgnoreNotFound(err) != nil {
-		return err
-	}
-
-	if r.Annotations == nil {
-		r.Annotations = map[string]string{}
-	}
-
-	r.Annotations[annotations.AnnReceiverPhaseSince] = since
 
 	return nil
 }
 
-// receiverPhaseSince is when the request entered its current phase: the TTL of a failed or running
-// request must not count the time it spent preparing before the phase began.
+// receiverPhaseSince starts TTL at completion, with creation as a fallback for an older request.
 func receiverPhaseSince(r *intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver) time.Time {
-	if value := r.Annotations[annotations.AnnReceiverPhaseSince]; value != "" {
-		if since, err := time.Parse(time.RFC3339, value); err == nil {
-			return since
-		}
+	if r.Status.FinishedAt != nil {
+		return r.Status.FinishedAt.Time
 	}
 
 	return r.CreationTimestamp.Time
-}
-
-func withValue(m map[string]string, key, value string) map[string]string {
-	out := maps.Clone(m)
-	if out == nil {
-		out = map[string]string{}
-	}
-
-	out[key] = value
-
-	return out
 }
 
 // SetupReceiverController starts the creation of the received VMs. The VMI of a receiving VM, named like
@@ -736,7 +985,8 @@ func SetupReceiverController(mgr manager.Manager, namespace string) error {
 	return builder.ControllerManagedBy(mgr).
 		Named(receiverControllerName).
 		For(&intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{}).
+		Watches(&v1alpha2.VirtualMachine{}, sameName, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Watches(&virtv1.VirtualMachineInstance{}, sameName, builder.WithPredicates(receivingVMI)).
 		Watches(&virtv1.VirtualMachineInstanceMigration{}, receivingMigration).
-		Complete(&ReceiverReconciler{client: mgr.GetClient(), namespace: namespace})
+		Complete(&ReceiverReconciler{client: mgr.GetClient(), apiReader: mgr.GetAPIReader(), namespace: namespace})
 }

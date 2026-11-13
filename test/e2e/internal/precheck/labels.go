@@ -89,7 +89,7 @@ const (
 	// PrecheckVerticalPodAutoscaler - test requires the vertical-pod-autoscaler module to be enabled.
 	PrecheckVerticalPodAutoscaler = "vertical-pod-autoscaler-precheck"
 
-	// PrecheckPeering - test requires the Peering feature gate to be enabled.
+	// PrecheckPeering - test requires the synchronization controller to be available.
 	PrecheckPeering = "peering-precheck"
 
 	// PrecheckUpgradeStorageClasses verifies the two StorageClasses the module

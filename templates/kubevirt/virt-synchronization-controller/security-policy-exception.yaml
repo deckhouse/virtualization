@@ -1,4 +1,4 @@
-{{- if and (eq (include "d8.securityPolicyException.isEnabled" .) "true") (has "Peering" (.Values.virtualization.internal | dig "moduleConfig" "featureGates" list)) }}
+{{- if and (eq (include "d8.securityPolicyException.isEnabled" .) "true") (include "virtualization.peeringEnabled" .) }}
 ---
 apiVersion: deckhouse.io/v1alpha1
 kind: SecurityPolicyException

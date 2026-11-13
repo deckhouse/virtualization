@@ -58,6 +58,8 @@ const (
 	// peerRecheck is how long a client is used before the ClusterPeer or the dev Secret of its peer is read
 	// again: the operations of a move ask for the peer every few seconds.
 	peerRecheck = 30 * time.Second
+	// peerRequestTimeout bounds one API call so an unresponsive peer cannot hold a reconcile worker.
+	peerRequestTimeout = 30 * time.Second
 	// DevPeerSecretPrefix names a Secret in the module namespace with a kubeconfig of a peer: for stands
 	// without the peering module only. The kubeconfig must act as virtualization-controller of the
 	// peer, the identity its webhook lets create requests to receive.
@@ -213,6 +215,8 @@ func (p *PeerClients) Client(ctx context.Context, peer string) (client.Client, e
 
 		return c.client, nil
 	}
+
+	cfg.Timeout = peerRequestTimeout
 
 	var transport *http.Transport
 

@@ -35,12 +35,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/ptr"
+	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	vmopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 	intvirtv1alpha1 "github.com/deckhouse/virtualization/api/internalvirtualization/v1alpha1"
@@ -140,8 +140,8 @@ var _ = Describe("PeeringMigration", Label(label.SIGCompute, precheck.PrecheckPe
 			Eventually(func(g Gomega) {
 				request := &intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{}
 				g.Expect(dst.GenericClient().Get(ctx, client.ObjectKey{Namespace: dst.Namespace().Name, Name: virtualMachine.Name}, request)).To(Succeed())
-				g.Expect(request.Status.SynchronizationAddress).NotTo(BeEmpty(), "the peer published the address of its synchronization controller")
-				g.Expect(request.Status.SyncPin).To(HavePrefix("sha256:"), "the peer published the pin of its synchronization key")
+				g.Expect(request.Status.Synchronization.SyncAddress).NotTo(BeEmpty(), "the peer published the address of its synchronization controller")
+				g.Expect(request.Status.Synchronization.SyncPin).To(HavePrefix("sha256:"), "the peer published the pin of its synchronization key")
 			}).WithTimeout(framework.MiddleTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
 			Expect(vmopObs.WaitFor(vmopobs.BeCompleted(), framework.MaxTimeout)).To(Succeed())
 		})
@@ -171,9 +171,18 @@ var _ = Describe("PeeringMigration", Label(label.SIGCompute, precheck.PrecheckPe
 			Expect(err).NotTo(HaveOccurred())
 			Expect(strings.TrimSpace(out)).To(Equal(marker), "the disk data is in the peer")
 
-			disk := &v1alpha2.VirtualDisk{}
-			Expect(dst.GenericClient().Get(ctx, client.ObjectKey{Namespace: dst.Namespace().Name, Name: virtualDisk.Name}, disk)).To(Succeed())
-			Expect(disk.Annotations).To(HaveKey(annotations.AnnVDSerial))
+			// The received disk keeps the serial of the source in its status, and nothing created for the move
+			// refers to the request once the VM runs: the request goes, the VM and its disk stay.
+			Eventually(func(g Gomega) {
+				disk := &v1alpha2.VirtualDisk{}
+				g.Expect(dst.GenericClient().Get(ctx, client.ObjectKey{Namespace: dst.Namespace().Name, Name: virtualDisk.Name}, disk)).To(Succeed())
+				g.Expect(disk.Status.Serial).To(Equal(serial))
+				g.Expect(disk.OwnerReferences).To(BeEmpty())
+
+				vm := &v1alpha2.VirtualMachine{}
+				g.Expect(dst.GenericClient().Get(ctx, client.ObjectKeyFromObject(moved), vm)).To(Succeed())
+				g.Expect(vm.OwnerReferences).To(BeEmpty())
+			}).WithTimeout(framework.MiddleTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
 		})
 
 		By("Check the source is cleaned up", func() {
@@ -194,11 +203,14 @@ var _ = Describe("PeeringMigration", Label(label.SIGCompute, precheck.PrecheckPe
 	})
 
 	It("admits a request to receive from a peer cluster through the restricted access policy", func() {
-		// The peering module presents a peer cluster as peering:peer:<peer>:cap:virtualization, a user without
-		// groups; the policy closing the internal API group must let it write the requests to receive and
-		// nothing else. The groups here stand for the rights the peering module grants the peer.
-		peerUser := "peering:peer:" + peer + ":cap:virtualization"
-		asPeer, err := framework.GetClients().ImpersonatedClient(peerUser, "system:masters")
+		// The peering module presents a peer cluster as the service account of its synchronization controller
+		// in the group of the capability it acts for: peering:peer:<peer>:system:serviceaccount:<ns>:<sa>,
+		// with the group peering:peer:<peer>:cap:virtualization. The policy closing the internal API group
+		// must let it write the requests to receive and nothing else; system:masters keeps RBAC out of the
+		// way, so a failure here is the policy and not a missing binding.
+		peerUser := "peering:peer:" + peer + ":system:serviceaccount:" + framework.ModuleNamespace + ":kubevirt-internal-virtualization-synchronization-controller"
+		asPeer, err := framework.GetClients().ImpersonatedClient(peerUser,
+			"peering:peer:"+peer+":cap:virtualization", "system:authenticated", "system:masters")
 		Expect(err).NotTo(HaveOccurred())
 
 		request := &intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{
@@ -271,6 +283,81 @@ var _ = Describe("PeeringMigration", Label(label.SIGCompute, precheck.PrecheckPe
 			Expect(src.GenericClient().Get(ctx, client.ObjectKeyFromObject(virtualMachine), kept)).To(Succeed())
 			Expect(kept.Status.Phase).To(Equal(v1alpha2.MachineRunning))
 			eventually.SSHReadyAsRoot(src, kept, framework.MiddleTimeout)
+		})
+	})
+
+	It("reports the peer failure promptly when its receiving pod is deleted", func() {
+		// Deleting the receiving pod while migration is pending or running must report the peer's cause
+		// without waiting for the synchronization timeout and leave the guest in the source.
+		By("Run a VM in the source namespace", runVM)
+
+		var vmop *v1alpha2.VirtualMachineOperation
+
+		By("Start the move and wait for a pending or running migration", func() {
+			vmop = move()
+			src.ExpectFailure(vmop)
+			Eventually(func(g Gomega) {
+				g.Expect(src.GenericClient().Get(ctx, client.ObjectKeyFromObject(vmop), vmop)).To(Succeed())
+				completed := meta.FindStatusCondition(vmop.Status.Conditions, string(vmopcondition.TypeCompleted))
+				g.Expect(completed).NotTo(BeNil(), "the operation reports its state")
+				g.Expect(completed.Reason).To(BeElementOf(
+					string(vmopcondition.ReasonMigrationPending), string(vmopcondition.ReasonMigrationRunning),
+				), "the migration is pending or running before deleting the receiving pod: %s", completed.Message)
+			}).WithTimeout(framework.LongTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
+		})
+
+		var receivingPod *corev1.Pod
+
+		By("Wait for the receiving pod of the peer", func() {
+			Eventually(func(g Gomega) {
+				receivingPod = getActiveVirtLauncherPod(ctx, dst, virtualMachine.Name, dst.Namespace().Name)
+				g.Expect(receivingPod).NotTo(BeNil(), "the peer runs the pod that receives the virtual machine")
+			}).WithTimeout(framework.LongTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
+		})
+
+		By("Delete the receiving pod", func() {
+			Expect(dst.GenericClient().Delete(ctx, receivingPod)).To(Succeed())
+		})
+
+		By("The operation fails with the cause of the peer", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(src.GenericClient().Get(ctx, client.ObjectKeyFromObject(vmop), vmop)).To(Succeed())
+				g.Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed),
+					"the operation fails in %s, not by the synchronization timeout", framework.MiddleTimeout)
+				completed := meta.FindStatusCondition(vmop.Status.Conditions, string(vmopcondition.TypeCompleted))
+				g.Expect(completed).NotTo(BeNil())
+				// Both migrations report the same loss, and whichever fails first names the reason: the cause is
+				// the one of the peer in either case, and it is what the user has to see.
+				g.Expect(completed.Reason).To(BeElementOf(
+					string(vmopcondition.ReasonPeerRejected), string(vmopcondition.ReasonOperationFailed),
+				))
+				g.Expect(completed.Message).To(ContainSubstring(fmt.Sprintf("in peer cluster %q", peer)),
+					"the cause is the one the peer found: %s", completed.Message)
+			}).WithTimeout(framework.MiddleTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
+		})
+
+		By("Check nothing moved and nothing stays behind", func() {
+			kept := &v1alpha2.VirtualMachine{}
+
+			Eventually(func(g Gomega) {
+				g.Expect(src.GenericClient().Get(ctx, client.ObjectKeyFromObject(virtualMachine), kept)).To(Succeed())
+				g.Expect(kept.Status.Phase).To(Equal(v1alpha2.MachineRunning), "the guest stayed in this cluster")
+			}).WithTimeout(framework.MiddleTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
+			eventually.SSHReadyAsRoot(src, kept, framework.MiddleTimeout)
+
+			Eventually(func(g Gomega) {
+				// A migration left by a failed move blocks every next one with "in-flight migration detected".
+				migrations := &virtv1.VirtualMachineInstanceMigrationList{}
+				g.Expect(src.GenericClient().List(ctx, migrations, client.InNamespace(src.Namespace().Name))).To(Succeed())
+				g.Expect(migrations.Items).To(BeEmpty(), "no migration of the failed move is left here")
+
+				err := dst.GenericClient().Get(ctx, client.ObjectKey{Namespace: dst.Namespace().Name, Name: virtualMachine.Name}, &intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{})
+				g.Expect(k8serrors.IsNotFound(err)).To(BeTrue(), "the request is deleted in the peer")
+				err = dst.GenericClient().Get(ctx, client.ObjectKey{Namespace: dst.Namespace().Name, Name: virtualMachine.Name}, &v1alpha2.VirtualMachine{})
+				g.Expect(k8serrors.IsNotFound(err)).To(BeTrue(), "the peer removed the virtual machine it created")
+				err = dst.GenericClient().Get(ctx, client.ObjectKey{Namespace: dst.Namespace().Name, Name: virtualDisk.Name}, &v1alpha2.VirtualDisk{})
+				g.Expect(k8serrors.IsNotFound(err)).To(BeTrue(), "the peer removed the disk it created")
+			}).WithTimeout(framework.MiddleTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
 		})
 	})
 })

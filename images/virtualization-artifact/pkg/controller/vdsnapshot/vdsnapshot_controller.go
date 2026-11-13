@@ -76,7 +76,7 @@ func NewController(
 
 	if err = builder.WebhookManagedBy(mgr).
 		For(&v1alpha2.VirtualDiskSnapshot{}).
-		WithValidator(NewValidator(log, unifiedSnapshotterPresent, volumeSnapshotAPIAvailable)).
+		WithValidator(NewValidator(log, mgr.GetClient(), unifiedSnapshotterPresent, volumeSnapshotAPIAvailable)).
 		Complete(); err != nil {
 		return nil, err
 	}

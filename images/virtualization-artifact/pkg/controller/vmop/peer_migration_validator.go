@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	commonvm "github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/peering"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
@@ -55,12 +55,12 @@ func (v *peerMigrationValidator) ValidateCreate(ctx context.Context, vmop *v1alp
 	}
 
 	if !featuregates.Default().Enabled(featuregates.Peering) {
-		return nil, errors.New("migration to a peer cluster requires the Peering feature gate")
+		return nil, errors.New("migrating a VirtualMachine to a peer cluster is not available in this edition")
 	}
 
 	if err := v.peers.Paired(ctx, commonvmop.PeerName(vmop), vmop.Namespace); err != nil {
 		if errors.Is(err, peering.ErrPeerNotPaired) {
-			return nil, fmt.Errorf("the cluster %q is not paired with this project or does not support virtual machine migration", commonvmop.PeerName(vmop))
+			return nil, fmt.Errorf("the peer cluster %q is not paired with this project or does not support virtual machine migration", commonvmop.PeerName(vmop))
 		}
 
 		return nil, fmt.Errorf("failed to check the peer cluster: %w", err)
@@ -90,6 +90,10 @@ func checkPeerMigrationType(vmop *v1alpha2.VirtualMachineOperation) error {
 func checkPeerMigratable(vm *v1alpha2.VirtualMachine) error {
 	if vm.Status.Phase != v1alpha2.MachineRunning {
 		return fmt.Errorf("only a running virtual machine can move to a peer cluster, %q is %s", vm.Name, vm.Status.Phase)
+	}
+
+	if err := commonvm.PeerMigrationSnapshotError(vm); err != nil {
+		return err
 	}
 
 	for _, ref := range vm.OwnerReferences {
@@ -128,23 +132,5 @@ func (v *lockedVMValidator) ValidateCreate(ctx context.Context, vmop *v1alpha2.V
 		return nil, client.IgnoreNotFound(err)
 	}
 
-	return nil, checkVMLocked(ctx, v.client, vm)
-}
-
-// checkVMLocked tells why a VM cannot be changed now: it moves to a peer cluster or arrives from one.
-func checkVMLocked(ctx context.Context, c client.Client, vm *v1alpha2.VirtualMachine) error {
-	if op := vm.GetAnnotations()[annotations.AnnVMMovedToPeer]; op != "" {
-		var vmop v1alpha2.VirtualMachineOperation
-		if err := c.Get(ctx, types.NamespacedName{Name: op, Namespace: vm.Namespace}, &vmop); err == nil && commonvmop.PeerName(&vmop) != "" {
-			return fmt.Errorf("the virtual machine is being migrated to cluster %q. Cancel the migration by deleting the VirtualMachineOperation first", commonvmop.PeerName(&vmop))
-		}
-
-		return errors.New("the virtual machine is being migrated to a peer cluster. Cancel the migration by deleting the VirtualMachineOperation first")
-	}
-
-	if vm.GetAnnotations()[annotations.AnnVMMigrationReceiver] != "" {
-		return errors.New("the virtual machine is being migrated from a peer cluster and cannot be changed until the migration completes")
-	}
-
-	return nil
+	return nil, commonvm.PeerMigrationLockError(ctx, v.client, vm)
 }

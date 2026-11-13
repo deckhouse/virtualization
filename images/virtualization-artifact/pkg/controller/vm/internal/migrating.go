@@ -80,7 +80,16 @@ func (h *MigratingHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 	// EndTimestamp) would leave a stale in-progress state, which keeps
 	// liveMigrationInProgress true forever and blocks every future migration of
 	// the VM.
-	vm.Status.MigrationState = h.wrapMigrationState(kvvmi, vm.Status.MigrationState)
+	prev := vm.Status.MigrationState
+
+	vm.Status.MigrationState = h.wrapMigrationState(kvvmi, prev)
+	if err = syncReceivingFromPeer(ctx, s.Client(), vm, kvvm, prev); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	if err = syncMovedToPeer(ctx, s.Client(), vm, kvvm, prev); err != nil {
+		return reconcile.Result{}, err
+	}
 
 	err = h.syncMigratable(ctx, s, vm, kvvm, kvvmi)
 	if err != nil {

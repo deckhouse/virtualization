@@ -387,7 +387,7 @@ const (
 )
 
 type VirtualMachineStatus struct {
-	// +crd-enricher:raw:description="The current phase of a virtual machine:\n\n* `Pending`: The VM is waiting for its dependent resources, such as disks, images, or IP addresses, to become ready.\n* `Starting`: All dependent resources are ready, and the VM is being started on one of the cluster nodes.\n* `Running`: The VM is running.\n* `Migrating`: The VM is being moved to another cluster node by live migration.\n* `Stopping`: The VM is shutting down or restarting.\n* `Stopped`: The VM is stopped and consumes no compute resources.\n* `Pause`: The VM is paused.\n* `Degraded`: An error occurred during the VM startup or while it was running.\n* `Terminating`: The VM is being deleted.\n"
+	// +crd-enricher:raw:description="The current phase of a virtual machine:\n\n* `Pending`: The VM is waiting for its dependent resources, such as disks, images, or IP addresses, to become ready.\n* `Starting`: All dependent resources are ready, and the VM is being started on one of the cluster nodes.\n* `Running`: The VM is running.\n* `Migrating`: The VM is being moved to another node of the cluster or to another site by live migration.\n* `Stopping`: The VM is shutting down or restarting.\n* `Stopped`: The VM is stopped and consumes no compute resources.\n* `Pause`: The VM is paused.\n* `Degraded`: An error occurred during the VM startup or while it was running.\n* `Terminating`: The VM is being deleted.\n"
 	Phase MachinePhase `json:"phase"`
 	// The name of the node on which the VM is currently running.
 	Node string `json:"nodeName"`
@@ -493,6 +493,8 @@ type VirtualMachineLocation struct {
 	Node string `json:"node,omitempty"`
 	// The name of the pod where the VM is currently being migrated.
 	Pod string `json:"pod,omitempty"`
+	// Name of the ProjectPeer resource in this project that identifies the source or destination site. Empty for a migration within this cluster.
+	ProjectPeerName string `json:"projectPeerName,omitempty"`
 }
 
 type VirtualMachinePod struct {

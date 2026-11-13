@@ -387,7 +387,7 @@ func NewAttachmentDiskFromVirtualDisk(vd *v1alpha2.VirtualDisk) *AttachmentDisk 
 		Name:         vd.GetName(),
 		Namespace:    vd.GetNamespace(),
 		GenerateName: kvbuilder.GenerateVDDiskName(vd.GetName()),
-		Serial:       kvbuilder.GenerateSerialFromObject(vd),
+		Serial:       kvbuilder.VirtualDiskSerial(vd),
 		PVCName:      vd.Status.Target.PersistentVolumeClaim,
 	}
 }
