@@ -88,6 +88,8 @@ type VirtualMachineSnapshotSpec struct {
 	// - When the virtual machine is powered off.
 	// - When the virtual machine has an agent, and the freeze operation was successful.
 	//
+	// If set to `false`, the snapshot is taken without freezing the file system of the virtual machine, even if the agent is running. A snapshot of a running virtual machine will be marked as inconsistent then, but there is a chance that the snapshot is consistent if no writes occurred in the guest OS. A snapshot of a powered-off virtual machine is consistent either way.
+	//
 	// +kubebuilder:default:=true
 	RequiredConsistency bool `json:"requiredConsistency"`
 	// +kubebuilder:default:="Always"

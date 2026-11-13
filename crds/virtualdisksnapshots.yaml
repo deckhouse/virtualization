@@ -106,6 +106,8 @@ spec:
                     - The virtual disk is not connected to any virtual machine.
                     - The virtual disk is connected to a powered-off virtual machine.
                     - The virtual disk is connected to a virtual machine with an agent, and the freeze operation was successful.
+
+                    If set to `false`, the snapshot of a disk connected to a running virtual machine is taken without freezing the file system of the machine, even if the agent is running. Such a snapshot will be marked as inconsistent, but there is a chance that the snapshot is consistent if no writes occurred in the guest OS. A snapshot of a disk that is not connected to any virtual machine or is connected to a powered-off virtual machine is consistent either way.
             status:
               type: object
               properties:
