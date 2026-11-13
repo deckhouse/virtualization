@@ -6,7 +6,7 @@ weight: 70
 ## v1.11.4
 
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
-Дата релиза: 12 ноября 2026.
+Дата релиза: 13 ноября 2026.
 </span>
 
 ### Ключевые изменения
