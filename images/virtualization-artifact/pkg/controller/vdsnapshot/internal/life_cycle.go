@@ -19,48 +19,79 @@ package internal
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
-	virtv1 "kubevirt.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/accessclaim"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	coordinationv1alpha1 "github.com/deckhouse/virtualization/api/coordination/v1alpha1"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdscondition"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
+// releaseRetryInterval is the requeue interval while ending the access of a deleted snapshot keeps failing.
+// It matches the requeue interval of a snapshot.
+const releaseRetryInterval = 2 * time.Second
+
+// statusWriteRecheck is the requeue interval of a pass that waits for its own status write before it
+// releases the access, as the snapshot watch skips updates that keep the generation.
+const statusWriteRecheck = time.Second
+
 type LifeCycleHandler struct {
-	snapshotter                LifeCycleSnapshotter
+	recorder    eventrecord.EventRecorderLogger
+	snapshotter LifeCycleSnapshotter
+	client      client.Client
+	// apiReader is uncached: a claim created moments ago may not be in the cache yet, and reading it as
+	// absent would take the snapshot for one started before the module update.
+	apiReader                  client.Reader
+	unfreezer                  accessclaim.Unfreezer
 	volumeSnapshotAPIAvailable bool
 }
 
-func NewLifeCycleHandler(snapshotter LifeCycleSnapshotter, volumeSnapshotAPIAvailable bool) *LifeCycleHandler {
+func NewLifeCycleHandler(recorder eventrecord.EventRecorderLogger, snapshotter LifeCycleSnapshotter, client client.Client, apiReader client.Reader, unfreezer accessclaim.Unfreezer, volumeSnapshotAPIAvailable bool) *LifeCycleHandler {
 	return &LifeCycleHandler{
+		recorder:                   recorder,
 		snapshotter:                snapshotter,
+		client:                     client,
+		apiReader:                  apiReader,
+		unfreezer:                  unfreezer,
 		volumeSnapshotAPIAvailable: volumeSnapshotAPIAvailable,
 	}
 }
 
-func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.VirtualDiskSnapshot) (reconcile.Result, error) {
+func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.VirtualDiskSnapshot) (result reconcile.Result, retErr error) {
 	log := logger.FromContext(ctx).With(logger.SlogHandler("lifecycle"))
 
 	cb := conditions.NewConditionBuilder(vdscondition.VirtualDiskSnapshotReadyType).Generation(vdSnapshot.Generation)
 
-	defer func() { conditions.SetCondition(cb, &vdSnapshot.Status.Conditions) }()
+	var claim *coordinationv1alpha1.VirtualMachineAccessClaim
+
+	failedBefore := vdSnapshot.Status.Phase == v1alpha2.VirtualDiskSnapshotPhaseFailed
+
+	defer func() {
+		conditions.SetCondition(cb, &vdSnapshot.Status.Conditions)
+		settleFailedConsistency(vdSnapshot)
+		// A snapshot failed by this pass releases its access on the next one, once the failure is written:
+		// a claim released earlier completes, and its verdict would read as a finished capture.
+		if !failedBefore && vdSnapshot.Status.Phase == v1alpha2.VirtualDiskSnapshotPhaseFailed && claim != nil && retErr == nil {
+			result = reconcile.Result{RequeueAfter: statusWriteRecheck}
+		}
+	}()
 
 	vsName := vdSnapshot.Status.VolumeSnapshotName
 	if vsName == "" {
@@ -73,7 +104,33 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 		return reconcile.Result{}, err
 	}
 
+	// A child is captured under the access of its parent and has no claim of its own. A failed read of the
+	// claim leaves the snapshot as it is. Only a snapshot in progress takes an absent claim for a start
+	// before the module update, so only it reads past the cache.
+	parent := accessclaim.ParentRef(vdSnapshot)
+	if parent == nil {
+		if vdSnapshot.Status.Phase == v1alpha2.VirtualDiskSnapshotPhaseInProgress {
+			claim, err = accessclaim.Get(ctx, h.client, h.apiReader, vdSnapshot.Namespace, accessclaim.Name(vdSnapshot))
+		} else {
+			claim, err = accessclaim.GetCached(ctx, h.client, vdSnapshot.Namespace, accessclaim.Name(vdSnapshot))
+		}
+
+		if err != nil {
+			cb.Keep(vdSnapshot.Status.Conditions)
+			return reconcile.Result{}, err
+		}
+	}
+
 	if vdSnapshot.DeletionTimestamp != nil {
+		// The finalizer stays until the access is ended: the deletion handler runs after this one and
+		// removes it otherwise.
+		if err = h.releaseOnDeletion(ctx, vdSnapshot, parent, claim); err != nil {
+			cb.Keep(vdSnapshot.Status.Conditions)
+			logger.FromContext(ctx).Error("failed to end the access of the deleted snapshot", logger.SlogErr(err))
+
+			return reconcile.Result{RequeueAfter: releaseRetryInterval}, fmt.Errorf("%w: %w", reconciler.ErrStopHandlerChain, err)
+		}
+
 		vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseTerminating
 		cb.
 			Status(metav1.ConditionUnknown).
@@ -93,20 +150,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 			Reason(conditions.CommonReason(readyCondition.Reason)).
 			Message(readyCondition.Message)
 
-		err = h.unfreezeFilesystemIfFailed(ctx, vdSnapshot)
-		switch {
-		case err == nil:
-			return reconcile.Result{}, nil
-		case k8serrors.IsConflict(err):
-			log.Debug(fmt.Sprintf("failed to unfreeze filesystem; resource update conflict error: %s", err))
-			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
-		case errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition):
-			log.Debug(err.Error())
-			return reconcile.Result{}, nil
-		default:
-			cb.Message(fmt.Sprintf("%s, %s", err.Error(), cb.Condition().Message))
-			return reconcile.Result{}, fmt.Errorf("failed to unfreeze filesystem: %w", err)
-		}
+		return reconcile.Result{}, accessclaim.Release(ctx, h.client, claim)
 	case v1alpha2.VirtualDiskSnapshotPhaseReady:
 		if vs == nil || vs.Status == nil || vs.Status.ReadyToUse == nil || !*vs.Status.ReadyToUse {
 			vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseFailed
@@ -115,21 +159,58 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 				Reason(vdscondition.VolumeSnapshotLost).
 				Message(fmt.Sprintf("The underlying VolumeSnapshot %q is no longer available.", vsName))
 
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{RequeueAfter: statusWriteRecheck}, nil
 		}
 
 		vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseReady
 		vdSnapshot.Status.VolumeSnapshotName = vs.Name
+		// An unconfirmed unfreeze stays in the condition: the guest may still be frozen.
+		message, _ := accessclaim.UnfreezeNotConfirmed(claim)
 		cb.
 			Status(metav1.ConditionTrue).
 			Reason(vdscondition.VirtualDiskSnapshotReady).
-			Message("")
+			Message(message)
+
+		if parent != nil {
+			if err = h.settleChildConsistency(ctx, vdSnapshot, parent); err != nil {
+				return reconcile.Result{}, err
+			}
+		}
 
 		return reconcile.Result{}, h.backfillOriginalSize(ctx, vs)
 	}
 
-	// Fail before freezing the filesystem: the VolumeSnapshot could never be created. The requeue
-	// lets the Failed phase unfreeze a filesystem frozen before the API went away.
+	// The claim settles the snapshot before the disk is read: a released claim means the volume snapshot was
+	// ready.
+	switch {
+	case accessclaim.IsRefused(claim):
+		// The coordinator has unfrozen the guest, or never froze it.
+		reason, message := accessclaim.GrantedCondition(claim)
+		vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseFailed
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(conditions.CommonReason(reason)).
+			Message(message)
+
+		return reconcile.Result{}, nil
+	case claim != nil && (claim.Spec.Release || accessclaim.IsCompleted(claim)):
+		return reconcile.Result{}, h.settleVerdict(ctx, cb, vdSnapshot, vs, claim)
+	}
+
+	if parent != nil {
+		parentStarted, err := h.parentStartedBeforeUpdate(ctx, vdSnapshot, parent)
+		if err != nil {
+			cb.Keep(vdSnapshot.Status.Conditions)
+			return reconcile.Result{}, err
+		}
+
+		if parentStarted {
+			failAbortedByModuleUpdate(cb, vdSnapshot)
+			return reconcile.Result{}, nil
+		}
+	}
+
+	// Fail before requesting access: the VolumeSnapshot could never be created.
 	if !h.volumeSnapshotAPIAvailable {
 		vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseFailed
 		cb.
@@ -137,7 +218,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 			Reason(vdscondition.VirtualDiskSnapshotFailed).
 			Message("Cannot take a snapshot: the storage-foundation and state-snapshotter modules must be enabled (or snapshot-controller for legacy installations).")
 
-		return reconcile.Result{RequeueAfter: time.Second}, nil
+		return reconcile.Result{}, nil
 	}
 
 	vd, err := h.snapshotter.GetVirtualDisk(ctx, vdSnapshot.Spec.VirtualDiskName, vdSnapshot.Namespace)
@@ -200,128 +281,17 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 		return reconcile.Result{}, nil
 	}
 
-	vm, err := getVirtualMachine(ctx, vd, h.snapshotter)
-	if err != nil {
-		setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
-		return reconcile.Result{}, err
-	}
+	if parent == nil {
+		var proceed bool
 
-	kvvmi, err := h.snapshotter.GetVirtualMachineInstance(ctx, vm)
-	if err != nil {
-		setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
-		return reconcile.Result{}, err
-	}
-
-	err = h.snapshotter.SyncFSFreezeRequest(ctx, kvvmi)
-	switch {
-	case err == nil:
-		// OK.
-	case errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition):
-		log.Debug(err.Error())
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vdscondition.Snapshotting).
-			Message(service.CapitalizeFirstLetter("Waiting for the filesystem of the virtual machine to be synced."))
-
-		return reconcile.Result{}, nil
-	case k8serrors.IsConflict(err):
-		log.Debug(fmt.Sprintf("failed to sync filesystem status; resource update conflict error: %s", err))
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vdscondition.Snapshotting).
-			Message(service.CapitalizeFirstLetter("Waiting for the filesystem of the virtual machine to be synced."))
-
-		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
-	default:
-		setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
-		return reconcile.Result{}, fmt.Errorf("failed to sync filesystem status: %w", err)
-	}
-
-	isFSFrozen, err := h.snapshotter.IsFrozen(kvvmi)
-	if err != nil {
-		setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
-		return reconcile.Result{}, fmt.Errorf("failed to check filesystem status: %w", err)
+		claim, result, proceed, err = h.requestAccess(ctx, cb, vdSnapshot, vd, claim)
+		if !proceed {
+			return result, err
+		}
 	}
 
 	switch {
 	case vs == nil:
-		if vm != nil && vm.Status.Phase != v1alpha2.MachineStopped && !isFSFrozen {
-			var canFreeze bool
-
-			canFreeze, err = h.snapshotter.CanFreeze(ctx, kvvmi)
-			if err != nil {
-				setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
-				return reconcile.Result{}, err
-			}
-
-			if canFreeze {
-				log.Debug("Freeze the virtual machine to take a snapshot")
-
-				if vdSnapshot.Status.Phase == v1alpha2.VirtualDiskSnapshotPhasePending {
-					vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseInProgress
-					cb.
-						Status(metav1.ConditionFalse).
-						Reason(vdscondition.Snapshotting).
-						Message("The snapshotting process has started.")
-
-					return reconcile.Result{Requeue: true}, nil
-				}
-
-				err = h.snapshotter.Freeze(ctx, kvvmi)
-				if err != nil {
-					if k8serrors.IsConflict(err) {
-						log.Debug(fmt.Sprintf("failed to freeze filesystem; resource update conflict error: %s", err))
-						cb.
-							Status(metav1.ConditionFalse).
-							Reason(vdscondition.Snapshotting).
-							Message(service.CapitalizeFirstLetter("Waiting for the filesystem of the virtual machine to be synced."))
-
-						return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
-					}
-
-					cb.
-						Status(metav1.ConditionFalse).
-						Reason(vdscondition.FileSystemFreezing).
-						Message(service.CapitalizeFirstLetter(err.Error() + "."))
-
-					return reconcile.Result{}, err
-				}
-
-				vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseInProgress
-				cb.
-					Status(metav1.ConditionFalse).
-					Reason(vdscondition.FileSystemFreezing).
-					Message(fmt.Sprintf(
-						"The virtual machine %q with an attached virtual disk %q is in the process of being frozen for taking a snapshot.",
-						vm.Name, vdSnapshot.Spec.VirtualDiskName,
-					))
-
-				return reconcile.Result{}, nil
-			}
-
-			if vdSnapshot.Spec.RequiredConsistency {
-				vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseFailed
-				cb.
-					Status(metav1.ConditionFalse).
-					Reason(vdscondition.PotentiallyInconsistent)
-
-				agentReadyCondition, _ := conditions.GetCondition(vmcondition.TypeAgentReady, vm.Status.Conditions)
-				if agentReadyCondition.Status != metav1.ConditionTrue {
-					cb.Message(fmt.Sprintf(
-						"Cannot take a consistent snapshot of virtual disk %q attached to virtual machine %q: virtual machine agent is not ready and the virtual machine cannot be frozen.",
-						vd.Name, vm.Name,
-					))
-				} else {
-					cb.Message(fmt.Sprintf(
-						"Cannot take a consistent snapshot of virtual disk %q attached to virtual machine %q.",
-						vd.Name, vm.Name,
-					))
-				}
-
-				return reconcile.Result{}, nil
-			}
-		}
-
 		if vdSnapshot.Status.Phase == v1alpha2.VirtualDiskSnapshotPhasePending {
 			vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseInProgress
 			cb.
@@ -329,7 +299,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 				Reason(vdscondition.Snapshotting).
 				Message("The snapshotting process has started.")
 
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{RequeueAfter: statusWriteRecheck}, nil
 		}
 
 		log.Debug("The corresponding volume snapshot not found: create the new one")
@@ -353,6 +323,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 		if len(vd.Annotations) > 0 {
 			vdAnnotationsJSON, err := json.Marshal(vd.Annotations)
 			if err != nil {
+				cb.Keep(vdSnapshot.Status.Conditions)
 				return reconcile.Result{}, fmt.Errorf("failed to marshal VirtualDisk annotations: %w", err)
 			} else {
 				anno[annotations.AnnVirtualDiskOriginalAnnotations] = string(vdAnnotationsJSON)
@@ -362,6 +333,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 		if len(vd.Labels) > 0 {
 			vdLabelsJSON, err := json.Marshal(vd.Labels)
 			if err != nil {
+				cb.Keep(vdSnapshot.Status.Conditions)
 				return reconcile.Result{}, fmt.Errorf("failed to marshal VirtualDisk labels: %w", err)
 			} else {
 				anno[annotations.AnnVirtualDiskOriginalLabels] = string(vdLabelsJSON)
@@ -415,12 +387,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 		return reconcile.Result{}, nil
 	case vs.Status != nil && vs.Status.Error != nil && vs.Status.Error.Message != nil:
 		log.Debug("The volume snapshot has an error")
-
-		vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseFailed
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vdscondition.VirtualDiskSnapshotFailed).
-			Message(fmt.Sprintf("VolumeSnapshot %q has an error: %s.", vs.Name, *vs.Status.Error.Message))
+		failOnVolumeSnapshotError(cb, vdSnapshot, vs)
 
 		return reconcile.Result{}, nil
 	case vs.Status == nil || vs.Status.ReadyToUse == nil || !*vs.Status.ReadyToUse:
@@ -437,75 +404,23 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 	default:
 		log.Debug("The volume snapshot is ready to use")
 
-		if vdSnapshot.Status.Consistent == nil {
-			if vm == nil || vm.Status.Phase == v1alpha2.MachineStopped || isFSFrozen {
-				vdSnapshot.Status.Consistent = ptr.To(true)
-				cb.
-					Status(metav1.ConditionFalse).
-					Reason(vdscondition.Snapshotting).
-					Message(service.CapitalizeFirstLetter("The consistent snapshot has been taken."))
-
-				return reconcile.Result{RequeueAfter: 2 * time.Second}, nil
-			}
-
-			if vdSnapshot.Spec.RequiredConsistency {
-				err = fmt.Errorf("virtual disk snapshot is not consistent because the virtual machine %s has not been stopped or its filesystem has not been frozen", vm.Name)
-				setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
-
+		if claim != nil {
+			// The disk is captured: release the access; the claim watch brings the verdict.
+			if err = accessclaim.Release(ctx, h.client, claim); err != nil {
+				cb.Keep(vdSnapshot.Status.Conditions)
 				return reconcile.Result{}, err
 			}
+
+			return reconcile.Result{}, h.settleVerdict(ctx, cb, vdSnapshot, vs, claim)
 		}
 
-		err = h.unfreezeFilesystem(ctx, vdSnapshot.Name, vm, kvvmi)
-		if err != nil {
-			if k8serrors.IsConflict(err) {
-				log.Debug(fmt.Sprintf("failed to unfreeze filesystem; resource update conflict error: %s", err))
-				cb.
-					Status(metav1.ConditionFalse).
-					Reason(vdscondition.Snapshotting).
-					Message(service.CapitalizeFirstLetter("Waiting for the filesystem of the virtual machine to be synced."))
-
-				return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
-			}
-
-			vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseInProgress
-			cb.
-				Status(metav1.ConditionFalse).
-				Reason(vdscondition.FileSystemUnfreezing).
-				Message(service.CapitalizeFirstLetter(err.Error() + "."))
-
-			return reconcile.Result{}, err
-		}
-
-		err = h.snapshotter.SyncFSFreezeRequest(ctx, kvvmi)
-		switch {
-		case err == nil:
-			// OK.
-		case errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition):
-			log.Debug(err.Error())
-			cb.
-				Status(metav1.ConditionFalse).
-				Reason(vdscondition.Snapshotting).
-				Message(service.CapitalizeFirstLetter("Waiting for the filesystem of the virtual machine to be synced."))
-
-			return reconcile.Result{}, nil
-		case k8serrors.IsConflict(err):
-			log.Debug(fmt.Sprintf("failed to sync filesystem status; resource update conflict error: %s", err))
-			cb.
-				Status(metav1.ConditionFalse).
-				Reason(vdscondition.Snapshotting).
-				Message(service.CapitalizeFirstLetter("Waiting for the filesystem of the virtual machine to be synced."))
-
-			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
-		default:
-			err = fmt.Errorf("failed to sync filesystem status: %w", err)
-			setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
-
-			return reconcile.Result{}, err
+		vdSnapshot.Status.VolumeSnapshotName = vs.Name
+		if parent == nil {
+			// Without a claim the disk stayed unattached during the capture (see requestAccess).
+			vdSnapshot.Status.Consistent = ptr.To(true)
 		}
 
 		vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseReady
-		vdSnapshot.Status.VolumeSnapshotName = vs.Name
 		cb.
 			Status(metav1.ConditionTrue).
 			Reason(vdscondition.VirtualDiskSnapshotReady).
@@ -513,6 +428,251 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 
 		return reconcile.Result{}, h.backfillOriginalSize(ctx, vs)
 	}
+}
+
+// requestAccess requests the access a snapshot taken on its own captures its disk under, and reports
+// whether the capture may proceed in this pass. A disk attached to no virtual machine needs no access. A
+// snapshot in progress without a claim fails unless it carries the unattached-disk mark and its disk is still
+// unattached.
+func (h LifeCycleHandler) requestAccess(
+	ctx context.Context,
+	cb *conditions.ConditionBuilder,
+	vdSnapshot *v1alpha2.VirtualDiskSnapshot,
+	vd *v1alpha2.VirtualDisk,
+	claim *coordinationv1alpha1.VirtualMachineAccessClaim,
+) (*coordinationv1alpha1.VirtualMachineAccessClaim, reconcile.Result, bool, error) {
+	vm, err := getVirtualMachine(ctx, vd, h.snapshotter)
+	if err != nil {
+		setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
+		return claim, reconcile.Result{}, false, err
+	}
+
+	// The mark is written while the snapshot is still Pending, so a snapshot in progress always has it when
+	// the disk turns out to be attached.
+	if vm == nil && claim == nil {
+		switch {
+		case startedOnUnattachedDisk(vdSnapshot):
+			return nil, reconcile.Result{}, true, nil
+		case vdSnapshot.Status.Phase == v1alpha2.VirtualDiskSnapshotPhasePending:
+			annotations.AddAnnotation(vdSnapshot, annotations.AnnStartedOnUnattachedDisk, "true")
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vdscondition.Snapshotting).
+				Message("The snapshotting process has started.")
+
+			return nil, reconcile.Result{RequeueAfter: statusWriteRecheck}, false, nil
+		default:
+			failAbortedByModuleUpdate(cb, vdSnapshot)
+			return nil, reconcile.Result{}, false, nil
+		}
+	}
+
+	if claim == nil {
+		switch {
+		case vdSnapshot.Status.Phase == v1alpha2.VirtualDiskSnapshotPhasePending:
+			claim, err = accessclaim.Create(ctx, h.client, h.apiReader, vdSnapshot, vm, vdSnapshot.Spec.RequiredConsistency)
+			if err != nil {
+				setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
+				return nil, reconcile.Result{}, false, err
+			}
+		case startedOnUnattachedDisk(vdSnapshot):
+			vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseFailed
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vdscondition.VirtualMachineStateChanged).
+				Message(fmt.Sprintf("The virtual disk %q was attached to the virtual machine %q while the snapshot was being taken. Take the snapshot again.", vdSnapshot.Spec.VirtualDiskName, vm.Name))
+
+			return nil, reconcile.Result{}, false, nil
+		default:
+			if err = h.unfreezeStartedBeforeUpdate(ctx, vm); err != nil {
+				cb.Keep(vdSnapshot.Status.Conditions)
+				return nil, reconcile.Result{}, false, err
+			}
+
+			failAbortedByModuleUpdate(cb, vdSnapshot)
+
+			return nil, reconcile.Result{}, false, nil
+		}
+	}
+
+	// The volume snapshot is created only once the access is granted.
+	if !accessclaim.IsGranted(claim) {
+		reason, message := accessclaim.Waiting(claim)
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(conditions.CommonReason(reason)).
+			Message(message)
+		// The watch on the claim brings its decision here.
+		return claim, reconcile.Result{}, false, nil
+	}
+
+	return claim, reconcile.Result{}, true, nil
+}
+
+func failOnVolumeSnapshotError(cb *conditions.ConditionBuilder, vdSnapshot *v1alpha2.VirtualDiskSnapshot, vs *vsv1.VolumeSnapshot) {
+	vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseFailed
+	cb.
+		Status(metav1.ConditionFalse).
+		Reason(vdscondition.VirtualDiskSnapshotFailed).
+		Message(fmt.Sprintf("VolumeSnapshot %q has an error: %s.", vs.Name, *vs.Status.Error.Message))
+}
+
+// settleVerdict settles a snapshot whose access is released: it waits for the verdict of the coordinator
+// and for the guest to be unfrozen, then turns Ready with the consistency of the verdict.
+func (h LifeCycleHandler) settleVerdict(
+	ctx context.Context,
+	cb *conditions.ConditionBuilder,
+	vdSnapshot *v1alpha2.VirtualDiskSnapshot,
+	vs *vsv1.VolumeSnapshot,
+	claim *coordinationv1alpha1.VirtualMachineAccessClaim,
+) error {
+	if vs == nil {
+		// The access is released only after the volume snapshot is ready, so a claim released without one did
+		// not end a capture: a volume snapshot taken now would be taken from an unfrozen guest.
+		logger.FromContext(ctx).Error("the access of the snapshot was released before its volume snapshot was taken")
+
+		vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseFailed
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdscondition.VirtualDiskSnapshotFailed).
+			Message(fmt.Sprintf("The snapshot of the virtual disk %q could not be completed. Take a new snapshot.", vdSnapshot.Spec.VirtualDiskName))
+
+		return nil
+	}
+
+	vdSnapshot.Status.VolumeSnapshotName = vs.Name
+	if vs.Status != nil && vs.Status.Error != nil && vs.Status.Error.Message != nil {
+		failOnVolumeSnapshotError(cb, vdSnapshot, vs)
+		return nil
+	}
+
+	if !accessclaim.IsCompleted(claim) || accessclaim.IsUnfreezing(claim) {
+		vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseInProgress
+		if claim.Status.Frozen {
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vdscondition.FileSystemUnfreezing).
+				Message(fmt.Sprintf("The snapshot of virtual disk %q has been taken; waiting for the virtual machine %q to be unfrozen.", vdSnapshot.Spec.VirtualDiskName, claim.Spec.VirtualMachine.Name))
+		} else {
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vdscondition.Snapshotting).
+				Message(fmt.Sprintf("The snapshot of virtual disk %q has been taken and is being finalized.", vdSnapshot.Spec.VirtualDiskName))
+		}
+
+		return nil
+	}
+
+	vdSnapshot.Status.Consistent = ptr.To(accessclaim.Consistent(claim))
+
+	message, notConfirmed := accessclaim.UnfreezeNotConfirmed(claim)
+	if notConfirmed {
+		h.recorder.Event(vdSnapshot, corev1.EventTypeWarning, v1alpha2.ReasonFilesystemUnfreezeNotConfirmed, message)
+	}
+
+	vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseReady
+	cb.
+		Status(metav1.ConditionTrue).
+		Reason(vdscondition.VirtualDiskSnapshotReady).
+		Message(message)
+
+	return h.backfillOriginalSize(ctx, vs)
+}
+
+// settleChildConsistency gives a ready child the consistency of its parent once the parent is terminal
+// (see accessclaim.ChildConsistency).
+func (h LifeCycleHandler) settleChildConsistency(ctx context.Context, vdSnapshot *v1alpha2.VirtualDiskSnapshot, parent *metav1.OwnerReference) error {
+	if vdSnapshot.Status.Consistent != nil {
+		return nil
+	}
+
+	consistent, settled, err := accessclaim.ChildConsistency(ctx, h.client, vdSnapshot, parent)
+	if err != nil || !settled {
+		// The watch on the parent brings its terminal phase here.
+		return err
+	}
+
+	vdSnapshot.Status.Consistent = ptr.To(consistent)
+
+	return nil
+}
+
+// releaseOnDeletion ends the access of a deleted snapshot. A snapshot in progress or failed without a claim
+// may have been started before the module update, so it unfreezes the guest it may have left frozen. A child
+// does so only when its parent has no claim either, as a VirtualMachineSnapshot has no finalizer and may
+// already be gone.
+func (h LifeCycleHandler) releaseOnDeletion(ctx context.Context, vdSnapshot *v1alpha2.VirtualDiskSnapshot, parent *metav1.OwnerReference, claim *coordinationv1alpha1.VirtualMachineAccessClaim) error {
+	if claim != nil {
+		return accessclaim.Release(ctx, h.client, claim)
+	}
+
+	switch vdSnapshot.Status.Phase {
+	case v1alpha2.VirtualDiskSnapshotPhaseInProgress, v1alpha2.VirtualDiskSnapshotPhaseFailed:
+	default:
+		return nil
+	}
+
+	if startedOnUnattachedDisk(vdSnapshot) {
+		return nil
+	}
+
+	if parent != nil {
+		parentStarted, err := h.parentStartedBeforeUpdate(ctx, vdSnapshot, parent)
+		if err != nil || !parentStarted {
+			return err
+		}
+	}
+
+	vd, err := h.snapshotter.GetVirtualDisk(ctx, vdSnapshot.Spec.VirtualDiskName, vdSnapshot.Namespace)
+	if err != nil || vd == nil {
+		return err
+	}
+
+	vm, err := getVirtualMachine(ctx, vd, h.snapshotter)
+	if err != nil || vm == nil {
+		return err
+	}
+
+	return h.unfreezeStartedBeforeUpdate(ctx, vm)
+}
+
+// parentStartedBeforeUpdate reports a child whose parent has no access claim, as a parent started before the
+// module update has none.
+func (h LifeCycleHandler) parentStartedBeforeUpdate(ctx context.Context, vdSnapshot *v1alpha2.VirtualDiskSnapshot, parent *metav1.OwnerReference) (bool, error) {
+	parentSnapshot := &v1alpha2.VirtualMachineSnapshot{ObjectMeta: metav1.ObjectMeta{UID: parent.UID}}
+	parentClaim, err := accessclaim.Get(ctx, h.client, h.apiReader, vdSnapshot.Namespace, accessclaim.Name(parentSnapshot))
+
+	return err == nil && parentClaim == nil, err
+}
+
+func failAbortedByModuleUpdate(cb *conditions.ConditionBuilder, vdSnapshot *v1alpha2.VirtualDiskSnapshot) {
+	vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseFailed
+	cb.
+		Status(metav1.ConditionFalse).
+		Reason(vdscondition.AbortedByModuleUpdate).
+		Message(accessclaim.MsgAbortedByModuleUpdate)
+}
+
+// settleFailedConsistency sets consistent to false on a failed snapshot without a verdict, as the unified
+// VirtualDiskSnapshot does.
+func settleFailedConsistency(vdSnapshot *v1alpha2.VirtualDiskSnapshot) {
+	if vdSnapshot.Status.Phase == v1alpha2.VirtualDiskSnapshotPhaseFailed && vdSnapshot.Status.Consistent == nil {
+		vdSnapshot.Status.Consistent = ptr.To(false)
+	}
+}
+
+func startedOnUnattachedDisk(vdSnapshot *v1alpha2.VirtualDiskSnapshot) bool {
+	_, ok := vdSnapshot.Annotations[annotations.AnnStartedOnUnattachedDisk]
+	return ok
+}
+
+func (h LifeCycleHandler) unfreezeStartedBeforeUpdate(ctx context.Context, vm *v1alpha2.VirtualMachine) error {
+	kvvmi, err := h.snapshotter.GetVirtualMachineInstance(ctx, vm)
+	if err != nil {
+		return err
+	}
+
+	return accessclaim.UnfreezeStartedBeforeUpdate(ctx, h.apiReader, h.unfreezer, kvvmi)
 }
 
 func getVirtualMachine(ctx context.Context, vd *v1alpha2.VirtualDisk, snapshotter virtualMachineGetter) (*v1alpha2.VirtualMachine, error) {
@@ -579,52 +739,4 @@ func setPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *v1alpha2.
 		Status(metav1.ConditionFalse).
 		Reason(vdscondition.VirtualDiskSnapshotFailed).
 		Message(service.CapitalizeFirstLetter(err.Error() + "."))
-}
-
-func (h LifeCycleHandler) unfreezeFilesystemIfFailed(ctx context.Context, vdSnapshot *v1alpha2.VirtualDiskSnapshot) error {
-	vd, err := h.snapshotter.GetVirtualDisk(ctx, vdSnapshot.Spec.VirtualDiskName, vdSnapshot.Namespace)
-	if err != nil {
-		return err
-	}
-
-	if vd == nil {
-		return nil
-	}
-
-	vm, err := getVirtualMachine(ctx, vd, h.snapshotter)
-	if err != nil {
-		return err
-	}
-
-	if vm == nil {
-		return nil
-	}
-
-	kvvmi, err := h.snapshotter.GetVirtualMachineInstance(ctx, vm)
-	if err != nil {
-		return err
-	}
-
-	err = h.unfreezeFilesystem(ctx, vdSnapshot.Name, vm, kvvmi)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (h LifeCycleHandler) unfreezeFilesystem(ctx context.Context, vdSnapshotName string, vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) error {
-	canUnfreeze, err := h.snapshotter.CanUnfreezeWithVirtualDiskSnapshot(ctx, vdSnapshotName, vm, kvvmi)
-	if err != nil {
-		return err
-	}
-
-	if canUnfreeze {
-		err = h.snapshotter.Unfreeze(ctx, kvvmi)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }

@@ -36,9 +36,8 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/state-snapshotter/pkg/snapshotsdk"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/accessclaim"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/unified-snapshotter/internal/accessclaim"
 	coordinationv1alpha1 "github.com/deckhouse/virtualization/api/coordination/v1alpha1"
 	"github.com/deckhouse/virtualization/api/coordination/v1alpha1/vmaccondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -1149,7 +1148,7 @@ func TestReconcile_TheParentCarriesCaptureStateWhenAChildIsCreated(t *testing.T)
 		ObjectMeta: metav1.ObjectMeta{Name: "vm1", Namespace: testNamespace},
 		Status: virtv1.VirtualMachineInstanceStatus{
 			Phase:          virtv1.Running,
-			FSFreezeStatus: service.FSFrozen,
+			FSFreezeStatus: "frozen",
 		},
 	}
 

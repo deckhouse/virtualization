@@ -167,6 +167,10 @@ const (
 	// ReasonVMSnapshottingFailed is event reason that VirtualMachine snapshotting is failed.
 	ReasonVMSnapshottingFailed = "VirtualMachineSnapshottingFailed"
 
+	// ReasonFilesystemUnfreezeNotConfirmed is event reason that the guest of the VirtualMachine did not
+	// confirm the filesystem unfreeze at the end of a snapshot and is left to its own safety unfreeze.
+	ReasonFilesystemUnfreezeNotConfirmed = "FilesystemUnfreezeNotConfirmed"
+
 	// ReasonAttached is event reason that VirtualMachineIPAddress is attached to VM.
 	ReasonAttached = "Attached"
 	// ReasonNotAttached is event reason that VirtualMachineIPAddress is not attached to VirtualMachine.

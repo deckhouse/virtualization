@@ -27,18 +27,18 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 )
 
+// MsgAbortedByModuleUpdate is the message of a snapshot started before the module update, which has no claim
+// and cannot be completed.
+const MsgAbortedByModuleUpdate = "The snapshot was aborted by the update of the virtualization module. Take the snapshot again."
+
 // Unfreezer sends an unfreeze to the guest of a virtual machine on behalf of the claim with claimUID.
 type Unfreezer interface {
 	Unfreeze(ctx context.Context, namespace, name string, claimUID types.UID) error
 }
 
 // UnfreezeStartedBeforeUpdate unfreezes the guest of the running instance kvvmi, which a snapshot started
-// before the module update may have left frozen. A guest under a coordinator session is left alone: its
-// freeze belongs to the session, which unfreezes it. A filesystem request that snapshot left on the
-// instance is removed by the coordinator.
-//
-// The unfreeze is sent whatever fsFreezeStatus reads: it can read empty while the guest is frozen, and
-// unfreezing a thawed guest is a no-op.
+// before the module update may have left frozen, unless a coordinator session holds the virtual machine. The
+// unfreeze is sent whatever fsFreezeStatus reads, as the field can read empty for a frozen guest.
 func UnfreezeStartedBeforeUpdate(ctx context.Context, reader client.Reader, unfreezer Unfreezer, kvvmi *virtv1.VirtualMachineInstance) error {
 	if kvvmi == nil || kvvmi.Status.Phase != virtv1.Running {
 		return nil

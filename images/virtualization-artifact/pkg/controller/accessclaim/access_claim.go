@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package accessclaim is how the unified snapshot controllers ask the virtual machine access coordinator
+// Package accessclaim is how the snapshot controllers ask the virtual machine access coordinator
 // for access: they create a VirtualMachineAccessClaim, wait for its decision, release it once the
 // snapshot no longer needs the virtual machine, and read the verdict.
 package accessclaim
@@ -49,17 +49,27 @@ func Name(snapshot client.Object) string {
 	}
 }
 
-// Timeout is the session timeout a snapshot asks the coordinator for; past it the coordinator unfreezes
-// the guest and aborts the session. It covers the planning and children settle deadlines of a
-// VirtualMachineSnapshot with a minute to spare, so those fire first with a message that says what was
-// waited on.
+// Timeout is the session timeout a snapshot asks the coordinator for. It is a minute longer than the planning
+// and children settle deadlines of a unified VirtualMachineSnapshot together, so those fire first with a
+// message that says what was waited on. Built-in snapshots use the same value.
 const Timeout = 13 * time.Minute
 
 // Get returns the claim of the snapshot, or nil when it does not exist. It reads the cache first and asks
 // apiReader only when the cache has no claim: a claim created moments ago may not be in the cache yet, and
 // reading it as absent would take the snapshot for one started before the module update.
 func Get(ctx context.Context, cache, apiReader client.Reader, namespace, name string) (*coordinationv1alpha1.VirtualMachineAccessClaim, error) {
-	for _, reader := range []client.Reader{cache, apiReader} {
+	return get(ctx, []client.Reader{cache, apiReader}, namespace, name)
+}
+
+// GetCached returns the claim of the snapshot from the cache alone, or nil when the cache has none. It is
+// for a snapshot that does not act on an absent claim: the claim watch brings a claim the cache does not
+// have yet.
+func GetCached(ctx context.Context, cache client.Reader, namespace, name string) (*coordinationv1alpha1.VirtualMachineAccessClaim, error) {
+	return get(ctx, []client.Reader{cache}, namespace, name)
+}
+
+func get(ctx context.Context, readers []client.Reader, namespace, name string) (*coordinationv1alpha1.VirtualMachineAccessClaim, error) {
+	for _, reader := range readers {
 		claim := &coordinationv1alpha1.VirtualMachineAccessClaim{}
 
 		err := reader.Get(ctx, types.NamespacedName{Namespace: namespace, Name: name}, claim)
@@ -162,16 +172,36 @@ func IsCompleted(claim *coordinationv1alpha1.VirtualMachineAccessClaim) bool {
 	return claim != nil && claim.Status.Phase == coordinationv1alpha1.AccessClaimPhaseCompleted
 }
 
-// IsDecided reports whether the claim has its final verdict.
-func IsDecided(claim *coordinationv1alpha1.VirtualMachineAccessClaim) bool {
-	return IsRefused(claim) || IsCompleted(claim)
+// IsUnfreezing reports a session whose guest the coordinator is still unfreezing. The coordinator writes the
+// verdict before the unfreeze goes through, so a completed claim may still be unfreezing.
+func IsUnfreezing(claim *coordinationv1alpha1.VirtualMachineAccessClaim) bool {
+	c := unfrozen(claim)
+	return c != nil && c.Reason == vmaccondition.Unfreezing.String()
 }
 
-// Consistent is the consistency a snapshot taken under the claim may claim: the session was granted and
-// completed, and the guest filesystem was frozen for all of it or the virtual machine was stopped for all
-// of it. A session granted on a stopped machine records no instance, and the coordinator aborts it if the
-// machine starts. A claim released before it was granted completes with no instance either, so grantedAt is
-// what tells it from a session on a stopped machine.
+// UnfreezeNotConfirmed returns the coordinator's message when the guest did not confirm the unfreeze at the
+// end of the session, and reports whether it did not. Such a guest stays frozen until its own safety
+// unfreeze, which the snapshot tells the user about.
+func UnfreezeNotConfirmed(claim *coordinationv1alpha1.VirtualMachineAccessClaim) (string, bool) {
+	c := unfrozen(claim)
+	if c == nil || c.Reason != vmaccondition.UnfreezeNotConfirmed.String() {
+		return "", false
+	}
+
+	return c.Message, true
+}
+
+func unfrozen(claim *coordinationv1alpha1.VirtualMachineAccessClaim) *metav1.Condition {
+	if claim == nil {
+		return nil
+	}
+
+	return meta.FindStatusCondition(claim.Status.Conditions, vmaccondition.UnfrozenType.String())
+}
+
+// Consistent reports whether a snapshot taken under the claim is consistent: the session was granted and
+// completed with the guest frozen or the virtual machine stopped throughout. grantedAt tells a session on a
+// stopped machine from a claim released before it was granted, as neither records an instance.
 func Consistent(claim *coordinationv1alpha1.VirtualMachineAccessClaim) bool {
 	return IsCompleted(claim) && claim.Status.GrantedAt != nil &&
 		(claim.Status.Frozen || claim.Status.VirtualMachineInstanceUID == "")

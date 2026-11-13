@@ -21,6 +21,7 @@ import (
 	"slices"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -33,8 +34,9 @@ import (
 	"github.com/deckhouse/state-snapshotter/pkg/snapshotsdk"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/vmaccess"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/accessclaim"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/unified-snapshotter/internal/accessclaim"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	coordinationv1alpha1 "github.com/deckhouse/virtualization/api/coordination/v1alpha1"
 	"github.com/deckhouse/virtualization/api/coordination/v1alpha1/vmaccondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -271,6 +273,55 @@ func TestReconcile_TheVerdictMakesTheSnapshotReady(t *testing.T) {
 				t.Errorf("domain phase = %q, want Finished", d.Phase)
 			}
 		})
+	}
+}
+
+// The verdict comes before the unfreeze goes through: the snapshot waits for the guest to be unfrozen, and
+// warns when the guest does not confirm it.
+func TestReconcile_TheSnapshotWaitsForTheUnfreeze(t *testing.T) {
+	vms := settledSnapshot()
+	claim := testClaim(vms, coordinationv1alpha1.AccessClaimPhaseCompleted, string(vmaccondition.Released), "")
+	claim.Spec.Release = true
+	claim.Status.Frozen = true
+	claim.Status.VirtualMachineInstanceUID = "vmi-uid"
+	claim.Status.Conditions = append(claim.Status.Conditions, metav1.Condition{
+		Type: vmaccondition.UnfrozenType.String(), Status: metav1.ConditionFalse, Reason: string(vmaccondition.Unfreezing),
+	})
+	vm := &v1alpha2.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: "vm1", Namespace: testNamespace}}
+	r := newFullTestReconciler(t, vms, readyChild(), claim, vm)
+
+	var warnings []string
+
+	r.Recorder = &eventrecord.EventRecorderLoggerMock{
+		EventFunc: func(_ client.Object, eventtype, reason, _ string) {
+			if eventtype == corev1.EventTypeWarning {
+				warnings = append(warnings, reason)
+			}
+		},
+	}
+
+	reconcileOnce(t, r)
+
+	if got := getVMS(t, r.Client); got.Status.Phase != v1alpha2.VirtualMachineSnapshotPhaseInProgress {
+		t.Fatalf("phase = %q, want InProgress while the guest is being unfrozen", got.Status.Phase)
+	}
+
+	unfreezing := getClaim(t, r.Client, vms)
+	unfreezing.Status.Conditions[len(unfreezing.Status.Conditions)-1].Reason = string(vmaccondition.UnfreezeNotConfirmed)
+
+	unfreezing.Status.Conditions[len(unfreezing.Status.Conditions)-1].Message = "The guest did not confirm the unfreeze."
+	if err := r.Client.Status().Update(context.Background(), unfreezing); err != nil {
+		t.Fatal(err)
+	}
+
+	reconcileOnce(t, r)
+
+	if got := getVMS(t, r.Client); got.Status.Phase != v1alpha2.VirtualMachineSnapshotPhaseReady {
+		t.Fatalf("phase = %q, want Ready", got.Status.Phase)
+	}
+
+	if len(warnings) != 1 || warnings[0] != v1alpha2.ReasonFilesystemUnfreezeNotConfirmed {
+		t.Errorf("warnings = %v, want one %s", warnings, v1alpha2.ReasonFilesystemUnfreezeNotConfirmed)
 	}
 }
 

@@ -73,9 +73,6 @@ const (
 	// LockLossTolerance is how long a claim that took the lock may go unnamed by it before the lock counts as
 	// lost, as the cache of the internal virtual machine can lag behind the claim cache.
 	LockLossTolerance = UnfrozenTolerance
-	// StaleFreezeRecheck is the requeue interval while a freeze left by an older snapshot waits for the
-	// snapshots of the virtual machine in progress to finish. It matches the requeue interval of a snapshot.
-	StaleFreezeRecheck = 2 * time.Second
 )
 
 // LifecycleHandler drives the claims of one virtual machine: it decides on new claims, watches the
@@ -156,9 +153,7 @@ func (h *LifecycleHandler) Handle(ctx context.Context, s *state.State) (reconcil
 		result = mergeResults(result, res)
 		errs = errors.Join(errs, err)
 	} else if lostLockSession(s) == nil {
-		res, err := h.clearStaleFreeze(ctx, s)
-		result = mergeResults(result, res)
-		errs = errors.Join(errs, err)
+		result = mergeResults(result, h.clearStaleFreeze(ctx, s))
 	}
 
 	for _, c := range s.Claims {
@@ -188,33 +183,20 @@ func (h *LifecycleHandler) Handle(ctx context.Context, s *state.State) (reconcil
 	return result, errs
 }
 
-// clearStaleFreeze clears the freeze a snapshot taken before the module update left on the instance: it
-// unfreezes the guest and removes the filesystem request, which would deny every claim while it stays.
-// It runs only while no claim holds or took the lock, so a freeze it sends no claimUID for is never a session's,
-// and only while no snapshot of the virtual machine is in progress, because the built-in snapshots still
-// freeze the guest through that request.
+// clearStaleFreeze unfreezes the guest a snapshot taken before the module update may have left frozen, and
+// removes the filesystem request that snapshot left on the instance, which denies every claim while it stays.
+// It runs only while no claim holds or took the lock, so its unfreeze without claimUID never ends a session's
+// freeze.
 //
-// A failed unfreeze is sent again every RequestResendInterval and the request stays, as that freeze has no
-// safety unfreeze and the request is the only record of it. Past UnfreezeConfirmTimeout the failure is
-// reported as an event on the virtual machine and the request is removed, so it does not deny claims for
-// good.
-func (h *LifecycleHandler) clearStaleFreeze(ctx context.Context, s *state.State) (reconcile.Result, error) {
+// The request is kept while a failed unfreeze is resent, as it is the only record of that freeze. Past
+// UnfreezeConfirmTimeout the failure is reported on the virtual machine and the request is removed.
+func (h *LifecycleHandler) clearStaleFreeze(ctx context.Context, s *state.State) reconcile.Result {
 	if !s.HasFilesystemRequest() {
 		if s.KVVMI != nil {
 			h.forgetStaleFreeze(s.KVVMI.UID)
 		}
 
-		return reconcile.Result{}, nil
-	}
-
-	inProgress, err := s.SnapshotInProgress(ctx)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	if inProgress {
-		// The snapshot phase is not watched, so a recheck notices the snapshot finish.
-		return reconcile.Result{RequeueAfter: StaleFreezeRecheck}, nil
+		return reconcile.Result{}
 	}
 
 	log := logger.FromContext(ctx)
@@ -225,7 +207,7 @@ func (h *LifecycleHandler) clearStaleFreeze(ctx context.Context, s *state.State)
 
 	if isRunning(s.KVVMI) {
 		if !h.staleUnfreezeSent.due(uid, h.now(), RequestResendInterval) {
-			return reconcile.Result{RequeueAfter: PollInterval}, nil
+			return reconcile.Result{RequeueAfter: PollInterval}
 		}
 
 		log.Info("unfreezing the guest a snapshot taken before the module update may have left frozen")
@@ -236,7 +218,7 @@ func (h *LifecycleHandler) clearStaleFreeze(ctx context.Context, s *state.State)
 			unfrozen = true
 		case h.staleUnfreezing.elapsed(uid, h.now()) < UnfreezeConfirmTimeout:
 			log.Warn("failed to unfreeze the guest a snapshot taken before the module update may have left frozen; retrying", logger.SlogErr(err))
-			return reconcile.Result{RequeueAfter: RequestResendInterval}, nil
+			return reconcile.Result{RequeueAfter: RequestResendInterval}
 		default:
 			log.Warn("failed to unfreeze the guest a snapshot taken before the module update may have left frozen", logger.SlogErr(err))
 			h.reportToVM(s, msgStaleFreezeNotUnfrozen(key.Name, err))
@@ -255,7 +237,7 @@ func (h *LifecycleHandler) clearStaleFreeze(ctx context.Context, s *state.State)
 		s.KVVMI.Status.FSFreezeStatus = ""
 	}
 
-	return reconcile.Result{}, nil
+	return reconcile.Result{}
 }
 
 // reportToVM records a warning event on the virtual machine.

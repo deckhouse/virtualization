@@ -29,6 +29,7 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vdsnapshot/internal"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	vdsnapshotcollector "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/vdsnapshot"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
@@ -46,16 +47,16 @@ func NewController(
 	volumeSnapshotAPIAvailable bool,
 ) (controller.Controller, error) {
 	protection := service.NewProtectionService(mgr.GetClient(), v1alpha2.FinalizerVDSnapshotProtection)
-	freezer := service.NewSnapshotService(virtClient, mgr.GetClient(), protection)
+	snapshotter := service.NewSnapshotService(mgr.GetClient(), protection)
 
 	reconciler := NewReconciler(
 		mgr.GetClient(),
 		mgr.GetAPIReader(),
 		unifiedSnapshotterPresent,
 		volumeSnapshotAPIAvailable,
-		internal.NewVirtualDiskReadyHandler(freezer),
-		internal.NewLifeCycleHandler(freezer, volumeSnapshotAPIAvailable),
-		internal.NewDeletionHandler(freezer),
+		internal.NewVirtualDiskReadyHandler(snapshotter),
+		internal.NewLifeCycleHandler(eventrecord.NewEventRecorderLogger(mgr, ControllerName), snapshotter, mgr.GetClient(), mgr.GetAPIReader(), service.NewFreezeService(virtClient), volumeSnapshotAPIAvailable),
+		internal.NewDeletionHandler(snapshotter),
 	)
 
 	vdSnapshotController, err := controller.New(ControllerName, mgr, controller.Options{

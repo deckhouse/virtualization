@@ -636,6 +636,7 @@ func main() {
 		if err = (&unifiedvdsnapshot.Reconciler{
 			Client:    mgr.GetClient(),
 			APIReader: mgr.GetAPIReader(),
+			Recorder:  eventrecord.NewEventRecorderLogger(mgr, unifiedvdsnapshot.ControllerName),
 			Log:       unifiedVDSnapshotLogger,
 		}).SetupWithManager(mgr); err != nil {
 			log.Error(err.Error())

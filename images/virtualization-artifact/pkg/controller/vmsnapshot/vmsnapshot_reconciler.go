@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/snapshotter"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/accessclaim"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmsnapshot/internal/watcher"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -94,7 +95,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		watcher.NewVirtualDiskSnapshotWatcher(mgr.GetClient()),
 		watcher.NewVirtualMachineWatcher(mgr.GetClient()),
 		watcher.NewVirtualDiskWatcher(mgr.GetClient(), r.unifiedSnapshotterPresent),
-		watcher.NewKVVMIWatcher(mgr.GetClient()),
+		accessclaim.NewWatcher(&v1alpha2.VirtualMachineSnapshot{}),
 	} {
 		err := w.Watch(mgr, ctr)
 		if err != nil {

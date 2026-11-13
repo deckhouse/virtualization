@@ -49,13 +49,13 @@ func NewController(
 ) error {
 	protection := service.NewProtectionService(mgr.GetClient(), v1alpha2.FinalizerVMSnapshotProtection)
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
-	snapshotter := service.NewSnapshotService(virtClient, mgr.GetClient(), protection)
+	snapshotter := service.NewSnapshotService(mgr.GetClient(), protection)
 
 	reconciler := NewReconciler(
 		mgr.GetClient(),
 		unifiedSnapshotterPresent,
 		internal.NewVirtualMachineReadyHandler(snapshotter),
-		internal.NewLifeCycleHandler(recorder, snapshotter, restorer.NewSecretRestorer(mgr.GetClient()), mgr.GetClient()),
+		internal.NewLifeCycleHandler(recorder, snapshotter, restorer.NewSecretRestorer(mgr.GetClient()), mgr.GetClient(), mgr.GetAPIReader(), service.NewFreezeService(virtClient)),
 		internal.NewEnsureValidityHandler(),
 	)
 

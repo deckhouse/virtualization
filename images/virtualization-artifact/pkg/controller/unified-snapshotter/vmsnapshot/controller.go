@@ -37,6 +37,7 @@ import (
 	"strings"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -54,7 +55,7 @@ import (
 	"github.com/deckhouse/state-snapshotter/pkg/snapshotsdk"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/unified-snapshotter/internal/accessclaim"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/accessclaim"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/unified-snapshotter/internal/adapter"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/unified-snapshotter/internal/annotation"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -180,8 +181,7 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			return ctrl.Result{}, err
 		}
 
-		return r.failCapture(ctx, a, vms, nil, string(vmscondition.AbortedByModuleUpdate),
-			"The snapshot was aborted by the update of the virtualization module. Take the snapshot again.")
+		return r.failCapture(ctx, a, vms, nil, string(vmscondition.AbortedByModuleUpdate), accessclaim.MsgAbortedByModuleUpdate)
 	}
 
 	// A decided claim settles the snapshot even when its virtual machine is gone.
@@ -189,6 +189,10 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	case accessclaim.IsRefused(claim):
 		reason, message := accessclaim.GrantedCondition(claim)
 		return r.failCapture(ctx, a, vms, claim, reason, message)
+	case accessclaim.IsCompleted(claim) && accessclaim.IsUnfreezing(claim):
+		// The guest may still be frozen: the snapshot turns Ready once the coordinator has unfrozen it.
+		vms.Status.Phase = v1alpha2.VirtualMachineSnapshotPhaseInProgress
+		return ctrl.Result{}, r.patchStatus(ctx, vms)
 	case accessclaim.IsCompleted(claim):
 		return r.finishCapture(ctx, sdk, a, vms, claim)
 	}
@@ -438,6 +442,9 @@ func (r *Reconciler) finishCapture(
 	vms.Status.Phase = v1alpha2.VirtualMachineSnapshotPhaseReady
 
 	vms.Status.Consistent = ptr.To(accessclaim.Consistent(claim))
+	if message, notConfirmed := accessclaim.UnfreezeNotConfirmed(claim); notConfirmed {
+		r.Recorder.Event(vms, corev1.EventTypeWarning, v1alpha2.ReasonFilesystemUnfreezeNotConfirmed, message)
+	}
 
 	logger.FromContext(ctx).Info("patch VMS phase to VirtualMachineSnapshotPhaseReady")
 

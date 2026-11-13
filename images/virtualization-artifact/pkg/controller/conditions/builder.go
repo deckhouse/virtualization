@@ -204,6 +204,19 @@ func (c *ConditionBuilder) Clone() *ConditionBuilder {
 	return out
 }
 
+// Keep fills the builder with the condition of its type found in conditions, so that setting the condition
+// back changes nothing. It keeps a condition intact on a pass that ends before deciding it.
+func (c *ConditionBuilder) Keep(conditions []metav1.Condition) *ConditionBuilder {
+	if cond, ok := GetCondition(c.conditionType, conditions); ok {
+		c.status = cond.Status
+		c.reason = cond.Reason
+		c.message = cond.Message
+		c.generation = cond.ObservedGeneration
+	}
+
+	return c
+}
+
 func (c *ConditionBuilder) GetType() Stringer {
 	return c.conditionType
 }

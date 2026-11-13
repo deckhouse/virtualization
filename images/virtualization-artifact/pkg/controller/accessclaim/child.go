@@ -40,11 +40,9 @@ func ParentRef(vds *v1alpha2.VirtualDiskSnapshot) *metav1.OwnerReference {
 	return nil
 }
 
-// ChildConsistency returns the consistency a child snapshot takes from its parent, and settled=false
-// while the parent is not terminal yet. The parent records the verdict of its session, which covers the
-// capture of every child and ends only after every child is terminal, so a child cannot answer the
-// consistency question on its own. A parent that is gone, or replaced under the same name, leaves nothing
-// to vouch for the freeze, and the child is not consistent.
+// ChildConsistency returns the consistency a child snapshot takes from its parent, whose session covers the
+// capture of every child, and settled=false while the parent is not terminal. A child whose parent is gone or
+// recreated is not consistent.
 func ChildConsistency(ctx context.Context, c client.Reader, vds *v1alpha2.VirtualDiskSnapshot, parent *metav1.OwnerReference) (consistent, settled bool, err error) {
 	vms := &v1alpha2.VirtualMachineSnapshot{}
 

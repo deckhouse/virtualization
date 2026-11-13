@@ -29,7 +29,7 @@ import (
 
 	"github.com/deckhouse/state-snapshotter/pkg/snapshotsdk"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/unified-snapshotter/internal/accessclaim"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/accessclaim"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/unified-snapshotter/internal/adapter"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	coordinationv1alpha1 "github.com/deckhouse/virtualization/api/coordination/v1alpha1"

@@ -531,7 +531,7 @@ var _ = Describe("Reconciler", func() {
 			Expect(hasFilesystemRequest(c)).To(BeTrue())
 		})
 
-		It("waits while a snapshot of the virtual machine is in progress", func() {
+		It("is cleared while a snapshot of the virtual machine is in progress", func() {
 			c, err := testutil.NewFakeClientWithObjects(newVM(), newKVVM(), kvvmi,
 				&v1alpha2.VirtualMachineSnapshot{
 					ObjectMeta: metav1.ObjectMeta{Name: "old", Namespace: namespace},
@@ -540,28 +540,10 @@ var _ = Describe("Reconciler", func() {
 				})
 			Expect(err).NotTo(HaveOccurred())
 
-			res := reconcileVM(newReconciler(c))
-
-			Expect(res.RequeueAfter).To(Equal(internal.StaleFreezeRecheck))
-			Expect(unfreezes).To(BeEmpty())
-			Expect(hasFilesystemRequest(c)).To(BeTrue())
-		})
-
-		It("waits while a snapshot of a disk of the virtual machine is in progress", func() {
-			vm := newVM()
-			vm.Status.BlockDeviceRefs = []v1alpha2.BlockDeviceStatusRef{{Kind: v1alpha2.DiskDevice, Name: "disk"}}
-			c, err := testutil.NewFakeClientWithObjects(vm, newKVVM(), kvvmi,
-				&v1alpha2.VirtualDiskSnapshot{
-					ObjectMeta: metav1.ObjectMeta{Name: "old", Namespace: namespace},
-					Spec:       v1alpha2.VirtualDiskSnapshotSpec{VirtualDiskName: "disk"},
-					Status:     v1alpha2.VirtualDiskSnapshotStatus{Phase: v1alpha2.VirtualDiskSnapshotPhaseInProgress},
-				})
-			Expect(err).NotTo(HaveOccurred())
-
 			reconcileVM(newReconciler(c))
 
-			Expect(unfreezes).To(BeEmpty())
-			Expect(hasFilesystemRequest(c)).To(BeTrue())
+			Expect(unfreezes).To(Equal([]types.UID{""}))
+			Expect(hasFilesystemRequest(c)).To(BeFalse())
 		})
 
 		It("only removes the request of a stopped virtual machine", func() {

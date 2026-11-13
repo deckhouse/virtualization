@@ -30,7 +30,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/unified-snapshotter/internal/accessclaim"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/accessclaim"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	coordinationv1alpha1 "github.com/deckhouse/virtualization/api/coordination/v1alpha1"
 	"github.com/deckhouse/virtualization/api/coordination/v1alpha1/vmaccondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -385,6 +386,60 @@ func TestReconcile_ACoreCaptureFailureFailsTheDomainPhaseBeforeTheRelease(t *tes
 
 	if d := got.Status.CaptureState.DomainSpecificController; d.Phase != v1alpha2.UnifiedSnapshotterPhaseFailed || d.Reason != "VolumeCaptureFailed" {
 		t.Errorf("domain state = %+v, want Failed with the core's reason", d)
+	}
+}
+
+// The verdict comes before the unfreeze goes through: the snapshot waits for the guest to be unfrozen, and
+// warns when the guest does not confirm it.
+func TestReconcile_AStandaloneSnapshotWaitsForTheUnfreeze(t *testing.T) {
+	vds := capturedVDS()
+	claim := claimOf(vds, coordinationv1alpha1.AccessClaimPhaseCompleted, string(vmaccondition.Released), "")
+	claim.Spec.Release = true
+	claim.Status.GrantedAt = ptr.To(metav1.Now())
+	claim.Status.Frozen = true
+	claim.Status.VirtualMachineInstanceUID = "vmi-uid"
+	claim.Status.Conditions = append(claim.Status.Conditions, metav1.Condition{
+		Type: vmaccondition.UnfrozenType.String(), Status: metav1.ConditionFalse, Reason: string(vmaccondition.Unfreezing),
+	})
+	r := newTestReconciler(t, append(attachedDisk("vm1"), vds, claim)...)
+
+	var warnings []string
+
+	r.Recorder = &eventrecord.EventRecorderLoggerMock{
+		EventFunc: func(_ client.Object, eventtype, reason, _ string) {
+			if eventtype == corev1.EventTypeWarning {
+				warnings = append(warnings, reason)
+			}
+		},
+	}
+
+	reconcileVDS(t, r)
+
+	if got := getVDS(t, r.Client); got.Status.Phase == v1alpha2.VirtualDiskSnapshotPhaseReady {
+		t.Fatal("the snapshot turned Ready while the guest is being unfrozen")
+	}
+
+	unfreezing := getClaim(t, r.Client, accessclaim.Name(vds))
+	unfreezing.Status.Conditions[len(unfreezing.Status.Conditions)-1].Reason = string(vmaccondition.UnfreezeNotConfirmed)
+
+	unfreezing.Status.Conditions[len(unfreezing.Status.Conditions)-1].Message = "The guest did not confirm the unfreeze."
+	if err := r.Client.Status().Update(context.Background(), unfreezing); err != nil {
+		t.Fatal(err)
+	}
+
+	reconcileVDS(t, r)
+
+	got := getVDS(t, r.Client)
+	if got.Status.Phase != v1alpha2.VirtualDiskSnapshotPhaseReady {
+		t.Fatalf("phase = %q, want Ready", got.Status.Phase)
+	}
+
+	if got.Status.Consistent == nil || !*got.Status.Consistent {
+		t.Errorf("consistent = %v, want true", got.Status.Consistent)
+	}
+
+	if len(warnings) != 1 || warnings[0] != v1alpha2.ReasonFilesystemUnfreezeNotConfirmed {
+		t.Errorf("warnings = %v, want one %s", warnings, v1alpha2.ReasonFilesystemUnfreezeNotConfirmed)
 	}
 }
 

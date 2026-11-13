@@ -51,9 +51,10 @@ import (
 	foundationv1alpha1 "github.com/deckhouse/storage-foundation/api/v1alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/unified-snapshotter/internal/accessclaim"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/accessclaim"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/unified-snapshotter/internal/adapter"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/unified-snapshotter/internal/annotation"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization-controller/pkg/unifiedsnapshotter/statuspatch"
 	coordinationv1alpha1 "github.com/deckhouse/virtualization/api/coordination/v1alpha1"
@@ -88,6 +89,7 @@ const snapshotsNotSupportedMarker = "does not support snapshots"
 type Reconciler struct {
 	Client    client.Client
 	APIReader client.Reader
+	Recorder  eventrecord.EventRecorderLogger
 	Log       *log.Logger
 }
 
@@ -215,8 +217,7 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	if startedBeforeUpdate {
-		return r.failCapture(ctx, a, vds, nil, string(vdscondition.AbortedByModuleUpdate),
-			"The snapshot was aborted by the update of the virtualization module. Take the snapshot again.")
+		return r.failCapture(ctx, a, vds, nil, string(vdscondition.AbortedByModuleUpdate), accessclaim.MsgAbortedByModuleUpdate)
 	}
 
 	// A decided claim settles the snapshot even when its disk is gone. Only the claim of a captured disk is
@@ -225,6 +226,10 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	case accessclaim.IsRefused(claim):
 		reason, message := accessclaim.GrantedCondition(claim)
 		return r.failCapture(ctx, a, vds, claim, reason, message)
+	case accessclaim.IsCompleted(claim) && accessclaim.IsUnfreezing(claim):
+		// The guest may still be frozen: the snapshot turns Ready once the coordinator has unfrozen it.
+		vds.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseInProgress
+		return ctrl.Result{}, r.patchStatus(ctx, vds)
 	case accessclaim.IsCompleted(claim):
 		if err := sdk.DomainCaptureStatus(a).Phase(snapshotsdk.PhaseFinished).Apply(ctx); err != nil {
 			return ctrl.Result{}, err
@@ -450,7 +455,8 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		case accessclaim.IsRefused(claim):
 			reason, message := accessclaim.GrantedCondition(claim)
 			return r.failCapture(ctx, a, vds, claim, reason, message)
-		case !accessclaim.IsCompleted(claim):
+		case !accessclaim.IsCompleted(claim) || accessclaim.IsUnfreezing(claim):
+			// The verdict is not in yet, or the guest may still be frozen.
 			vds.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseInProgress
 			return ctrl.Result{}, r.patchStatus(ctx, vds)
 		}
@@ -552,6 +558,9 @@ func (r *Reconciler) finishAsReady(ctx context.Context, vds *v1alpha2.VirtualDis
 	switch {
 	case claim != nil:
 		vds.Status.Consistent = ptr.To(accessclaim.Consistent(claim))
+		if message, notConfirmed := accessclaim.UnfreezeNotConfirmed(claim); notConfirmed {
+			r.Recorder.Event(vds, corev1.EventTypeWarning, v1alpha2.ReasonFilesystemUnfreezeNotConfirmed, message)
+		}
 	case parent == nil && startedOnUnattachedDisk(vds):
 		vds.Status.Consistent = ptr.To(true)
 	case parent == nil:
