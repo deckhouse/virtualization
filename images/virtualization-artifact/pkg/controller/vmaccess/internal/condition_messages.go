@@ -125,3 +125,13 @@ func msgUnfreezeConfirmed(vm string) string {
 func msgUnfreezeNotConfirmed(vm string, timeout time.Duration) string {
 	return fmt.Sprintf("The guest of the virtual machine %q did not confirm the filesystem unfreeze within %s. The guest unfreezes the filesystem on its own once the safety timeout expires.", vm, timeout)
 }
+
+// The messages of the events on the virtual machine.
+
+func msgStaleFreezeNotUnfrozen(vm string, err error) string {
+	return fmt.Sprintf("Failed to unfreeze the virtual machine %q, which a snapshot taken before the virtualization module update may have left frozen: %v.", vm, err)
+}
+
+func msgStaleFreezeRequestNotRemoved(vm string, err error) string {
+	return fmt.Sprintf("Failed to clear the filesystem freeze request a snapshot taken before the virtualization module update left on the virtual machine %q: %v.", vm, err)
+}

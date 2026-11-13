@@ -398,19 +398,10 @@ const (
 	// internal virtual machine, which exists for a stopped virtual machine too.
 	AnnVMAccessLock = AnnAPIGroupV + "/vm-access-lock"
 
-	// The freeze bookkeeping a VirtualMachineSnapshot keeps about itself. They live here rather than in
-	// the snapshot controller because the disk captures under that snapshot read them too:
-	// kvvmi.Status.FSFreezeStatus is not a latch and has been observed going frozen -> empty -> frozen
-	// within seconds, so both sides need a record of the freeze that does not flap.
-	//
-	// AnnFSFreezeRequestedAt records when the controller asked the guest to freeze. Nothing else carries
-	// that moment: AnnVMFilesystemRequest is a bare marker with no timestamp.
-	AnnFSFreezeRequestedAt = AnnAPIGroupV + "/fs-freeze-requested-at"
-	// AnnFSUnfreezeRequestedAt is its unfreeze counterpart, and marks the freeze as given up.
-	AnnFSUnfreezeRequestedAt = AnnAPIGroupV + "/fs-unfreeze-requested-at"
-	// AnnFSFrozenConfirmedAt records that the guest was actually observed frozen for this snapshot. It
-	// is what separates a freeze that landed from one the guest never confirmed.
-	AnnFSFrozenConfirmedAt = AnnAPIGroupV + "/fs-frozen-confirmed-at"
+	// AnnStartedOnUnattachedDisk marks a VirtualDiskSnapshot started on a disk attached to no virtual
+	// machine. Such a snapshot takes no access claim, and the mark tells it from a snapshot started before
+	// the module update once the disk is attached during the capture.
+	AnnStartedOnUnattachedDisk = AnnAPIGroupV + "/started-on-unattached-disk"
 
 	// AnnDVCRDeploymentSwitchToGarbageCollectionMode is an annotation on secret/dvcr-garbage-collection to indicate that deployment/dcvr should be switched to garbage-collection mode.
 	AnnDVCRDeploymentSwitchToGarbageCollectionMode = AnnAPIGroupV + "/dvcr-deployment-switch-to-garbage-collection-mode"

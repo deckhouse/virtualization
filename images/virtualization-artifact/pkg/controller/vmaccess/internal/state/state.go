@@ -31,6 +31,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/vmaccess"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	coordinationv1alpha1 "github.com/deckhouse/virtualization/api/coordination/v1alpha1"
@@ -198,6 +199,78 @@ func (s *State) patchLock(ctx context.Context, lock *vmaccess.Lock) error {
 	if err := s.client.Patch(ctx, s.KVVM, client.MergeFromWithOptions(base, client.MergeFromWithOptimisticLock{})); err != nil {
 		s.KVVM = base
 		return fmt.Errorf("write the access lock: %w", err)
+	}
+
+	return nil
+}
+
+// SnapshotInProgress reports whether a snapshot of the virtual machine, or of a disk attached to it, is in
+// progress.
+func (s *State) SnapshotInProgress(ctx context.Context) (bool, error) {
+	var vmSnapshots v1alpha2.VirtualMachineSnapshotList
+	if err := s.client.List(ctx, &vmSnapshots,
+		client.InNamespace(s.key.Namespace),
+		client.MatchingFields{indexer.IndexFieldVMSnapshotByVM: s.key.Name},
+	); err != nil {
+		return false, fmt.Errorf("list the snapshots of the virtual machine: %w", err)
+	}
+
+	for i := range vmSnapshots.Items {
+		if vmSnapshots.Items[i].Status.Phase == v1alpha2.VirtualMachineSnapshotPhaseInProgress {
+			return true, nil
+		}
+	}
+
+	if s.VM == nil {
+		return false, nil
+	}
+
+	for _, ref := range s.VM.Status.BlockDeviceRefs {
+		if ref.Kind != v1alpha2.DiskDevice {
+			continue
+		}
+
+		var vdSnapshots v1alpha2.VirtualDiskSnapshotList
+		if err := s.client.List(ctx, &vdSnapshots,
+			client.InNamespace(s.key.Namespace),
+			client.MatchingFields{indexer.IndexFieldVDSnapshotByVD: ref.Name},
+		); err != nil {
+			return false, fmt.Errorf("list the snapshots of the virtual disk %q: %w", ref.Name, err)
+		}
+
+		for i := range vdSnapshots.Items {
+			if vdSnapshots.Items[i].Status.Phase == v1alpha2.VirtualDiskSnapshotPhaseInProgress {
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
+}
+
+// HasFilesystemRequest reports a filesystem request annotation on the instance.
+func (s *State) HasFilesystemRequest() bool {
+	if s.KVVMI == nil {
+		return false
+	}
+
+	_, ok := s.KVVMI.Annotations[annotations.AnnVMFilesystemRequest]
+
+	return ok
+}
+
+// DiscardFilesystemRequest removes the filesystem request annotation from the instance. The loaded instance
+// drops the request even when the patch fails, so a claim decided in the same pass does not wait for it.
+func (s *State) DiscardFilesystemRequest(ctx context.Context) error {
+	if !s.HasFilesystemRequest() {
+		return nil
+	}
+
+	base := s.KVVMI.DeepCopy()
+	delete(s.KVVMI.Annotations, annotations.AnnVMFilesystemRequest)
+
+	if err := s.client.Patch(ctx, s.KVVMI, client.MergeFrom(base)); err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("remove the filesystem request: %w", err)
 	}
 
 	return nil

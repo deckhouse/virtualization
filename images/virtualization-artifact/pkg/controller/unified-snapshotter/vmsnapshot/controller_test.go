@@ -19,8 +19,6 @@ package vmsnapshot
 import (
 	"context"
 	"errors"
-	"io"
-	"log/slog"
 	"strings"
 	"testing"
 	"time"
@@ -38,14 +36,13 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/state-snapshotter/pkg/snapshotsdk"
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	v1alpha2clientsetcore "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/client/kubeclient"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/unified-snapshotter/internal/accessclaim"
+	coordinationv1alpha1 "github.com/deckhouse/virtualization/api/coordination/v1alpha1"
+	"github.com/deckhouse/virtualization/api/coordination/v1alpha1/vmaccondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmscondition"
-	subv1alpha2 "github.com/deckhouse/virtualization/api/subresources/v1alpha2"
 )
 
 func newFullTestReconciler(t *testing.T, objs ...client.Object) *Reconciler {
@@ -56,12 +53,95 @@ func newFullTestReconciler(t *testing.T, objs ...client.Object) *Reconciler {
 	c := fake.NewClientBuilder().
 		WithScheme(newTestScheme(t)).
 		WithObjects(objs...).
-		WithStatusSubresource(&v1alpha2.VirtualMachineSnapshot{}).
+		WithStatusSubresource(&v1alpha2.VirtualMachineSnapshot{}, &coordinationv1alpha1.VirtualMachineAccessClaim{}).
 		WithIndex(indexer.IndexVMSnapshotByVM()).
 		WithIndex(indexer.IndexVDSnapshotByVD()).
 		Build()
 
-	return &Reconciler{Client: c, APIReader: c, Freezer: service.NewSnapshotService(unfreezingVirtClient{}, c, nil), Log: log.NewNop()}
+	return &Reconciler{
+		Client:    c,
+		APIReader: c,
+		Unfreezer: &fakeUnfreezer{},
+		Log:       log.NewNop(),
+	}
+}
+
+// fakeUnfreezer counts the unfreeze calls.
+type fakeUnfreezer struct {
+	calls int
+}
+
+func (f *fakeUnfreezer) Unfreeze(context.Context, string, string, types.UID) error {
+	f.calls++
+	return nil
+}
+
+// accessFixture is a running virtual machine and its snapshot, whose access claim is in phase with the given
+// Granted condition.
+func accessFixture(t *testing.T, phase coordinationv1alpha1.AccessClaimPhase, reason, message string, objs ...client.Object) (*Reconciler, ctrl.Request) {
+	t.Helper()
+
+	vms := &v1alpha2.VirtualMachineSnapshot{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "vms1", Namespace: testNamespace, UID: "vms-uid",
+			Annotations:       map[string]string{v1alpha2.AnnUseUnifiedSnapshotter: ""},
+			Finalizers:        []string{v1alpha2.FinalizerVMSnapshotCleanup},
+			CreationTimestamp: metav1.NewTime(time.Now().Add(-time.Minute)),
+		},
+		Spec: v1alpha2.VirtualMachineSnapshotSpec{VirtualMachineName: "vm1", RequiredConsistency: true},
+		Status: v1alpha2.VirtualMachineSnapshotStatus{
+			Phase: v1alpha2.VirtualMachineSnapshotPhaseInProgress,
+		},
+	}
+	vm := &v1alpha2.VirtualMachine{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "vm1", Namespace: testNamespace, UID: "vm-uid",
+			CreationTimestamp: metav1.NewTime(time.Now().Add(-time.Hour)),
+		},
+	}
+
+	r := newFullTestReconciler(t, append(objs, vms, vm, testClaim(vms, phase, reason, message))...)
+
+	return r, ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNamespace, Name: "vms1"}}
+}
+
+// testClaim is the access claim of vms in phase with the given Granted condition.
+func testClaim(vms *v1alpha2.VirtualMachineSnapshot, phase coordinationv1alpha1.AccessClaimPhase, reason, message string) *coordinationv1alpha1.VirtualMachineAccessClaim {
+	claim := &coordinationv1alpha1.VirtualMachineAccessClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            accessclaim.Name(vms),
+			Namespace:       vms.Namespace,
+			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(vms, v1alpha2.SchemeGroupVersion.WithKind(v1alpha2.VirtualMachineSnapshotKind))},
+		},
+		Spec: coordinationv1alpha1.VirtualMachineAccessClaimSpec{
+			VirtualMachine: coordinationv1alpha1.VirtualMachineAccessClaimTarget{Name: "vm1", UID: "vm-uid"},
+			Access:         []coordinationv1alpha1.AccessMode{coordinationv1alpha1.AccessModeSnapshot, coordinationv1alpha1.AccessModeFreeze},
+			FreezePolicy:   ptr.To(coordinationv1alpha1.FreezePolicyRequired),
+			Timeout:        metav1.Duration{Duration: accessclaim.Timeout},
+		},
+		Status: coordinationv1alpha1.VirtualMachineAccessClaimStatus{Phase: phase},
+	}
+
+	if reason != "" {
+		status := metav1.ConditionFalse
+		if phase == coordinationv1alpha1.AccessClaimPhaseGranted {
+			status = metav1.ConditionTrue
+		}
+
+		claim.Status.Conditions = []metav1.Condition{{
+			Type:    vmaccondition.GrantedType.String(),
+			Status:  status,
+			Reason:  reason,
+			Message: message,
+		}}
+	}
+
+	return claim
+}
+
+// grantedClaim is the access claim of vms with the guest frozen for it.
+func grantedClaim(vms *v1alpha2.VirtualMachineSnapshot) *coordinationv1alpha1.VirtualMachineAccessClaim {
+	return testClaim(vms, coordinationv1alpha1.AccessClaimPhaseGranted, string(vmaccondition.Frozen), "The filesystem is frozen.")
 }
 
 func getVMS(t *testing.T, c client.Client) *v1alpha2.VirtualMachineSnapshot {
@@ -363,7 +443,7 @@ func planningGateVMS(mcrName string, manifestCaptured *bool) *v1alpha2.VirtualMa
 // turned it into a terminal GraphPlanningFailed, destroying a capture whose legs were already done.
 func TestReconcile_ManifestLegIsNotRePlannedOnceEstablished(t *testing.T) {
 	vms := planningGateVMS("nss-mcr-established", ptr.To(true))
-	r := newFullTestReconciler(t, vms, planningGateVM())
+	r := newFullTestReconciler(t, vms, planningGateVM(), grantedClaim(vms))
 
 	if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNamespace, Name: "vms1"}}); err != nil {
 		t.Fatal(err)
@@ -384,7 +464,7 @@ func TestReconcile_ManifestLegIsNotRePlannedOnceEstablished(t *testing.T) {
 // wait/failure rather than silently skipped.
 func TestReconcile_ManifestLegStillPlannedWhileNeeded(t *testing.T) {
 	vms := planningGateVMS("", nil)
-	r := newFullTestReconciler(t, vms, planningGateVM())
+	r := newFullTestReconciler(t, vms, planningGateVM(), grantedClaim(vms))
 
 	if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNamespace, Name: "vms1"}}); err != nil {
 		t.Fatal(err)
@@ -421,8 +501,8 @@ func TestReconcile_TransientChildrenErrorIsRetriedNotFatal(t *testing.T) {
 	boom := apierrors.NewInternalError(errors.New("etcd is having a moment"))
 	c := fake.NewClientBuilder().
 		WithScheme(newTestScheme(t)).
-		WithObjects(vms, vm, vd).
-		WithStatusSubresource(&v1alpha2.VirtualMachineSnapshot{}).
+		WithObjects(vms, vm, vd, grantedClaim(vms)).
+		WithStatusSubresource(&v1alpha2.VirtualMachineSnapshot{}, &coordinationv1alpha1.VirtualMachineAccessClaim{}).
 		WithInterceptorFuncs(interceptor.Funcs{
 			Create: func(ctx context.Context, cl client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
 				if _, ok := obj.(*v1alpha2.VirtualDiskSnapshot); ok {
@@ -433,7 +513,7 @@ func TestReconcile_TransientChildrenErrorIsRetriedNotFatal(t *testing.T) {
 			},
 		}).
 		Build()
-	r := &Reconciler{Client: c, APIReader: c, Freezer: service.NewSnapshotService(nil, c, nil), Log: log.NewNop()}
+	r := &Reconciler{Client: c, APIReader: c, Log: log.NewNop()}
 
 	_, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNamespace, Name: "vms1"}})
 	if err == nil {
@@ -493,57 +573,6 @@ func TestReconcile_UnresolvableSourceFailsAfterBootstrap(t *testing.T) {
 	}
 }
 
-// cleanupSource is what keeps a wedged snapshot recoverable: spec is mutable, so it can stop naming the
-// VirtualMachine whose filesystem this snapshot froze, and status.sourceRef is the only remaining record
-// of it.
-func TestCleanupSource_FallsBackToTheRecordedSource(t *testing.T) {
-	vm := &v1alpha2.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: "vm1", Namespace: testNamespace}}
-	recorded := func(kind string) *v1alpha2.UnifiedSnapshotterSourceRef {
-		return &v1alpha2.UnifiedSnapshotterSourceRef{
-			APIVersion: v1alpha2.SchemeGroupVersion.String(),
-			Kind:       kind,
-			Name:       "vm1",
-			Namespace:  testNamespace,
-		}
-	}
-
-	tests := []struct {
-		name     string
-		spec     v1alpha2.VirtualMachineSnapshotSpec
-		status   *v1alpha2.UnifiedSnapshotterSourceRef
-		wantName string
-	}{
-		{name: "spec resolves", spec: v1alpha2.VirtualMachineSnapshotSpec{VirtualMachineName: "vm1"}, wantName: "vm1"},
-		{name: "spec empty, status records the VM", status: recorded(v1alpha2.VirtualMachineKind), wantName: "vm1"},
-		{name: "spec empty, nothing recorded", wantName: ""},
-		{name: "recorded ref is a foreign kind", status: recorded("Pod"), wantName: ""},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			vms := &v1alpha2.VirtualMachineSnapshot{
-				ObjectMeta: metav1.ObjectMeta{Name: "vms1", Namespace: testNamespace},
-				Spec:       tt.spec,
-				Status:     v1alpha2.VirtualMachineSnapshotStatus{SourceRef: tt.status},
-			}
-			r := newFullTestReconciler(t, vms, vm)
-
-			got, _, err := r.cleanupSource(context.Background(), vms)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			switch {
-			case tt.wantName == "" && got != nil:
-				t.Fatalf("expected no VirtualMachine to unfreeze, got %q", got.Name)
-			case tt.wantName != "" && got == nil:
-				t.Fatalf("expected to resolve VirtualMachine %q, got none", tt.wantName)
-			case got != nil && got.Name != tt.wantName:
-				t.Fatalf("resolved %q, want %q", got.Name, tt.wantName)
-			}
-		})
-	}
-}
-
 // The refs write EnsureChildren fail-closed dropped (its documented TOCTOU belt) leaves the child CRs
 // created but status.childrenSnapshotRefs empty. Read as "childless", that made this controller unfreeze
 // the guest, declare the snapshot consistent and mark it Ready while the children were still capturing.
@@ -595,10 +624,6 @@ func TestChildVirtualDiskSnapshots_EmptyRefsFallBackToOwnership(t *testing.T) {
 
 	if childrenSettled(got, snapshotsdk.CoreCaptureState{}) {
 		t.Fatal("an unpublished but existing child must not read as settled")
-	}
-
-	if childrenAreConsistent(got) {
-		t.Fatal("a child that has not vouched for its disk must not read as consistent")
 	}
 }
 
@@ -714,7 +739,7 @@ func TestReconcile_ChildrenAreNotRePlannedOnceFrozen(t *testing.T) {
 			Consistent: ptr.To(true),
 		},
 	}
-	r := newFullTestReconciler(t, vms, vm, child)
+	r := newFullTestReconciler(t, vms, vm, child, grantedClaim(vms))
 
 	if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNamespace, Name: "vms1"}}); err != nil {
 		t.Fatal(err)
@@ -774,8 +799,8 @@ func TestReconcile_MissingVirtualMachineReportsWhyItWaits(t *testing.T) {
 	}
 }
 
-// planningStartedAt is what keeps the bounded planning budget honest once the unbounded wait above has
-// run: the budget starts when planning first became possible, not when the snapshot was created.
+// planningStartedAt starts the bounded planning budget when planning first became possible: after the
+// snapshot and its VirtualMachine exist and the access is granted.
 func TestPlanningStartedAt(t *testing.T) {
 	base := time.Now().Add(-time.Hour).Truncate(time.Second)
 	vms := &v1alpha2.VirtualMachineSnapshot{
@@ -783,9 +808,10 @@ func TestPlanningStartedAt(t *testing.T) {
 	}
 
 	tests := []struct {
-		name string
-		vm   *v1alpha2.VirtualMachine
-		want time.Time
+		name  string
+		vm    *v1alpha2.VirtualMachine
+		claim *coordinationv1alpha1.VirtualMachineAccessClaim
+		want  time.Time
 	}{
 		{name: "no virtual machine yet", vm: nil, want: base},
 		{
@@ -798,176 +824,20 @@ func TestPlanningStartedAt(t *testing.T) {
 			vm:   &v1alpha2.VirtualMachine{ObjectMeta: metav1.ObjectMeta{CreationTimestamp: metav1.NewTime(base.Add(30 * time.Minute))}},
 			want: base.Add(30 * time.Minute),
 		},
+		{
+			name: "access granted after a long freeze confirmation",
+			vm:   &v1alpha2.VirtualMachine{ObjectMeta: metav1.ObjectMeta{CreationTimestamp: metav1.NewTime(base.Add(-time.Hour))}},
+			claim: &coordinationv1alpha1.VirtualMachineAccessClaim{
+				Status: coordinationv1alpha1.VirtualMachineAccessClaimStatus{GrantedAt: ptr.To(metav1.NewTime(base.Add(4 * time.Minute)))},
+			},
+			want: base.Add(4 * time.Minute),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := planningStartedAt(vms, tt.vm); !got.Equal(tt.want) {
+			if got := planningStartedAt(vms, tt.vm, tt.claim); !got.Equal(tt.want) {
 				t.Errorf("planningStartedAt() = %v, want %v", got, tt.want)
 			}
-		})
-	}
-}
-
-// freezeStuckFixture is a running VirtualMachine whose guest has a freeze request pending and never
-// confirmed: SyncFSFreezeRequest clears the annotation only once fsFreezeStatus reads "frozen", so both
-// it and IsFrozen keep reporting ErrUntrustedFilesystemFrozenCondition.
-func freezeStuckFixture(t *testing.T, age time.Duration, owners []metav1.OwnerReference) (*Reconciler, ctrl.Request) {
-	t.Helper()
-
-	return freezeInFlightFixture(t, freezeFixture{
-		age:            age,
-		owners:         owners,
-		request:        service.RequestFSFreeze,
-		requestedAtAge: age,
-	})
-}
-
-// freezeFixture describes a guest with a filesystem request in flight. The two directions and the two
-// clocks are separate knobs because the bug they guard against confused exactly those: an unfreeze
-// reports the same in-flight sentinel as an unconfirmed freeze, and the budget used to be charged from
-// the snapshot's creation rather than from the request.
-type freezeFixture struct {
-	// age is how long ago the snapshot and its machine were created.
-	age time.Duration
-	// owners optionally makes the snapshot core-planned.
-	owners []metav1.OwnerReference
-	// request is the pending filesystem request on the guest: freeze, unfreeze, or "" for none.
-	request string
-	// fsFreezeStatus is what the guest reports; "frozen" alongside an unfreeze request is a capture on
-	// its way out.
-	fsFreezeStatus string
-	// requestedAtAge, when non-zero, records the freeze as having been asked for that long ago.
-	requestedAtAge time.Duration
-	// unfreezeRequestedAtAge, when non-zero, records the unfreeze as having been asked for that long
-	// ago. Zero leaves it untimed, which is waited on indefinitely.
-	unfreezeRequestedAtAge time.Duration
-}
-
-func freezeInFlightFixture(t *testing.T, f freezeFixture) (*Reconciler, ctrl.Request) {
-	t.Helper()
-
-	vmsAnnotations := map[string]string{v1alpha2.AnnUseUnifiedSnapshotter: ""}
-	if f.requestedAtAge > 0 {
-		vmsAnnotations[annFSFreezeRequestedAt] = time.Now().Add(-f.requestedAtAge).UTC().Format(time.RFC3339)
-	}
-
-	if f.unfreezeRequestedAtAge > 0 {
-		vmsAnnotations[annFSUnfreezeRequestedAt] = time.Now().Add(-f.unfreezeRequestedAtAge).UTC().Format(time.RFC3339)
-	}
-
-	vms := &v1alpha2.VirtualMachineSnapshot{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "vms1", Namespace: testNamespace,
-			Annotations:       vmsAnnotations,
-			Finalizers:        []string{v1alpha2.FinalizerVMSnapshotCleanup},
-			OwnerReferences:   f.owners,
-			CreationTimestamp: metav1.NewTime(time.Now().Add(-f.age)),
-		},
-		Spec: v1alpha2.VirtualMachineSnapshotSpec{VirtualMachineName: "vm1", RequiredConsistency: true},
-		Status: v1alpha2.VirtualMachineSnapshotStatus{
-			Phase: v1alpha2.VirtualMachineSnapshotPhaseInProgress,
-		},
-	}
-	vm := &v1alpha2.VirtualMachine{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "vm1", Namespace: testNamespace,
-			CreationTimestamp: metav1.NewTime(time.Now().Add(-f.age)),
-		},
-	}
-
-	kvvmi := &virtv1.VirtualMachineInstance{
-		ObjectMeta: metav1.ObjectMeta{Name: "vm1", Namespace: testNamespace},
-		Status: virtv1.VirtualMachineInstanceStatus{
-			Phase:          virtv1.Running,
-			FSFreezeStatus: f.fsFreezeStatus,
-		},
-	}
-	if f.request != "" {
-		kvvmi.Annotations = map[string]string{annotations.AnnVMFilesystemRequest: f.request}
-	}
-
-	r := newFullTestReconciler(t, vms, vm, kvvmi)
-
-	return r, ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNamespace, Name: "vms1"}}
-}
-
-var coreSnapshotOwner = []metav1.OwnerReference{{
-	APIVersion: "state-snapshotter.deckhouse.io/v1alpha1",
-	Kind:       "Snapshot",
-	Name:       "namespace-snapshot",
-	UID:        "snap-uid",
-}}
-
-// Inside the budget the node waits, and it must say what it waits for. Before the published reason the
-// only user-visible signal was the core's ManifestCapturePending, which points at the wrong leg.
-func TestReconcile_FreezeInFlightReportsWhyItWaits(t *testing.T) {
-	r, req := freezeStuckFixture(t, time.Second, nil)
-
-	res, err := r.Reconcile(context.Background(), req)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if res.RequeueAfter != requeueAfter {
-		t.Fatalf("got RequeueAfter %v, want %v", res.RequeueAfter, requeueAfter)
-	}
-
-	d := getVMS(t, r.Client).Status.CaptureState.DomainSpecificController
-	if d.Reason != string(vmscondition.FileSystemFreezing) {
-		t.Fatalf("domain reason = %q, want %q", d.Reason, vmscondition.FileSystemFreezing)
-	}
-
-	if d.Message == "" {
-		t.Fatal("expected a message naming the virtual machine being waited on")
-	}
-}
-
-// assertFreezeRequestRetired checks that the abandoned request annotation is gone. Leaving it behind
-// would make every later SyncFSFreezeRequest fail with the same sentinel — including releaseFreeze's on
-// the way out, which would hold the snapshot short of its terminal phase.
-func assertFreezeRequestRetired(t *testing.T, c client.Client) {
-	t.Helper()
-
-	kvvmi := &virtv1.VirtualMachineInstance{}
-	if err := c.Get(context.Background(), types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, kvvmi); err != nil {
-		t.Fatalf("get VirtualMachineInstance: %v", err)
-	}
-
-	if req, ok := kvvmi.Annotations[annotations.AnnVMFilesystemRequest]; ok {
-		t.Fatalf("freeze request %q was left pending on the guest", req)
-	}
-}
-
-// The capture fails if spent the wait budget.
-// A freeze that the guest never confirms fails the snapshot. The
-// abandoned freeze request is retired either way, so it does not wedge the next freeze round-trip.
-func TestReconcile_UnconfirmedFreezeFailsTheCapture(t *testing.T) {
-	tests := []struct {
-		name   string
-		owners []metav1.OwnerReference
-	}{
-		{
-			name: "asked for by a user",
-		},
-		{
-			name:   "planned by the core for a namespace snapshot",
-			owners: coreSnapshotOwner,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			r, req := freezeStuckFixture(t, 2*freezeConfirmDeadline, tt.owners)
-
-			if _, err := r.Reconcile(context.Background(), req); err != nil {
-				t.Fatal(err)
-			}
-
-			d := getVMS(t, r.Client).Status.CaptureState.DomainSpecificController
-			if d.Reason != string(vmscondition.PotentiallyInconsistent) {
-				t.Fatalf("domain reason = %q, want %q", d.Reason, vmscondition.PotentiallyInconsistent)
-			}
-
-			assertFreezeRequestRetired(t, r.Client)
 		})
 	}
 }
@@ -1083,277 +953,6 @@ func TestReconcile_ImportModeRepublishesTheUploadedChildren(t *testing.T) {
 	}
 }
 
-// The unfreeze at the end of a successful capture reports the same in-flight sentinel as a freeze the
-// guest never confirmed. Charged to the freeze budget, it failed captures that had already frozen the
-// guest, snapshotted every disk consistently, and were simply on their way out — every capture that
-// outlived the budget died on its own teardown.
-func TestReconcile_AnInFlightUnfreezeIsNotAnUnconfirmedFreeze(t *testing.T) {
-	r, req := freezeInFlightFixture(t, freezeFixture{
-		age:     10 * freezeConfirmDeadline,
-		request: service.RequestFSUnfreeze,
-		// The guest is still frozen: that is what an unfreeze in flight looks like, and it is the
-		// opposite of a freeze that never landed.
-		fsFreezeStatus: service.FSFrozen,
-	})
-
-	if _, err := r.Reconcile(context.Background(), req); err != nil {
-		t.Fatal(err)
-	}
-
-	vms := getVMS(t, r.Client)
-	if d := vms.Status.CaptureState.DomainSpecificController; d != nil && d.Reason == string(vmscondition.PotentiallyInconsistent) {
-		t.Fatalf("the capture was failed as inconsistent on an unfreeze: reason=%q message=%q", d.Reason, d.Message)
-	}
-
-	if vms.Status.Phase == v1alpha2.VirtualMachineSnapshotPhaseFailed {
-		t.Error("phase = Failed; an unfreeze on its way through must be waited out, not charged to the freeze budget")
-	}
-
-	// The request must survive: discarding it here would strand the guest frozen.
-	kvvmi := &virtv1.VirtualMachineInstance{}
-	if err := r.Client.Get(context.Background(), types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, kvvmi); err != nil {
-		t.Fatalf("get the instance: %v", err)
-	}
-
-	if got := kvvmi.Annotations[annotations.AnnVMFilesystemRequest]; got != service.RequestFSUnfreeze {
-		t.Errorf("filesystem request = %q, want the unfreeze left in flight", got)
-	}
-}
-
-// An unfreeze within its budget is still waited on: the stamp bounds the wait, it does not shorten it.
-func TestReconcile_AnUnfreezeInsideItsBudgetIsStillWaitedOn(t *testing.T) {
-	r, req := freezeInFlightFixture(t, freezeFixture{
-		age:                    10 * freezeConfirmDeadline,
-		request:                service.RequestFSUnfreeze,
-		fsFreezeStatus:         service.FSFrozen,
-		unfreezeRequestedAtAge: unfreezeConfirmDeadline / 2,
-	})
-
-	if _, err := r.Reconcile(context.Background(), req); err != nil {
-		t.Fatal(err)
-	}
-
-	kvvmi := &virtv1.VirtualMachineInstance{}
-	if err := r.Client.Get(context.Background(), types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, kvvmi); err != nil {
-		t.Fatalf("get the instance: %v", err)
-	}
-
-	if got := kvvmi.Annotations[annotations.AnnVMFilesystemRequest]; got != service.RequestFSUnfreeze {
-		t.Errorf("filesystem request = %q, want the unfreeze still in flight inside its budget", got)
-	}
-}
-
-// Past its budget an unfreeze stops blocking the pass, and never by failing the capture: an unconfirmed
-// unfreeze reports the in-flight sentinel forever, which parks every later pass in the freeze wait.
-func TestReconcile_AnUnconfirmedUnfreezeIsAbandonedNotWaitedOnForever(t *testing.T) {
-	r, req := freezeInFlightFixture(t, freezeFixture{
-		age:                    10 * freezeConfirmDeadline,
-		request:                service.RequestFSUnfreeze,
-		fsFreezeStatus:         service.FSFrozen,
-		unfreezeRequestedAtAge: 2 * unfreezeConfirmDeadline,
-	})
-	ctx := context.Background()
-
-	if _, err := r.Reconcile(ctx, req); err != nil {
-		t.Fatal(err)
-	}
-
-	vms := getVMS(t, r.Client)
-
-	d := vms.Status.CaptureState.DomainSpecificController
-	if d != nil && d.Reason == string(vmscondition.PotentiallyInconsistent) {
-		t.Fatalf("the capture was failed as inconsistent on an unfreeze: reason=%q message=%q", d.Reason, d.Message)
-	}
-
-	if vms.Status.Phase == v1alpha2.VirtualMachineSnapshotPhaseFailed {
-		t.Error("phase = Failed; an abandoned unfreeze must not fail a capture whose freeze was confirmed")
-	}
-	// The freeze wait's reason marks a pass that ended there, leaving the capture state machine below
-	// it — releaseFreeze included — unreached.
-	if d != nil && d.Reason == string(vmscondition.FileSystemFreezing) {
-		t.Error("the pass parked in the freeze wait; past its budget the unfreeze must stop blocking the capture")
-	}
-}
-
-// releaseFreeze decides the abandonment, so its contract is checked directly: false means another
-// requeue to every caller, which for a request the guest never confirms never ends.
-func TestReleaseFreeze_AbandonsAnUnfreezeTheGuestNeverConfirms(t *testing.T) {
-	r, _ := freezeInFlightFixture(t, freezeFixture{
-		age:                    10 * freezeConfirmDeadline,
-		request:                service.RequestFSUnfreeze,
-		fsFreezeStatus:         service.FSFrozen,
-		unfreezeRequestedAtAge: 2 * unfreezeConfirmDeadline,
-	})
-	ctx := context.Background()
-
-	vms := getVMS(t, r.Client)
-
-	vm := &v1alpha2.VirtualMachine{}
-	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, vm); err != nil {
-		t.Fatalf("get the virtual machine: %v", err)
-	}
-
-	kvvmi := &virtv1.VirtualMachineInstance{}
-	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, kvvmi); err != nil {
-		t.Fatalf("get the instance: %v", err)
-	}
-
-	if !r.releaseFreeze(ctx, vms, vm, kvvmi) {
-		t.Error("releaseFreeze = false past the unfreeze budget; every caller reads that as another requeue")
-	}
-
-	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, kvvmi); err != nil {
-		t.Fatalf("get the instance: %v", err)
-	}
-
-	if got := kvvmi.Annotations[annotations.AnnVMFilesystemRequest]; got == service.RequestFSUnfreeze {
-		t.Error("the abandoned unfreeze request is still pending; it is what keeps every later round-trip failing")
-	}
-}
-
-// Inside its budget releaseFreeze reports "not released" and leaves the request in flight, so a guest
-// answering normally is never cut short.
-func TestReleaseFreeze_KeepsAnUnfreezeInsideItsBudget(t *testing.T) {
-	r, _ := freezeInFlightFixture(t, freezeFixture{
-		age:                    10 * freezeConfirmDeadline,
-		request:                service.RequestFSUnfreeze,
-		fsFreezeStatus:         service.FSFrozen,
-		unfreezeRequestedAtAge: unfreezeConfirmDeadline / 2,
-	})
-	r.Freezer = service.NewSnapshotService(&countingVirtClient{}, r.Client, nil)
-	ctx := context.Background()
-
-	vms := getVMS(t, r.Client)
-
-	vm := &v1alpha2.VirtualMachine{}
-	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, vm); err != nil {
-		t.Fatalf("get the virtual machine: %v", err)
-	}
-
-	kvvmi := &virtv1.VirtualMachineInstance{}
-	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, kvvmi); err != nil {
-		t.Fatalf("get the instance: %v", err)
-	}
-
-	if r.releaseFreeze(ctx, vms, vm, kvvmi) {
-		t.Error("releaseFreeze = true inside the unfreeze budget; the guest is still frozen and answering")
-	}
-
-	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, kvvmi); err != nil {
-		t.Fatalf("get the instance: %v", err)
-	}
-
-	if got := kvvmi.Annotations[annotations.AnnVMFilesystemRequest]; got != service.RequestFSUnfreeze {
-		t.Errorf("filesystem request = %q, want the unfreeze left in flight inside its budget", got)
-	}
-}
-
-// The budget measures how long the guest has had to answer, so it starts when the freeze was asked for.
-// Counted from the snapshot's creation instead, everything that happens before the request — waiting for
-// the source, planning, capturing disk data — was charged to the guest's response time.
-func TestReconcile_TheFreezeBudgetStartsAtTheRequest(t *testing.T) {
-	r, req := freezeInFlightFixture(t, freezeFixture{
-		// Long-lived snapshot: under the old accounting this alone exhausted the budget.
-		age:     10 * freezeConfirmDeadline,
-		request: service.RequestFSFreeze,
-		// ...but the guest was only just asked.
-		requestedAtAge: time.Second,
-	})
-
-	if _, err := r.Reconcile(context.Background(), req); err != nil {
-		t.Fatal(err)
-	}
-
-	vms := getVMS(t, r.Client)
-	if d := vms.Status.CaptureState.DomainSpecificController; d != nil && d.Reason == string(vmscondition.PotentiallyInconsistent) {
-		t.Fatalf("the capture was failed after %s of waiting, budget %s: reason=%q", time.Second, freezeConfirmDeadline, d.Reason)
-	}
-}
-
-// And once the guest really has had its time, the budget still fires.
-func TestReconcile_TheFreezeBudgetStillExpires(t *testing.T) {
-	r, req := freezeInFlightFixture(t, freezeFixture{
-		age:            2 * freezeConfirmDeadline,
-		request:        service.RequestFSFreeze,
-		requestedAtAge: 2 * freezeConfirmDeadline,
-	})
-
-	if _, err := r.Reconcile(context.Background(), req); err != nil {
-		t.Fatal(err)
-	}
-
-	d := getVMS(t, r.Client).Status.CaptureState.DomainSpecificController
-	if d == nil || d.Reason != string(vmscondition.PotentiallyInconsistent) {
-		t.Fatalf("domain reason = %v, want %q", d, vmscondition.PotentiallyInconsistent)
-	}
-
-	assertFreezeRequestRetired(t, r.Client)
-}
-
-// A snapshot that predates the stamp, or a request this controller did not issue, has no recorded
-// moment to measure from. Planning start is the only honest floor left, and the budget must still work.
-func TestReconcile_TheFreezeBudgetFallsBackWithoutAStamp(t *testing.T) {
-	r, req := freezeInFlightFixture(t, freezeFixture{
-		age:     2 * freezeConfirmDeadline,
-		request: service.RequestFSFreeze,
-		// requestedAtAge deliberately unset: no stamp on the snapshot.
-	})
-
-	if _, err := r.Reconcile(context.Background(), req); err != nil {
-		t.Fatal(err)
-	}
-
-	d := getVMS(t, r.Client).Status.CaptureState.DomainSpecificController
-	if d == nil || d.Reason != string(vmscondition.PotentiallyInconsistent) {
-		t.Fatalf("domain reason = %v, want %q", d, vmscondition.PotentiallyInconsistent)
-	}
-}
-
-// The core writes this snapshot's status continuously while the capture runs, so any copy this
-// controller holds goes stale within moments. Writing metadata with an Update then failed the whole
-// reconcile — "the object has been modified" — over a field nothing else contends for.
-func TestRecordFreezeRequest_SurvivesAStaleCopy(t *testing.T) {
-	vms := &v1alpha2.VirtualMachineSnapshot{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "vms1", Namespace: testNamespace,
-			Annotations: map[string]string{v1alpha2.AnnUseUnifiedSnapshotter: ""},
-		},
-		Spec: v1alpha2.VirtualMachineSnapshotSpec{VirtualMachineName: "vm1", RequiredConsistency: true},
-	}
-	r := newFullTestReconciler(t, vms)
-	ctx := context.Background()
-
-	// Somebody else advances the object, the way the core does when it binds a content.
-	live := getVMS(t, r.Client)
-
-	live.Status.BoundSnapshotContentName = "nss-content-1"
-	if err := r.Client.Status().Update(ctx, live); err != nil {
-		t.Fatalf("simulate the core's write: %v", err)
-	}
-
-	// vms still carries the resourceVersion from before that write.
-	if err := r.recordFSRequestedAt(ctx, vms, annFSFreezeRequestedAt); err != nil {
-		t.Fatalf("record the freeze request from a stale copy: %v", err)
-	}
-
-	stored := getVMS(t, r.Client)
-	if _, ok := stored.Annotations[annFSFreezeRequestedAt]; !ok {
-		t.Error("the request time was not recorded")
-	}
-	// The annotation somebody else put there must survive a merge patch.
-	if _, ok := stored.Annotations[v1alpha2.AnnUseUnifiedSnapshotter]; !ok {
-		t.Error("the patch replaced the annotation map instead of merging into it")
-	}
-
-	if stored.Status.BoundSnapshotContentName != "nss-content-1" {
-		t.Error("the patch clobbered the status the core had written")
-	}
-	// The caller keeps using vms after this, so its local copy has to agree with the server.
-	if vms.Annotations[annFSFreezeRequestedAt] != stored.Annotations[annFSFreezeRequestedAt] {
-		t.Error("the in-memory copy does not carry what was stored")
-	}
-}
-
 // The finalizer list cannot be merged — a patch replaces it wholesale — so it is written under an
 // optimistic lock and retried against a fresh read. What must never happen is that a finalizer added by
 // somebody else, foregroundDeletion among them, disappears because this controller wrote from a stale
@@ -1442,7 +1041,7 @@ func TestReconcile_StopsQuietlyWhenTheSnapshotIsDeletedMidReconcile(t *testing.T
 	c := fake.NewClientBuilder().
 		WithScheme(newTestScheme(t)).
 		WithObjects(vms, vm).
-		WithStatusSubresource(&v1alpha2.VirtualMachineSnapshot{}).
+		WithStatusSubresource(&v1alpha2.VirtualMachineSnapshot{}, &coordinationv1alpha1.VirtualMachineAccessClaim{}).
 		WithInterceptorFuncs(interceptor.Funcs{
 			Get: func(ctx context.Context, cl client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
 				if _, ours := obj.(*v1alpha2.VirtualMachineSnapshot); ours {
@@ -1463,7 +1062,7 @@ func TestReconcile_StopsQuietlyWhenTheSnapshotIsDeletedMidReconcile(t *testing.T
 		}).
 		Build()
 
-	r := &Reconciler{Client: c, APIReader: c, Freezer: service.NewSnapshotService(nil, c, nil), Log: log.NewNop()}
+	r := &Reconciler{Client: c, APIReader: c, Log: log.NewNop()}
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNamespace, Name: "vms1"}}
 
 	res, err := r.Reconcile(context.Background(), req)
@@ -1485,12 +1084,7 @@ func TestReconcile_StopsQuietlyWhenTheSnapshotIsDeletedMidReconcile(t *testing.T
 // resourceVersion — and since the controller watches its own object, every write re-enqueues the next
 // reconcile at once, which is a write storm for as long as the wait lasts.
 func TestReconcile_AWaitingPassDoesNotRewriteTheDomainStatus(t *testing.T) {
-	r, req := freezeInFlightFixture(t, freezeFixture{
-		age:            10 * freezeConfirmDeadline,
-		request:        service.RequestFSFreeze,
-		fsFreezeStatus: "",
-		requestedAtAge: freezeConfirmDeadline / 2,
-	})
+	r, req := accessFixture(t, coordinationv1alpha1.AccessClaimPhasePending, string(vmaccondition.Freezing), "Waiting for the guest to confirm the filesystem freeze.")
 	ctx := context.Background()
 
 	if _, err := r.Reconcile(ctx, req); err != nil {
@@ -1501,7 +1095,7 @@ func TestReconcile_AWaitingPassDoesNotRewriteTheDomainStatus(t *testing.T) {
 
 	d := settled.Status.CaptureState.DomainSpecificController
 	if d == nil || d.Reason != string(vmscondition.FileSystemFreezing) {
-		t.Fatalf("the first pass did not park in the freeze wait: %+v", d)
+		t.Fatalf("the first pass did not park in the access wait: %+v", d)
 	}
 
 	before := settled.ResourceVersion
@@ -1563,8 +1157,8 @@ func TestReconcile_TheParentCarriesCaptureStateWhenAChildIsCreated(t *testing.T)
 
 	c := fake.NewClientBuilder().
 		WithScheme(newTestScheme(t)).
-		WithObjects(vms, vm, vd, kvvmi).
-		WithStatusSubresource(&v1alpha2.VirtualMachineSnapshot{}).
+		WithObjects(vms, vm, vd, kvvmi, grantedClaim(vms)).
+		WithStatusSubresource(&v1alpha2.VirtualMachineSnapshot{}, &coordinationv1alpha1.VirtualMachineAccessClaim{}).
 		WithInterceptorFuncs(interceptor.Funcs{
 			Create: func(ctx context.Context, cl client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
 				if vds, ok := obj.(*v1alpha2.VirtualDiskSnapshot); ok {
@@ -1582,7 +1176,7 @@ func TestReconcile_TheParentCarriesCaptureStateWhenAChildIsCreated(t *testing.T)
 			},
 		}).
 		Build()
-	r := &Reconciler{Client: c, APIReader: c, Freezer: service.NewSnapshotService(nil, c, nil), Log: log.NewNop()}
+	r := &Reconciler{Client: c, APIReader: c, Log: log.NewNop()}
 
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNamespace, Name: "vms1"}}
 	if _, err := r.Reconcile(context.Background(), req); err != nil {
@@ -1596,339 +1190,6 @@ func TestReconcile_TheParentCarriesCaptureStateWhenAChildIsCreated(t *testing.T)
 	if len(orphanedChildren) > 0 {
 		t.Errorf("%d child(ren) were created while the parent had no captureState: %v; "+
 			"they would route to the built-in controller", len(orphanedChildren), orphanedChildren)
-	}
-}
-
-// kvvmi.Status.FSFreezeStatus is not a latch: on a cluster it was seen going frozen -> empty ->
-// frozen within seconds while the capture held the freeze. Reading the empty moment as "already
-// thawed" finishes the capture without unfreezing, and the guest stays frozen with no object left to
-// drive a recovery from. A freeze this snapshot was confirmed to hold is released whatever the field
-// says.
-func TestReleaseFreeze_ReleasesAConfirmedFreezeWhenTheStatusReadsEmpty(t *testing.T) {
-	r, _ := freezeInFlightFixture(t, freezeFixture{
-		age: time.Minute,
-		// The flap itself: the guest froze for this snapshot earlier, and right now the field is empty.
-		request:        "",
-		fsFreezeStatus: "",
-	})
-	ctx := context.Background()
-
-	vms := getVMS(t, r.Client)
-	if vms.Annotations == nil {
-		vms.Annotations = map[string]string{}
-	}
-
-	r.Freezer = service.NewSnapshotService(unfreezingVirtClient{}, r.Client, nil)
-
-	vms.Annotations[annFSFrozenConfirmedAt] = time.Now().Add(-30 * time.Second).UTC().Format(time.RFC3339)
-	if err := r.Client.Update(ctx, vms); err != nil {
-		t.Fatalf("stamp the confirmed freeze: %v", err)
-	}
-
-	vm := &v1alpha2.VirtualMachine{}
-	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, vm); err != nil {
-		t.Fatalf("get the virtual machine: %v", err)
-	}
-
-	kvvmi := &virtv1.VirtualMachineInstance{}
-	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, kvvmi); err != nil {
-		t.Fatalf("get the instance: %v", err)
-	}
-
-	if r.releaseFreeze(ctx, vms, vm, kvvmi) {
-		t.Error("releaseFreeze reported the freeze released; an empty status is not proof the guest thawed")
-	}
-
-	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, kvvmi); err != nil {
-		t.Fatalf("get the instance: %v", err)
-	}
-
-	if got := kvvmi.Annotations[annotations.AnnVMFilesystemRequest]; got != service.RequestFSUnfreeze {
-		t.Errorf("filesystem request = %q, want an unfreeze to have been issued", got)
-	}
-}
-
-// The override that unfreezes through an empty status must still yield to a sibling. Another
-// snapshot of the same machine that is still capturing needs the guest frozen, and thawing it there
-// would hand that snapshot a filesystem that moved under it while it reports itself consistent.
-func TestReleaseFreeze_LeavesTheFreezeToASiblingStillCapturing(t *testing.T) {
-	r, _ := freezeInFlightFixture(t, freezeFixture{
-		age:            time.Minute,
-		request:        "",
-		fsFreezeStatus: "",
-	})
-	ctx := context.Background()
-
-	vms := getVMS(t, r.Client)
-	if vms.Annotations == nil {
-		vms.Annotations = map[string]string{}
-	}
-
-	r.Freezer = service.NewSnapshotService(unfreezingVirtClient{}, r.Client, nil)
-
-	vms.Annotations[annFSFrozenConfirmedAt] = time.Now().Add(-30 * time.Second).UTC().Format(time.RFC3339)
-	if err := r.Client.Update(ctx, vms); err != nil {
-		t.Fatalf("stamp the confirmed freeze: %v", err)
-	}
-
-	sibling := &v1alpha2.VirtualMachineSnapshot{
-		ObjectMeta: metav1.ObjectMeta{Name: "vms2", Namespace: testNamespace},
-		Spec:       v1alpha2.VirtualMachineSnapshotSpec{VirtualMachineName: "vm1", RequiredConsistency: true},
-		Status: v1alpha2.VirtualMachineSnapshotStatus{
-			Phase: v1alpha2.VirtualMachineSnapshotPhaseInProgress,
-		},
-	}
-	if err := r.Client.Create(ctx, sibling); err != nil {
-		t.Fatalf("create the sibling snapshot: %v", err)
-	}
-
-	vm := &v1alpha2.VirtualMachine{}
-	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, vm); err != nil {
-		t.Fatalf("get the virtual machine: %v", err)
-	}
-
-	kvvmi := &virtv1.VirtualMachineInstance{}
-	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, kvvmi); err != nil {
-		t.Fatalf("get the instance: %v", err)
-	}
-
-	if !r.releaseFreeze(ctx, vms, vm, kvvmi) {
-		t.Error("releaseFreeze reported work left to do; the sibling owns the freeze and this snapshot waits on nothing")
-	}
-
-	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, kvvmi); err != nil {
-		t.Fatalf("get the instance: %v", err)
-	}
-
-	if got := kvvmi.Annotations[annotations.AnnVMFilesystemRequest]; got != "" {
-		t.Errorf("filesystem request = %q, want none: the sibling still needs the guest frozen", got)
-	}
-
-	// Handing the freeze over has to be recorded, or this snapshot keeps reading as a holder and the
-	// disk captures under it vouch for a freeze it no longer owns.
-	if _, annotated := getVMS(t, r.Client).Annotations[annFSUnfreezeRequestedAt]; !annotated {
-		t.Error("the snapshot still claims an unreleased freeze after leaving it to the sibling")
-	}
-}
-
-// A freeze the guest never confirmed owes no release: the freeze budget abandons it, and issuing an
-// unfreeze for it would be asking the guest to undo something it never did.
-func TestReleaseFreeze_DoesNotReleaseAFreezeTheGuestNeverConfirmed(t *testing.T) {
-	r, _ := freezeInFlightFixture(t, freezeFixture{
-		age:            time.Minute,
-		request:        "",
-		fsFreezeStatus: "",
-		requestedAtAge: 30 * time.Second,
-	})
-	ctx := context.Background()
-
-	vms := getVMS(t, r.Client)
-
-	vm := &v1alpha2.VirtualMachine{}
-	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, vm); err != nil {
-		t.Fatalf("get the virtual machine: %v", err)
-	}
-
-	kvvmi := &virtv1.VirtualMachineInstance{}
-	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, kvvmi); err != nil {
-		t.Fatalf("get the instance: %v", err)
-	}
-
-	if !r.releaseFreeze(ctx, vms, vm, kvvmi) {
-		t.Error("releaseFreeze = false for a freeze that was asked for but never confirmed; there is nothing to release")
-	}
-}
-
-// unfreezingVirtClient is the smallest kubevirt client that answers an unfreeze. The shared fixture
-// installs it so that any pass re-sending a pending unfreeze has something to call; a test that cares
-// how often it is called swaps in countingVirtClient instead.
-type unfreezingVirtClient struct {
-	kubeclient.Client
-}
-
-func (unfreezingVirtClient) VirtualMachines(string) v1alpha2clientsetcore.VirtualMachineInterface {
-	return unfreezingVirtualMachines{}
-}
-
-type unfreezingVirtualMachines struct {
-	v1alpha2clientsetcore.VirtualMachineInterface
-}
-
-func (unfreezingVirtualMachines) Unfreeze(context.Context, string, subv1alpha2.VirtualMachineUnfreeze) error {
-	return nil
-}
-
-// The stamp is what lets releaseFreeze re-send a pending unfreeze and bounds it by the unfreeze
-// budget. Stamping only after the request succeeds leaves a failed attempt neither repeated nor timed.
-func TestRequestUnfreeze_StampsTheBudgetEvenWhenTheRequestFails(t *testing.T) {
-	// A freeze request pending on the instance makes Unfreeze refuse before it reaches the API — a
-	// deterministic failure, standing in for any reason the request may not go through.
-	r, _ := freezeInFlightFixture(t, freezeFixture{
-		age:            time.Minute,
-		request:        service.RequestFSFreeze,
-		fsFreezeStatus: service.FSFrozen,
-	})
-	ctx := context.Background()
-
-	vms := getVMS(t, r.Client)
-
-	kvvmi := &virtv1.VirtualMachineInstance{}
-	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, kvvmi); err != nil {
-		t.Fatalf("get the instance: %v", err)
-	}
-
-	if released := r.requestUnfreeze(ctx, vms, kvvmi, slog.New(slog.NewTextHandler(io.Discard, nil))); released {
-		t.Error("requestUnfreeze reported the freeze released; the guest confirms asynchronously")
-	}
-
-	if _, stamped := getVMS(t, r.Client).Annotations[annFSUnfreezeRequestedAt]; !stamped {
-		t.Error("no unfreeze stamp after a failed request: the budget never starts and the guest stays frozen")
-	}
-}
-
-// countingVirtClient is a kubevirt client whose Unfreeze succeeds and counts the calls, so a test can
-// tell whether releaseFreeze re-sent a pending unfreeze.
-type countingVirtClient struct {
-	kubeclient.Client
-	unfreezes int
-}
-
-func (c *countingVirtClient) VirtualMachines(string) v1alpha2clientsetcore.VirtualMachineInterface {
-	return countingVirtualMachines{client: c}
-}
-
-type countingVirtualMachines struct {
-	v1alpha2clientsetcore.VirtualMachineInterface
-	client *countingVirtClient
-}
-
-func (m countingVirtualMachines) Unfreeze(context.Context, string, subv1alpha2.VirtualMachineUnfreeze) error {
-	m.client.unfreezes++
-	return nil
-}
-
-// releaseFreezeOnce runs one releaseFreeze pass against the objects as they are stored now.
-func releaseFreezeOnce(t *testing.T, r *Reconciler) bool {
-	t.Helper()
-
-	ctx := context.Background()
-
-	vm := &v1alpha2.VirtualMachine{}
-	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, vm); err != nil {
-		t.Fatalf("get the virtual machine: %v", err)
-	}
-
-	kvvmi := &virtv1.VirtualMachineInstance{}
-	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, kvvmi); err != nil {
-		t.Fatalf("get the instance: %v", err)
-	}
-
-	return r.releaseFreeze(ctx, getVMS(t, r.Client), vm, kvvmi)
-}
-
-// An unfreeze whose API call failed stays pending on a still-frozen guest, and SyncFSFreezeRequest
-// parks every later pass on it before requestUnfreeze is reached. Unless releaseFreeze re-sends it, the
-// guest stays frozen until the deadline abandons the request with the guest still frozen.
-func TestReleaseFreeze_ResendsAPendingUnfreezeTheGuestHasNotConfirmed(t *testing.T) {
-	r, _ := freezeInFlightFixture(t, freezeFixture{
-		age:                    10 * freezeConfirmDeadline,
-		request:                service.RequestFSUnfreeze,
-		fsFreezeStatus:         service.FSFrozen,
-		unfreezeRequestedAtAge: 2 * unfreezeRetryInterval,
-	})
-	virt := &countingVirtClient{}
-	r.Freezer = service.NewSnapshotService(virt, r.Client, nil)
-
-	if releaseFreezeOnce(t, r) {
-		t.Error("releaseFreeze reported the freeze released; the guest is still frozen")
-	}
-
-	if virt.unfreezes != 1 {
-		t.Fatalf("unfreeze sent %d times, want it re-sent once", virt.unfreezes)
-	}
-
-	// The next requeue comes seconds later, well inside unfreezeRetryInterval.
-	releaseFreezeOnce(t, r)
-
-	if virt.unfreezes != 1 {
-		t.Errorf("unfreeze sent %d times, want no second re-send inside the retry interval", virt.unfreezes)
-	}
-}
-
-// The re-send has to happen on the path a pass actually takes. SyncFSFreezeRequest reports the
-// in-flight sentinel at the top of the reconcile and the freeze wait returns there, so a pending
-// unfreeze never reaches releaseFreeze while the snapshot is still capturing: of the five release
-// sites only the two behind the phase switch — a failed capture and a deletion — run ahead of that
-// gate. A re-send reachable only from releaseFreeze leaves the guest frozen until the budget
-// abandons the request.
-func TestReconcile_ResendsAPendingUnfreezeTheFreezeWaitWouldOtherwiseSwallow(t *testing.T) {
-	r, req := freezeInFlightFixture(t, freezeFixture{
-		age:                    10 * freezeConfirmDeadline,
-		request:                service.RequestFSUnfreeze,
-		fsFreezeStatus:         service.FSFrozen,
-		unfreezeRequestedAtAge: 2 * unfreezeRetryInterval,
-	})
-	virt := &countingVirtClient{}
-	r.Freezer = service.NewSnapshotService(virt, r.Client, nil)
-
-	if _, err := r.Reconcile(context.Background(), req); err != nil {
-		t.Fatal(err)
-	}
-
-	if virt.unfreezes != 1 {
-		t.Fatalf("unfreeze sent %d times, want the reconcile to re-send it once", virt.unfreezes)
-	}
-
-	// The next requeue comes seconds later, well inside unfreezeRetryInterval.
-	if _, err := r.Reconcile(context.Background(), req); err != nil {
-		t.Fatal(err)
-	}
-
-	if virt.unfreezes != 1 {
-		t.Errorf("unfreeze sent %d times, want no second re-send inside the retry interval", virt.unfreezes)
-	}
-}
-
-// A freshly sent unfreeze is the guest's to confirm; re-sending it on every requeue only queues more
-// requests behind a guest agent that is already thawing. Asserted through the reconcile as well as
-// through releaseFreeze, because the two reach the re-send by different paths.
-func TestReconcile_DoesNotResendAFreshUnfreeze(t *testing.T) {
-	r, req := freezeInFlightFixture(t, freezeFixture{
-		age:                    10 * freezeConfirmDeadline,
-		request:                service.RequestFSUnfreeze,
-		fsFreezeStatus:         service.FSFrozen,
-		unfreezeRequestedAtAge: unfreezeRetryInterval / 2,
-	})
-	virt := &countingVirtClient{}
-	r.Freezer = service.NewSnapshotService(virt, r.Client, nil)
-
-	if _, err := r.Reconcile(context.Background(), req); err != nil {
-		t.Fatal(err)
-	}
-
-	if virt.unfreezes != 0 {
-		t.Errorf("unfreeze sent %d times, want none inside the retry interval", virt.unfreezes)
-	}
-}
-
-// A freshly sent unfreeze is the guest's to confirm; re-sending it on every requeue only queues more
-// requests behind a guest agent that is already thawing.
-func TestReleaseFreeze_DoesNotResendAFreshUnfreeze(t *testing.T) {
-	r, _ := freezeInFlightFixture(t, freezeFixture{
-		age:                    10 * freezeConfirmDeadline,
-		request:                service.RequestFSUnfreeze,
-		fsFreezeStatus:         service.FSFrozen,
-		unfreezeRequestedAtAge: unfreezeRetryInterval / 2,
-	})
-	virt := &countingVirtClient{}
-	r.Freezer = service.NewSnapshotService(virt, r.Client, nil)
-
-	if releaseFreezeOnce(t, r) {
-		t.Error("releaseFreeze reported the freeze released; the guest is still frozen")
-	}
-
-	if virt.unfreezes != 0 {
-		t.Errorf("unfreeze sent %d times, want none inside the retry interval", virt.unfreezes)
 	}
 }
 
@@ -2019,7 +1280,7 @@ func TestReconcile_FailedChildNeverYieldsAReadySnapshot(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "child", Namespace: testNamespace},
 				Status:     childStatus,
 			}
-			r := newFullTestReconciler(t, vms, vm, child)
+			r := newFullTestReconciler(t, vms, vm, child, grantedClaim(vms))
 
 			if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNamespace, Name: "vms1"}}); err != nil {
 				t.Fatal(err)
@@ -2034,5 +1295,71 @@ func TestReconcile_FailedChildNeverYieldsAReadySnapshot(t *testing.T) {
 				t.Fatalf("domain state = %+v, want Failed naming the child", d)
 			}
 		})
+	}
+}
+
+// A capture the core failed stays failed once its released claim completes: the claim verdict only
+// settles consistency and never turns a failed capture into a Ready snapshot.
+func TestReconcile_CoreFailedCaptureStaysFailedAfterClaimCompletes(t *testing.T) {
+	vms := &v1alpha2.VirtualMachineSnapshot{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "vms1", Namespace: testNamespace, UID: "vms1-uid",
+			Annotations: map[string]string{v1alpha2.AnnUseUnifiedSnapshotter: ""},
+			Finalizers:  []string{v1alpha2.FinalizerVMSnapshotCleanup},
+		},
+		Spec: v1alpha2.VirtualMachineSnapshotSpec{VirtualMachineName: "vm1"},
+		Status: v1alpha2.VirtualMachineSnapshotStatus{
+			Phase: v1alpha2.VirtualMachineSnapshotPhaseInProgress,
+			CaptureState: &v1alpha2.UnifiedSnapshotterCaptureState{
+				DomainSpecificController: &v1alpha2.UnifiedSnapshotterDomainCaptureState{
+					Phase:                      v1alpha2.UnifiedSnapshotterPhase(snapshotsdk.PhasePlanned),
+					ManifestCaptureRequestName: "nss-mcr-established",
+				},
+			},
+			Conditions: []metav1.Condition{{
+				Type: v1alpha2.UnifiedSnapshotterConditionReady, Status: metav1.ConditionFalse,
+				Reason: "ManifestCheckpointFailed", Message: "the checkpoint failed",
+			}},
+		},
+	}
+	vm := &v1alpha2.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: "vm1", Namespace: testNamespace}}
+	r := newFullTestReconciler(t, vms, vm, grantedClaim(vms))
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNamespace, Name: "vms1"}}
+
+	if _, err := r.Reconcile(context.Background(), req); err != nil {
+		t.Fatal(err)
+	}
+
+	claim := &coordinationv1alpha1.VirtualMachineAccessClaim{}
+	if err := r.Client.Get(context.Background(), types.NamespacedName{Namespace: testNamespace, Name: accessclaim.Name(vms)}, claim); err != nil {
+		t.Fatal(err)
+	}
+
+	if !claim.Spec.Release {
+		t.Fatal("the claim of a failed capture must be released")
+	}
+
+	claim.Status.Phase = coordinationv1alpha1.AccessClaimPhaseCompleted
+
+	claim.Status.Frozen = true
+	if err := r.Client.Status().Update(context.Background(), claim); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := r.Reconcile(context.Background(), req); err != nil {
+		t.Fatal(err)
+	}
+
+	got := getVMS(t, r.Client)
+	if got.Status.Phase != v1alpha2.VirtualMachineSnapshotPhaseFailed {
+		t.Fatalf("phase = %q, want Failed", got.Status.Phase)
+	}
+
+	if d := got.Status.CaptureState.DomainSpecificController; d.Phase != v1alpha2.UnifiedSnapshotterPhase(snapshotsdk.PhaseFailed) {
+		t.Fatalf("domain phase = %q, want Failed", d.Phase)
+	}
+
+	if got.Status.Consistent == nil || *got.Status.Consistent {
+		t.Fatalf("consistent = %v, want false", got.Status.Consistent)
 	}
 }

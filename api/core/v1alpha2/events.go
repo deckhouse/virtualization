@@ -226,4 +226,8 @@ const (
 	// ReasonMainIPAMMigrationBlocked is event reason that the virtual machine cannot
 	// move to the sdn module: its address is used by another resource.
 	ReasonMainIPAMMigrationBlocked = "MainIPAMMigrationBlocked"
+
+	// ReasonFilesystemFreezeCleanupFailed is event reason that the freeze a snapshot taken before the
+	// virtualization module update left on the virtual machine could not be cleared.
+	ReasonFilesystemFreezeCleanupFailed = "FilesystemFreezeCleanupFailed"
 )

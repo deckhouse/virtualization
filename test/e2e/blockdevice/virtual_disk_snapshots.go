@@ -32,10 +32,9 @@ import (
 	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	vdsnapshotbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vdsnapshot"
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	coordinationv1alpha1 "github.com/deckhouse/virtualization/api/coordination/v1alpha1"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
-	"github.com/deckhouse/virtualization/test/e2e/internal/config"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdscondition"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
@@ -48,47 +47,10 @@ import (
 )
 
 var _ = Describe("VirtualDiskSnapshots", Label(label.SIGStorage, precheck.PrecheckDefaultStorageClass, precheck.PrecheckSnapshot), func() {
-	var (
-		ctx context.Context
-		cfg *config.Config
-	)
+	var ctx context.Context
 
 	BeforeEach(func() {
-		// TODO: Re-enable the whole VirtualDiskSnapshots suite once the vdsnapshot
-		// controller's freeze/unfreeze lifecycle is race-free. The suite is flaky
-		// across several cases, not only the concurrent one:
-		//
-		//   * Concurrent snapshots: many RequiredConsistency snapshots of one VM
-		//     share a single guest-filesystem freeze that must be held until every
-		//     snapshot is captured. The "safe to unfreeze?" decision in
-		//     SnapshotService.CanUnfreezeWithVirtualDiskSnapshot is racy — it treats
-		//     only siblings in the InProgress phase as blocking (ignores Pending)
-		//     and lists them from a lagging cache. So one snapshot can unfreeze the
-		//     guest while siblings are still Pending / unobserved, and the late ones
-		//     fail with "virtual disk snapshot is not consistent ... has not been
-		//     frozen". The AnnVMFilesystemRequest annotation does not help: it only
-		//     serializes the freeze/unfreeze commands and guards in-flight status
-		//     reads, it does not count how many snapshots still need the freeze.
-		//
-		//   * Running-VM / single-disk cases: the guest is unfrozen asynchronously
-		//     after the snapshot is ReadyToUse (mark-consistent, then unfreeze on a
-		//     later reconcile, then guest thaw, then the VM controller removes the
-		//     FilesystemFrozen condition). checkVMUnfrozen does a single point-in-time
-		//     Get with no wait, so it races that lag and trips "frozen condition must
-		//     not exist".
-		//
-		// Slow, serialized CSI snapshotting (LINSTOR lock contention) widens all of
-		// these windows. The proper fix is in the controller (CanUnfreeze must block
-		// on any non-terminal sibling and read live) plus making checkVMUnfrozen wait
-		// for the condition to clear.
-		Skip("flaky: vdsnapshot controller freeze/unfreeze lifecycle races; see the TODO above")
-
 		ctx = context.Background()
-
-		cfg = framework.GetConfig()
-		if cfg.StorageClass.DefaultStorageClass != nil && cfg.StorageClass.DefaultStorageClass.Provisioner == config.NFS {
-			Skip("Concurrent snapshotting is not supported on NFS on the VolumeSnapshot side, skipping")
-		}
 	})
 
 	It("validates snapshot lifecycle for running VM's disk", func() {
@@ -119,19 +81,17 @@ var _ = Describe("VirtualDiskSnapshots", Label(label.SIGStorage, precheck.Preche
 		By("Creating snapshot")
 
 		vdSnapshot := generateVDSnapshot("vdsnapshot", vd)
-		frozen := expectFilesystemFroze(vmObs)
-
 		Expect(f.CreateWithDeferredDeletion(ctx, vdSnapshot)).To(Succeed())
-		Expect(<-frozen).To(Succeed(), "the VM filesystem should freeze during the snapshot")
 
 		By("Waiting for ready snapshot phase")
 		waitVDSnapshotsReady(ctx, f, framework.LongTimeout, vdSnapshot)
 
 		By("Checking VirtualDiskSnapshot consistency")
 		checkVdSnapshotConsistentlyAndReadyToUse(ctx, f, vdSnapshot)
+		checkFilesystemFrozeForSnapshot(ctx, f, vdSnapshot)
 
 		By("Ensuring the virtual machine filesystem is unfrozen")
-		checkVMUnfrozen(ctx, f, vm)
+		checkVMUnfrozen(vmObs)
 
 		By("Ensuring the disk is attached to the VM")
 		expectDisksAttached(vmObs, vd)
@@ -226,24 +186,18 @@ var _ = Describe("VirtualDiskSnapshots", Label(label.SIGStorage, precheck.Preche
 		err = vmbdaObs.WaitFor(vmbdaobs.BeAttached(), framework.LongTimeout)
 		Expect(err).NotTo(HaveOccurred())
 
-		By("Creating snapshots")
+		// One snapshot at a time: a virtual machine is held by one snapshot, and a second one taken while the
+		// first is in progress is refused (see "validates concurrent snapshots").
+		for _, vd := range []*v1alpha2.VirtualDisk{vdRoot, vdAttach} {
+			By(fmt.Sprintf("Taking a snapshot of %s", vd.Name))
+			vdSnapshot := generateVDSnapshot("vdsnapshot-"+vd.Name, vd)
+			Expect(f.CreateWithDeferredDeletion(ctx, vdSnapshot)).To(Succeed())
 
-		vdSnapshotRoot := generateVDSnapshot("vdsnapshot-root", vdRoot)
-		vdSnapshotAttach := generateVDSnapshot("vdsnapshot-attach", vdAttach)
-		frozen := expectFilesystemFroze(vmObs)
-
-		Expect(f.CreateWithDeferredDeletion(ctx, vdSnapshotRoot, vdSnapshotAttach)).To(Succeed())
-		Expect(<-frozen).To(Succeed(), "the VM filesystem should freeze during the snapshot")
-
-		By("Waiting for ready snapshots phase")
-		waitVDSnapshotsReady(ctx, f, framework.LongTimeout, vdSnapshotRoot, vdSnapshotAttach)
-
-		By("Checking VirtualDiskSnapshots consistency")
-		checkVdSnapshotConsistentlyAndReadyToUse(ctx, f, vdSnapshotRoot)
-		checkVdSnapshotConsistentlyAndReadyToUse(ctx, f, vdSnapshotAttach)
-
-		By("Ensuring the virtual machine filesystem is unfrozen")
-		checkVMUnfrozen(ctx, f, vm)
+			waitVDSnapshotsReady(ctx, f, framework.LongTimeout, vdSnapshot)
+			checkVdSnapshotConsistentlyAndReadyToUse(ctx, f, vdSnapshot)
+			checkFilesystemFrozeForSnapshot(ctx, f, vdSnapshot)
+			checkVMUnfrozen(vmObs)
+		}
 
 		By("Ensuring disks are attached to the VM")
 		expectDisksAttached(vmObs, vdRoot, vdAttach)
@@ -284,24 +238,42 @@ var _ = Describe("VirtualDiskSnapshots", Label(label.SIGStorage, precheck.Preche
 
 		By("Creating snapshots")
 
-		frozen := expectFilesystemFroze(vmObs)
 		vdSnapshots := concurentlyVDSnapshotsCreation(ctx, f, []*v1alpha2.VirtualDisk{vdRoot, vdAttach}, 5)
 
-		Expect(<-frozen).To(Succeed(), "the VM filesystem should freeze during the snapshot")
-
-		By("Waiting for ready snapshots phase")
+		// The outcome is checked by its properties, not by its order: whether a snapshot finds the virtual
+		// machine held depends on how fast the storage captures the others. Every snapshot finishes (no
+		// deadlock), a refused one is refused because another snapshot holds the machine, and every one taken
+		// is consistent.
+		By("Waiting for every snapshot to finish")
 		// 10 concurrent snapshots are processed nearly sequentially by the CSI
 		// driver (LINSTOR lock contention), so the tail does not fit in MiddleTimeout.
-		waitVDSnapshotsReady(ctx, f, framework.LongTimeout, vdSnapshots...)
-
-		By("Checking VirtualDiskSnapshots consistency")
+		var ready int
 
 		for _, vdSnapshot := range vdSnapshots {
+			obs := vdsnapshotobs.StartObserver(ctx, f, vdSnapshot)
+			Expect(obs.WaitFor(vdsnapshotobs.BeTerminal(), framework.LongTimeout)).To(Succeed(),
+				"VirtualDiskSnapshot %s/%s should finish", vdSnapshot.Namespace, vdSnapshot.Name)
+
+			actual := &v1alpha2.VirtualDiskSnapshot{}
+			Expect(f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vdSnapshot), actual)).To(Succeed())
+
+			if actual.Status.Phase == v1alpha2.VirtualDiskSnapshotPhaseFailed {
+				Expect(vdsnapshotobs.Reason(actual)).To(Equal(vdscondition.VirtualMachineBusy.String()),
+					"VirtualDiskSnapshot %s/%s may only be refused because the virtual machine is held", actual.Namespace, actual.Name)
+
+				continue
+			}
+
+			ready++
+
 			checkVdSnapshotConsistentlyAndReadyToUse(ctx, f, vdSnapshot)
+			checkFilesystemFrozeForSnapshot(ctx, f, vdSnapshot)
 		}
 
+		Expect(ready).To(BeNumerically(">", 0), "at least one snapshot should be taken")
+
 		By("Ensuring the virtual machine filesystem is unfrozen")
-		checkVMUnfrozen(ctx, f, vm)
+		checkVMUnfrozen(vmObs)
 
 		By("Ensuring disks are attached to the VM")
 		expectDisksAttached(vmObs, vdRoot, vdAttach)
@@ -318,22 +290,31 @@ func checkVdSnapshotConsistentlyAndReadyToUse(ctx context.Context, f *framework.
 
 	Expect(actualVDSnapshot.Status.Consistent).NotTo(BeNil(), "VirtualDiskSnapshot status.consistent must be set")
 	Expect(*actualVDSnapshot.Status.Consistent).To(BeTrue(), "VirtualDiskSnapshot status.consistent must be true")
-	Expect(actualVDSnapshot.Status.VolumeSnapshotName).NotTo(BeEmpty(), "VirtualDiskSnapshot status.volumeSnapshotName must be set")
+	// The unified snapshotter records the captured data in status.data, the built-in mechanism records the
+	// VolumeSnapshot it created. The mechanism is told by status.captureState, which only the unified
+	// snapshotter sets: the annotation is an optional pin, and the cluster default leaves it unset.
+	if actualVDSnapshot.Status.CaptureState != nil {
+		Expect(actualVDSnapshot.Status.Data).NotTo(BeNil(), "VirtualDiskSnapshot status.data must be set")
+	} else {
+		Expect(actualVDSnapshot.Status.VolumeSnapshotName).NotTo(BeEmpty(), "VirtualDiskSnapshot status.volumeSnapshotName must be set")
+	}
 }
 
-// expectFilesystemFroze observes the transient FilesystemFrozen condition on vm.
-// Call it BEFORE creating the snapshot so the freeze is not missed, then read
-// the returned channel after creating the snapshot.
-func expectFilesystemFroze(vmObs vmobs.Observer) <-chan error {
-	ch := make(chan error, 1)
+// checkFilesystemFrozeForSnapshot checks that the guest filesystem was frozen while the snapshot was taken.
+// It reads status.frozen of the snapshot's access claim, which the coordinator sets once the guest confirms
+// the freeze and keeps for the life of the snapshot. The FilesystemFrozen condition of the virtual machine is
+// not used: it follows the guest agent poll, which a freeze of a few seconds can fall between.
+func checkFilesystemFrozeForSnapshot(ctx context.Context, f *framework.Framework, vdSnapshot *v1alpha2.VirtualDiskSnapshot) {
+	GinkgoHelper()
 
-	go func() {
-		defer GinkgoRecover()
+	actual := &v1alpha2.VirtualDiskSnapshot{}
+	Expect(f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vdSnapshot), actual)).To(Succeed())
 
-		ch <- vmObs.WaitFor(vmobs.BeFilesystemFrozen(), framework.MiddleTimeout)
-	}()
-
-	return ch
+	// The controller names the claim of a standalone disk snapshot "vds-<snapshot UID>".
+	claim := &coordinationv1alpha1.VirtualMachineAccessClaim{}
+	key := crclient.ObjectKey{Namespace: actual.Namespace, Name: "vds-" + string(actual.UID)}
+	Expect(f.GenericClient().Get(ctx, key, claim)).To(Succeed(), "the access claim of VirtualDiskSnapshot %s/%s must exist", actual.Namespace, actual.Name)
+	Expect(claim.Status.Frozen).To(BeTrue(), "the VM filesystem should be frozen while VirtualDiskSnapshot %s/%s is taken", actual.Namespace, actual.Name)
 }
 
 // waitVDSnapshotsReady waits for every snapshot to reach the Ready phase via an
@@ -387,16 +368,13 @@ func generateVDSnapshot(name string, vd *v1alpha2.VirtualDisk) *v1alpha2.Virtual
 	)
 }
 
-func checkVMUnfrozen(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine) {
+// checkVMUnfrozen waits for the guest to be released: the unfreeze is confirmed asynchronously after the
+// snapshot is Ready, and the FilesystemFrozen condition follows it.
+func checkVMUnfrozen(vmObs vmobs.Observer) {
 	GinkgoHelper()
 
-	var currentVM v1alpha2.VirtualMachine
-
-	err := f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vm), &currentVM)
-	Expect(err).NotTo(HaveOccurred())
-
-	_, frozenConditionExists := conditions.GetCondition(vmcondition.TypeFilesystemFrozen, currentVM.Status.Conditions)
-	Expect(frozenConditionExists).To(BeFalse(), "frozen condition must not exist")
+	err := vmObs.WaitFor(vmobs.BeFilesystemUnfrozen(), framework.MiddleTimeout)
+	Expect(err).NotTo(HaveOccurred(), "the virtual machine filesystem must be unfrozen")
 }
 
 func concurentlyVDSnapshotsCreation(ctx context.Context, f *framework.Framework, vds []*v1alpha2.VirtualDisk, cnt int) []*v1alpha2.VirtualDiskSnapshot {

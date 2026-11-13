@@ -27,6 +27,7 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmaccess/internal"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 )
@@ -44,7 +45,7 @@ func SetupController(
 	r := NewReconciler(
 		mgr.GetClient(),
 		internal.NewProtectionHandler(),
-		internal.NewLifecycleHandler(service.NewFreezeService(virtClient), time.Now),
+		internal.NewLifecycleHandler(service.NewFreezeService(virtClient), eventrecord.NewEventRecorderLogger(mgr, ControllerName), time.Now),
 		internal.NewCleanupHandler(),
 	)
 

@@ -19,10 +19,9 @@ limitations under the License.
 // the disk's backing PVC, captured via EnsureVolumeCapture (a storage-foundation VolumeCaptureRequest)
 // instead of a directly-created CSI VolumeSnapshot.
 //
-// Scope note (limited PoC): this controller never freezes/unfreezes the guest filesystem itself.
-// VirtualDiskSnapshot objects in this PoC are always planned as children of a VirtualMachineSnapshot
-// (see the vmsnapshot package), which holds one filesystem freeze across all of a VM's disks; a disk
-// snapshot taken standalone (not through a VirtualMachineSnapshot) is out of scope here.
+// The snapshot does not freeze the guest itself. A snapshot taken on its own asks the virtual machine access
+// coordinator for access to the virtual machine its disk is attached to. A child of a VirtualMachineSnapshot
+// is captured under the access of its parent and takes its consistency from the parent.
 package vdsnapshot
 
 import (
@@ -39,22 +38,25 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
-	virtv1 "kubevirt.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/state-snapshotter/pkg/snapshotsdk"
 	foundationv1alpha1 "github.com/deckhouse/storage-foundation/api/v1alpha1"
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/unified-snapshotter/internal/accessclaim"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/unified-snapshotter/internal/adapter"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/unified-snapshotter/internal/annotation"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/unified-snapshotter/internal/freezelog"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization-controller/pkg/unifiedsnapshotter/statuspatch"
+	coordinationv1alpha1 "github.com/deckhouse/virtualization/api/coordination/v1alpha1"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdscondition"
 )
@@ -86,19 +88,46 @@ const snapshotsNotSupportedMarker = "does not support snapshots"
 type Reconciler struct {
 	Client    client.Client
 	APIReader client.Reader
-	Freezer   *service.SnapshotService
 	Log       *log.Logger
 }
 
 // SetupWithManager registers the reconciler, gated to the objects the unified mechanism owns — see
-// annotation.DrivenByUnified.
+// annotation.DrivenByUnified. It also watches its access claim and the parent VirtualMachineSnapshot, whose
+// terminal phase settles the consistency of a child.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		Named(ControllerName).
-		For(&v1alpha2.VirtualDiskSnapshot{}).
+		For(&v1alpha2.VirtualDiskSnapshot{}, builder.WithPredicates(annotation.ShouldHandle())).
+		Owns(&coordinationv1alpha1.VirtualMachineAccessClaim{}).
+		Watches(&v1alpha2.VirtualMachineSnapshot{}, handler.EnqueueRequestsFromMapFunc(childrenOf),
+			builder.WithPredicates(predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					oldVMS, oldOK := e.ObjectOld.(*v1alpha2.VirtualMachineSnapshot)
+					newVMS, newOK := e.ObjectNew.(*v1alpha2.VirtualMachineSnapshot)
+
+					return oldOK && newOK && oldVMS.Status.Phase != newVMS.Status.Phase
+				},
+			})).
 		WithLogConstructor(logger.NewConstructor(r.Log)).
-		WithEventFilter(annotation.ShouldHandle()).
 		Complete(r)
+}
+
+// childrenOf maps a VirtualMachineSnapshot to its child VirtualDiskSnapshots.
+func childrenOf(_ context.Context, obj client.Object) []reconcile.Request {
+	vms, ok := obj.(*v1alpha2.VirtualMachineSnapshot)
+	if !ok {
+		return nil
+	}
+
+	var requests []reconcile.Request
+
+	for _, ref := range vms.Status.ChildrenSnapshotRefs {
+		if ref.Kind == v1alpha2.VirtualDiskSnapshotKind {
+			requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{Namespace: vms.Namespace, Name: ref.Name}})
+		}
+	}
+
+	return requests
 }
 
 func (r *Reconciler) sdk() snapshotsdk.CaptureSDK {
@@ -150,36 +179,79 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{RequeueAfter: time.Second}, nil
 	}
 
+	parent := accessclaim.ParentRef(vds)
+
+	switch vds.Status.Phase {
+	case v1alpha2.VirtualDiskSnapshotPhaseReady, v1alpha2.VirtualDiskSnapshotPhaseFailed:
+		if parent != nil {
+			return r.settleChildConsistency(ctx, vds, parent)
+		}
+
+		return ctrl.Result{}, nil
+	}
+
 	a := &adapter.VirtualDiskSnapshotAdapter{VDS: vds}
 	sdk := r.sdk()
 	domainPhase := a.GetDomainCaptureState().Phase
 	planning := domainPhase != snapshotsdk.PhasePlanned && domainPhase != snapshotsdk.PhaseFinished
 
-	switch {
-	case vds.Status.Phase == v1alpha2.VirtualDiskSnapshotPhaseReady,
-		vds.Status.Phase == v1alpha2.VirtualDiskSnapshotPhaseFailed:
-		return ctrl.Result{}, nil
-	case domainPhase == snapshotsdk.PhaseFinished:
-		return r.finishAsReady(ctx, vds)
+	var claim *coordinationv1alpha1.VirtualMachineAccessClaim
+	if parent == nil {
+		if claim, err = accessclaim.Get(ctx, r.Client, r.APIReader, vds.Namespace, accessclaim.Name(vds)); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
-	// An unresolvable source is failed only here, AFTER the switch above: failing it earlier pre-empted the
-	// Pending bootstrap, so an object the cluster default hands to this controller never got a phase, and
-	// it bypassed finishAsFailed. Mirrors the same ordering in the vmsnapshot controller.
+	switch domainPhase {
+	case snapshotsdk.PhaseFinished:
+		return r.finishAsReady(ctx, vds, parent, claim)
+	case snapshotsdk.PhaseFailed:
+		return r.reconcileCaptureFailed(ctx, vds, claim)
+	}
+
+	startedBeforeUpdate, err := r.startedBeforeUpdate(ctx, vds, parent, claim, planning)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if startedBeforeUpdate {
+		return r.failCapture(ctx, a, vds, nil, string(vdscondition.AbortedByModuleUpdate),
+			"The snapshot was aborted by the update of the virtualization module. Take the snapshot again.")
+	}
+
+	// A decided claim settles the snapshot even when its disk is gone. Only the claim of a captured disk is
+	// released while the snapshot is in progress, so a completed claim means a captured disk.
+	switch {
+	case accessclaim.IsRefused(claim):
+		reason, message := accessclaim.GrantedCondition(claim)
+		return r.failCapture(ctx, a, vds, claim, reason, message)
+	case accessclaim.IsCompleted(claim):
+		if err := sdk.DomainCaptureStatus(a).Phase(snapshotsdk.PhaseFinished).Apply(ctx); err != nil {
+			return ctrl.Result{}, err
+		}
+
+		return r.finishAsReady(ctx, vds, parent, claim)
+	}
+
+	// An unresolvable source is failed only after the Pending bootstrap above.
 	vdName := vds.SourceVirtualDiskName()
 	if vdName == "" {
-		return r.failCapture(ctx, a, vds, reasonInvalidSource, fmt.Sprintf(
+		return r.failCapture(ctx, a, vds, claim, reasonInvalidSource, fmt.Sprintf(
 			"spec.sourceRef must reference a %s %s", v1alpha2.SchemeGroupVersion.String(), v1alpha2.VirtualDiskKind))
 	}
+
+	// A snapshot holding its access does not wait for its disk: the session of a stopped virtual machine has
+	// no deadline, so the wait would hold the machine with no end.
+	holdsAccess := claim != nil && !claim.Spec.Release
 
 	vd := &v1alpha2.VirtualDisk{}
 	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: vds.Namespace, Name: vdName}, vd); err != nil {
 		if apierrors.IsNotFound(err) {
-			// Waited on indefinitely, mirroring the VirtualMachine wait in the vmsnapshot controller: nothing
-			// is frozen at this point, so the wait holds nothing hostage, and it absorbs the apply ordering
-			// race of a snapshot and its disk landing in one manifest set. Per the SDK a non-terminal
-			// "waiting for X" stays in Planning and reports itself through DomainCaptureStatus rather than
-			// failing; the reason is what makes it machine-readable, since conditions here are core-owned.
+			if holdsAccess {
+				return r.failOnLostDisk(ctx, a, vds, claim)
+			}
+			// The wait has no deadline, as no access is requested yet and the guest is not frozen. It covers a
+			// snapshot applied together with its disk.
 			if perr := sdk.DomainCaptureStatus(a).
 				Phase(snapshotsdk.PhasePlanning).
 				Reason(snapshotsdk.Reason(vdscondition.WaitingForTheVirtualDisk)).
@@ -196,6 +268,10 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	pvcName := vd.Status.Target.PersistentVolumeClaim
 	if pvcName == "" {
+		if holdsAccess {
+			return r.failOnLostDisk(ctx, a, vds, claim)
+		}
+
 		if perr := sdk.DomainCaptureStatus(a).
 			Phase(snapshotsdk.PhasePlanning).
 			Message("waiting for the virtual disk to provision its backing PersistentVolumeClaim").
@@ -211,6 +287,10 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	pvc := &corev1.PersistentVolumeClaim{}
 	if err := r.APIReader.Get(ctx, types.NamespacedName{Namespace: vds.Namespace, Name: pvcName}, pvc); err != nil {
 		if apierrors.IsNotFound(err) {
+			if holdsAccess {
+				return r.failOnLostDisk(ctx, a, vds, claim)
+			}
+
 			if perr := sdk.DomainCaptureStatus(a).
 				Phase(snapshotsdk.PhasePlanning).
 				Message(fmt.Sprintf("backing PersistentVolumeClaim %q not found; waiting", pvcName)).
@@ -225,6 +305,10 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	if pvc.Status.Phase != corev1.ClaimBound {
+		if holdsAccess {
+			return r.failOnLostDisk(ctx, a, vds, claim)
+		}
+
 		if err := sdk.DomainCaptureStatus(a).
 			Phase(snapshotsdk.PhasePlanning).
 			Message(fmt.Sprintf("backing PersistentVolumeClaim %q is not bound yet (%s); waiting", pvcName, pvc.Status.Phase)).
@@ -235,8 +319,10 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{RequeueAfter: requeueAfter}, nil
 	}
 
-	if err := sdk.DomainCaptureStatus(a).Phase(snapshotsdk.PhasePlanning).Message("").Apply(ctx); err != nil {
-		return ctrl.Result{}, err
+	if planning && claim == nil {
+		if err := sdk.DomainCaptureStatus(a).Phase(snapshotsdk.PhasePlanning).Message("").Apply(ctx); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	var mirrored bool
@@ -270,82 +356,23 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	if planning && vds.Status.Consistent == nil {
-		// The freeze this disk is captured under belongs to the parent VirtualMachineSnapshot, and the
-		// verdict below is reached once and never revisited. Record what was actually observed — the
-		// machine, the instance and its freeze state — so a disk that reports "running and not frozen"
-		// can be lined up against the parent's own freeze records and the sibling disks' verdicts.
-		consistent, err := r.isConsistent(ctx, vd)
-		observed := r.observedFreezeState(ctx, vd)
-		log := freezelog.For(ctx).With(slog.String("virtualDisk", vd.Name))
+	// A snapshot taken on its own captures its disk under its own access. A child is captured under its
+	// parent's, granted before the parent planned it.
+	if parent == nil && claim == nil {
+		claim, err = r.claimAccess(ctx, vds, vd)
 
-		switch {
-		case err == nil:
-			if consistent {
-				log.Info("the disk may be captured consistently",
-					freezelog.Attrs(observed, slog.Bool("requiredConsistency", vds.Spec.RequiredConsistency))...)
-				vds.Status.Consistent = ptr.To(true)
-				// Persist before the SDK calls below: they re-read this object from the API server into
-				// vds, so an unpersisted local field would be silently dropped.
-				if err := r.patchStatus(ctx, vds); err != nil {
-					return ctrl.Result{}, err
-				}
+		var refusal *captureRefusedError
+		if errors.As(err, &refusal) {
+			return r.failCapture(ctx, a, vds, nil, refusal.reason, refusal.message)
+		}
 
-				break
-			}
-
-			if vds.Spec.RequiredConsistency {
-				// The field this verdict rests on is not a latch: it has been observed going frozen ->
-				// empty -> frozen within seconds while the parent still held the freeze. Ask the parent
-				// before condemning the capture, since the parent's own record of the freeze does not
-				// flap, and this verdict is reached once and never revisited.
-				held, parentErr := r.parentHoldsConfirmedFreeze(ctx, vds)
-				if parentErr != nil {
-					log.Error("failed to read the parent snapshot's freeze record, will retry",
-						logger.SlogErr(parentErr))
-
-					return ctrl.Result{}, parentErr
-				}
-
-				if held {
-					log.Info("the freeze state reads empty but the parent snapshot holds a confirmed freeze; capturing as consistent",
-						freezelog.State(observed)...)
-
-					vds.Status.Consistent = ptr.To(true)
-					if err := r.patchStatus(ctx, vds); err != nil {
-						return ctrl.Result{}, err
-					}
-
-					break
-				}
-
-				log.Error("the guest filesystem is not frozen; failing the capture", freezelog.State(observed)...)
-
-				return r.failCapture(ctx, a, vds, string(vdscondition.PotentiallyInconsistent), fmt.Sprintf(
-					"cannot take a consistent snapshot of virtual disk %q: the virtual machine it is attached to is running and its filesystem is not frozen",
-					vds.SourceVirtualDiskName()))
-			}
-
-			log.Info("the guest filesystem is not frozen; capturing anyway, no consistency was required",
-				freezelog.State(observed)...)
-		case errors.Is(err, errMultipleAttachedVirtualMachines):
-			// A disk attached to several running machines cannot be frozen unambiguously, so a consistency
-			// mandate cannot be honored.
-			log.Error("the disk is attached to several machines, so no single freeze covers it",
-				logger.SlogErr(err), slog.Bool("requiredConsistency", vds.Spec.RequiredConsistency))
-
-			if vds.Spec.RequiredConsistency {
-				return r.failCapture(ctx, a, vds, string(vdscondition.PotentiallyInconsistent), fmt.Sprintf(
-					"cannot take a consistent snapshot: %s", err))
-			}
-		case errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition):
-			log.Debug("a freeze request is still in flight; waiting before deciding consistency",
-				freezelog.State(observed)...)
-
-			return ctrl.Result{RequeueAfter: requeueAfter}, nil
-		default:
+		if err != nil {
 			return ctrl.Result{}, err
 		}
+	}
+
+	if planning && claim != nil && !accessclaim.IsGranted(claim) {
+		return r.waitForAccess(ctx, sdk, a, claim)
 	}
 
 	if err := sdk.EnsureVolumeCapture(ctx, a, snapshotsdk.VolumeCaptureSpec{
@@ -379,7 +406,7 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	if isTerminalError {
-		return r.failCapture(ctx, a, vds, retryReason, retryMessage)
+		return r.failCapture(ctx, a, vds, claim, retryReason, retryMessage)
 	}
 
 	if err := sdk.DomainCaptureStatus(a).
@@ -392,20 +419,13 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	// Barrier 2 (Finished): switch on the SDK-derived capture outcome. The snapshotter core flips latches in the
 	// Status.CommonController as capture progresses.
-	// A disk is a data-leaf: it confirms consistency immediately once all its
-	// declared legs (manifest + data) are captured — PoC don't implement VM freeze/unfreeze for a
-	// single volume.
 	switch outcome := snapshotsdk.CoreCaptureOutcome(a); outcome.Outcome {
 	case snapshotsdk.CaptureOutcomeFailed:
 		// A failed manifest/data leg is declared terminal by the CORE, not by us: the core marks the
 		// bound SnapshotContent itself terminal (e.g. reason VolumeCaptureFailed) and that is what
-		// CoreCaptureOutcome/ReadyStatus read here. We deliberately do not try to push our own
-		// captureState.domainSpecificController.phase to Failed to match it — the SDK has no verb for
-		// that (only the domain's own Planning/Planned/Finished progression), and the core's terminal
-		// state is already durable and final. There is nothing left for us to drive, so we just record
-		// our own status.phase field for observability and stop — requeuing would only poll a decision
-		// that has already been made.
-		return r.finishAsFailed(ctx, vds)
+		// CoreCaptureOutcome/ReadyStatus read here. Failed here rather than left in Planned, where the
+		// completed claim would read as a successful capture.
+		return r.failCapture(ctx, a, vds, claim, outcome.Reason, outcome.Message)
 	case snapshotsdk.CaptureOutcomeCapturing:
 		// Capturing: wait for the core to finish. The status watch wakes us on each leg latch flip;
 		// use requeue as a fallback in case a signal is missed.
@@ -420,11 +440,27 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{RequeueAfter: requeueAfter}, nil
 	}
 
+	// The disk is captured: release the access and wait for the verdict, which decides the consistency.
+	if claim != nil {
+		if err := accessclaim.Release(ctx, r.Client, claim); err != nil {
+			return ctrl.Result{}, err
+		}
+
+		switch {
+		case accessclaim.IsRefused(claim):
+			reason, message := accessclaim.GrantedCondition(claim)
+			return r.failCapture(ctx, a, vds, claim, reason, message)
+		case !accessclaim.IsCompleted(claim):
+			vds.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseInProgress
+			return ctrl.Result{}, r.patchStatus(ctx, vds)
+		}
+	}
+
 	if err := sdk.DomainCaptureStatus(a).Phase(snapshotsdk.PhaseFinished).Apply(ctx); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	return r.finishAsReady(ctx, vds)
+	return r.finishAsReady(ctx, vds, parent, claim)
 }
 
 // dataCaptureRetry returns the domain reason and message for the storage error found in the Ready
@@ -473,12 +509,8 @@ func snapshotsNotSupportedMessage(vds *v1alpha2.VirtualDiskSnapshot) string {
 		storageClass, vds.SourceVirtualDiskName())
 }
 
-// settleConsistency records the negative answer to the consistency question once the capture reaches a
-// terminal state. It is latched this late on purpose: the planning block sets it to true the moment the
-// disk is observed frozen, so writing false any earlier would pin a snapshot that simply had not been
-// frozen yet. Leaving it absent is not an option either — a terminal VirtualDiskSnapshot never
-// reconciles again, and childrenAreConsistent reads a missing value as inconsistent, which would sink
-// the whole VirtualMachineSnapshot.
+// settleConsistency sets status.consistent to false on a terminal snapshot without a verdict, so the field
+// is never absent on a terminal snapshot.
 func settleConsistency(vds *v1alpha2.VirtualDiskSnapshot) {
 	if vds.Status.Consistent == nil {
 		vds.Status.Consistent = ptr.To(false)
@@ -513,8 +545,19 @@ func (r *Reconciler) reconcileImport(ctx context.Context, vds *v1alpha2.VirtualD
 	return ctrl.Result{}, r.patchStatus(ctx, vds)
 }
 
-func (r *Reconciler) finishAsReady(ctx context.Context, vds *v1alpha2.VirtualDiskSnapshot) (ctrl.Result, error) {
-	settleConsistency(vds)
+// finishAsReady makes the snapshot Ready. A snapshot under its own access is consistent as its verdict says,
+// and one of a disk that stayed unattached is consistent; a child waits for its parent (see
+// settleChildConsistency).
+func (r *Reconciler) finishAsReady(ctx context.Context, vds *v1alpha2.VirtualDiskSnapshot, parent *metav1.OwnerReference, claim *coordinationv1alpha1.VirtualMachineAccessClaim) (ctrl.Result, error) {
+	switch {
+	case claim != nil:
+		vds.Status.Consistent = ptr.To(accessclaim.Consistent(claim))
+	case parent == nil && startedOnUnattachedDisk(vds):
+		vds.Status.Consistent = ptr.To(true)
+	case parent == nil:
+		settleConsistency(vds)
+	}
+
 	vds.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseReady
 
 	logger.FromContext(ctx).Info("patch VDS phase to VirtualDiskSnapshotPhaseReady",
@@ -532,8 +575,27 @@ func (r *Reconciler) finishAsFailed(ctx context.Context, vds *v1alpha2.VirtualDi
 	return ctrl.Result{}, r.patchStatus(ctx, vds)
 }
 
-func (r *Reconciler) failCapture(ctx context.Context, a *adapter.VirtualDiskSnapshotAdapter, vds *v1alpha2.VirtualDiskSnapshot, reason, message string) (ctrl.Result, error) {
-	logger.FromContext(ctx).Error("failing the disk capture",
+// reconcileCaptureFailed completes the phase of a capture already failed, and releases its access.
+func (r *Reconciler) reconcileCaptureFailed(ctx context.Context, vds *v1alpha2.VirtualDiskSnapshot, claim *coordinationv1alpha1.VirtualMachineAccessClaim) (ctrl.Result, error) {
+	if err := accessclaim.Release(ctx, r.Client, claim); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	return r.finishAsFailed(ctx, vds)
+}
+
+// failOnLostDisk fails a snapshot whose disk or its storage became unavailable while the snapshot held its
+// access.
+func (r *Reconciler) failOnLostDisk(ctx context.Context, a *adapter.VirtualDiskSnapshotAdapter, vds *v1alpha2.VirtualDiskSnapshot, claim *coordinationv1alpha1.VirtualMachineAccessClaim) (ctrl.Result, error) {
+	return r.failCapture(ctx, a, vds, claim, string(vdscondition.VirtualDiskSnapshotFailed), fmt.Sprintf(
+		"The virtual disk %q became unavailable while the snapshot was being taken. Take the snapshot again.", vds.SourceVirtualDiskName()))
+}
+
+// failCapture fails the snapshot and releases its access, so the coordinator unfreezes the guest at once
+// instead of holding it until the session timeout.
+func (r *Reconciler) failCapture(ctx context.Context, a *adapter.VirtualDiskSnapshotAdapter, vds *v1alpha2.VirtualDiskSnapshot, claim *coordinationv1alpha1.VirtualMachineAccessClaim, reason, message string) (ctrl.Result, error) {
+	// A failed snapshot, such as one refused for a busy virtual machine, is not a controller fault.
+	logger.FromContext(ctx).Info("failing the disk capture",
 		slog.String("reason", reason), slog.String("message", message))
 
 	if err := r.sdk().DomainCaptureStatus(a).
@@ -544,88 +606,14 @@ func (r *Reconciler) failCapture(ctx context.Context, a *adapter.VirtualDiskSnap
 		return ctrl.Result{}, err
 	}
 
+	if err := accessclaim.Release(ctx, r.Client, claim); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// A failed capture is not consistent, whatever a snapshot started before the module update recorded.
+	vds.Status.Consistent = ptr.To(false)
+
 	return r.finishAsFailed(ctx, vds)
-}
-
-// observedFreezeState re-reads the VirtualMachineInstance behind the disk purely so the log can say what
-// the consistency verdict was based on. Failures are swallowed: this must never change the outcome of a
-// capture, and a nil instance is a truthful record of "nothing could be read".
-func (r *Reconciler) observedFreezeState(ctx context.Context, vd *v1alpha2.VirtualDisk) *virtv1.VirtualMachineInstance {
-	vm, err := r.getAttachedVirtualMachine(ctx, vd)
-	if err != nil || vm == nil {
-		return nil
-	}
-
-	kvvmi, err := r.getKVVMI(ctx, vm)
-	if err != nil {
-		return nil
-	}
-
-	return kvvmi
-}
-
-// parentHoldsConfirmedFreeze reports whether the VirtualMachineSnapshot this capture belongs to saw
-// the guest frozen and has not given that freeze up.
-//
-// It is the capture-side counterpart of the record the snapshot controller keeps for its own
-// unfreeze decision: the same pair of annotations, read from the parent instead of written to it.
-// A standalone capture has no parent and holds nothing.
-func (r *Reconciler) parentHoldsConfirmedFreeze(ctx context.Context, vds *v1alpha2.VirtualDiskSnapshot) (bool, error) {
-	for _, ref := range vds.GetOwnerReferences() {
-		if ref.Kind != v1alpha2.VirtualMachineSnapshotKind {
-			continue
-		}
-
-		parent := &v1alpha2.VirtualMachineSnapshot{}
-
-		err := r.Client.Get(ctx, types.NamespacedName{Namespace: vds.Namespace, Name: ref.Name}, parent)
-		switch {
-		case apierrors.IsNotFound(err):
-			// The parent is gone, so nobody is holding a freeze on this capture's behalf.
-			return false, nil
-		case err != nil:
-			return false, err
-		}
-
-		anns := parent.GetAnnotations()
-		if _, thawed := anns[annotations.AnnFSUnfreezeRequestedAt]; thawed {
-			return false, nil
-		}
-
-		_, confirmed := anns[annotations.AnnFSFrozenConfirmedAt]
-
-		return confirmed, nil
-	}
-
-	return false, nil
-}
-
-func (r *Reconciler) isConsistent(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
-	vm, err := r.getAttachedVirtualMachine(ctx, vd)
-	if err != nil {
-		return false, err
-	}
-
-	// Nothing to freeze: no VirtualMachine holds the disk, or the one that does is stopped.
-	if vm == nil || vm.Status.Phase == v1alpha2.MachineStopped {
-		return true, nil
-	}
-
-	kvvmi, err := r.getKVVMI(ctx, vm)
-	if err != nil {
-		return false, err
-	}
-
-	if kvvmi == nil || kvvmi.Status.Phase != virtv1.Running {
-		return true, nil
-	}
-
-	frozen, err := r.Freezer.IsFrozen(kvvmi)
-	if err != nil {
-		return false, err
-	}
-
-	return frozen, nil
 }
 
 var errMultipleAttachedVirtualMachines = errors.New("attached to multiple virtual machines")
@@ -664,19 +652,6 @@ func (r *Reconciler) getAttachedVirtualMachine(ctx context.Context, vd *v1alpha2
 	}
 
 	return vm, nil
-}
-
-func (r *Reconciler) getKVVMI(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
-	kvvmi := &virtv1.VirtualMachineInstance{}
-	if err := r.APIReader.Get(ctx, types.NamespacedName{Namespace: vm.Namespace, Name: vm.Name}, kvvmi); err != nil {
-		if apierrors.IsNotFound(err) {
-			return nil, nil
-		}
-
-		return nil, err
-	}
-
-	return kvvmi, nil
 }
 
 // vdsOwnedStatus lists exactly the VirtualDiskSnapshotStatus fields this controller ever sets. Every

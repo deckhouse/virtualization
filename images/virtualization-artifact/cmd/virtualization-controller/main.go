@@ -624,7 +624,7 @@ func main() {
 		if err = (&unifiedvmsnapshot.Reconciler{
 			Client:    mgr.GetClient(),
 			APIReader: mgr.GetAPIReader(),
-			Freezer:   service.NewSnapshotService(virtClient, mgr.GetClient(), nil),
+			Unfreezer: service.NewFreezeService(virtClient),
 			Recorder:  eventrecord.NewEventRecorderLogger(mgr, unifiedvmsnapshot.ControllerName),
 			Log:       unifiedVMSnapshotLogger,
 		}).SetupWithManager(mgr); err != nil {
@@ -636,7 +636,6 @@ func main() {
 		if err = (&unifiedvdsnapshot.Reconciler{
 			Client:    mgr.GetClient(),
 			APIReader: mgr.GetAPIReader(),
-			Freezer:   service.NewSnapshotService(virtClient, mgr.GetClient(), nil),
 			Log:       unifiedVDSnapshotLogger,
 		}).SetupWithManager(mgr); err != nil {
 			log.Error(err.Error())

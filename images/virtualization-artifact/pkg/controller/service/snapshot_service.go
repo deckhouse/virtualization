@@ -299,22 +299,6 @@ func (s *SnapshotService) CanUnfreezeWithVirtualMachineSnapshotTree(ctx context.
 	})
 }
 
-// NoOtherSnapshotHoldsFreeze reports whether every snapshot of this VirtualMachine outside
-// vmSnapshot's own run tree has finished capturing, so releasing the freeze takes it from nobody.
-//
-// It is the sibling survey of CanUnfreezeWithVirtualMachineSnapshotTree without that method's
-// precondition that the guest currently reads frozen. A caller holding its own record of the freeze
-// needs the survey while kvvmi.Status.FSFreezeStatus reads empty, and the precondition would answer
-// "no" for the very reason the caller is working around.
-func (s *SnapshotService) NoOtherSnapshotHoldsFreeze(ctx context.Context, vmSnapshot *v1alpha2.VirtualMachineSnapshot, vm *v1alpha2.VirtualMachine) (bool, error) {
-	return s.canUnfreeze(ctx, vm, nil, unfreezeScope{
-		skipVMSnapshotName:    vmSnapshot.Name,
-		skipChildrenOfUID:     vmSnapshot.UID,
-		skipAbandonedChildren: true,
-		ignoreFrozenState:     true,
-	})
-}
-
 // Unfreeze asks the guest to thaw its filesystems.
 //
 // A failed API call leaves the unfreeze request annotation in place, and the caller re-sends it while

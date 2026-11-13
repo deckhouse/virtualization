@@ -40,6 +40,32 @@ func BeReady() Predicate {
 	}
 }
 
+// BeTerminal reports the VirtualDiskSnapshot has finished, Ready or Failed. Intended for a caller that
+// judges the outcome itself, such as snapshots racing for one virtual machine where some are expected to
+// be refused.
+func BeTerminal() Predicate {
+	return func(s *v1alpha2.VirtualDiskSnapshot) (bool, error) {
+		return s.Status.Phase == v1alpha2.VirtualDiskSnapshotPhaseReady ||
+			s.Status.Phase == v1alpha2.VirtualDiskSnapshotPhaseFailed, nil
+	}
+}
+
+// Reason returns the reason the controller recorded for the VirtualDiskSnapshot, wherever its mechanism
+// keeps it (see failureDetail).
+func Reason(s *v1alpha2.VirtualDiskSnapshot) string {
+	if cs := s.Status.CaptureState; cs != nil && cs.DomainSpecificController != nil && cs.DomainSpecificController.Reason != "" {
+		return cs.DomainSpecificController.Reason
+	}
+
+	for _, c := range s.Status.Conditions {
+		if c.Type == vdscondition.VirtualDiskSnapshotReadyType.String() {
+			return c.Reason
+		}
+	}
+
+	return ""
+}
+
 // failureDetail extracts the reason and message the controller left behind, so
 // a Failed phase surfaces its cause instead of a bare phase name.
 //

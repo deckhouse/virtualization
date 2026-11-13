@@ -36,6 +36,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/network/sdnapi"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
+	coordinationv1alpha1 "github.com/deckhouse/virtualization/api/coordination/v1alpha1"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha3"
 	intvirtv1alpha1 "github.com/deckhouse/virtualization/api/internalvirtualization/v1alpha1"
@@ -229,6 +230,7 @@ func InitClients() {
 			v1alpha2.AddToScheme,
 			v1alpha3.AddToScheme,
 			intvirtv1alpha1.AddToScheme,
+			coordinationv1alpha1.AddToScheme,
 			clientgoscheme.AddToScheme,
 			dv1alpha1.AddToScheme,
 			dv1alpha2.AddToScheme,

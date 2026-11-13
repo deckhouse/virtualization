@@ -33,6 +33,7 @@ import (
 	snapshotterv1alpha1 "github.com/deckhouse/state-snapshotter/api/v1alpha1"
 	foundationv1alpha1 "github.com/deckhouse/storage-foundation/api/v1alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/common/network/sdnapi"
+	coordinationv1alpha1 "github.com/deckhouse/virtualization/api/coordination/v1alpha1"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -45,6 +46,7 @@ func newTestScheme(t *testing.T) *apiruntime.Scheme {
 	for _, f := range []func(*apiruntime.Scheme) error{
 		clientgoscheme.AddToScheme,
 		v1alpha2.AddToScheme,
+		coordinationv1alpha1.AddToScheme,
 		virtv1.AddToScheme,
 		snapshotterv1alpha1.AddToScheme,
 		storagev1alpha1.AddToScheme,

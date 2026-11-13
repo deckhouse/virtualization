@@ -129,18 +129,13 @@ func HaveMigrationSucceeded() Predicate {
 	}
 }
 
-// BeFilesystemFrozen reports the VirtualMachine's FilesystemFrozen condition is
-// present with Status=True (the guest filesystem is frozen for a consistent
-// snapshot). Freezing is transient, so observe it with [Observer.WaitFor]
-// started before the snapshot is created.
-func BeFilesystemFrozen() Predicate {
+// BeFilesystemUnfrozen reports the VirtualMachine's FilesystemFrozen condition is gone or not True. The
+// condition is cleared asynchronously after a snapshot releases the guest, so wait for it with
+// [Observer.WaitFor] rather than reading it once.
+func BeFilesystemUnfrozen() Predicate {
 	return func(vm *v1alpha2.VirtualMachine) (bool, error) {
 		cond := findCondition(vm.Status.Conditions, vmcondition.TypeFilesystemFrozen.String())
-		if cond == nil {
-			return false, nil
-		}
-
-		return cond.Status == metav1.ConditionTrue, nil
+		return cond == nil || cond.Status != metav1.ConditionTrue, nil
 	}
 }
 

@@ -40,6 +40,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/vmaccess"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmaccess/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmaccess/internal/state"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	coordinationv1alpha1 "github.com/deckhouse/virtualization/api/coordination/v1alpha1"
 	"github.com/deckhouse/virtualization/api/coordination/v1alpha1/vmaccondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -60,6 +61,11 @@ const (
 
 var key = types.NamespacedName{Namespace: namespace, Name: vmName}
 
+type event struct {
+	object client.Object
+	reason string
+}
+
 type freezeCall struct {
 	claimUID        types.UID
 	unfreezeTimeout time.Duration
@@ -73,6 +79,7 @@ var _ = Describe("Reconciler", func() {
 		unfreezes   []types.UID
 		freezeErr   error
 		unfreezeErr error
+		events      []event
 		// statusLags keeps fsFreezeStatus as it is after an unfreeze that went through, as a virt-handler that
 		// has not reported the unfreeze yet does.
 		statusLags bool
@@ -166,7 +173,11 @@ var _ = Describe("Reconciler", func() {
 
 		return NewReconciler(c,
 			internal.NewProtectionHandler(),
-			internal.NewLifecycleHandler(freezer, clock),
+			internal.NewLifecycleHandler(freezer, &eventrecord.EventRecorderLoggerMock{
+				EventFunc: func(object client.Object, _, reason, _ string) {
+					events = append(events, event{object: object, reason: reason})
+				},
+			}, clock),
 			internal.NewCleanupHandler(),
 		)
 	}
@@ -240,6 +251,7 @@ var _ = Describe("Reconciler", func() {
 		unfreezes = nil
 		freezeErr = nil
 		unfreezeErr = nil
+		events = nil
 		statusLags = false
 		unfreezeReported = false
 	})
@@ -459,26 +471,150 @@ var _ = Describe("Reconciler", func() {
 		Expect(unfreezes).To(BeEmpty())
 	})
 
-	It("denies a claim while a freeze request of an older snapshot is in flight", func() {
-		kvvmi := newKVVMI(true)
-		kvvmi.Annotations = map[string]string{annotations.AnnVMFilesystemRequest: "freeze"}
-		c, err := testutil.NewFakeClientWithObjects(newVM(), newKVVM(), kvvmi, freezeClaim("a", "a-uid"))
-		Expect(err).NotTo(HaveOccurred())
+	Context("a freeze left by a snapshot taken before the module update", func() {
+		var kvvmi *virtv1.VirtualMachineInstance
 
-		reconcileVM(newReconciler(c))
+		hasFilesystemRequest := func(c client.Client) bool {
+			GinkgoHelper()
 
-		expectGranted(getClaim(c, "a"), metav1.ConditionFalse, vmaccondition.FilesystemAlreadyFrozen)
-	})
+			instance := &virtv1.VirtualMachineInstance{}
+			Expect(c.Get(ctx, key, instance)).To(Succeed())
+			_, ok := instance.Annotations[annotations.AnnVMFilesystemRequest]
 
-	It("grants a claim while an unfreeze request of an older snapshot is left on the instance", func() {
-		kvvmi := newKVVMI(true)
-		kvvmi.Annotations = map[string]string{annotations.AnnVMFilesystemRequest: "unfreeze"}
-		c, err := testutil.NewFakeClientWithObjects(newVM(), newKVVM(), kvvmi, freezeClaim("a", "a-uid"))
-		Expect(err).NotTo(HaveOccurred())
+			return ok
+		}
 
-		reconcileVM(newReconciler(c))
+		BeforeEach(func() {
+			kvvmi = newKVVMI(true)
+			kvvmi.Annotations = map[string]string{annotations.AnnVMFilesystemRequest: "freeze"}
+			kvvmi.Status.FSFreezeStatus = "frozen"
+		})
 
-		expectGranted(getClaim(c, "a"), metav1.ConditionTrue, vmaccondition.Frozen)
+		DescribeTable("is cleared without a claim",
+			func(request string) {
+				kvvmi.Annotations[annotations.AnnVMFilesystemRequest] = request
+				c, err := testutil.NewFakeClientWithObjects(newVM(), newKVVM(), kvvmi)
+				Expect(err).NotTo(HaveOccurred())
+
+				reconcileVM(newReconciler(c))
+
+				Expect(unfreezes).To(Equal([]types.UID{""}))
+				Expect(hasFilesystemRequest(c)).To(BeFalse())
+				Expect(events).To(BeEmpty())
+			},
+			Entry("a freeze request", "freeze"),
+			Entry("an unfreeze request", "unfreeze"),
+		)
+
+		It("is cleared before a claim is decided", func() {
+			c, err := testutil.NewFakeClientWithObjects(newVM(), newKVVM(), kvvmi, freezeClaim("a", "a-uid"))
+			Expect(err).NotTo(HaveOccurred())
+
+			reconcileVM(newReconciler(c))
+
+			Expect(unfreezes).To(Equal([]types.UID{""}), "the unfreeze goes out before any lock is taken")
+			Expect(hasFilesystemRequest(c)).To(BeFalse())
+			expectGranted(getClaim(c, "a"), metav1.ConditionTrue, vmaccondition.Frozen)
+			Expect(freezes).To(HaveLen(1))
+		})
+
+		It("is left alone while a claim holds the lock", func() {
+			kvvm := newKVVM()
+			Expect(vmaccess.WriteLock(kvvm, &vmaccess.Lock{ClaimUID: "a-uid", VMIUID: vmiUID})).To(Succeed())
+			c, err := testutil.NewFakeClientWithObjects(newVM(), kvvm, kvvmi,
+				newClaim("a", "a-uid", now, coordinationv1alpha1.AccessModeSnapshot))
+			Expect(err).NotTo(HaveOccurred())
+
+			reconcileVM(newReconciler(c))
+
+			Expect(unfreezes).To(BeEmpty())
+			Expect(hasFilesystemRequest(c)).To(BeTrue())
+		})
+
+		It("waits while a snapshot of the virtual machine is in progress", func() {
+			c, err := testutil.NewFakeClientWithObjects(newVM(), newKVVM(), kvvmi,
+				&v1alpha2.VirtualMachineSnapshot{
+					ObjectMeta: metav1.ObjectMeta{Name: "old", Namespace: namespace},
+					Spec:       v1alpha2.VirtualMachineSnapshotSpec{VirtualMachineName: vmName},
+					Status:     v1alpha2.VirtualMachineSnapshotStatus{Phase: v1alpha2.VirtualMachineSnapshotPhaseInProgress},
+				})
+			Expect(err).NotTo(HaveOccurred())
+
+			res := reconcileVM(newReconciler(c))
+
+			Expect(res.RequeueAfter).To(Equal(internal.StaleFreezeRecheck))
+			Expect(unfreezes).To(BeEmpty())
+			Expect(hasFilesystemRequest(c)).To(BeTrue())
+		})
+
+		It("waits while a snapshot of a disk of the virtual machine is in progress", func() {
+			vm := newVM()
+			vm.Status.BlockDeviceRefs = []v1alpha2.BlockDeviceStatusRef{{Kind: v1alpha2.DiskDevice, Name: "disk"}}
+			c, err := testutil.NewFakeClientWithObjects(vm, newKVVM(), kvvmi,
+				&v1alpha2.VirtualDiskSnapshot{
+					ObjectMeta: metav1.ObjectMeta{Name: "old", Namespace: namespace},
+					Spec:       v1alpha2.VirtualDiskSnapshotSpec{VirtualDiskName: "disk"},
+					Status:     v1alpha2.VirtualDiskSnapshotStatus{Phase: v1alpha2.VirtualDiskSnapshotPhaseInProgress},
+				})
+			Expect(err).NotTo(HaveOccurred())
+
+			reconcileVM(newReconciler(c))
+
+			Expect(unfreezes).To(BeEmpty())
+			Expect(hasFilesystemRequest(c)).To(BeTrue())
+		})
+
+		It("only removes the request of a stopped virtual machine", func() {
+			kvvmi.Status.Phase = virtv1.Succeeded
+			c, err := testutil.NewFakeClientWithObjects(newVM(), newKVVM(), kvvmi)
+			Expect(err).NotTo(HaveOccurred())
+
+			reconcileVM(newReconciler(c))
+
+			Expect(unfreezes).To(BeEmpty())
+			Expect(hasFilesystemRequest(c)).To(BeFalse())
+		})
+
+		It("sends a failed unfreeze again and keeps the request until it goes through", func() {
+			unfreezeErr = errors.New("the guest agent did not answer")
+			c, err := testutil.NewFakeClientWithObjects(newVM(), newKVVM(), kvvmi)
+			Expect(err).NotTo(HaveOccurred())
+
+			r := newReconciler(c)
+
+			res := reconcileVM(r)
+			Expect(res.RequeueAfter).NotTo(BeZero())
+			Expect(unfreezes).To(HaveLen(1))
+			Expect(hasFilesystemRequest(c)).To(BeTrue())
+
+			unfreezeErr = nil
+
+			advance(internal.RequestResendInterval)
+			reconcileVM(r)
+			Expect(unfreezes).To(HaveLen(2))
+			Expect(hasFilesystemRequest(c)).To(BeFalse())
+			Expect(events).To(BeEmpty())
+		})
+
+		It("reports an unfreeze still failing past the timeout and removes the request", func() {
+			unfreezeErr = errors.New("the guest agent did not answer")
+			c, err := testutil.NewFakeClientWithObjects(newVM(), newKVVM(), kvvmi, freezeClaim("a", "a-uid"))
+			Expect(err).NotTo(HaveOccurred())
+
+			r := newReconciler(c)
+
+			reconcileVM(r)
+			Expect(hasFilesystemRequest(c)).To(BeTrue())
+			Expect(events).To(BeEmpty())
+			expectGranted(getClaim(c, "a"), metav1.ConditionFalse, vmaccondition.FilesystemAlreadyFrozen)
+
+			advance(internal.UnfreezeConfirmTimeout)
+			reconcileVM(r)
+			Expect(events).NotTo(BeEmpty())
+			Expect(events[0].object.GetName()).To(Equal(vmName))
+			Expect(events[0].reason).To(Equal(v1alpha2.ReasonFilesystemFreezeCleanupFailed))
+			Expect(hasFilesystemRequest(c)).To(BeFalse())
+		})
 	})
 
 	It("denies a claim when the guest agent is not connected and the freeze is required", func() {

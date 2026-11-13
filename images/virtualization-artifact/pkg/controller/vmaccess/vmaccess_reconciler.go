@@ -76,7 +76,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, err
 	}
 
-	if len(s.Claims) == 0 && s.Lock == nil && !s.MalformedLock {
+	// A filesystem request left by a snapshot taken before the module update needs a pass without any claim:
+	// the lifecycle handler clears it.
+	if len(s.Claims) == 0 && s.Lock == nil && !s.MalformedLock && !s.HasFilesystemRequest() {
 		return reconcile.Result{}, nil
 	}
 
