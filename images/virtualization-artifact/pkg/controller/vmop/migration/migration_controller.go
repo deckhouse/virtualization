@@ -47,11 +47,12 @@ func NewController(client client.Client, mgr manager.Manager, featureGate featur
 			watcher.NewMigrationWatcher(),
 			watcher.NewVMWatcher(),
 			watcher.NewVMBDAWatcher(),
+			watcher.NewAccessClaimWatcher(),
 		},
 		handlers: []reconciler.Handler[*v1alpha2.VirtualMachineOperation]{
 			handler.NewDeletionHandler(migration),
 			handler.NewPeerMigrationHandler(client, mgr.GetAPIReader(), peers, migration, recorder),
-			handler.NewLifecycleHandler(client, migration, baseSvc, recorder, systemNetworkName),
+			handler.NewLifecycleHandler(client, mgr.GetAPIReader(), migration, baseSvc, recorder, systemNetworkName),
 		},
 		observer: statistic.NewObserver(migration),
 	}

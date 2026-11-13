@@ -292,6 +292,7 @@ var _ = Describe("DeletionHandler", func() {
 	},
 		Entry("parked on the project quota", vmopcondition.ReasonQuotaExceeded, false),
 		Entry("waiting for another hot-plug request", vmopcondition.ReasonWaitingForBlockDeviceAttachment, false),
+		Entry("waiting for a snapshot", vmopcondition.ReasonWaitingForSnapshot, false),
 		Entry("target is being scheduled", vmopcondition.ReasonTargetScheduling, true),
 		Entry("target is being prepared", vmopcondition.ReasonTargetPreparing, true),
 		Entry("waiting for a sync slot on a prepared target", vmopcondition.ReasonWaitingForSyncSlot, true),

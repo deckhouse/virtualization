@@ -43,6 +43,8 @@ import (
 	genericservice "github.com/deckhouse/virtualization-controller/pkg/controller/vmop/service"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
+	coordinationv1alpha1 "github.com/deckhouse/virtualization/api/coordination/v1alpha1"
+	"github.com/deckhouse/virtualization/api/coordination/v1alpha1/vmaccondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
@@ -142,7 +144,7 @@ var _ = Describe("LifecycleHandler", func() {
 		migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
 		base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
 
-		h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock, "")
+		h := NewLifecycleHandler(fakeClient, fakeClient, migrationService, base, recorderMock, "")
 		_, err := h.Handle(ctx, srv.Changed())
 		Expect(err).NotTo(HaveOccurred())
 
@@ -160,7 +162,7 @@ var _ = Describe("LifecycleHandler", func() {
 		migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
 		base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
 
-		h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock, "")
+		h := NewLifecycleHandler(fakeClient, fakeClient, migrationService, base, recorderMock, "")
 		_, err := h.Handle(ctx, srv.Changed())
 		Expect(err).NotTo(HaveOccurred())
 
@@ -260,7 +262,7 @@ var _ = Describe("LifecycleHandler", func() {
 		migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
 		base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
 
-		h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock, "")
+		h := NewLifecycleHandler(fakeClient, fakeClient, migrationService, base, recorderMock, "")
 		_, err := h.Handle(ctx, srv.Changed())
 		Expect(err).NotTo(HaveOccurred())
 
@@ -333,7 +335,7 @@ var _ = Describe("LifecycleHandler", func() {
 		migrationService := service.NewMigrationService(fakeClient, featureGate)
 		base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
 
-		h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock, "")
+		h := NewLifecycleHandler(fakeClient, fakeClient, migrationService, base, recorderMock, "")
 		_, err = h.Handle(ctx, vmop)
 
 		if targetMigrationEnabled {
@@ -656,7 +658,7 @@ var _ = Describe("LifecycleHandler", func() {
 			fakeClient, srv = setupEnvironment(vmop, vm, mig)
 			migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
 			base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
-			h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock, "")
+			h := NewLifecycleHandler(fakeClient, fakeClient, migrationService, base, recorderMock, "")
 
 			_, err := h.Handle(ctx, srv.Changed())
 			Expect(err).NotTo(HaveOccurred())
@@ -681,7 +683,7 @@ var _ = Describe("LifecycleHandler", func() {
 			fakeClient, srv = setupEnvironment(vmop, vm, mig)
 			migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
 			base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
-			h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock, "")
+			h := NewLifecycleHandler(fakeClient, fakeClient, migrationService, base, recorderMock, "")
 
 			_, err := h.Handle(ctx, srv.Changed())
 			Expect(err).NotTo(HaveOccurred())
@@ -700,7 +702,7 @@ var _ = Describe("LifecycleHandler", func() {
 			fakeClient, srv = setupEnvironment(vmop, vm, mig)
 			migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
 			base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
-			h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock, "")
+			h := NewLifecycleHandler(fakeClient, fakeClient, migrationService, base, recorderMock, "")
 
 			_, err := h.Handle(ctx, srv.Changed())
 			Expect(err).NotTo(HaveOccurred())
@@ -724,7 +726,7 @@ var _ = Describe("LifecycleHandler", func() {
 			fakeClient, srv = setupEnvironment(vmop, vm, mig)
 			migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
 			base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
-			h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock, "")
+			h := NewLifecycleHandler(fakeClient, fakeClient, migrationService, base, recorderMock, "")
 
 			_, err := h.Handle(ctx, srv.Changed())
 			Expect(err).NotTo(HaveOccurred())
@@ -761,7 +763,7 @@ var _ = Describe("LifecycleHandler", func() {
 			fakeClient, srv = setupEnvironment(vmop, vm, mig)
 			migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
 			base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
-			h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock, "")
+			h := NewLifecycleHandler(fakeClient, fakeClient, migrationService, base, recorderMock, "")
 
 			_, err := h.Handle(ctx, srv.Changed())
 			Expect(err).NotTo(HaveOccurred())
@@ -813,7 +815,7 @@ var _ = Describe("LifecycleHandler", func() {
 			fakeClient, srv = setupEnvironment(vmop, vm, mig, targetPod)
 			migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
 			base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
-			h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock, "")
+			h := NewLifecycleHandler(fakeClient, fakeClient, migrationService, base, recorderMock, "")
 
 			_, err := h.Handle(ctx, srv.Changed())
 			Expect(err).NotTo(HaveOccurred())
@@ -843,7 +845,7 @@ var _ = Describe("LifecycleHandler", func() {
 			fakeClient, srv = setupEnvironment(vmop, vm, mig)
 			migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
 			base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
-			h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock, "")
+			h := NewLifecycleHandler(fakeClient, fakeClient, migrationService, base, recorderMock, "")
 
 			_, err := h.Handle(ctx, srv.Changed())
 			Expect(err).NotTo(HaveOccurred())
@@ -868,7 +870,7 @@ var _ = Describe("LifecycleHandler", func() {
 			fakeClient, srv = setupEnvironment(vmop, vm, mig)
 			migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
 			base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
-			h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock, "")
+			h := NewLifecycleHandler(fakeClient, fakeClient, migrationService, base, recorderMock, "")
 			h.progressStrategy = stub
 
 			_, err := h.Handle(ctx, srv.Changed())
@@ -897,7 +899,7 @@ var _ = Describe("LifecycleHandler", func() {
 			fakeClient, srv = setupEnvironment(vmop, vm, mig)
 			migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
 			base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
-			h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock, "")
+			h := NewLifecycleHandler(fakeClient, fakeClient, migrationService, base, recorderMock, "")
 			h.progressStrategy = stub
 
 			_, err := h.Handle(ctx, srv.Changed())
@@ -935,7 +937,7 @@ var _ = Describe("LifecycleHandler", func() {
 			fakeClient, srv = setupEnvironment(vmop, vm, mig)
 			migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
 			base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
-			h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock, "")
+			h := NewLifecycleHandler(fakeClient, fakeClient, migrationService, base, recorderMock, "")
 			h.progressStrategy = &progressStrategyStub{value: 30}
 
 			result, err := h.Handle(ctx, srv.Changed())
@@ -974,7 +976,7 @@ var _ = Describe("LifecycleHandler", func() {
 			fakeClient, srv = setupEnvironment(vmop, vm, mig)
 			migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
 			base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
-			h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock, "")
+			h := NewLifecycleHandler(fakeClient, fakeClient, migrationService, base, recorderMock, "")
 
 			_, err := h.Handle(ctx, srv.Changed())
 			Expect(err).NotTo(HaveOccurred())
@@ -999,7 +1001,7 @@ var _ = Describe("LifecycleHandler", func() {
 			fakeClient, srv = setupEnvironment(vmop, vm)
 			migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
 			base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
-			h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock, "")
+			h := NewLifecycleHandler(fakeClient, fakeClient, migrationService, base, recorderMock, "")
 
 			_, err := h.Handle(ctx, srv.Changed())
 			Expect(err).NotTo(HaveOccurred())
@@ -1021,7 +1023,7 @@ var _ = Describe("LifecycleHandler", func() {
 			fakeClient, srv = setupEnvironment(vmop, vm, mig)
 			migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
 			base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
-			h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock, "")
+			h := NewLifecycleHandler(fakeClient, fakeClient, migrationService, base, recorderMock, "")
 
 			_, err := h.Handle(ctx, srv.Changed())
 			Expect(err).NotTo(HaveOccurred())
@@ -1046,7 +1048,7 @@ var _ = Describe("LifecycleHandler", func() {
 			fakeClient, srv = setupEnvironment(vmop, vm, mig)
 			migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
 			base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
-			h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock, "")
+			h := NewLifecycleHandler(fakeClient, fakeClient, migrationService, base, recorderMock, "")
 
 			_, err := h.Handle(ctx, srv.Changed())
 			Expect(err).NotTo(HaveOccurred())
@@ -1072,7 +1074,7 @@ var _ = Describe("LifecycleHandler", func() {
 			fakeClient, srv = setupEnvironment(vmop, vm, mig)
 			migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
 			base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
-			h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock, "")
+			h := NewLifecycleHandler(fakeClient, fakeClient, migrationService, base, recorderMock, "")
 
 			_, err := h.Handle(ctx, srv.Changed())
 			Expect(err).NotTo(HaveOccurred())
@@ -1107,7 +1109,7 @@ var _ = Describe("LifecycleHandler", func() {
 			fakeClient, srv = setupEnvironment(vmop, vm, mig)
 			migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
 			base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
-			h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock, "")
+			h := NewLifecycleHandler(fakeClient, fakeClient, migrationService, base, recorderMock, "")
 
 			_, err := h.Handle(ctx, srv.Changed())
 			Expect(err).NotTo(HaveOccurred())
@@ -1145,7 +1147,7 @@ var _ = Describe("LifecycleHandler", func() {
 			fakeClient, srv = setupEnvironment(vmop, vm, mig)
 			migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
 			base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
-			h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock, "")
+			h := NewLifecycleHandler(fakeClient, fakeClient, migrationService, base, recorderMock, "")
 
 			_, err := h.Handle(ctx, srv.Changed())
 			Expect(err).NotTo(HaveOccurred())
@@ -1310,7 +1312,7 @@ var _ = Describe("LifecycleHandler", func() {
 			fakeClient, err := testutil.NewFakeClientWithObjects(vm, makeNode(sourceNode, ifName))
 			Expect(err).NotTo(HaveOccurred())
 
-			h := NewLifecycleHandler(fakeClient, nil, nil, recorderMock, "migration")
+			h := NewLifecycleHandler(fakeClient, fakeClient, nil, nil, recorderMock, "migration")
 			msg, ok := h.checkMigrationNetwork(ctx, vm)
 			Expect(ok).To(BeTrue())
 			Expect(msg).To(BeEmpty())
@@ -1322,7 +1324,7 @@ var _ = Describe("LifecycleHandler", func() {
 			fakeClient, err := testutil.NewFakeClientWithObjects(vm, makeNode(sourceNode, ""))
 			Expect(err).NotTo(HaveOccurred())
 
-			h := NewLifecycleHandler(fakeClient, nil, nil, recorderMock, "migration")
+			h := NewLifecycleHandler(fakeClient, fakeClient, nil, nil, recorderMock, "migration")
 			msg, ok := h.checkMigrationNetwork(ctx, vm)
 			Expect(ok).To(BeFalse())
 			Expect(msg).To(ContainSubstring(sourceNode))
@@ -1335,7 +1337,7 @@ var _ = Describe("LifecycleHandler", func() {
 			fakeClient, err := testutil.NewFakeClientWithObjects(vm)
 			Expect(err).NotTo(HaveOccurred())
 
-			h := NewLifecycleHandler(fakeClient, nil, nil, recorderMock, "migration")
+			h := NewLifecycleHandler(fakeClient, fakeClient, nil, nil, recorderMock, "migration")
 			msg, ok := h.checkMigrationNetwork(ctx, vm)
 			Expect(ok).To(BeFalse())
 			Expect(msg).To(ContainSubstring("not scheduled"))
@@ -1348,7 +1350,7 @@ var _ = Describe("LifecycleHandler", func() {
 			fakeClient, err := testutil.NewFakeClientWithObjects(vm)
 			Expect(err).NotTo(HaveOccurred())
 
-			h := NewLifecycleHandler(fakeClient, nil, nil, recorderMock, "migration")
+			h := NewLifecycleHandler(fakeClient, fakeClient, nil, nil, recorderMock, "migration")
 			msg, ok := h.checkMigrationNetwork(ctx, vm)
 			Expect(ok).To(BeFalse())
 			Expect(msg).To(ContainSubstring(sourceNode))
@@ -1381,7 +1383,7 @@ var _ = Describe("LifecycleHandler", func() {
 			migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
 			base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
 
-			h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock, "migration")
+			h := NewLifecycleHandler(fakeClient, fakeClient, migrationService, base, recorderMock, "migration")
 			_, err = h.Handle(ctx, srv.Changed())
 			Expect(err).NotTo(HaveOccurred())
 
@@ -1404,7 +1406,7 @@ var _ = Describe("LifecycleHandler", func() {
 			migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
 			base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
 
-			h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock, "")
+			h := NewLifecycleHandler(fakeClient, fakeClient, migrationService, base, recorderMock, "")
 			_, err := h.Handle(ctx, srv.Changed())
 			Expect(err).NotTo(HaveOccurred())
 
@@ -1424,7 +1426,7 @@ var _ = Describe("LifecycleHandler", func() {
 			migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
 			base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
 
-			h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock, "migration")
+			h := NewLifecycleHandler(fakeClient, fakeClient, migrationService, base, recorderMock, "migration")
 			_, err := h.Handle(ctx, srv.Changed())
 			Expect(err).NotTo(HaveOccurred())
 
@@ -1448,6 +1450,155 @@ var _ = Describe("LifecycleHandler", func() {
 		Expect(getMessageByMigrationFailedReason(mig)).To(Equal("No available nodes were found to place the target VM within the timeout period"))
 	})
 
+	Describe("snapshots in progress", func() {
+		vmopCreated := time.Date(2026, 11, 6, 12, 0, 0, 0, time.UTC)
+		before := metav1.NewTime(vmopCreated.Add(-time.Minute))
+		after := metav1.NewTime(vmopCreated.Add(time.Minute))
+
+		newVMOP := func() *v1alpha2.VirtualMachineOperation {
+			vmop := newVMOPMigrate()
+			vmop.CreationTimestamp = metav1.NewTime(vmopCreated)
+
+			return vmop
+		}
+
+		// claimOf is the access claim of the VirtualMachineSnapshot "daily-01" on the virtual machine.
+		claimOf := func(created metav1.Time, phase coordinationv1alpha1.AccessClaimPhase) *coordinationv1alpha1.VirtualMachineAccessClaim {
+			return &coordinationv1alpha1.VirtualMachineAccessClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "vms-daily-01-uid", Namespace: namespace, CreationTimestamp: created,
+					OwnerReferences: []metav1.OwnerReference{{
+						APIVersion: v1alpha2.SchemeGroupVersion.String(), Kind: v1alpha2.VirtualMachineSnapshotKind,
+						Name: "daily-01", UID: "daily-01-uid", Controller: ptr.To(true),
+					}},
+				},
+				Spec: coordinationv1alpha1.VirtualMachineAccessClaimSpec{
+					VirtualMachine: coordinationv1alpha1.VirtualMachineAccessClaimTarget{Name: name, UID: "vm-uid"},
+					Access:         []coordinationv1alpha1.AccessMode{coordinationv1alpha1.AccessModeSnapshot},
+				},
+				Status: coordinationv1alpha1.VirtualMachineAccessClaimStatus{Phase: phase},
+			}
+		}
+
+		unfreezing := func(claim *coordinationv1alpha1.VirtualMachineAccessClaim) *coordinationv1alpha1.VirtualMachineAccessClaim {
+			claim.Status.Conditions = []metav1.Condition{{
+				Type:   vmaccondition.UnfrozenType.String(),
+				Status: metav1.ConditionFalse,
+				Reason: vmaccondition.Unfreezing.String(),
+			}}
+
+			return claim
+		}
+
+		newHandler := func(cache, apiReader client.Client) *LifecycleHandler {
+			return NewLifecycleHandler(
+				cache,
+				apiReader,
+				service.NewMigrationService(cache, featuregates.Default()),
+				genericservice.NewBaseVMOPService(cache, recorderMock),
+				recorderMock,
+				"",
+			)
+		}
+
+		handle := func(vmop *v1alpha2.VirtualMachineOperation, objs ...client.Object) (*v1alpha2.VirtualMachineOperation, error) {
+			GinkgoHelper()
+
+			vm := newVM(v1alpha2.AlwaysSafeMigrationPolicy)
+			vm.Status.BlockDeviceRefs = []v1alpha2.BlockDeviceStatusRef{{Kind: v1alpha2.DiskDevice, Name: "disk"}}
+			objs = append(objs, vm)
+			fakeClient, srv = setupEnvironment(vmop, objs...)
+			_, err := newHandler(fakeClient, fakeClient).Handle(ctx, srv.Changed())
+
+			return srv.Changed(), err
+		}
+
+		waitingFor := func(vmop *v1alpha2.VirtualMachineOperation) string {
+			GinkgoHelper()
+
+			completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
+			if completed.Reason != vmopcondition.ReasonWaitingForSnapshot.String() {
+				return ""
+			}
+
+			Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhasePending))
+
+			return completed.Message
+		}
+
+		DescribeTable("postpones the migration for a session that started before the operation",
+			func(claim *coordinationv1alpha1.VirtualMachineAccessClaim) {
+				vmop, err := handle(newVMOP(), claim)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(waitingFor(vmop)).To(Equal(`Waiting for the VirtualMachineSnapshot "daily-01" to complete.`))
+			},
+			Entry("a claim the coordinator has not seen yet", claimOf(before, "")),
+			Entry("a pending claim", claimOf(before, coordinationv1alpha1.AccessClaimPhasePending)),
+			Entry("a granted claim", claimOf(before, coordinationv1alpha1.AccessClaimPhaseGranted)),
+			Entry("a completed claim whose guest is being unfrozen", unfreezing(claimOf(before, coordinationv1alpha1.AccessClaimPhaseCompleted))),
+			Entry("an aborted claim whose guest is being unfrozen", unfreezing(claimOf(before, coordinationv1alpha1.AccessClaimPhaseAborted))),
+			Entry("a claim created in the same second as the operation", claimOf(metav1.NewTime(vmopCreated), coordinationv1alpha1.AccessClaimPhaseGranted)),
+		)
+
+		DescribeTable("does not postpone the migration",
+			func(objs func() []client.Object) {
+				vmop, err := handle(newVMOP(), objs()...)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(waitingFor(vmop)).To(BeEmpty())
+			},
+			Entry("for a claim created after the operation", func() []client.Object {
+				return []client.Object{claimOf(after, coordinationv1alpha1.AccessClaimPhaseGranted)}
+			}),
+			Entry("for a completed claim", func() []client.Object {
+				return []client.Object{claimOf(before, coordinationv1alpha1.AccessClaimPhaseCompleted)}
+			}),
+			Entry("for a denied claim", func() []client.Object {
+				return []client.Object{claimOf(before, coordinationv1alpha1.AccessClaimPhaseDenied)}
+			}),
+			Entry("for a claim on another virtual machine", func() []client.Object {
+				claim := claimOf(before, coordinationv1alpha1.AccessClaimPhaseGranted)
+				claim.Spec.VirtualMachine.Name = "other"
+
+				return []client.Object{claim}
+			}),
+			Entry("for snapshots stuck in progress without a session", func() []client.Object {
+				return []client.Object{
+					&v1alpha2.VirtualMachineSnapshot{
+						ObjectMeta: metav1.ObjectMeta{Name: "daily-01", Namespace: namespace, UID: "daily-01-uid", CreationTimestamp: before},
+						Spec:       v1alpha2.VirtualMachineSnapshotSpec{VirtualMachineName: name},
+						Status:     v1alpha2.VirtualMachineSnapshotStatus{Phase: v1alpha2.VirtualMachineSnapshotPhaseInProgress},
+					},
+					&v1alpha2.VirtualDiskSnapshot{
+						ObjectMeta: metav1.ObjectMeta{Name: "disk-01", Namespace: namespace, UID: "disk-01-uid", CreationTimestamp: before},
+						Spec:       v1alpha2.VirtualDiskSnapshotSpec{VirtualDiskName: "disk"},
+						Status:     v1alpha2.VirtualDiskSnapshotStatus{Phase: v1alpha2.VirtualDiskSnapshotPhaseInProgress},
+					},
+					claimOf(before, coordinationv1alpha1.AccessClaimPhaseAborted),
+				}
+			}),
+		)
+
+		It("checks the API server before the migration starts for a claim the cache does not have yet", func() {
+			vmop := newVMOP()
+			vm := newVM(v1alpha2.AlwaysSafeMigrationPolicy)
+			vm.Status.Conditions = append(vm.Status.Conditions, metav1.Condition{
+				Type:   vmcondition.TypeMigrating.String(),
+				Status: metav1.ConditionFalse,
+				Reason: vmcondition.ReasonReadyToMigrate.String(),
+			})
+			cache, cacheSrv := setupEnvironment(vmop, vm)
+			apiServer, _ := setupEnvironment(vmop, vm, claimOf(before, coordinationv1alpha1.AccessClaimPhasePending))
+
+			_, err := newHandler(cache, apiServer).Handle(ctx, cacheSrv.Changed())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(waitingFor(cacheSrv.Changed())).To(Equal(`Waiting for the VirtualMachineSnapshot "daily-01" to complete.`))
+
+			migrations := &virtv1.VirtualMachineInstanceMigrationList{}
+			Expect(cache.List(ctx, migrations)).To(Succeed())
+			Expect(migrations.Items).To(BeEmpty())
+		})
+	})
+
 	Describe("in-flight block device attachments", func() {
 		attachment := func(phase v1alpha2.BlockDeviceAttachmentPhase) *v1alpha2.VirtualMachineBlockDeviceAttachment {
 			vmbda := vmbdabuilder.NewEmpty("vmbda", namespace)
@@ -1466,6 +1617,7 @@ var _ = Describe("LifecycleHandler", func() {
 			objs = append(objs, newVM(v1alpha2.AlwaysSafeMigrationPolicy))
 			fakeClient, srv = setupEnvironment(vmop, objs...)
 			h := NewLifecycleHandler(
+				fakeClient,
 				fakeClient,
 				service.NewMigrationService(fakeClient, featuregates.Default()),
 				genericservice.NewBaseVMOPService(fakeClient, recorderMock),
@@ -1956,7 +2108,7 @@ var _ = Describe("target preparation timeout", func() {
 		fakeClient, err := testutil.NewFakeClientWithObjects(objs...)
 		Expect(err).NotTo(HaveOccurred())
 
-		return NewLifecycleHandler(fakeClient, service.NewMigrationService(fakeClient, featuregates.Default()), nil, recorderMock, ""), fakeClient
+		return NewLifecycleHandler(fakeClient, fakeClient, service.NewMigrationService(fakeClient, featuregates.Default()), nil, recorderMock, ""), fakeClient
 	}
 
 	completed := func(vmop *v1alpha2.VirtualMachineOperation) metav1.Condition {

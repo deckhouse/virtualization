@@ -331,6 +331,13 @@ func (h PeerMigrationHandler) handle(ctx context.Context, vmop *v1alpha2.Virtual
 		return reconcile.Result{}, h.fail(ctx, vmop, peerClient, vmopcondition.ReasonPeerRejected,
 			receiverConflictMessage(peer, vmop.Spec.VirtualMachine, vmop.Namespace))
 	case receiver == nil:
+		// A migration to the peer aborts a snapshot in progress as a local one does. The wait comes before the
+		// request, so the peer timeouts do not run while the operation waits.
+		wait, err := waitForSnapshots(ctx, h.reader, vmop)
+		if err != nil || wait {
+			return reconcile.Result{}, err
+		}
+
 		return h.createReceiver(ctx, peerClient, vmop)
 	case !receiver.DeletionTimestamp.IsZero():
 		// The request goes, so the move has been undone: this is a copy of the operation older than its
@@ -1632,9 +1639,6 @@ func migrationAnnotations(m map[string]string) map[string]string {
 		annotations.AnnMigrationIface,
 		annotations.AnnMigrationNodeAffinityTerms,
 		annotations.AnnVirtualDiskHadOwnerReference,
-		annotations.AnnFSFreezeRequestedAt,
-		annotations.AnnFSUnfreezeRequestedAt,
-		annotations.AnnFSFrozenConfirmedAt,
 	} {
 		delete(out, key)
 	}

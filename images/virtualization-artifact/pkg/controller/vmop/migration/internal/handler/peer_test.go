@@ -43,6 +43,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/migration/internal/service"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
+	coordinationv1alpha1 "github.com/deckhouse/virtualization/api/coordination/v1alpha1"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
@@ -414,8 +415,7 @@ var _ = Describe("PeerMigrationHandler", func() {
 			annotations.AnnPeerMigrationVMOP, annotations.AnnVMLastAppliedSpec,
 			annotations.AnnVMStartRequested, annotations.AnnVMRestartRequested,
 			annotations.AnnVMRestorePowerState, annotations.AnnVMFilesystemRequest,
-			annotations.AnnFSFreezeRequestedAt, annotations.AnnFSUnfreezeRequestedAt,
-			annotations.AnnFSFrozenConfirmedAt, annotations.AnnMigrationNodeAffinityTerms,
+			annotations.AnnMigrationNodeAffinityTerms,
 			annotations.AnnMirrorOfVMIP, annotations.AnnMigrationIface,
 			annotations.AnnVirtualDiskOriginalAnnotations, annotations.AnnVirtualDiskHadOwnerReference,
 			"kubevirt.io/migration-peer-sync-pin", "network.deckhouse.io/networks-status",
@@ -459,6 +459,37 @@ var _ = Describe("PeerMigrationHandler", func() {
 		Expect(local.Get(ctx, key, &original)).To(Succeed())
 		Expect(original.Annotations).To(Equal(vm.Annotations))
 		Expect(original.Labels).To(Equal(vm.Labels))
+	})
+
+	It("waits for a snapshot in progress before asking the peer to receive", func() {
+		vmop.CreationTimestamp = metav1.Now()
+		claim := &coordinationv1alpha1.VirtualMachineAccessClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "vms-daily-01-uid", Namespace: ns, CreationTimestamp: metav1.NewTime(vmop.CreationTimestamp.Add(-time.Minute)),
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion: v1alpha2.SchemeGroupVersion.String(), Kind: v1alpha2.VirtualMachineSnapshotKind,
+					Name: "daily-01", UID: "daily-01-uid", Controller: ptr.To(true),
+				}},
+			},
+			Spec: coordinationv1alpha1.VirtualMachineAccessClaimSpec{
+				VirtualMachine: coordinationv1alpha1.VirtualMachineAccessClaimTarget{Name: "web", UID: "vm-uid"},
+				Access:         []coordinationv1alpha1.AccessMode{coordinationv1alpha1.AccessModeSnapshot},
+			},
+			Status: coordinationv1alpha1.VirtualMachineAccessClaimStatus{Phase: coordinationv1alpha1.AccessClaimPhaseGranted},
+		}
+		Expect(local.Create(ctx, claim)).To(Succeed())
+
+		handle()
+		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhasePending))
+		Expect(completed().Reason).To(Equal(string(vmopcondition.ReasonWaitingForSnapshot)))
+		Expect(completed().Message).To(Equal(`Waiting for the VirtualMachineSnapshot "daily-01" to complete.`))
+		Expect(isGone(peer, &intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: "web"}})).To(BeTrue())
+
+		claim.Status.Phase = coordinationv1alpha1.AccessClaimPhaseCompleted
+		Expect(local.Status().Update(ctx, claim)).To(Succeed())
+		handle()
+		Expect(completed().Reason).To(Equal(string(vmopcondition.ReasonWaitingForPeer)))
+		Expect(isGone(peer, &intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: "web"}})).To(BeFalse())
 	})
 
 	It("asks the peer to receive, starts the migration and deletes the VM once the peer confirms", func() {

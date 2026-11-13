@@ -20,8 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -30,7 +28,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -45,29 +42,7 @@ func (w VMBDAWatcher) Watch(mgr manager.Manager, ctr controller.Controller) erro
 	if err := ctr.Watch(
 		source.Kind(mgr.GetCache(), &v1alpha2.VirtualMachineBlockDeviceAttachment{},
 			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment) []reconcile.Request {
-				vmops := &v1alpha2.VirtualMachineOperationList{}
-				if err := mgrClient.List(ctx, vmops, client.InNamespace(vmbda.GetNamespace())); err != nil {
-					return nil
-				}
-
-				var requests []reconcile.Request
-
-				for _, vmop := range vmops.Items {
-					if !Match(&vmop) || commonvmop.IsFinished(&vmop) {
-						continue
-					}
-
-					if vmop.Spec.VirtualMachine == vmbda.Spec.VirtualMachineName {
-						requests = append(requests, reconcile.Request{
-							NamespacedName: types.NamespacedName{
-								Namespace: vmop.GetNamespace(),
-								Name:      vmop.GetName(),
-							},
-						})
-					}
-				}
-
-				return requests
+				return migrationsOf(ctx, mgrClient, vmbda.GetNamespace(), vmbda.Spec.VirtualMachineName)
 			}),
 			predicate.TypedFuncs[*v1alpha2.VirtualMachineBlockDeviceAttachment]{
 				CreateFunc: func(e event.TypedCreateEvent[*v1alpha2.VirtualMachineBlockDeviceAttachment]) bool { return false },

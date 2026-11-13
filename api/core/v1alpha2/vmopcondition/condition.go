@@ -171,6 +171,10 @@ const (
 	// until an in-flight block device attachment completes.
 	ReasonWaitingForBlockDeviceAttachment ReasonCompleted = "WaitingForBlockDeviceAttachment"
 
+	// ReasonWaitingForSnapshot is a ReasonCompleted indicating that the migration is postponed until the
+	// snapshot of the virtual machine in progress completes.
+	ReasonWaitingForSnapshot ReasonCompleted = "WaitingForSnapshot"
+
 	// ReasonOperationFailed is a ReasonCompleted indicating that operation has failed.
 	ReasonOperationFailed ReasonCompleted = "OperationFailed"
 

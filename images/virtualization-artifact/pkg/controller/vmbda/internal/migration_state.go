@@ -33,6 +33,7 @@ import (
 var migrationQueueReasons = sets.New(
 	vmopcondition.ReasonQuotaExceeded.String(),
 	vmopcondition.ReasonWaitingForBlockDeviceAttachment.String(),
+	vmopcondition.ReasonWaitingForSnapshot.String(),
 )
 
 func migrationIsQueued(ctx context.Context, c client.Client, namespace, vmName string) (bool, error) {

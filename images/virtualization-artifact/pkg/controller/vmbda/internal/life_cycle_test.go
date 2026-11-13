@@ -439,6 +439,7 @@ var _ = Describe("LifeCycleHandler Handle", func() {
 	},
 		Entry("parked on the project quota", vmopcondition.ReasonQuotaExceeded, false),
 		Entry("waiting for another hot-plug request", vmopcondition.ReasonWaitingForBlockDeviceAttachment, false),
+		Entry("waiting for a snapshot", vmopcondition.ReasonWaitingForSnapshot, false),
 		Entry("target is being scheduled", vmopcondition.ReasonTargetScheduling, true),
 		Entry("waiting for a sync slot on a prepared target", vmopcondition.ReasonWaitingForSyncSlot, true),
 		Entry("migration is running", vmopcondition.ReasonMigrationRunning, true),

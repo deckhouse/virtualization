@@ -35,6 +35,7 @@ import (
 	commonkvvm "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/accessclaim"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
@@ -44,6 +45,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/livemigration"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	coordinationv1alpha1 "github.com/deckhouse/virtualization/api/coordination/v1alpha1"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
@@ -121,7 +123,10 @@ type Base interface {
 	IsApplicableOrSetFailedPhase(checker genericservice.ApplicableChecker, vmop *v1alpha2.VirtualMachineOperation, vm *v1alpha2.VirtualMachine) bool
 }
 type LifecycleHandler struct {
-	client            client.Client
+	client client.Client
+	// apiReader is uncached: the last check for snapshots before a migration starts must see every access
+	// claim created before the operation, which a lagging cache may not have yet.
+	apiReader         client.Reader
 	migration         *migrationservice.MigrationService
 	base              Base
 	recorder          eventrecord.EventRecorderLogger
@@ -129,9 +134,10 @@ type LifecycleHandler struct {
 	systemNetworkName string
 }
 
-func NewLifecycleHandler(client client.Client, migration *migrationservice.MigrationService, base Base, recorder eventrecord.EventRecorderLogger, systemNetworkName string) *LifecycleHandler {
+func NewLifecycleHandler(client client.Client, apiReader client.Reader, migration *migrationservice.MigrationService, base Base, recorder eventrecord.EventRecorderLogger, systemNetworkName string) *LifecycleHandler {
 	return &LifecycleHandler{
 		client:            client,
+		apiReader:         apiReader,
 		migration:         migration,
 		base:              base,
 		recorder:          recorder,
@@ -313,6 +319,16 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 		return reconcile.Result{}, nil
 	}
 
+	// 6.3 Wait for the snapshots of the virtual machine in progress: a migration aborts them.
+	wait, err := waitForSnapshots(ctx, h.client, vmop)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to check snapshots in progress for VMOP: %w", err)
+	}
+
+	if wait {
+		return reconcile.Result{}, nil
+	}
+
 	res, wait, err := h.waitForBlockDeviceAttachments(ctx, vmop)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to check block device requests for VMOP: %w", err)
@@ -333,7 +349,18 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 
 		return reconcile.Result{}, nil
 	}
-	// 7.1 The Operation is valid, and can be executed.
+	// 7.1 Check the snapshots once more against the API server right before the migration starts: an access
+	// claim created before the operation may not be in the cache yet.
+	wait, err = waitForSnapshots(ctx, h.apiReader, vmop)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to check snapshots in progress for VMOP: %w", err)
+	}
+
+	if wait {
+		return reconcile.Result{}, nil
+	}
+
+	// 7.2 The Operation is valid, and can be executed.
 	err = h.execute(ctx, vmop, vm)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to execute VMOP: %w", err)
@@ -601,6 +628,78 @@ func (h LifecycleHandler) otherMigrationsAreInProgress(ctx context.Context, vmop
 	}
 
 	return false, nil
+}
+
+// waitForSnapshots holds the operation in Pending while a snapshot of the virtual machine holds an access
+// claim created before the operation: the coordinator aborts the session of a snapshot once a migration of its
+// virtual machine starts. The watch on access claims wakes the operation up.
+//
+// The wait is bounded, as the coordinator ends every session within the claim timeouts. A claim created after
+// the operation is not waited for, so a stream of snapshots cannot postpone the migration indefinitely.
+func waitForSnapshots(ctx context.Context, reader client.Reader, vmop *v1alpha2.VirtualMachineOperation) (bool, error) {
+	holders, err := snapshotsInProgress(ctx, reader, vmop)
+	if err != nil || len(holders) == 0 {
+		return false, err
+	}
+
+	vmop.Status.Phase = v1alpha2.VMOPPhasePending
+	conditions.SetCondition(
+		conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
+			Generation(vmop.GetGeneration()).
+			Reason(vmopcondition.ReasonWaitingForSnapshot).
+			Status(metav1.ConditionFalse).
+			Message(fmt.Sprintf("Waiting for %s to complete.", strings.Join(holders, ", "))),
+		&vmop.Status.Conditions)
+
+	return true, nil
+}
+
+// snapshotsInProgress names the snapshots whose access claims on the virtual machine of vmop were created before vmop and whose
+// sessions are not over: the claim is not decided yet, holds the virtual machine, or the coordinator is still
+// unfreezing the guest after it.
+//
+// The claims are listed by namespace and filtered here, because reader may be the API server, which has no
+// field indexes.
+func snapshotsInProgress(ctx context.Context, reader client.Reader, vmop *v1alpha2.VirtualMachineOperation) ([]string, error) {
+	claims := &coordinationv1alpha1.VirtualMachineAccessClaimList{}
+	if err := reader.List(ctx, claims, client.InNamespace(vmop.GetNamespace())); err != nil {
+		return nil, fmt.Errorf("list the access claims: %w", err)
+	}
+
+	var holders []string
+
+	for i := range claims.Items {
+		claim := &claims.Items[i]
+		if claim.Spec.VirtualMachine.Name != vmop.Spec.VirtualMachine {
+			continue
+		}
+		// Creation timestamps have a resolution of a second, so a claim created in the same second as the
+		// operation counts as created before it.
+		if vmop.CreationTimestamp.Before(&claim.CreationTimestamp) {
+			continue
+		}
+
+		if accessclaim.IsRefused(claim) || accessclaim.IsCompleted(claim) {
+			if !accessclaim.IsUnfreezing(claim) {
+				continue
+			}
+		}
+
+		holders = append(holders, claimHolder(claim))
+	}
+
+	slices.Sort(holders)
+
+	return holders, nil
+}
+
+// claimHolder names the snapshot that owns claim, or the claim itself when it has no owner.
+func claimHolder(claim *coordinationv1alpha1.VirtualMachineAccessClaim) string {
+	if owner := metav1.GetControllerOf(claim); owner != nil {
+		return fmt.Sprintf("the %s %q", owner.Kind, owner.Name)
+	}
+
+	return fmt.Sprintf("the access claim %q", claim.Name)
 }
 
 func (h LifecycleHandler) waitForBlockDeviceAttachments(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (reconcile.Result, bool, error) {
