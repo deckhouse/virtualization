@@ -73,6 +73,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vdsnapshot"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmaccess"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmbda"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmclass"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip"
@@ -596,6 +597,12 @@ func main() {
 	}
 
 	if err = vmsop.SetupGC(mgr, vmsopLogger, gcSettings.VMOP); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	vmAccessLogger := logger.NewControllerLogger(vmaccess.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if err = vmaccess.SetupController(ctx, mgr, virtClient, vmAccessLogger); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}

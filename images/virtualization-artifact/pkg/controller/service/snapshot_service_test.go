@@ -713,7 +713,7 @@ func (m *VirtualMachineInterfaceMock) Freeze(ctx context.Context, name string, o
 	return m.freezeErr
 }
 
-func (m *VirtualMachineInterfaceMock) Unfreeze(ctx context.Context, name string) error {
+func (m *VirtualMachineInterfaceMock) Unfreeze(ctx context.Context, name string, opts subv1alpha2.VirtualMachineUnfreeze) error {
 	return m.unfreezeErr
 }
 

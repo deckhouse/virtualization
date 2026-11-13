@@ -75,6 +75,12 @@ rules:
   - virtualdisksnapshots
   verbs:
   - get
+- apiGroups:
+  - internal.virtualization.deckhouse.io
+  resources:
+  - internalvirtualizationvirtualmachines
+  verbs:
+  - get
 # The manifests-and-children-refs-upload subresource records the uploaded node's direct children on the
 # addressed snapshot's own status.
 - apiGroups:

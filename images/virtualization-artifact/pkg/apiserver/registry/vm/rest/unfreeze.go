@@ -51,9 +51,13 @@ func (r UnfreezeREST) Destroy() {
 }
 
 func (r UnfreezeREST) Connect(ctx context.Context, name string, opts runtime.Object, responder rest.Responder) (http.Handler, error) {
-	_, ok := opts.(*subresources.VirtualMachineUnfreeze)
+	options, ok := opts.(*subresources.VirtualMachineUnfreeze)
 	if !ok {
 		return nil, fmt.Errorf("invalid options object: %#v", opts)
+	}
+
+	if err := r.checkAccessLock(ctx, name, options.ClaimUID); err != nil {
+		return nil, err
 	}
 
 	location, transport, err := UnfreezeLocation(ctx, r.vmLister, name, r.kubevirt, r.proxyCertManager)
@@ -61,7 +65,7 @@ func (r UnfreezeREST) Connect(ctx context.Context, name string, opts runtime.Obj
 		return nil, err
 	}
 
-	handler := newThrottledUpgradeAwareProxyHandler(location, transport, false, responder, r.kubevirt.ServiceAccount)
+	handler := newThrottledUpgradeAwareProxyHandler(location, transport, false, responder, r.kubevirt.ServiceAccount, dropClaimUIDParam)
 
 	return handler, nil
 }
@@ -76,6 +80,9 @@ func (r UnfreezeREST) ConnectMethods() []string {
 	return []string{http.MethodPut}
 }
 
+// UnfreezeLocation returns the address of the KubeVirt unfreeze endpoint of the virtual machine
+// instance without checking the virtual machine phase, so a frozen guest can be thawed in any phase,
+// a stopping one included.
 func UnfreezeLocation(
 	ctx context.Context,
 	getter virtlisters.VirtualMachineLister,
@@ -90,6 +97,5 @@ func UnfreezeLocation(
 		newKVVMIPather("unfreeze"),
 		kubevirt,
 		proxyCertManager,
-		virtualMachineShouldBeRunning,
 	)
 }

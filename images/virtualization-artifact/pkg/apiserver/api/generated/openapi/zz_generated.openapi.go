@@ -180,7 +180,7 @@ func schema_virtualization_api_core_v1alpha3_CPU(ref common.ReferenceCallback) c
 					},
 					"enableNestedVirtualization": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Enables nested virtualization: virtual machines of this class can run their own hypervisor. Requires the `vmx` (Intel VT-x) or `svm` (AMD-V) CPU feature on the nodes the virtual machines run on. When disabled, the `vmx` and `svm` features are hidden from the virtual machines of the class.",
+							Description: "Enables nested virtualization: virtual machines of this class can run their own hypervisor. Requires the `vmx` (Intel VT-x) or `svm` (AMD-V) CPU feature on the nodes the virtual machines run on. When disabled, the `vmx` and `svm` features are hidden from the virtual machines of the class. With the `Discovery` type they are also left out of `status.cpuFeatures.enabled`.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -1114,6 +1114,13 @@ func schema_virtualization_api_subresources_v1alpha2_VirtualMachineFreeze(ref co
 							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
 						},
 					},
+					"claimUID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UID of the VirtualMachineAccessClaim the freeze is requested for. While a claim holds the virtual machine, the apiserver rejects a call without its UID; with no claim holding it, a call proceeds with or without one.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"unfreezeTimeout"},
 			},
@@ -1448,6 +1455,13 @@ func schema_virtualization_api_subresources_v1alpha2_VirtualMachineUnfreeze(ref 
 					"apiVersion": {
 						SchemaProps: spec.SchemaProps{
 							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"claimUID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UID of the VirtualMachineAccessClaim the unfreeze is requested for. While a claim holds the virtual machine, the apiserver rejects a call without its UID; with no claim holding it, a call proceeds with or without one.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

@@ -111,6 +111,7 @@ func Build(
 
 func Install(
 	vmLister virtlisters.VirtualMachineLister,
+	accessLocks vmrest.AccessLockReader,
 	server *genericapiserver.GenericAPIServer,
 	kubevirt vmrest.KubevirtAPIServerConfig,
 	proxyCertManager certmanager.CertificateManager,
@@ -121,6 +122,7 @@ func Install(
 ) error {
 	vmStorage := storage.NewStorage(
 		vmLister,
+		accessLocks,
 		kubevirt,
 		proxyCertManager,
 		virtCli.CoordinationV1(),

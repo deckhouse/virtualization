@@ -662,6 +662,7 @@ func Convert_url_Values_To_v1alpha2_VirtualMachineConsole(in *url.Values, out *V
 
 func autoConvert_v1alpha2_VirtualMachineFreeze_To_subresources_VirtualMachineFreeze(in *VirtualMachineFreeze, out *subresources.VirtualMachineFreeze, s conversion.Scope) error {
 	out.UnfreezeTimeout = (*v1.Duration)(unsafe.Pointer(in.UnfreezeTimeout))
+	out.ClaimUID = in.ClaimUID
 	return nil
 }
 
@@ -672,6 +673,7 @@ func Convert_v1alpha2_VirtualMachineFreeze_To_subresources_VirtualMachineFreeze(
 
 func autoConvert_subresources_VirtualMachineFreeze_To_v1alpha2_VirtualMachineFreeze(in *subresources.VirtualMachineFreeze, out *VirtualMachineFreeze, s conversion.Scope) error {
 	out.UnfreezeTimeout = (*v1.Duration)(unsafe.Pointer(in.UnfreezeTimeout))
+	out.ClaimUID = in.ClaimUID
 	return nil
 }
 
@@ -687,6 +689,13 @@ func autoConvert_url_Values_To_v1alpha2_VirtualMachineFreeze(in *url.Values, out
 		// FIXME: out.UnfreezeTimeout is of not yet supported type and requires manual conversion
 	} else {
 		out.UnfreezeTimeout = nil
+	}
+	if values, ok := map[string][]string(*in)["claimUID"]; ok && len(values) > 0 {
+		if err := runtime.Convert_Slice_string_To_string(&values, &out.ClaimUID, s); err != nil {
+			return err
+		}
+	} else {
+		out.ClaimUID = ""
 	}
 	return nil
 }
@@ -948,6 +957,7 @@ func Convert_subresources_VirtualMachineSnapshot_To_v1alpha2_VirtualMachineSnaps
 }
 
 func autoConvert_v1alpha2_VirtualMachineUnfreeze_To_subresources_VirtualMachineUnfreeze(in *VirtualMachineUnfreeze, out *subresources.VirtualMachineUnfreeze, s conversion.Scope) error {
+	out.ClaimUID = in.ClaimUID
 	return nil
 }
 
@@ -957,6 +967,7 @@ func Convert_v1alpha2_VirtualMachineUnfreeze_To_subresources_VirtualMachineUnfre
 }
 
 func autoConvert_subresources_VirtualMachineUnfreeze_To_v1alpha2_VirtualMachineUnfreeze(in *subresources.VirtualMachineUnfreeze, out *VirtualMachineUnfreeze, s conversion.Scope) error {
+	out.ClaimUID = in.ClaimUID
 	return nil
 }
 
@@ -968,6 +979,13 @@ func Convert_subresources_VirtualMachineUnfreeze_To_v1alpha2_VirtualMachineUnfre
 func autoConvert_url_Values_To_v1alpha2_VirtualMachineUnfreeze(in *url.Values, out *VirtualMachineUnfreeze, s conversion.Scope) error {
 	// WARNING: Field TypeMeta does not have json tag, skipping.
 
+	if values, ok := map[string][]string(*in)["claimUID"]; ok && len(values) > 0 {
+		if err := runtime.Convert_Slice_string_To_string(&values, &out.ClaimUID, s); err != nil {
+			return err
+		}
+	} else {
+		out.ClaimUID = ""
+	}
 	return nil
 }
 

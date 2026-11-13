@@ -45,6 +45,7 @@ import (
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmscondition"
+	subv1alpha2 "github.com/deckhouse/virtualization/api/subresources/v1alpha2"
 )
 
 func newFullTestReconciler(t *testing.T, objs ...client.Object) *Reconciler {
@@ -1753,7 +1754,9 @@ type unfreezingVirtualMachines struct {
 	v1alpha2clientsetcore.VirtualMachineInterface
 }
 
-func (unfreezingVirtualMachines) Unfreeze(context.Context, string) error { return nil }
+func (unfreezingVirtualMachines) Unfreeze(context.Context, string, subv1alpha2.VirtualMachineUnfreeze) error {
+	return nil
+}
 
 // The stamp is what lets releaseFreeze re-send a pending unfreeze and bounds it by the unfreeze
 // budget. Stamping only after the request succeeds leaves a failed attempt neither repeated nor timed.
@@ -1799,7 +1802,7 @@ type countingVirtualMachines struct {
 	client *countingVirtClient
 }
 
-func (m countingVirtualMachines) Unfreeze(context.Context, string) error {
+func (m countingVirtualMachines) Unfreeze(context.Context, string, subv1alpha2.VirtualMachineUnfreeze) error {
 	m.client.unfreezes++
 	return nil
 }

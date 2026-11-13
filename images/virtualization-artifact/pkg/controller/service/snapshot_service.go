@@ -331,7 +331,7 @@ func (s *SnapshotService) Unfreeze(ctx context.Context, kvvmi *virtv1.VirtualMac
 		return fmt.Errorf("failed to annotate internal virtual machine instance with filesystem unfreeze request: %w", err)
 	}
 
-	err = s.virtClient.VirtualMachines(kvvmi.Namespace).Unfreeze(ctx, kvvmi.Name)
+	err = s.virtClient.VirtualMachines(kvvmi.Namespace).Unfreeze(ctx, kvvmi.Name, subv1alpha2.VirtualMachineUnfreeze{})
 	if err != nil {
 		return fmt.Errorf("unfreeze virtual machine %s/%s: %w", kvvmi.Namespace, kvvmi.Name, err)
 	}

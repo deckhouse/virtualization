@@ -47,7 +47,7 @@ const (
 	// FreezeSkipped signifies that the filesystem could not be frozen and the access is granted without the freeze, as the BestEffort policy allows.
 	FreezeSkipped GrantedReason = "FreezeSkipped"
 
-	// VirtualMachineBusy signifies that the access is denied because another session holds the virtual machine.
+	// VirtualMachineBusy signifies that the access is denied because another session holds the virtual machine or the virtual machine is migrating.
 	VirtualMachineBusy GrantedReason = "VirtualMachineBusy"
 	// FilesystemAlreadyFrozen signifies that the access is denied because the virtual machine filesystem is already frozen outside a coordinator session.
 	FilesystemAlreadyFrozen GrantedReason = "FilesystemAlreadyFrozen"

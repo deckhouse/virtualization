@@ -329,7 +329,10 @@ func (h *SyncMetadataHandler) updateKVVMSpecTemplateMetadataAnnotations(currAnno
 			// Addressed to virt-controller and belongs to the internal virtual machine alone.
 			// Mirroring it into the template would change the rendered spec on every reconcile
 			// that follows the annotation, and the rendering would take it back out again.
-			k == annotations.AnnMigrationNodeAffinityTerms {
+			k == annotations.AnnMigrationNodeAffinityTerms ||
+			// The access lock belongs to the internal virtual machine alone: a copy in the template would
+			// outlive the lock.
+			k == annotations.AnnVMAccessLock {
 			continue
 		}
 
@@ -414,10 +417,7 @@ func PropagateVMMetadata(vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachin
 		return false, err
 	}
 
-	// Remove dangerous annotations.
-	// Exclude module-/KubeVirt-owned keys from the user annotations, on top of the always-stripped
-	// last-propagated/kubectl keys.
-	curAnno := annotations.ExcludeAnnotations(commonvm.RemoveNonPropagatableAnnotations(vm.GetAnnotations()))
+	curAnno := propagatableAnnotations(vm)
 
 	newAnno, annoChanged := merger.ApplyMapChanges(metadata.Annotations, lastPropagatedAnno, curAnno)
 	if annoChanged {
@@ -425,6 +425,13 @@ func PropagateVMMetadata(vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachin
 	}
 
 	return labelsChanged || annoChanged, nil
+}
+
+// propagatableAnnotations returns the annotations of the virtual machine propagated to its internal objects:
+// all but the last-propagated, kubectl, module and KubeVirt keys. The last propagated set is recorded from the
+// same filter, so propagation never removes a module key from the internal objects.
+func propagatableAnnotations(vm *v1alpha2.VirtualMachine) map[string]string {
+	return annotations.ExcludeAnnotations(commonvm.RemoveNonPropagatableAnnotations(vm.GetAnnotations()))
 }
 
 func GetLastPropagatedLabels(kvvm *virtv1.VirtualMachine) (map[string]string, error) {
@@ -487,7 +494,7 @@ func GetLastPropagatedAnnotations(kvvm *virtv1.VirtualMachine) (map[string]strin
 }
 
 func SetLastPropagatedAnnotations(metadata *metav1.ObjectMeta, vm *v1alpha2.VirtualMachine) (bool, error) {
-	data, err := json.Marshal(commonvm.RemoveNonPropagatableAnnotations(vm.GetAnnotations()))
+	data, err := json.Marshal(propagatableAnnotations(vm))
 	if err != nil {
 		return false, err
 	}

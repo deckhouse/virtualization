@@ -172,13 +172,23 @@ func (v vm) Freeze(ctx context.Context, name string, opts subv1alpha2.VirtualMac
 		return err
 	}
 
-	return v.restClient.Put().AbsPath(path).Body(body).Do(ctx).Error()
+	req := v.restClient.Put().AbsPath(path).Body(body)
+	if opts.ClaimUID != "" {
+		req = req.Param(subv1alpha2.ClaimUIDParam, opts.ClaimUID)
+	}
+
+	return req.Do(ctx).Error()
 }
 
-func (v vm) Unfreeze(ctx context.Context, name string) error {
+func (v vm) Unfreeze(ctx context.Context, name string, opts subv1alpha2.VirtualMachineUnfreeze) error {
 	path := fmt.Sprintf(subresourceURLTpl, v.namespace, v.resource, name, "unfreeze")
 
-	return v.restClient.Put().AbsPath(path).Do(ctx).Error()
+	req := v.restClient.Put().AbsPath(path)
+	if opts.ClaimUID != "" {
+		req = req.Param(subv1alpha2.ClaimUIDParam, opts.ClaimUID)
+	}
+
+	return req.Do(ctx).Error()
 }
 
 func (v vm) AddVolume(ctx context.Context, name string, opts subv1alpha2.VirtualMachineAddVolume) error {

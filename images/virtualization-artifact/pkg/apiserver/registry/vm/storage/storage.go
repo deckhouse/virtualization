@@ -60,12 +60,13 @@ var (
 
 func NewStorage(
 	vmLister virtlisters.VirtualMachineLister,
+	accessLocks vmrest.AccessLockReader,
 	kubevirt vmrest.KubevirtAPIServerConfig,
 	proxyCertManager certmanager.CertificateManager,
 	leases coordinationclient.LeasesGetter,
 	recorder record.EventRecorder,
 ) *VirtualMachineStorage {
-	baseRest := vmrest.NewBaseREST(vmLister, proxyCertManager, kubevirt, leases, recorder)
+	baseRest := vmrest.NewBaseREST(vmLister, accessLocks, proxyCertManager, kubevirt, leases, recorder)
 
 	return &VirtualMachineStorage{
 		vmLister:            vmLister,

@@ -26,6 +26,7 @@ import (
 
 type BaseREST struct {
 	vmLister         virtlisters.VirtualMachineLister
+	accessLocks      AccessLockReader
 	proxyCertManager certmanager.CertificateManager
 	kubevirt         KubevirtAPIServerConfig
 	sessions         *sessionManager
@@ -33,6 +34,7 @@ type BaseREST struct {
 
 func NewBaseREST(
 	vmLister virtlisters.VirtualMachineLister,
+	accessLocks AccessLockReader,
 	proxyCertManager certmanager.CertificateManager,
 	kubevirt KubevirtAPIServerConfig,
 	leases coordinationclient.LeasesGetter,
@@ -40,6 +42,7 @@ func NewBaseREST(
 ) *BaseREST {
 	return &BaseREST{
 		vmLister:         vmLister,
+		accessLocks:      accessLocks,
 		proxyCertManager: proxyCertManager,
 		kubevirt:         kubevirt,
 		sessions:         newSessionManager(leases, recorder),

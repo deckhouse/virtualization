@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -120,7 +121,14 @@ func (c Config) Complete() (*Server, error) {
 		return nil, err
 	}
 
+	// Reads the virtual machine access lock for the freeze and unfreeze subresources.
+	metadataCli, err := metadata.NewForConfig(c.Rest)
+	if err != nil {
+		return nil, err
+	}
+
 	err = api.Install(vmInformer.Lister(),
+		vmrest.NewAccessLockReader(metadataCli),
 		genericServer,
 		c.Kubevirt,
 		proxyCertManager,

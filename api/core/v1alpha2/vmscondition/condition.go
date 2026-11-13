@@ -57,7 +57,7 @@ const (
 	VirtualMachineSnapshotReady VirtualMachineSnapshotReadyReason = "VirtualMachineSnapshotReady"
 	// VirtualMachineSnapshotFailed signifies that the snapshot process has failed.
 	VirtualMachineSnapshotFailed VirtualMachineSnapshotReadyReason = "VirtualMachineSnapshotFailed"
-	// VirtualMachineBusy signifies that the snapshot has failed because another snapshot holds the virtual machine.
+	// VirtualMachineBusy signifies that the snapshot has failed because another snapshot holds the virtual machine or the virtual machine is migrating.
 	VirtualMachineBusy VirtualMachineSnapshotReadyReason = "VirtualMachineBusy"
 	// FilesystemAlreadyFrozen signifies that the snapshot has failed because the filesystem of the virtual machine was already frozen when the snapshot started.
 	FilesystemAlreadyFrozen VirtualMachineSnapshotReadyReason = "FilesystemAlreadyFrozen"

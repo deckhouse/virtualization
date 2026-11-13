@@ -121,7 +121,7 @@ spec:
                   description: |-
                     Session deadline, counted from the moment access is granted. Past it the coordinator unfreezes the
                     virtual machine and aborts the session. At most 30m, as it also bounds how long the guest may stay
-                    frozen without the coordinator.
+                    frozen without the coordinator. A session on a stopped virtual machine has no deadline.
                   pattern: ^([0-9]+(\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$
                   type: string
                   x-kubernetes-validations:
@@ -227,7 +227,9 @@ spec:
                     type: object
                   type: array
                 deadline:
-                  description: Time the session ends unless released earlier.
+                  description: |-
+                    Time the session ends unless released earlier. Not set for a session on a stopped virtual machine,
+                    which ends when the machine starts.
                   format: date-time
                   type: string
                 frozen:

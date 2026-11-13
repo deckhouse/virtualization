@@ -43,7 +43,7 @@ func (c *fakeVirtualMachines) Freeze(ctx context.Context, name string, opts v1al
 	return nil
 }
 
-func (c *fakeVirtualMachines) Unfreeze(ctx context.Context, name string) error {
+func (c *fakeVirtualMachines) Unfreeze(ctx context.Context, name string, opts v1alpha2.VirtualMachineUnfreeze) error {
 	return nil
 }
 

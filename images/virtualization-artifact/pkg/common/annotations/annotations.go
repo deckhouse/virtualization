@@ -394,6 +394,10 @@ const (
 	// AnnVMFilesystemRequest is an annotation on a virtual machine that indicates a request to freeze or unfreeze the filesystem has been sent.
 	AnnVMFilesystemRequest = AnnAPIGroupV + "/virtual-machine-filesystem-request"
 
+	// AnnVMAccessLock names the VirtualMachineAccessClaim holding the virtual machine. It is kept on the
+	// internal virtual machine, which exists for a stopped virtual machine too.
+	AnnVMAccessLock = AnnAPIGroupV + "/vm-access-lock"
+
 	// The freeze bookkeeping a VirtualMachineSnapshot keeps about itself. They live here rather than in
 	// the snapshot controller because the disk captures under that snapshot read them too:
 	// kvvmi.Status.FSFreezeStatus is not a latch and has been observed going frozen -> empty -> frozen
@@ -485,6 +489,7 @@ var ExcludedAnnotationPrefixes = []string{
 	AnnAPIGroupV + "/migration-receiver",
 	AnnAPIGroupV + "/moved-to-peer",
 	AnnAPIGroupV + "/virtual-machine-filesystem-request",
+	AnnAPIGroupV + "/vm-access-lock",
 	AnnAPIGroupV + "/inbound-migration",
 	AnnAPIGroupV + "/sync-migration",
 	AnnAPIGroupV + "/workload-update",

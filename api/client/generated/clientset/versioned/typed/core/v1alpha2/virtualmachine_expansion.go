@@ -39,7 +39,7 @@ type VirtualMachineExpansion interface {
 	SPICE(ctx context.Context, name string, options *SPICEOptions) (StreamInterface, *v1alpha2.VirtualMachineSession, error)
 	PortForward(name string, opts v1alpha2.VirtualMachinePortForward) (StreamInterface, error)
 	Freeze(ctx context.Context, name string, opts v1alpha2.VirtualMachineFreeze) error
-	Unfreeze(ctx context.Context, name string) error
+	Unfreeze(ctx context.Context, name string, opts v1alpha2.VirtualMachineUnfreeze) error
 	AddVolume(ctx context.Context, name string, opts v1alpha2.VirtualMachineAddVolume) error
 	RemoveVolume(ctx context.Context, name string, opts v1alpha2.VirtualMachineRemoveVolume) error
 	CancelEvacuation(ctx context.Context, name string, dryRun []string) error
@@ -93,7 +93,7 @@ func (c *virtualMachines) Freeze(ctx context.Context, name string, opts v1alpha2
 	return fmt.Errorf("not implemented")
 }
 
-func (c *virtualMachines) Unfreeze(ctx context.Context, name string) error {
+func (c *virtualMachines) Unfreeze(ctx context.Context, name string, opts v1alpha2.VirtualMachineUnfreeze) error {
 	return fmt.Errorf("not implemented")
 }
 

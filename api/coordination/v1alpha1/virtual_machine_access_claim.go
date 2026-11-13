@@ -91,7 +91,7 @@ type VirtualMachineAccessClaimSpec struct {
 	FreezePolicy *FreezePolicy `json:"freezePolicy,omitempty"`
 	// Session deadline, counted from the moment access is granted. Past it the coordinator unfreezes the
 	// virtual machine and aborts the session. At most 30m, as it also bounds how long the guest may stay
-	// frozen without the coordinator.
+	// frozen without the coordinator. A session on a stopped virtual machine has no deadline.
 	// +kubebuilder:validation:Type=string
 	// +kubebuilder:validation:Pattern=`^([0-9]+(\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$`
 	// +kubebuilder:validation:XValidation:rule="duration(self) > duration('0s') && duration(self) <= duration('30m')",message="spec.timeout must be greater than zero and not exceed 30m."
@@ -141,7 +141,8 @@ type VirtualMachineAccessClaimStatus struct {
 	Frozen bool `json:"frozen,omitempty"`
 	// Time the access was granted.
 	GrantedAt *metav1.Time `json:"grantedAt,omitempty"`
-	// Time the session ends unless released earlier.
+	// Time the session ends unless released earlier. Not set for a session on a stopped virtual machine,
+	// which ends when the machine starts.
 	Deadline *metav1.Time `json:"deadline,omitempty"`
 	// The latest available observations of the claim's state.
 	Conditions []metav1.Condition `json:"conditions,omitempty"`

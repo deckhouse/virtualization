@@ -132,6 +132,10 @@ type VirtualMachineRemoveVolume struct {
 	Name            string `json:"name"`
 }
 
+// ClaimUIDParam is the query parameter the freeze and unfreeze calls carry ClaimUID in. It matches the
+// JSON name of the ClaimUID fields, as the query parameters are converted into these types.
+const ClaimUIDParam = "claimUID"
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:conversion-gen:explicit-from=net/url.Values
 
@@ -139,6 +143,10 @@ type VirtualMachineFreeze struct {
 	metav1.TypeMeta `json:",inline"`
 
 	UnfreezeTimeout *metav1.Duration `json:"unfreezeTimeout"`
+	// UID of the VirtualMachineAccessClaim the freeze is requested for. While a claim holds the virtual
+	// machine, the apiserver rejects a call without its UID; with no claim holding it, a call proceeds with
+	// or without one.
+	ClaimUID string `json:"claimUID,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -146,6 +154,11 @@ type VirtualMachineFreeze struct {
 
 type VirtualMachineUnfreeze struct {
 	metav1.TypeMeta `json:",inline"`
+
+	// UID of the VirtualMachineAccessClaim the unfreeze is requested for. While a claim holds the virtual
+	// machine, the apiserver rejects a call without its UID; with no claim holding it, a call proceeds with
+	// or without one.
+	ClaimUID string `json:"claimUID,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

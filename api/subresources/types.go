@@ -85,12 +85,15 @@ type VirtualMachineFreeze struct {
 	metav1.TypeMeta
 
 	UnfreezeTimeout *metav1.Duration
+	ClaimUID        string
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type VirtualMachineUnfreeze struct {
 	metav1.TypeMeta
+
+	ClaimUID string
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

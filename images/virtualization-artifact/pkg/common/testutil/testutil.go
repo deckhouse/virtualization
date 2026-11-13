@@ -39,6 +39,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
+	coordinationv1alpha1 "github.com/deckhouse/virtualization/api/coordination/v1alpha1"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha3"
 	intvirtv1alpha1 "github.com/deckhouse/virtualization/api/internalvirtualization/v1alpha1"
@@ -60,6 +61,7 @@ func NewFakeClientWithObjects(objs ...client.Object) (client.WithWatch, error) {
 		v1alpha2.AddToScheme,
 		v1alpha3.AddToScheme,
 		intvirtv1alpha1.AddToScheme,
+		coordinationv1alpha1.AddToScheme,
 		virtv1.AddToScheme,
 		storagev1alpha1.AddToScheme,
 		clientgoscheme.AddToScheme,
@@ -84,7 +86,7 @@ func NewFakeClientWithObjects(objs ...client.Object) (client.WithWatch, error) {
 		newObjs = append(newObjs, obj)
 	}
 
-	b := fake.NewClientBuilder().WithScheme(scheme).WithObjects(newObjs...).WithStatusSubresource(newObjs...)
+	b := fake.NewClientBuilder().WithScheme(scheme).WithObjects(newObjs...).WithStatusSubresource(newObjs...).WithStatusSubresource(&coordinationv1alpha1.VirtualMachineAccessClaim{})
 	for _, fn := range indexer.IndexGetters {
 		b.WithIndex(fn())
 	}
@@ -97,6 +99,7 @@ func NewFakeClientWithInterceptorWithObjects(interceptor interceptor.Funcs, objs
 	for _, f := range []func(*apiruntime.Scheme) error{
 		v1alpha2.AddToScheme,
 		v1alpha3.AddToScheme,
+		coordinationv1alpha1.AddToScheme,
 		virtv1.AddToScheme,
 		storagev1alpha1.AddToScheme,
 		clientgoscheme.AddToScheme,
@@ -121,7 +124,7 @@ func NewFakeClientWithInterceptorWithObjects(interceptor interceptor.Funcs, objs
 		newObjs = append(newObjs, obj)
 	}
 
-	b := fake.NewClientBuilder().WithScheme(scheme).WithObjects(newObjs...).WithStatusSubresource(newObjs...).WithInterceptorFuncs(interceptor)
+	b := fake.NewClientBuilder().WithScheme(scheme).WithObjects(newObjs...).WithStatusSubresource(newObjs...).WithStatusSubresource(&coordinationv1alpha1.VirtualMachineAccessClaim{}).WithInterceptorFuncs(interceptor)
 	for _, fn := range indexer.IndexGetters {
 		b.WithIndex(fn())
 	}

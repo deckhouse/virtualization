@@ -407,6 +407,16 @@ var _ = Describe("SyncMetadataHandler.updateKVVMSpecTemplateMetadataAnnotations"
 		Expect(res).To(HaveKeyWithValue("user.example.com/new", "propagated"))
 	})
 
+	It("keeps the access lock out of the template", func() {
+		res := h.updateKVVMSpecTemplateMetadataAnnotations(nil, map[string]string{
+			annotations.AnnVMAccessLock: `{"claimUID":"a-uid"}`,
+			"user.example.com/new":      "propagated",
+		})
+
+		Expect(res).NotTo(HaveKey(annotations.AnnVMAccessLock))
+		Expect(res).To(HaveKeyWithValue("user.example.com/new", "propagated"))
+	})
+
 	It("keeps the SPICE annotation, which decides whether the domain gets the display", func() {
 		curr := map[string]string{
 			annotations.AnnSpice: "true",
@@ -555,6 +565,7 @@ var _ = Describe("PropagateVMMetadata reserved-key filtering", func() {
 					annotations.AnnIntegrityCoreChecksum:                     "deadbeef",
 					"pre.hook.backup.velero.io/command":                      `["/bin/echo"]`, // velero freeze-hook override
 					"usb.virtualization.deckhouse.io/migrationStrategy":      "LiveMigrate",
+					annotations.AnnVMAccessLock:                              `{"claimUID":"forged"}`,
 					"docs.example.com/note":                                  "keep",
 				},
 			},
@@ -566,6 +577,29 @@ var _ = Describe("PropagateVMMetadata reserved-key filtering", func() {
 		Expect(md.Annotations).NotTo(HaveKey(annotations.AnnIntegrityCoreChecksum))
 		Expect(md.Annotations).NotTo(HaveKey("pre.hook.backup.velero.io/command"))
 		Expect(md.Annotations).NotTo(HaveKey("usb.virtualization.deckhouse.io/migrationStrategy"))
+		Expect(md.Annotations).NotTo(HaveKey(annotations.AnnVMAccessLock))
 		Expect(md.Annotations).To(HaveKeyWithValue("docs.example.com/note", "keep"))
+	})
+
+	It("keeps the module's own value of a reserved annotation also put on the virtual machine", func() {
+		vm := &v1alpha2.VirtualMachine{ObjectMeta: metav1.ObjectMeta{
+			Name: "vm", Namespace: "tenant",
+			Annotations: map[string]string{annotations.AnnVMStartRequested: "user"},
+		}}
+		kvvm := &virtv1.VirtualMachine{ObjectMeta: metav1.ObjectMeta{
+			Name: "vm", Namespace: "tenant",
+			Annotations: map[string]string{annotations.AnnVMStartRequested: "module"},
+		}}
+
+		for range 2 {
+			md := &metav1.ObjectMeta{}
+			_, err := PropagateVMMetadata(vm, kvvm, kvvm, md)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = SetLastPropagatedAnnotations(md, vm)
+			Expect(err).NotTo(HaveOccurred())
+
+			kvvm.Annotations = md.Annotations
+			Expect(kvvm.Annotations).To(HaveKeyWithValue(annotations.AnnVMStartRequested, "module"))
+		}
 	})
 })

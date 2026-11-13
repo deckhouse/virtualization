@@ -51,9 +51,13 @@ func (r FreezeREST) Destroy() {
 }
 
 func (r FreezeREST) Connect(ctx context.Context, name string, opts runtime.Object, responder rest.Responder) (http.Handler, error) {
-	_, ok := opts.(*subresources.VirtualMachineFreeze)
+	options, ok := opts.(*subresources.VirtualMachineFreeze)
 	if !ok {
 		return nil, fmt.Errorf("invalid options object: %#v", opts)
+	}
+
+	if err := r.checkAccessLock(ctx, name, options.ClaimUID); err != nil {
+		return nil, err
 	}
 
 	location, transport, err := FreezeLocation(ctx, r.vmLister, name, r.kubevirt, r.proxyCertManager)
@@ -61,7 +65,7 @@ func (r FreezeREST) Connect(ctx context.Context, name string, opts runtime.Objec
 		return nil, err
 	}
 
-	handler := newThrottledUpgradeAwareProxyHandler(location, transport, false, responder, r.kubevirt.ServiceAccount)
+	handler := newThrottledUpgradeAwareProxyHandler(location, transport, false, responder, r.kubevirt.ServiceAccount, dropClaimUIDParam)
 
 	return handler, nil
 }

@@ -91,6 +91,8 @@ const (
 
 	IndexFieldVMIMByVMI = "vmim.spec.vmiName"
 
+	IndexFieldVMACByVM = "vmac.spec.virtualMachine.name"
+
 	IndexFieldKVVMIByVolume            = "kvvmi.volumes"
 	IndexFieldKVVMByAddVolumeRequest   = "kvvm.status.volumeRequests.addVolume"
 	IndexFieldVDByVolumeName           = "vd.volumeName"
@@ -132,6 +134,7 @@ var IndexGetters = []IndexGetter{
 	IndexKVVMByAddVolumeRequest,
 	IndexVDByVolumeName,
 	IndexPodByMigrationTargetNode,
+	IndexVMACByVM,
 }
 
 var IndexGettersUSB = []IndexGetter{
