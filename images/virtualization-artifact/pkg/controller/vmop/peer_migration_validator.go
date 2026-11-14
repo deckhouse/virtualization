@@ -92,10 +92,6 @@ func checkPeerMigratable(vm *v1alpha2.VirtualMachine) error {
 		return fmt.Errorf("only a running virtual machine can move to a peer cluster, %q is %s", vm.Name, vm.Status.Phase)
 	}
 
-	if err := commonvm.PeerMigrationSnapshotError(vm); err != nil {
-		return err
-	}
-
 	for _, ref := range vm.OwnerReferences {
 		if ref.Kind == v1alpha2.VirtualMachinePoolKind {
 			return fmt.Errorf("the virtual machine %q is a replica of VirtualMachinePool %q: replicas do not move to a peer cluster", vm.Name, ref.Name)

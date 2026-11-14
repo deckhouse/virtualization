@@ -443,10 +443,6 @@ func (h PeerMigrationHandler) createReceiver(ctx context.Context, peer client.Cl
 		return reconcile.Result{}, err
 	}
 
-	if err := commonvm.PeerMigrationSnapshotError(vm); err != nil {
-		return reconcile.Result{}, h.failBeforeReceiverCreation(ctx, vmop, err.Error())
-	}
-
 	kvvm := &virtv1.VirtualMachine{}
 
 	kvvmi := &virtv1.VirtualMachineInstance{}
@@ -560,10 +556,6 @@ func (h PeerMigrationHandler) start(ctx context.Context, peer client.Client, vmo
 	vm := &v1alpha2.VirtualMachine{}
 	if err := h.reader.Get(ctx, types.NamespacedName{Namespace: vmop.Namespace, Name: vmop.Spec.VirtualMachine}, vm); err != nil {
 		return reconcile.Result{}, err
-	}
-
-	if err := commonvm.PeerMigrationSnapshotError(vm); err != nil {
-		return reconcile.Result{}, h.fail(ctx, vmop, peer, vmopcondition.ReasonPeerRejected, err.Error())
 	}
 
 	if receiver.Status.Synchronization.SyncAddress == "" || receiver.Status.Synchronization.SyncPin == "" {

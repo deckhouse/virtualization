@@ -44,6 +44,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	coordinationv1alpha1 "github.com/deckhouse/virtualization/api/coordination/v1alpha1"
+	"github.com/deckhouse/virtualization/api/coordination/v1alpha1/vmaccondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
@@ -283,12 +284,7 @@ var _ = Describe("PeerMigrationHandler", func() {
 		Expect(errors.Is(err, reconciler.ErrStopHandlerChain)).To(BeTrue(), "unexpected error: %v", err)
 	}
 
-	DescribeTable("rejects snapshotting or freezing before migration starts and permits a later retry", func(condition vmcondition.Type, stage int) {
-		var before virtv1.VirtualMachineInstance
-
-		key := types.NamespacedName{Namespace: ns, Name: "web"}
-		Expect(local.Get(ctx, key, &before)).To(Succeed())
-
+	DescribeTable("starts despite stale snapshot conditions after the session ends", func(condition vmcondition.Type, stage int) {
 		switch stage {
 		case 1:
 			handleWithoutShow()
@@ -298,30 +294,15 @@ var _ = Describe("PeerMigrationHandler", func() {
 		}
 
 		var vm v1alpha2.VirtualMachine
-		Expect(local.Get(ctx, key, &vm)).To(Succeed())
+		Expect(local.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web"}, &vm)).To(Succeed())
 		meta.SetStatusCondition(&vm.Status.Conditions, metav1.Condition{Type: condition.String(), Status: metav1.ConditionTrue, Reason: "InProgress"})
 		Expect(local.Status().Update(ctx, &vm)).To(Succeed())
 
-		handle()
-		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
-		Expect(completed().Message).To(ContainSubstring("retry the migration"))
-		Expect(movedMark()).To(BeEmpty())
-		Expect(isGone(peer, &intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{ObjectMeta: metav1.ObjectMeta{Name: key.Name, Namespace: key.Namespace}})).To(BeTrue())
-		Expect(isGone(local, &virtv1.VirtualMachineInstanceMigration{ObjectMeta: metav1.ObjectMeta{Name: service.MigrationName(vmop), Namespace: ns}})).To(BeTrue())
+		if stage != 2 {
+			handle()
+			setReceiverPhase(intvirtv1alpha1.ReceiverReady, "")
+		}
 
-		var after virtv1.VirtualMachineInstance
-		Expect(local.Get(ctx, key, &after)).To(Succeed())
-		Expect(after).To(Equal(before))
-		Expect(local.Get(ctx, key, &vm)).To(Succeed())
-		Expect(vm.Spec.RunPolicy).To(Equal(v1alpha2.AlwaysOnPolicy))
-
-		meta.RemoveStatusCondition(&vm.Status.Conditions, condition.String())
-		Expect(local.Status().Update(ctx, &vm)).To(Succeed())
-
-		vmop = newVMOP()
-
-		handle()
-		setReceiverPhase(intvirtv1alpha1.ReceiverReady, "")
 		handle()
 		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseInProgress))
 		Expect(sourceMigration().Spec.SendTo).NotTo(BeNil())
@@ -462,6 +443,14 @@ var _ = Describe("PeerMigrationHandler", func() {
 	})
 
 	It("waits for a snapshot in progress before asking the peer to receive", func() {
+		var vm v1alpha2.VirtualMachine
+		Expect(local.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web"}, &vm)).To(Succeed())
+		vm.Status.Conditions = []metav1.Condition{
+			{Type: vmcondition.TypeSnapshotting.String(), Status: metav1.ConditionTrue},
+			{Type: vmcondition.TypeFilesystemFrozen.String(), Status: metav1.ConditionTrue},
+		}
+		Expect(local.Status().Update(ctx, &vm)).To(Succeed())
+
 		vmop.CreationTimestamp = metav1.Now()
 		claim := &coordinationv1alpha1.VirtualMachineAccessClaim{
 			ObjectMeta: metav1.ObjectMeta{
@@ -486,10 +475,25 @@ var _ = Describe("PeerMigrationHandler", func() {
 		Expect(isGone(peer, &intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: "web"}})).To(BeTrue())
 
 		claim.Status.Phase = coordinationv1alpha1.AccessClaimPhaseCompleted
+		claim.Status.Conditions = []metav1.Condition{{
+			Type: vmaccondition.UnfrozenType.String(), Status: metav1.ConditionFalse, Reason: vmaccondition.Unfreezing.String(),
+		}}
+		Expect(local.Status().Update(ctx, claim)).To(Succeed())
+		handle()
+		Expect(completed().Reason).To(Equal(string(vmopcondition.ReasonWaitingForSnapshot)))
+		Expect(isGone(peer, &intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: "web"}})).To(BeTrue())
+
+		claim.Status.Conditions[0].Status = metav1.ConditionTrue
+		claim.Status.Conditions[0].Reason = vmaccondition.UnfreezeConfirmed.String()
 		Expect(local.Status().Update(ctx, claim)).To(Succeed())
 		handle()
 		Expect(completed().Reason).To(Equal(string(vmopcondition.ReasonWaitingForPeer)))
 		Expect(isGone(peer, &intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: "web"}})).To(BeFalse())
+
+		setReceiverPhase(intvirtv1alpha1.ReceiverReady, "")
+		handle()
+		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseInProgress))
+		Expect(sourceMigration().Spec.SendTo).NotTo(BeNil())
 	})
 
 	It("asks the peer to receive, starts the migration and deletes the VM once the peer confirms", func() {

@@ -36,19 +36,6 @@ import (
 	intvirtv1alpha1 "github.com/deckhouse/virtualization/api/internalvirtualization/v1alpha1"
 )
 
-// PeerMigrationSnapshotError rejects a peer migration while a snapshot or filesystem freeze is active.
-func PeerMigrationSnapshotError(vm *v1alpha2.VirtualMachine) error {
-	if meta.IsStatusConditionTrue(vm.Status.Conditions, vmcondition.TypeSnapshotting.String()) {
-		return fmt.Errorf("VirtualMachine %q cannot be migrated to a peer cluster while a snapshot is pending or in progress: wait for the snapshot to finish and retry the migration", vm.Name)
-	}
-
-	if meta.IsStatusConditionTrue(vm.Status.Conditions, vmcondition.TypeFilesystemFrozen.String()) {
-		return fmt.Errorf("VirtualMachine %q cannot be migrated to a peer cluster while its filesystem is frozen: wait for the filesystem to be unfrozen and retry the migration", vm.Name)
-	}
-
-	return nil
-}
-
 // PeerMigrationLockError returns an error if migration to or from a peer cluster locks the VM.
 func PeerMigrationLockError(ctx context.Context, c client.Client, v *v1alpha2.VirtualMachine) error {
 	if v == nil || c == nil {

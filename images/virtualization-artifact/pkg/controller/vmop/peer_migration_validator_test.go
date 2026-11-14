@@ -40,17 +40,13 @@ var _ = Describe("checkPeerMigratable", func() {
 		Expect(checkPeerMigratable(running())).To(Succeed())
 	})
 
-	DescribeTable("refuses migration until the snapshot or freeze finishes", func(condition vmcondition.Type, cause string) {
+	DescribeTable("accepts a migration whose snapshot session is handled by the controller", func(condition vmcondition.Type) {
 		vm := running()
 		vm.Status.Conditions = []metav1.Condition{{Type: condition.String(), Status: metav1.ConditionTrue}}
-		Expect(checkPeerMigratable(vm)).To(MatchError(And(ContainSubstring(cause), ContainSubstring("retry the migration"))))
-		vm.Status.Conditions[0].Status = metav1.ConditionFalse
-		Expect(checkPeerMigratable(vm)).To(Succeed())
-		vm.Status.Conditions = nil
 		Expect(checkPeerMigratable(vm)).To(Succeed())
 	},
-		Entry("snapshotting", vmcondition.TypeSnapshotting, "snapshot is pending or in progress"),
-		Entry("filesystem frozen", vmcondition.TypeFilesystemFrozen, "filesystem is frozen"),
+		Entry("snapshotting", vmcondition.TypeSnapshotting),
+		Entry("filesystem frozen", vmcondition.TypeFilesystemFrozen),
 	)
 
 	DescribeTable("refuses",
