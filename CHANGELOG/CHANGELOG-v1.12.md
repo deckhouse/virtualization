@@ -1,5 +1,17 @@
 # Changelog v1.12
 
+## v1.12.5
+
+### core
+
+- **chore** (default): Fixed vulnerabilities:
+- CVE-2026-78661
+- CVE-2026-97045
+- CVE-2026-116585
+- CVE-2026-116586
+- CVE-2026-116587 ([!737](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/737))
+- **fix** (default): The `virtualization-dra` component no longer leaks memory on health checks. Previously, its memory consumption on every node kept growing until the component was restarted. ([!752](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/752))
+
 ## v1.12.4
 
 ### vm
