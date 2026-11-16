@@ -41,6 +41,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/network/sdnapi"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
+	"github.com/deckhouse/virtualization-controller/pkg/kubeapi"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -64,8 +65,16 @@ func (w *NetworkWatcher) Watch(mgr manager.Manager, ctr controller.Controller) e
 		return err
 	}
 
-	if err := w.watchOne(mgr, ctr, commonnetwork.NetworkGVK, indexer.IndexFieldVMByNetwork, false); err != nil {
+	// The CE builds of the sdn module do not serve Network: a watch on it never syncs.
+	sdnExtendedAPIAvailable, err := kubeapi.SDNExtendedAPIAvailable()
+	if err != nil {
 		return err
+	}
+
+	if sdnExtendedAPIAvailable {
+		if err := w.watchOne(mgr, ctr, commonnetwork.NetworkGVK, indexer.IndexFieldVMByNetwork, false); err != nil {
+			return err
+		}
 	}
 
 	return w.watchIPAddress(mgr, ctr)

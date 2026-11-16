@@ -25,6 +25,7 @@ import (
 
 	commonvm "github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
+	"github.com/deckhouse/virtualization-controller/pkg/kubeapi"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -165,7 +166,12 @@ func IndexALL(ctx context.Context, mgr manager.Manager) error {
 		}
 	}
 
-	if featuregates.Default().Enabled(featuregates.SDN) {
+	sdnExtendedAPIAvailable, err := kubeapi.SDNExtendedAPIAvailable()
+	if err != nil {
+		return err
+	}
+
+	if featuregates.Default().Enabled(featuregates.SDN) && sdnExtendedAPIAvailable {
 		for _, fn := range IndexGettersSDN {
 			obj, field, indexFunc := fn()
 			if err := mgr.GetFieldIndexer().IndexField(ctx, obj, field, indexFunc); err != nil {

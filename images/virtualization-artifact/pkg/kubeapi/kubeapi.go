@@ -17,6 +17,7 @@ limitations under the License.
 package kubeapi
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
 	"strconv"
@@ -29,6 +30,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
+
+const sdnExtendedAPIAvailableEnv = "SDN_EXTENDED_API_AVAILABLE"
 
 var (
 	kubeClient     kubernetes.Interface
@@ -99,6 +102,24 @@ func VerticalPodAutoscalerModuleEnabled() bool {
 	}
 
 	return enabled
+}
+
+// SDNExtendedAPIAvailable reports whether the sdn module serves the kinds of its EE
+// builds (Network, SystemNetwork and its attachments, UnderlayNetwork). The CE builds
+// carry only the kinds the Main network needs, so the SDN feature gate alone does not
+// tell whether the rest can be watched. Passed in by the Helm chart.
+func SDNExtendedAPIAvailable() (bool, error) {
+	raw := os.Getenv(sdnExtendedAPIAvailableEnv)
+	if raw == "" {
+		return false, nil
+	}
+
+	available, err := strconv.ParseBool(raw)
+	if err != nil {
+		return false, fmt.Errorf("parse %s: %w", sdnExtendedAPIAvailableEnv, err)
+	}
+
+	return available, nil
 }
 
 func isGroupVersionAvailable(clientset kubernetes.Interface, groupVersion string) (bool, error) {

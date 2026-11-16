@@ -31,6 +31,7 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
+	"github.com/deckhouse/virtualization-controller/pkg/kubeapi"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 )
 
@@ -44,6 +45,16 @@ func NewController(
 ) (controller.Controller, error) {
 	if !featuregates.Default().Enabled(featuregates.SDN) {
 		log.Info("SDN feature gate is disabled, migrationiface controller is disabled")
+		return nil, nil
+	}
+
+	sdnExtendedAPIAvailable, err := kubeapi.SDNExtendedAPIAvailable()
+	if err != nil {
+		return nil, err
+	}
+
+	if !sdnExtendedAPIAvailable {
+		log.Info("The sdn module does not serve SystemNetwork, migrationiface controller is disabled")
 		return nil, nil
 	}
 

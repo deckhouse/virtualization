@@ -11,6 +11,16 @@ true
 {{- end -}}
 {{- end -}}
 
+{{/* The sdn module ships these kinds only in its EE builds; the CE ones carry a reduced CRD set. */}}
+{{- define "virtualization-controller.sdnExtendedAPIIsPresent" -}}
+{{- $network := "network.deckhouse.io/v1alpha1/Network" -}}
+{{- $snnnia := "network.deckhouse.io/v1alpha1/SystemNetworkNodeNetworkInterfaceAttachment" -}}
+{{- $discovered := .Values.global.discovery.apiVersions -}}
+{{- if and (or ($discovered | has $network) (.Capabilities.APIVersions.Has $network)) (or ($discovered | has $snnnia) (.Capabilities.APIVersions.Has $snnnia)) -}}
+true
+{{- end -}}
+{{- end -}}
+
 {{- define "virtualization-controller.volumeSnapshotAPIIsPresent" -}}
 {{- $vs := "snapshot.storage.k8s.io/v1/VolumeSnapshot" -}}
 {{- $vsc := "snapshot.storage.k8s.io/v1/VolumeSnapshotClass" -}}
@@ -197,6 +207,10 @@ true
 {{- end }}
 {{- if eq (include "unified-snapshotter.customSnapshotDefinitionIsPresent" .) "true" }}
 - name: UNIFIED_SNAPSHOTTER_PRESENT
+  value: "true"
+{{- end }}
+{{- if eq (include "virtualization-controller.sdnExtendedAPIIsPresent" .) "true" }}
+- name: SDN_EXTENDED_API_AVAILABLE
   value: "true"
 {{- end }}
 {{- end }}
