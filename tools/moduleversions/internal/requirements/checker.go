@@ -23,8 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
-	"time"
+	"os/exec"
 
 	"github.com/blang/semver/v4"
 	"github.com/google/go-containerregistry/pkg/crane"
@@ -34,12 +33,10 @@ import (
 )
 
 const (
-	moduleFileLinkTemplate    = "https://raw.githubusercontent.com/deckhouse/virtualization/refs/tags/%s/module.yaml"
 	moduleImageURLTemplate    = "registry.deckhouse.io/deckhouse/%s/modules/%s:%s"
 	moduleVersionFile         = "version.json"
 	deckhouseImageURLTemplate = "registry.deckhouse.io/deckhouse/%s:%s"
 	deckhouseVersionFile      = "deckhouse/version"
-	httpTimeout               = 5 * time.Second
 )
 
 type (
@@ -152,29 +149,13 @@ func VerifyModuleRequirements(module string, sv SemVerRange, edition, channel st
 }
 
 func CheckVersionWithRetries(channel, version, moduleName string, attempts int) error {
-	client := &http.Client{
-		Timeout: httpTimeout,
-	}
+	moduleFile := version + ":module.yaml"
+	fmt.Printf("Reading module requirements from git %s\n", moduleFile)
 
-	moduleFileLink := fmt.Sprintf(moduleFileLinkTemplate, version)
-	fmt.Printf("Fetching module requirements from %s\n", moduleFileLink)
-
-	resp, err := client.Get(moduleFileLink)
+	file, err := exec.Command("git", "show", moduleFile).Output()
 	if err != nil {
 		fmt.Printf("%v\n", err)
-		return fmt.Errorf("failed to fetch module file from %s: %w", moduleFileLink, err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		fmt.Printf("unexpected status code %d for URL %s\n", resp.StatusCode, moduleFileLink)
-		return fmt.Errorf("unexpected status code %d for URL %s", resp.StatusCode, moduleFileLink)
-	}
-
-	file, err := io.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Printf("%v\n", err)
-		return err
+		return fmt.Errorf("failed to read %s from git: %w", moduleFile, err)
 	}
 
 	c := Config{}
@@ -203,7 +184,7 @@ func CheckVersionWithRetries(channel, version, moduleName string, attempts int) 
 		err = VerifyModuleRequirements("deckhouse", c.Requirements.Deckhouse, e, channel)
 		if err != nil {
 			fmt.Printf("requirements of the %s module (%s) are not satisfied: on channel %s edition %s Deckhouse is currently at a version that is not in the range required by the module. %v\n",
-				moduleName, moduleFileLink, channel, e, err)
+				moduleName, moduleFile, channel, e, err)
 
 			return err
 		}

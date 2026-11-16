@@ -177,6 +177,8 @@ prod:check-requirements:
     - when: never
   script:
     - bash .gitlab/ci/scripts/bash/check-runner-tools.sh bash go task curl jq
+    # The checker reads module.yaml of the release tag with `git show`; the shallow clone of the pipeline ref lacks it.
+    - git fetch --depth 1 origin "+refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"
     - CHANNEL="${RELEASE_CHANNEL}" VERSION="${RELEASE_TAG}" task -d tools/moduleversions check:requirements
 
 # ---------------------------------------------------------------------------
