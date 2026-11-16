@@ -62,7 +62,7 @@ func migratableVDs(vds []*v1alpha2.VirtualDisk) []*v1alpha2.VirtualDisk {
 	return out
 }
 
-var _ = Describe("RWOVirtualDiskMigration", Label(label.SIGCompute, precheck.NoPrecheck), func() {
+var _ = Describe("RWOVirtualDiskMigration", label.EE(), Label(label.SIGCompute, precheck.NoPrecheck), func() {
 	var (
 		f            *framework.Framework
 		ctx          context.Context

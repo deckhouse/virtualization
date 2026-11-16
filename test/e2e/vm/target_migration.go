@@ -48,7 +48,7 @@ import (
 
 const hostnameLabelKey = "kubernetes.io/hostname"
 
-var _ = Describe("TargetMigration", Label(label.SIGCompute, precheck.PrecheckTargetMigration), func() {
+var _ = Describe("TargetMigration", label.EE(), Label(label.SIGCompute, precheck.PrecheckTargetMigration), func() {
 	var (
 		virtualMachine      *v1alpha2.VirtualMachine
 		targetMigrationVMOP *v1alpha2.VirtualMachineOperation

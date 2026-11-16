@@ -55,7 +55,7 @@ const (
 	dummyHCDProductID = "0104"
 )
 
-var _ = Describe("VirtualMachineUSB", Label(label.SIGCompute, precheck.PrecheckUSB), func() {
+var _ = Describe("VirtualMachineUSB", label.EE(), Label(label.SIGCompute, precheck.PrecheckUSB), func() {
 	var (
 		f   *framework.Framework
 		t   *VMUSBTest

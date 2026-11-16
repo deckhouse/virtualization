@@ -142,7 +142,8 @@ var _ = Describe("VirtualMachineSupersede", Label(label.SIGCompute, precheck.NoP
 		Expect(err).NotTo(HaveOccurred())
 	})
 
-	DescribeTable("supersedes a stuck Migrate operation", func(supersederType v1alpha2.VMOPType) {
+	// The Migrate VMOP nodeSelector is not available in the Community Edition.
+	DescribeTable("supersedes a stuck Migrate operation", label.EE(), func(supersederType v1alpha2.VMOPType) {
 		ctx := context.Background()
 		f = framework.NewFramework("vm-supersede-migrate")
 		// The migration target pod is deliberately parked Unschedulable by

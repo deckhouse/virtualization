@@ -88,7 +88,7 @@ func kvvmiGVK() schema.GroupVersionKind {
 	}
 }
 
-var _ = Describe("HotplugCPU", Label(label.SIGCompute), func() {
+var _ = Describe("HotplugCPU", label.EE(), Label(label.SIGCompute), func() {
 	var (
 		f *framework.Framework
 		t *cpuHotplugTest

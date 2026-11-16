@@ -118,6 +118,24 @@ For example, to run only one test and leave all created resources in the cluster
 FOCUS="VirtualMachineConnectivity" POST_CLEANUP=never task run
 ```
 
+### Run on a Community Edition cluster
+
+Specs that rely on Enterprise Edition features are labelled `EE`. Exclude them on a CE cluster:
+
+```bash
+LABELS='!EE' task run
+```
+
+In sequential mode `LABELS` replaces the default `!Slow` filter, so add it back explicitly:
+
+```bash
+HOTPLUG_MEMORY_LIVE_MIGRATION_PRECHECK=no SEQUENTIAL=true LABELS='!EE && !Slow' task run
+```
+
+The prechecks of the excluded specs are skipped as well. The exception is the precheck selection, which does not
+parse `&&` expressions, so with the filter above it still runs the precheck of the pending `HotplugMemory`
+live-migration spec. That precheck fails on CE, so skip it with `HOTPLUG_MEMORY_LIVE_MIGRATION_PRECHECK=no`.
+
 ### PostCleanUp option
 
 `POST_CLEANUP` defines an environment variable used to explicitly request the deletion of created/used resources.

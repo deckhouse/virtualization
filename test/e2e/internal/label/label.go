@@ -46,3 +46,9 @@ func TPM() Labels {
 func Legacy() Labels {
 	return Label("Legacy")
 }
+
+// EE marks specs that rely on features available only in the Enterprise
+// Edition. Run the suite on a CE cluster with `--label-filter='!EE'`.
+func EE() Labels {
+	return Label("EE")
+}

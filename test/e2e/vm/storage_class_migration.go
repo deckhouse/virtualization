@@ -48,7 +48,7 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var _ = Describe("StorageClassMigration", Label(label.SIGCompute, precheck.NoPrecheck), func() {
+var _ = Describe("StorageClassMigration", label.EE(), Label(label.SIGCompute, precheck.NoPrecheck), func() {
 	var (
 		f                      *framework.Framework
 		ctx                    context.Context

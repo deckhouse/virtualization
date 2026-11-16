@@ -58,7 +58,7 @@ const (
 	migrationTargetMustDiffer
 )
 
-var _ = Describe("VirtualMachineAffinityAndToleration", Label(label.SIGCompute, precheck.PrecheckAffinityToleration), func() {
+var _ = Describe("VirtualMachineAffinityAndToleration", label.EE(), Label(label.SIGCompute, precheck.PrecheckAffinityToleration), func() {
 	var (
 		f   *framework.Framework
 		ctx context.Context

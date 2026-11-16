@@ -39,7 +39,7 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 )
 
-var _ = Describe("VirtualMachinePool", Label(label.SIGCompute, precheck.NoPrecheck), func() {
+var _ = Describe("VirtualMachinePool", label.EE(), Label(label.SIGCompute, precheck.NoPrecheck), func() {
 	var (
 		f    *framework.Framework
 		ctx  context.Context

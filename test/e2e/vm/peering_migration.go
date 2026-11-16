@@ -57,7 +57,7 @@ import (
 // The cluster is its own peer: a dev Secret gives virtualization-controller a kubeconfig of this cluster and
 // maps the namespace of the source to another one. The VM gets an address there, as the address of the
 // source stays taken in the same cluster.
-var _ = Describe("PeeringMigration", Label(label.SIGCompute, precheck.PrecheckPeering), func() {
+var _ = Describe("PeeringMigration", label.EE(), Label(label.SIGCompute, precheck.PrecheckPeering), func() {
 	var (
 		src, dst       *framework.Framework
 		ctx            context.Context

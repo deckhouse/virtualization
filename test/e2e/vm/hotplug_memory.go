@@ -59,7 +59,7 @@ const (
 	memoryPlusTwoBlocks = "1280Mi"
 )
 
-var _ = Describe("HotplugMemory", Label(label.SIGCompute), func() {
+var _ = Describe("HotplugMemory", label.EE(), Label(label.SIGCompute), func() {
 	var (
 		f *framework.Framework
 		t *memoryHotplugTest
