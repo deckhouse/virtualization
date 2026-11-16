@@ -1,0 +1,92 @@
+{{- $grantAPI := "multitenancy.deckhouse.io/v1alpha1/GrantableClusterResourceDefinition" }}
+{{- /* DKP 1.77 ships the grant CRDs without catalogFields and without filter support in reference paths. */}}
+{{- $deckhouseVersion := .Values.global.deckhouseVersion | default "dev" | toString }}
+{{- $grantsSupported := or (eq $deckhouseVersion "dev") (semverCompare ">=1.78.0-0" $deckhouseVersion) }}
+{{- if and $grantsSupported (.Values.global.enabledModules | has "multitenancy-manager") (or (.Values.global.discovery.apiVersions | has $grantAPI) (.Capabilities.APIVersions.Has $grantAPI)) }}
+---
+apiVersion: multitenancy.deckhouse.io/v1alpha1
+kind: GrantableClusterResourceDefinition
+metadata:
+  name: virtualmachineclasses
+  {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
+spec:
+  grantedResource:
+    apiGroup: virtualization.deckhouse.io
+    kind: VirtualMachineClass
+  enforcement: Managed
+  defaultAvailability: All
+  defaultFrom:
+    annotationKey: virtualmachineclass.virtualization.deckhouse.io/is-default-class
+  catalogFields:
+  - name: cpuType
+    path: $.spec.cpu.type
+  - name: cpuModel
+    path: $.spec.cpu.model
+---
+apiVersion: multitenancy.deckhouse.io/v1alpha1
+kind: GrantableClusterResourceDefinition
+metadata:
+  name: clustervirtualimages
+  {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
+spec:
+  grantedResource:
+    apiGroup: virtualization.deckhouse.io
+    kind: ClusterVirtualImage
+  enforcement: Managed
+  defaultAvailability: All
+  catalogFields:
+  - name: phase
+    path: $.status.phase
+  - name: format
+    path: $.status.format
+  - name: cdrom
+    path: $.status.cdrom
+  - name: unpackedSize
+    path: $.status.size.unpacked
+{{- /*
+  One reference per (definition, resource): fieldPaths picks a single item per resource,
+  so a resource with two reference paths (the pool) needs two references.
+  Defaulting stays None: the VM class default is filled by our own mutating webhook,
+  and the disk StorageClass default is resolved by virtualization-controller.
+  storageclasses is registered by multitenancy-manager.
+*/}}
+{{- $cviKind := "?@.kind == 'ClusterVirtualImage'" }}
+{{- $references := list
+  (dict "definition" "virtualmachineclasses" "resource" "virtualmachines" "path" "$.spec.virtualMachineClassName")
+  (dict "definition" "virtualmachineclasses" "resource" "virtualmachinepools" "path" "$.spec.virtualMachineTemplate.spec.virtualMachineClassName")
+  (dict "definition" "clustervirtualimages" "resource" "virtualmachines" "path" (printf "$.spec.blockDeviceRefs[%s].name" $cviKind))
+  (dict "definition" "clustervirtualimages" "resource" "virtualmachineblockdeviceattachments" "path" "$.spec.blockDeviceRef.name" "kindPath" "$.spec.blockDeviceRef.kind")
+  (dict "definition" "clustervirtualimages" "resource" "virtualdisks" "path" "$.spec.dataSource.objectRef.name" "kindPath" "$.spec.dataSource.objectRef.kind")
+  (dict "definition" "clustervirtualimages" "resource" "virtualimages" "path" "$.spec.dataSource.objectRef.name" "kindPath" "$.spec.dataSource.objectRef.kind")
+  (dict "definition" "clustervirtualimages" "resource" "virtualmachinepools" "suffix" "vm" "path" (printf "$.spec.virtualMachineTemplate.spec.blockDeviceRefs[%s].name" $cviKind))
+  (dict "definition" "clustervirtualimages" "resource" "virtualmachinepools" "suffix" "vd" "path" "$.spec.virtualDiskTemplates[?@.spec.dataSource.objectRef.kind == 'ClusterVirtualImage'].spec.dataSource.objectRef.name")
+  (dict "definition" "storageclasses" "resource" "virtualdisks" "path" "$.spec.persistentVolumeClaim.storageClassName")
+  (dict "definition" "storageclasses" "resource" "virtualimages" "path" "$.spec.persistentVolumeClaim.storageClassName")
+  (dict "definition" "storageclasses" "resource" "virtualmachinepools" "path" "$.spec.virtualDiskTemplates[*].spec.persistentVolumeClaim.storageClassName")
+}}
+{{- range $references }}
+---
+apiVersion: multitenancy.deckhouse.io/v1alpha1
+kind: GrantableClusterResourceReference
+metadata:
+  name: {{ printf "%s-%s" .definition .resource }}{{ with .suffix }}-{{ . }}{{ end }}
+  {{- include "helm_lib_module_labels" (list $) | nindent 2 }}
+spec:
+  grantableClusterResourceName: {{ .definition }}
+  rule:
+    apiGroups:
+    - virtualization.deckhouse.io
+    apiVersions:
+    - "*"
+    resources:
+    - {{ .resource }}
+  fieldPaths:
+  - path: {{ .path | quote }}
+    {{- with .kindPath }}
+    match:
+      fieldPath: {{ . | quote }}
+      equals: ClusterVirtualImage
+    {{- end }}
+    defaulting: None
+{{- end }}
+{{- end }}
