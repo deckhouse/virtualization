@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization/test/e2e/internal/api/deckhouse/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework/failfast"
 )
 
@@ -275,7 +276,28 @@ func (f *Framework) DeferDelete(objs ...client.Object) {
 func (f *Framework) Delete(ctx context.Context, objs ...client.Object) error {
 	// 1. Send deletion request for objects.
 	for _, obj := range objs {
-		err := f.client.Delete(ctx, obj)
+		objToDelete := obj
+
+		// Handle namespace: it may be managed by the parent Project that should be deleted.
+		if _, ok := obj.(*corev1.Namespace); ok {
+			nsKey := client.ObjectKeyFromObject(obj)
+			err := f.client.Get(ctx, nsKey, obj)
+			if err == nil && obj.GetLabels()["heritage"] == "multitenancy-manager" {
+				objToDelete = &v1alpha2.Project{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "deckhouse.io/v1alpha2",
+						Kind:       "Project",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: obj.GetName(),
+					},
+				}
+			} else if err != nil && !k8serrors.IsNotFound(err) {
+				GinkgoWriter.Printf("Failed to get namespace %q to find its parent Project, deleting the namespace directly: %v\n", nsKey.Name, err)
+			}
+		}
+
+		err := f.client.Delete(ctx, objToDelete)
 		if err != nil && !k8serrors.IsNotFound(err) {
 			return err
 		}
