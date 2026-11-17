@@ -1,3 +1,248 @@
+- version: v1.13.0
+  date: "2026-11-17"
+  highlights:
+    - en: Virtual machines can now get their main network address from the `sdn` module. The switch starts automatically when the `sdn` module serves the main cluster network, and running virtual machines switch without a restart.
+      ru: Виртуальные машины (ВМ) теперь могут получать адрес в основной сети от модуля `sdn`. Переход начинается автоматически, когда модуль `sdn` обслуживает основную сеть кластера, а работающие ВМ переходят на новый механизм без перезапуска.
+    - en: A virtual machine can now be connected to a physical network through SR-IOV (commercial editions, experimental). To do this, add a network of the `UnderlayNetwork` type to `.spec.networks` of the virtual machine.
+      ru: ВМ теперь можно подключать к физической сети через SR-IOV (коммерческие редакции, экспериментальная функциональность). Для этого добавьте в `.spec.networks` ВМ сеть типа `UnderlayNetwork`.
+    - en: A running virtual machine can now be moved to another site without stopping it (commercial editions). To do this, pair the clusters through the `peering` module and run the `d8 v migrate --project-peer` command.
+      ru: Работающую ВМ теперь можно перенести на другую площадку без остановки (коммерческие редакции). Для этого свяжите кластеры модулем `peering` и выполните команду `d8 v migrate --project-peer`.
+    - en: Mass live migrations, for example during an update or node maintenance, can now run on all nodes at the same time instead of stalling on a few.
+      ru: Массовые живые миграции, например при обновлении или обслуживании узлов, теперь могут идти одновременно на всех узлах, а не упираться в несколько.
+  features:
+    virtual-machines:
+      - en: Nested virtualization (`vmx`, `svm`) can now be turned off in a [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass). It stays enabled by default.
+        ru: Вложенную виртуализацию (`vmx`, `svm`) теперь можно отключить в [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass). По умолчанию она остаётся включённой.
+      - en: Added the ability to move a running virtual machine without stopping it to another site. The virtual machine keeps its IP and MAC addresses. The functionality is available in the commercial editions of the platform. To use it, pair the clusters through the `peering` module and run the `d8 v migrate --project-peer` command.
+        ru: Добавлена возможность переносить работающую ВМ без остановки на другую площадку. IP- и MAC-адреса ВМ при этом сохраняются. Функциональность доступна в коммерческих редакциях платформы. Для использования свяжите кластеры модулем `peering` и выполните команду `d8 v migrate --project-peer`.
+    network:
+      - en: Added the ability to get the `Main` network address of a virtual machine from the [IPAddress](/modules/sdn/cr.html#ipaddress) resource of the `sdn` module. The switch starts automatically when the `sdn` module serves the main cluster network. The [VirtualMachineIPAddress](/modules/virtualization/cr.html#virtualmachineipaddress) and [VirtualMachineIPAddressLease](/modules/virtualization/cr.html#virtualmachineipaddresslease) resources are deprecated but keep working.
+        ru: Добавлена возможность получать адрес ВМ в сети `Main` через ресурс [IPAddress](/modules/sdn/cr.html#ipaddress) модуля `sdn`. Переход начинается автоматически, когда модуль `sdn` обслуживает основную сеть кластера. Ресурсы [VirtualMachineIPAddress](/modules/virtualization/cr.html#virtualmachineipaddress) и [VirtualMachineIPAddressLease](/modules/virtualization/cr.html#virtualmachineipaddresslease) объявлены устаревшими, но продолжают работать.
+      - en: Added the ability to connect a virtual machine to a physical network through SR-IOV with the `UnderlayNetwork` network type. The functionality is available in the commercial editions of the platform and is experimental. To use it, the cluster must run the `sdn` module and Kubernetes `1.34` or newer. A virtual machine with such an interface cannot be live migrated.
+        ru: Добавлена возможность подключать ВМ к физической сети через SR-IOV с типом сети `UnderlayNetwork`. Функциональность доступна в коммерческих редакциях платформы и является экспериментальной. Для использования необходимы модуль `sdn` и версия Kubernetes не ниже `1.34`. ВМ с таким интерфейсом нельзя мигрировать вживую.
+    observability:
+      - en: The Virtualization Overview dashboard now shows how many disks are created from each image and the CPU and memory overhead of virtual machines per namespace.
+        ru: Дашборд Virtualization Overview теперь показывает, сколько дисков создано из каждого образа, и накладные расходы CPU и памяти ВМ по неймспейсам.
+      - en: The `d8_virtualization_virtualdisk_info` metric now shows the data source of each disk.
+        ru: Метрика `d8_virtualization_virtualdisk_info` теперь показывает источник данных каждого диска.
+    module:
+      - en: Added the ability to restrict which [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) and [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage) resources each project can use with ClusterResourceGrantPolicy. Until an administrator creates a policy, all classes and images stay available to every project. To use it, the cluster must run Deckhouse Platform 1.78 or newer with the `multitenancy-manager` module enabled.
+        ru: Добавлена возможность ограничивать с помощью ClusterResourceGrantPolicy, какие [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) и [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage) может использовать каждый проект. Пока администратор не создал политику, все классы и образы доступны любому проекту. Для использования необходимы Deckhouse Platform версии не ниже 1.78 и включённый модуль `multitenancy-manager`.
+  improvements:
+    virtual-machines:
+      - en: Mass live migrations no longer stall on a few nodes. The parallel migration limit now counts only the migrations that transfer memory. Previously, migrations waiting for their turn took it up too, so only a small part of the allowed migrations transferred data at the same time.
+        ru: Массовые живые миграции больше не упираются в несколько узлов. Теперь в ограничении на число параллельных миграций учитываются только те, что передают память. Раньше его занимали и миграции, ожидающие своей очереди, поэтому данные одновременно передавала лишь малая часть разрешённых миграций.
+      - en: A live migration now prefers a target node that is not receiving another migration, so migrations no longer pile up on one node.
+        ru: Живая миграция теперь выбирает целевой узел, который не принимает другую миграцию, поэтому миграции больше не скапливаются на одном узле.
+      - en: A migration of a virtual machine, including one started by a node drain or a move to another site, now waits for a snapshot of the virtual machine in progress to finish.
+        ru: Миграция ВМ, в том числе при drain узла или переносе на другую площадку, теперь дожидается завершения создаваемого снимка этой ВМ.
+      - en: If the guest OS is paused, for example because of a disk I/O error or a failed live migration, the `Running` condition now reports it and names the cause. Previously, such a virtual machine looked running, because there is no separate phase for a pause and the phase stays `Running`.
+        ru: Если гостевая ОС приостановлена, например из-за ошибки ввода-вывода диска или неудачной живой миграции, условие `Running` теперь сообщает об этом и называет причину. Раньше такая ВМ выглядела работающей, потому что отдельной фазы для паузы нет и фаза остаётся `Running`.
+      - en: The [VirtualMachinePool](/modules/virtualization/cr.html#virtualmachinepool) status now explains why the pool does not reach the requested number of virtual machines.
+        ru: Статус [VirtualMachinePool](/modules/virtualization/cr.html#virtualmachinepool) теперь объясняет, почему пул не набирает нужное число ВМ.
+    network:
+      - en: The `virtualMachineCIDRs` list in the module settings can now be cleared entirely once no [VirtualMachineIPAddress](/modules/virtualization/cr.html#virtualmachineipaddress) resources and no [IPAddress](/modules/sdn/cr.html#ipaddress) resources with addresses from these subnets are left in the cluster. Previously, the list had to keep at least one subnet.
+        ru: Список `virtualMachineCIDRs` в настройках модуля теперь можно очистить целиком, если в кластере не осталось ресурсов [VirtualMachineIPAddress](/modules/virtualization/cr.html#virtualmachineipaddress) или [IPAddress](/modules/sdn/cr.html#ipaddress) с адресами из этих подсетей. Раньше в нём должна была оставаться хотя бы одна подсеть.
+    module:
+      - en: Access rights now follow the role model of Deckhouse Platform 1.78, so project users keep access to virtual machines after the platform is upgraded to 1.78.
+        ru: Права доступа переведены на ролевую модель Deckhouse Platform 1.78, поэтому пользователи проектов сохраняют доступ к ВМ после обновления платформы до 1.78.
+  fixes:
+    virtual-machines:
+      - en: A virtual machine no longer stays paused if virtualization components restart on the source node during its live migration.
+        ru: ВМ больше не остаётся на паузе, если во время её живой миграции на исходном узле перезапускаются компоненты виртуализации.
+      - en: A virtual machine is no longer restarted if virtualization components restart on the target node shortly after its live migration.
+        ru: ВМ больше не перезапускается, если вскоре после её живой миграции на целевом узле перезапускаются компоненты виртуализации.
+      - en: Live migration of a virtual machine no longer fails if the previous migration of this virtual machine failed.
+        ru: Живая миграция ВМ больше не завершается ошибкой, если предыдущая миграция этой ВМ была неудачной.
+      - en: Live migration of a virtual machine with additional networks no longer fails when the network interface on the target node is not ready yet.
+        ru: Живая миграция ВМ с дополнительными сетями больше не завершается ошибкой, если сетевой интерфейс на целевом узле ещё не готов.
+      - en: Live migration of a virtual machine with the `EFIWithSecureBoot` bootloader no longer stays `InProgress` for hours after the virtual machine has already moved to the target node.
+        ru: Живая миграция ВМ с загрузчиком `EFIWithSecureBoot` больше не остаётся в `InProgress` часами после того, как ВМ уже переехала на целевой узел.
+      - en: Live migration of a virtual machine running without a restart since a version earlier than 1.9 no longer fails.
+        ru: Живая миграция ВМ, которая работает без перезапуска с версии ниже 1.9, больше не завершается ошибкой.
+      - en: If the target node is not ready for a migration within 5 minutes, the operation now fails only after the migration is actually canceled. Because of that, the next migration of the virtual machine is no longer blocked.
+        ru: Если целевой узел не подготовлен к миграции за 5 минут, операция теперь завершается ошибкой только после того, как миграция действительно отменена. Поэтому следующая миграция ВМ больше не блокируется.
+      - en: A migration now fails at once with the reason if no other node can accept the virtual machine, for example because of `nodeSelector`. Previously, the migration waited for the scheduler to time out.
+        ru: Миграция теперь сразу завершается ошибкой с указанием причины, если ВМ не может принять ни один другой узел, например из-за привязки к узлу через `nodeSelector`. Раньше миграция ждала тайм-аута планировщика.
+      - en: Live migration to a node with an older Linux kernel now fails with a clear reason instead of an internal QEMU error.
+        ru: Живая миграция на узел с более старым ядром Linux теперь завершается ошибкой с понятной причиной, а не внутренней ошибкой QEMU.
+      - en: Eviction and migration of a virtual machine now wait up to 15 minutes for a disk that is still being created or attached. Previously, they failed.
+        ru: Эвакуация и миграция ВМ теперь до 15 минут ждут диск, который ещё создаётся или подключается. Раньше они завершались ошибкой.
+      - en: Live migration over a dedicated migration network is no longer limited to 640 MiB/s by default. Over the node network, the limit still applies.
+        ru: Живая миграция по выделенной сети миграции по умолчанию больше не ограничена скоростью 640 МиБ/с. При миграции по сети узлов ограничение сохраняется.
+      - en: After the upgrade, virtual machines started before it no longer require a restart for changes that do not need one.
+        ru: ВМ, запущенные до обновления, больше не требуют перезапуска при изменениях, для которых он не нужен.
+      - en: A CPU or memory change of a running virtual machine is no longer silently left unapplied if its live migration fails or is interrupted by another operation. The migration is now retried, and the `ConfigurationApplied` condition explains what blocks the change.
+        ru: Изменение CPU или памяти работающей ВМ больше не остаётся неприменённым без сообщений, если живая миграция не удалась или её прервала другая операция. Теперь миграция повторяется, а условие `ConfigurationApplied` объясняет, что мешает применить изменение.
+      - en: "A virtual machine with `coreFraction: Auto` is now live migrated instead of restarted when its node cannot apply a new CPU fraction in place."
+        ru: "ВМ с `coreFraction: Auto` теперь переносится живой миграцией, а не перезапускается, если узел не может применить новую долю CPU на месте."
+      - en: Attaching a disk to a running virtual machine no longer resets its uptime and no longer sets the `Running` condition to `False` for a few seconds.
+        ru: Подключение диска к работающей ВМ больше не сбрасывает время её работы и не переводит условие `Running` в `False` на несколько секунд.
+      - en: Attaching a disk to a running virtual machine that was live migrated with its local disks no longer restarts it.
+        ru: Подключение диска к работающей ВМ, перенесённой живой миграцией вместе с локальными дисками, больше не перезапускает её.
+      - en: After many disks are attached to a running virtual machine at once, it no longer falsely requires a restart and can still be live migrated.
+        ru: После одновременного подключения многих дисков работающая ВМ больше не требует перезапуска без причины и не теряет возможность живой миграции.
+      - en: A stopped virtual machine no longer switches to `Pending` for a few seconds and rejects a start when its disk is replaced right after the stop.
+        ru: Остановленная ВМ больше не переходит на несколько секунд в `Pending` и не отклоняет запуск, если её диск заменили сразу после остановки.
+      - en: A stopped virtual machine now always starts when its run policy is switched from `AlwaysOff` to `AlwaysOnUnlessStoppedManually`. Previously, it started only in some cases.
+        ru: Остановленная ВМ теперь всегда запускается при смене политики запуска с `AlwaysOff` на `AlwaysOnUnlessStoppedManually`. Раньше она запускалась не в каждом случае.
+      - en: A new VNC, serial console or SPICE connection that replaces an open one no longer drops all console sessions on the node.
+        ru: Новое подключение по VNC, серийной консоли или SPICE больше не обрывает все консольные сессии на узле, если вытесняет уже открытое.
+      - en: A virtual machine with a USB device attached from another node no longer freezes when that node loses network connectivity. After about 15 seconds, the guest OS sees the device as disconnected, and the virtual machine keeps running.
+        ru: ВМ с USB-устройством, подключённым с другого узла, больше не зависает, если этот узел теряет сетевую связь. Примерно через 15 секунд гостевая ОС видит устройство отключённым, а ВМ продолжает работать.
+      - en: PCI devices of a node no longer disappear after the container runtime and kubelet restart on the node. Previously, virtual machines that used them could not start without a manual intervention.
+        ru: PCI-устройства узла больше не пропадают после перезапуска среды выполнения контейнеров и kubelet на узле. Раньше ВМ, которые их используют, не запускались без ручного вмешательства.
+      - en: Disks used by node processes, such as Ceph OSD disks, and system devices of a node are no longer offered as PCI devices for virtual machines. Attaching them could break the node.
+        ru: Диски, занятые процессами узла (например, диски OSD Ceph), и системные устройства узла больше не предлагаются как PCI-устройства для ВМ. Их подключение могло нарушить работу узла.
+      - en: A [VirtualMachinePool](/modules/virtualization/cr.html#virtualmachinepool) no longer reports itself unavailable while its virtual machines migrate.
+        ru: "[VirtualMachinePool](/modules/virtualization/cr.html#virtualmachinepool) больше не сообщает о недоступности, пока его ВМ мигрируют."
+      - en: A [VirtualMachinePool](/modules/virtualization/cr.html#virtualmachinepool) no longer gives the same reusable disk to two virtual machines. If it has already happened, the disk stays with the virtual machine that uses it.
+        ru: "[VirtualMachinePool](/modules/virtualization/cr.html#virtualmachinepool) больше не отдаёт один переиспользуемый диск двум ВМ. Если это уже произошло, диск остаётся у ВМ, которая его использует."
+      - en: A virtual machine snapshot no longer leaves the guest file system frozen when the unfreeze request fails.
+        ru: Снимок ВМ больше не оставляет файловую систему гостевой ОС замороженной, если запрос на разморозку завершился ошибкой.
+      - en: A failed [VirtualMachineSnapshot](/modules/virtualization/cr.html#virtualmachinesnapshot) now reports why it failed, for example a storage error. Previously, it only reported waiting for the file system.
+        ru: Неудавшийся [VirtualMachineSnapshot](/modules/virtualization/cr.html#virtualmachinesnapshot) теперь сообщает причину ошибки, например ошибку хранилища. Раньше он сообщал только об ожидании файловой системы.
+    disks-and-images:
+      - en: If virtualization components restart during a disk volume migration, the migration no longer deletes both volumes together with the disk data.
+        ru: Если во время миграции тома диска перезапускаются компоненты виртуализации, миграция больше не удаляет оба тома вместе с данными диска.
+      - en: If a virtual machine restarts while its disks are migrating, the disks no longer end up on different nodes, and the virtual machine no longer hangs in `Pending`.
+        ru: Если ВМ перезапускается во время миграции её дисков, диски больше не оказываются на разных узлах, а ВМ не зависает в `Pending`.
+      - en: A disk volume migration no longer hangs in `Migrating` when the namespace storage quota is almost used up. Disks already stuck finish the migration after the upgrade.
+        ru: Миграция тома диска больше не зависает в `Migrating`, если квота неймспейса на хранилище почти исчерпана. Уже зависшие диски завершают миграцию после обновления.
+      - en: A disk is now attached to another virtual machine only after it is detached from the previous one. Previously, two virtual machines could write to the same disk and corrupt its file system.
+        ru: Диск теперь подключается к другой ВМ только после отключения от предыдущей. Раньше две ВМ могли одновременно писать на один диск и повредить его файловую систему.
+      - en: A disk can now be attached right after its previous [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) is deleted. The new attachment waits until the disk is released instead of being rejected.
+        ru: Диск теперь можно подключить сразу после удаления его предыдущего [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment). Новое подключение не отклоняется, а ждёт, пока диск освободится.
+      - en: A disk removed from a running virtual machine is now detached even if another of its disks is not ready.
+        ru: Диск, удалённый у работающей ВМ, теперь отключается, даже если другой её диск не готов.
+      - en: Disks attached to a running virtual machine no longer become inaccessible after systemd on the node reloads its configuration, for example after `systemctl daemon-reload`. Previously, live migration of the virtual machine or attaching another disk then failed.
+        ru: Диски, подключённые к работающей ВМ, больше не становятся недоступны после перезагрузки конфигурации systemd на узле, например после `systemctl daemon-reload`. Раньше после этого не удавались живая миграция ВМ и подключение ещё одного диска.
+      - en: A disk that cannot be expanded no longer blocks detaching other disks of the virtual machine.
+        ru: Диск, который не удаётся расширить, больше не мешает отключать другие диски ВМ.
+      - en: If an attached disk is deleted and then its [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment), both resources no longer hang in `Terminating`.
+        ru: Если удалить подключённый диск, а затем его [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment), оба ресурса больше не зависают в `Terminating`.
+      - en: A virtual machine with a disk on NFS no longer hangs in deletion when the NFS export is removed first.
+        ru: ВМ с диском на NFS больше не зависает при удалении, если NFS-экспорт удалён раньше.
+      - en: Restoring a disk from a snapshot into a size smaller than the source disk is now rejected with a message about the minimum size. Previously, such a disk got the source disk size, and with the `WaitForFirstConsumer` binding mode it was not created at all.
+        ru: Восстановление диска из снимка в размер меньше исходного теперь отклоняется с сообщением о минимальном размере. Раньше такой диск получал размер исходного, а при режиме привязки `WaitForFirstConsumer` не создавался вовсе.
+      - en: A disk restored from a snapshot no longer gets a size too small to attach. Previously, on some storage such as NFS, such a disk could get a size of a few bytes, and a virtual machine with it did not start.
+        ru: Диск, восстановленный из снимка, больше не получает слишком маленький для подключения размер. Раньше на некоторых хранилищах, например NFS, такой диск мог получить размер в несколько байт, и ВМ с ним не запускалась.
+      - en: A disk or an image can now be created from a snapshot without a storage class even if the default storage class uses another CSI driver. Such a resource is created in the storage class of the snapshot.
+        ru: Диск или образ теперь можно создать из снимка без указания класса хранения, даже если класс хранения по умолчанию использует другой CSI-драйвер. Такой ресурс создаётся в классе хранения снимка.
+      - en: A disk snapshot deleted during its creation no longer hangs in `Terminating` and no longer leaves the guest file system frozen.
+        ru: Снимок диска, удалённый во время создания, больше не зависает в `Terminating` и не оставляет файловую систему гостевой ОС замороженной.
+      - en: Snapshots taken before the `state-snapshotter` module is enabled are no longer taken again after it is enabled, and failed ones can now be deleted.
+        ru: Снимки, созданные до включения модуля `state-snapshotter`, больше не создаются заново после его включения, а неудавшиеся теперь можно удалить.
+      - en: With the `state-snapshotter` module enabled, a failed snapshot now reports the storage error.
+        ru: Если включён модуль `state-snapshotter`, неудавшийся снимок теперь сообщает об ошибке хранилища.
+      - en: The external upload URL of an image or a disk now appears only when it is ready to accept data. Previously, an upload started right after the URL appeared could fail with the `503` error.
+        ru: Внешний адрес загрузки образа или диска теперь появляется, только когда по нему можно загружать данные. Раньше загрузка, начатая сразу после появления адреса, могла завершиться ошибкой `503`.
+    network:
+      - en: Additional network interfaces of a virtual machine no longer move to other networks after a restart or a node failure. Previously, a guest with static network settings lost connectivity.
+        ru: Дополнительные сетевые интерфейсы ВМ больше не переходят в другие сети после перезапуска или отказа узла. Раньше из-за этого гостевая ОС со статическими сетевыми настройками теряла связь.
+      - en: A virtual machine without the `Main` network no longer gets an address from the pod network while none of its additional networks is ready.
+        ru: ВМ без сети `Main` больше не получает адрес из сети подов, пока ни одна из её дополнительных сетей не готова.
+      - en: Replacing an additional network of a running virtual machine in one change no longer hangs or requires a restart.
+        ru: Замена дополнительной сети работающей ВМ одним изменением больше не зависает и не требует перезапуска.
+      - en: The `Main` network can now be added back to a virtual machine whose additional network already uses id `1`.
+        ru: Сеть `Main` теперь можно вернуть в ВМ, у дополнительной сети которой уже есть id `1`.
+      - en: Virtual machines with additional networks no longer lose their MAC address while they use it. Previously, the platform could release such an address, and after a restart the virtual machine hung in `Pending` waiting for a new one.
+        ru: ВМ с дополнительными сетями больше не теряют MAC-адрес, пока его используют. Раньше платформа могла освободить такой адрес, и после перезапуска ВМ зависала в `Pending` в ожидании нового.
+    observability:
+      - en: The Virtualization Overview dashboard no longer leaves out the disks, images and snapshots of namespaces without virtual machines.
+        ru: Дашборд Virtualization Overview больше не пропускает диски, образы и снимки неймспейсов без ВМ.
+    module:
+      - en: The virtualization controller no longer fails to start when the `sdn` module is enabled in the editions where this module supports only the main network.
+        ru: Контроллер виртуализации больше не перестаёт запускаться при включённом модуле `sdn` в редакциях, где этот модуль поддерживает только основную сеть.
+      - en: Virtual machines, disks and images now work in a cluster without the VolumeSnapshot CRDs. Previously, virtualization did not work in such a cluster at all.
+        ru: ВМ, диски и образы теперь работают в кластере без CRD VolumeSnapshot. Раньше виртуализация в таком кластере не работала совсем.
+      - en: Invalid TLS certificates of virtualization components are now reissued automatically and no longer stop the delivery of audit events.
+        ru: Неверные TLS-сертификаты компонентов виртуализации теперь перевыпускаются автоматически и больше не останавливают доставку событий аудита.
+      - en: DVCR no longer floods its log with trace export errors.
+        ru: DVCR больше не засоряет журнал ошибками экспорта трассировок.
+  security:
+    module:
+      - en: Health checks of the device passthrough components are no longer reachable from other nodes. Port `4108` is no longer open on nodes, and port `4107` accepts only local connections.
+        ru: Проверки работоспособности компонентов проброса устройств больше не доступны с других узлов. Порт `4108` на узлах больше не открыт, а порт `4107` принимает только локальные подключения.
+      - en: |-
+          Fixed vulnerabilities:
+            - CVE-2026-56742
+            - CVE-2026-56851
+            - CVE-2026-56857
+            - CVE-2026-56866
+            - CVE-2026-61801
+            - CVE-2026-63209
+            - CVE-2026-78659
+            - CVE-2026-78660
+            - CVE-2026-78661
+            - CVE-2026-78663
+            - CVE-2026-78667
+            - CVE-2026-78669
+            - CVE-2026-81870
+            - CVE-2026-81871
+            - CVE-2026-85747
+            - CVE-2026-94439
+            - CVE-2026-94440
+            - CVE-2026-94448
+            - CVE-2026-97030
+            - CVE-2026-97031
+            - CVE-2026-97032
+            - CVE-2026-97045
+            - CVE-2026-111943
+            - CVE-2026-116585
+            - CVE-2026-116586
+            - CVE-2026-116587
+        ru: |-
+          Исправлены уязвимости:
+            - CVE-2026-56742
+            - CVE-2026-56851
+            - CVE-2026-56857
+            - CVE-2026-56866
+            - CVE-2026-61801
+            - CVE-2026-63209
+            - CVE-2026-78659
+            - CVE-2026-78660
+            - CVE-2026-78661
+            - CVE-2026-78663
+            - CVE-2026-78667
+            - CVE-2026-78669
+            - CVE-2026-81870
+            - CVE-2026-81871
+            - CVE-2026-85747
+            - CVE-2026-94439
+            - CVE-2026-94440
+            - CVE-2026-94448
+            - CVE-2026-97030
+            - CVE-2026-97031
+            - CVE-2026-97032
+            - CVE-2026-97045
+            - CVE-2026-111943
+            - CVE-2026-116585
+            - CVE-2026-116586
+            - CVE-2026-116587
+  breaking:
+    network:
+      - en: Network ids of new virtual machines are now assigned in the order of `.spec.networks` starting from `1`, without reserving `1` for the `Main` network. As a result, interface names in the guest OS of a new virtual machine change if it has no `Main` network or `Main` is not first in the list.
+        ru: Id сетей новых ВМ теперь назначаются по порядку списка `.spec.networks`, начиная с `1`, без резервирования `1` за сетью `Main`. Поэтому имена интерфейсов в гостевой ОС новой ВМ меняются, если у неё нет сети `Main` или `Main` стоит в списке не первой.
+    module:
+      - en: On Deckhouse Platform 1.78 and later, bindings to the old capability names (`d8:use:capability:virtualization:*`, `d8:manage:permission:subsystem:virtualization:*`) no longer grant access. Use `d8:namespace-capability:virtualization:*` and `d8:system-capability:virtualization:*` instead. Bindings to the old role names keep working.
+        ru: В Deckhouse Platform 1.78 и новее привязки к старым именам capability (`d8:use:capability:virtualization:*`, `d8:manage:permission:subsystem:virtualization:*`) перестают давать доступ. Используйте вместо них `d8:namespace-capability:virtualization:*` и `d8:system-capability:virtualization:*`. Привязки к старым именам ролей продолжают работать.
+  upgrade:
+    - en: If the `sdn` module serves the main cluster network, running virtual machines switch to its [IPAddress](/modules/sdn/cr.html#ipaddress) resources without a restart and keep their addresses. Rolling back to the previous version after that is not supported.
+      ru: Если основную сеть кластера обслуживает модуль `sdn`, работающие ВМ переходят на его ресурсы [IPAddress](/modules/sdn/cr.html#ipaddress) без перезапуска и с сохранением адресов. Откат на предыдущую версию после этого не поддерживается.
+    - en: During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
+      ru: В процессе обновления до этой версии работающие виртуальные машины будут автоматически мигрированы для обновления версии прошивки.
+  known_issues:
+    virtual-machines:
+      - en: Virtual machines with a [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) of the `Discovery` type that were running on nodes with AMD processors before the upgrade cannot be live migrated until they are restarted.
+        ru: ВМ с [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) типа `Discovery`, которые работали до обновления на узлах с процессорами AMD, нельзя мигрировать вживую, пока их не перезапустят.
+    disks-and-images:
+      - en: Two stopped virtual machines started at the same time can still get the same disk.
+        ru: Две остановленные ВМ, запущенные одновременно, всё ещё могут получить один и тот же диск.
+      - en: A disk snapshot taken with the `state-snapshotter` module before the upgrade can record a size larger than the source disk, and then it cannot be restored into the source disk size. Take a new snapshot or set the size to at least `.status.persistentVolumeClaimSize` of the snapshot.
+        ru: Снимок диска, созданный с модулем `state-snapshotter` до обновления, может хранить размер больше исходного диска, и тогда его нельзя восстановить в исходный размер. Создайте новый снимок или укажите размер не меньше `.status.persistentVolumeClaimSize` снимка.
+      - en: With the `state-snapshotter` module enabled, a failed disk snapshot is retried until it is deleted.
+        ru: Если включён модуль `state-snapshotter`, неудавшийся снимок диска создаётся повторно, пока его не удалят.
 - version: v1.12.5
   date: "2026-11-16"
   highlights:

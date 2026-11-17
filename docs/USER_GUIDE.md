@@ -3067,7 +3067,7 @@ nodeplacement-update-dabk4   Completed   100%       Evict   linux-vm         1m
 Deckhouse Platform moves a running virtual machine (VM) to another site with live migration. A site is a Deckhouse Platform cluster that the current cluster is connected to with a peering. The VM moves to the project with the same name together with its disks and keeps its IP address, and the guest OS continues to run without a reboot. When the destination site confirms that the VM runs there, the platform deletes the VM and its disks on the source site.
 
 {{< alert level="info" >}}
-Moving VMs to another site is available in commercial Deckhouse Platform editions as an experimental feature. In Deckhouse Platform Open, a VirtualMachineOperation resource with the `projectPeerName` field is rejected at creation. The move works if the administrator prepared both sites and gave you the name of the destination site.
+Moving VMs to another site is available in commercial Deckhouse Platform editions. In Deckhouse Platform Open, a VirtualMachineOperation resource with the `projectPeerName` field is rejected at creation. The move works if the administrator prepared both sites and gave you the name of the destination site.
 {{< /alert >}}
 
 #### Move requirements
