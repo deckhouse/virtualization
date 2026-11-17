@@ -167,6 +167,10 @@ Follow the transition using the `d8_virtualization_deprecated_vmip_count` metric
 
 A deprecated resource stays with every VM that got its address from it: both the VMs that name it in the [`.spec.virtualMachineIPAddressName`](cr.html#virtualmachine-v1alpha2-spec-virtualmachineipaddressname) parameter and the VMs DP created it for. Only a project owner can move such a VM to an [IPAddress](/modules/sdn/cr.html#ipaddress) resource: set the [`ipAddressName`](cr.html#virtualmachine-v1alpha2-spec-networks-ipaddressname) parameter of the `Main` network to the name of the deprecated resource, remove the `.spec.virtualMachineIPAddressName` parameter if it is set, and restart the VM. DP creates an IPAddress resource with this name and address in advance, so the VM address doesn't change. After the restart, the deprecated resource can be deleted.
 
+{{< alert level="warning" >}}
+After the transition to addresses served by the `sdn` module, downgrading the module to the previous version isn't supported.
+{{< /alert >}}
+
 ## Virtual machine image storage
 
 DP stores virtual machine images in an internal container image storage (DVCR) that resides on a persistent volume of the cluster. Images travel from there to virtual machine disks, so the size of the volume determines how many images fit into the cluster.
@@ -263,6 +267,59 @@ VirtualImage           default              ubuntu-2404
 {{% /tab %}}
 
 {{< /tabs >}}
+
+## Snapshots and data transfer
+
+Deckhouse Platform lets project owners take snapshots of VMs and disks, export VMs from the cluster, and import them back. For this, the snapshot modules must run in the cluster, and the disk storages must support snapshots.
+
+{{< alert level="info" >}}
+VM snapshots and export require the [`storage-foundation`](/modules/storage-foundation/) and [`state-snapshotter`](/modules/state-snapshotter/) modules, which are enabled by default in the `Default` and `Managed` module bundles. Disable the deprecated [`snapshot-controller`](/modules/snapshot-controller/) module.
+{{< /alert >}}
+
+Snapshots taken before the `state-snapshotter` module was enabled can be used for recovery and cloning, but you can't export them from the cluster.
+
+### Storage classes for snapshots
+
+A disk snapshot is taken by the CSI driver of the storage, so the driver must support snapshots. Storages that support snapshots are listed in the [`storage-foundation` module documentation](/modules/storage-foundation/). Also, the storage class must have the `storage.deckhouse.io/volumesnapshotclass` annotation with the name of the VolumeSnapshotClass of this driver, otherwise a disk snapshot fails.
+
+Check the annotation on the storage classes:
+
+```bash
+d8 k get storageclass -o custom-columns='NAME:.metadata.name,VOLUME_SNAPSHOT_CLASS:.metadata.annotations.storage\.deckhouse\.io/volumesnapshotclass'
+```
+
+If a storage class doesn't have the annotation, list the available snapshot classes and add the annotation with the class that belongs to the same CSI driver:
+
+```bash
+d8 k get volumesnapshotclasses
+d8 k annotate storageclass <STORAGE_CLASS> storage.deckhouse.io/volumesnapshotclass=<VOLUME_SNAPSHOT_CLASS>
+```
+
+Here, `<STORAGE_CLASS>` is the storage class name, and `<VOLUME_SNAPSHOT_CLASS>` is the snapshot class name.
+
+### Data transfer permissions
+
+A user with the `admin` role in the project can export and import disk data. To grant this permission to a user with another role, bind the `d8:namespace-capability:storage-foundation:transfer_volume_data` ClusterRole in the project namespace.
+
+An example of binding the role to a user in the `project` namespace:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: volume-transfer
+  namespace: project
+subjects:
+  - kind: User
+    name: <USER_NAME>
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: d8:namespace-capability:storage-foundation:transfer_volume_data
+  apiGroup: rbac.authorization.k8s.io
+```
+
+Here, `<USER_NAME>` is the user name. In Deckhouse Platform versions 1.76.9–1.77, the `admin` role doesn't grant this permission, so bind the `d8:use:capability:module:storage-foundation:transfer_volume_data` ClusterRole for all users.
 
 ## Images
 
@@ -840,6 +897,23 @@ spec:
             values: ["green"]
     type: Discovery
 ```
+
+#### Nested virtualization
+
+Nested virtualization lets a VM run its own hypervisor, for example, to deploy a test cluster inside the VM. By default, all classes have nested virtualization enabled.
+
+To disable nested virtualization for a class, set the [`.spec.cpu.enableNestedVirtualization`](cr.html#virtualmachineclass-v1alpha3-spec-cpu-enablenestedvirtualization) parameter to `false`:
+
+```yaml
+spec:
+  cpu:
+    enableNestedVirtualization: false
+    type: Host
+```
+
+On Intel nodes, a hypervisor in a VM of a `Discovery` or `Features` class works only if the class instruction set includes `vmx`. For the `Discovery` type, all nodes that Deckhouse Platform uses to build the set must support `vmx`. For the `Features` type, add `vmx` to the instruction list. You can't add `vmx` or `svm` to the list and disable nested virtualization at the same time.
+
+You can't change the parameter value after you create the class. To enable or disable nested virtualization for existing VMs, switch them to a class with the required value. If a VM is running, it switches to the new class after a restart.
 
 #### Placement across nodes
 
@@ -1827,6 +1901,76 @@ When planning PCI device passthrough, consider the following requirements and li
 - Devices are attached when the VM starts, so a change to the [`.spec.pciDevices`](cr.html#virtualmachine-v1alpha2-spec-pcidevices) parameter requires its restart.
 - A single device is attached to one VM only, and a VM takes no more than eight devices.
 - A network card that's passed through works around the cluster network subsystem. It doesn't appear in the [`.spec.networks`](cr.html#virtualmachine-v1alpha2-spec-networks) parameter, and DP neither assigns nor tracks its IP and MAC addresses.
+
+## Connecting to a physical network through SR-IOV
+
+{{< alert level="info" >}}
+Connecting to a physical network through SR-IOV is an experimental feature available in commercial Deckhouse Platform editions.
+{{< /alert >}}
+
+Deckhouse Platform can connect a virtual machine (VM) directly to a physical network through a virtual function (VF) of a network card that supports SR-IOV. The VF goes to the VM as a PCI device, and the guest OS works with it under the vendor driver, bypassing the node network subsystem. This gives the VM the full bandwidth of the link and lets it use DPDK. The project owner connects a VM to the network in the [`.spec.networks`](cr.html#virtualmachine-v1alpha2-spec-networks) block, and you prepare the network and the project namespace for this.
+
+To make the connection work, provide the following:
+
+- [Kubernetes](/products/kubernetes-platform/documentation/v1/reference/supported_versions.html#kubernetes) 1.34 or later with the `DRAResourceClaimDeviceStatus`, `DRADeviceBindingConditions`, and `DRAConsumableCapacity` feature gates enabled in kube-apiserver.
+- The enabled [`sdn`](/modules/sdn/) module.
+- Network cards that support SR-IOV on the nodes where VMs will run.
+- Hardware I/O virtualization enabled on these nodes.
+
+To enable hardware I/O virtualization, turn on `VT-d` on Intel or `AMD-Vi` on AMD in the node BIOS and add the `intel_iommu=on` or `amd_iommu=on` kernel parameter.
+
+### Preparing a physical network
+
+A physical network for VMs is described by the [UnderlayNetwork](/modules/sdn/cr.html#underlaynetwork) resource of the `sdn` module. To provide such a network to a project, follow these steps.
+
+1. Create an [UnderlayNetwork](/modules/sdn/cr.html#underlaynetwork) resource in the `Shared` mode with SR-IOV enabled:
+
+   ```bash
+   d8 k apply -f - <<EOF
+   apiVersion: network.deckhouse.io/v1alpha1
+   kind: UnderlayNetwork
+   metadata:
+     name: fast-net
+   spec:
+     mode: Shared
+     memberNodeNetworkInterfaces:
+       - labelSelector:
+           matchLabels:
+             nic-group: fast
+     shared:
+       sriov:
+         enabled: true
+         numVFs: 8
+   EOF
+   ```
+
+   The network includes the network card ports whose [NodeNetworkInterface](/modules/sdn/cr.html#nodenetworkinterface) resources have the label from the [`memberNodeNetworkInterfaces`](/modules/sdn/cr.html#underlaynetwork-v1alpha1-spec-membernodenetworkinterfaces) parameter. Each VM connection to the network takes one VF, so the [`numVFs`](/modules/sdn/cr.html#underlaynetwork-v1alpha1-spec-shared-sriov-numvfs) parameter defines how many VMs can connect through one port.
+
+1. Make sure the network is ready:
+
+   ```bash
+   d8 k get underlaynetwork fast-net -o jsonpath='{.status.conditions[?(@.type=="InterfacesAvailable")].status}'
+   ```
+
+   The `True` value means that the VFs are available for connection. Until the network is ready, VMs start without its interface.
+
+1. Assign the `direct-nic-access.network.deckhouse.io/enabled` label to the project namespace:
+
+   ```bash
+   d8 k label namespace my-project direct-nic-access.network.deckhouse.io/enabled=""
+   ```
+
+   Without this label, VMs connected to a physical network don't start in the namespace.
+
+After that, tell the project owner the name of the UnderlayNetwork resource.
+
+### Limitations of the SR-IOV connection
+
+When planning to connect VMs to a physical network, consider the following limitations:
+
+- A VM starts only on a node with a free VF of this network. If there are no free VFs, the VM stays in the `Pending` phase.
+- A VM connected to a physical network can't be moved by live migration, so you have to stop it before the node is put into maintenance. The `Migratable` condition of such a VM gets the `VirtualMachineHostDevicesNotMigratable` reason.
+- The platform doesn't assign IP addresses on the physical network interface, so addressing is configured in the guest OS.
 
 ## Security event audit
 

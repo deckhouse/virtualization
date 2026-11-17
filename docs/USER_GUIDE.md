@@ -1060,51 +1060,6 @@ d8 k patch vd disk2 --type=merge --patch '{"spec":{"persistentVolumeClaim":{"sto
 
 DP retries a failed migration with a growing delay. The first attempt runs immediately, the next ones after 5 and 10 seconds, then the delay doubles and from the seventh attempt stays at 300 seconds. To cancel the migration, restore the previous storage class in the specification.
 
-### Exporting a disk or a snapshot
-
-Export writes the contents of a disk or its snapshot to a file so that you can move the data outside the cluster. For this feature to work, the [`storage-volume-data-manager`](/modules/storage-volume-data-manager/) module has to be enabled, and the command line requires the `d8` utility version 0.20.7 or later.
-
-{{< alert level="warning" >}}
-The disk must not be in use at the moment of export. If the disk is attached to a virtual machine, stop the VM first.
-{{< /alert >}}
-
-To import a downloaded disk back into the cluster, upload it as an [image](#uploading-an-image-from-the-command-line) or as a [disk](#uploading-a-disk-from-the-command-line).
-
-{{< tabs name="data-export" >}}
-
-{{% tab name="Using the CLI" %}}
-
-An example of exporting a disk, with the command run on a cluster node:
-
-```bash
-d8 data export download -n <NAMESPACE> vd/<VD_NAME> -o file.img
-```
-
-An example of exporting a disk snapshot, with the command run on a cluster node:
-
-```bash
-d8 data export download -n <NAMESPACE> vds/<VD_SNAPSHOT_NAME> -o file.img
-```
-
-If you export data from somewhere other than a cluster node (for example, from your local machine), use the `--publish` flag.
-
-{{% /tab %}}
-
-{{% tab name="Using the web interface" %}}
-
-1. Go to the **Projects** tab and select the project you need.
-1. Stop the virtual machine the disk is attached to. While the disk is in use, the **Download** item isn't available.
-1. Go to **Virtualization** → **Disks**.
-1. In the row of the disk you need, click the ellipsis button and select **Download**.
-1. Wait until the **Preparing...** step in the **Download** window changes to **Ready**: the file downloads automatically as soon as it's created. If that doesn't happen, click **Download** in the window.
-
-{{% /tab %}}
-
-{{< /tabs >}}
-
-{{< alert level="warning" >}}
-While an export is active, the disk is in the `Exporting` phase and a virtual machine with this disk won't start. The export ends when its lifetime expires or when the DataExport resource created for it is deleted.
-{{< /alert >}}
 ## Virtual machines
 
 To create a virtual machine (VM), use the [VirtualMachine](cr.html#virtualmachine) resource. Its parameters let you configure:
@@ -2184,7 +2139,7 @@ When you reduce the number of cores within the current topology, the distributio
 
 #### Changing the amount of memory without a restart
 
-You can increase the amount of memory of a running machine without rebooting it. Reducing it requires a restart.
+You can increase the amount of memory of a running VM without a restart. A decrease requires a restart.
 
 The feature is disabled by default. To enable it, an administrator adds `HotplugMemoryWithLiveMigration` to the [`.spec.settings.featureGates`](admin_guide.html#module-parameters) parameter:
 
@@ -2200,7 +2155,19 @@ spec:
 
 In the web interface, the toggle is called **Change memory without reboot** and is located in the same place, in the **Experimental features** block of the module settings.
 
-When the feature is enabled, the new [`.spec.memory.size`](cr.html#virtualmachine-v1alpha2-spec-memory-size) value is greater than the current one, and the machine allows migration, DP applies the change by live migration. A restart is required if the memory is reduced, if the original size is less than 1 GiB, or if the machine can't be migrated. Without a restart, memory grows up to 256 GiB, the ceiling built into the machine configuration at first start.
+When the feature is enabled, Deckhouse Platform applies the new [`.spec.memory.size`](cr.html#virtualmachine-v1alpha2-spec-memory-size) value by live migration under three conditions:
+
+- The new value is greater than the current one.
+- The initial amount of memory is 1 GiB or more.
+- The VM permits live migration.
+
+If one of these conditions is not true, the platform applies the change after a restart of the VM.
+
+Live migration increases memory up to 256 GiB. The platform writes this ceiling into the VM configuration at the first start.
+
+{{< alert level="info" >}}
+The feature does not apply to the VMs that already run. Such a VM accepts the first memory increase only after a restart. The platform applies later increases by live migration.
+{{< /alert >}}
 
 {{< tabs name="vm-memory-change" >}}
 
@@ -2445,6 +2412,25 @@ To view the availability zones on cluster nodes (if those zones are set), run th
 ```bash
 d8 k get nodes -o custom-columns=NAME:.metadata.name,ZONE:.metadata.labels.topology\.kubernetes\.io/zone
 ```
+
+### VM priority classes
+
+A priority class determines which workloads the scheduler preempts first when the nodes don't have enough resources to start a new workload. Deckhouse Platform creates a set of priority classes (PriorityClass) in the cluster. A virtual machine (VM) selects a class with the [`.spec.priorityClassName`](cr.html#virtualmachine-v1alpha2-spec-priorityclassname) parameter. A VM with a higher priority can preempt VMs and other workloads with a lower priority from a node. Only a workload with an even higher priority can preempt the VM itself.
+
+If the parameter isn't set, the VM gets the default `develop` class, the lowest of the classes intended for applications. The list of classes, their values, and purpose is given in the [Priority classes](/products/kubernetes-platform/documentation/v1/admin/configuration/app-scaling/pod-eviction/priority-classes.html) section of the platform documentation. Choose a class based on the environment and the criticality of the VM, and don't use the classes reserved for cluster components.
+
+Example of setting the `production-high` priority class for a VM:
+
+```yaml
+spec:
+  priorityClassName: production-high
+```
+
+A class with the specified name has to exist in the cluster, otherwise the VM doesn't start. A change of the priority class of a running VM applies after its restart. If the VM doesn't start and stays in the `Pending` phase, the `Running` condition in the VM status shows the scheduler's reason.
+
+No live migration happens on preemption. A preempted VM receives a shutdown signal, and the guest OS stops within the time from the [`.spec.terminationGracePeriodSeconds`](cr.html#virtualmachine-v1alpha2-spec-terminationgraceperiodseconds) parameter, 60 seconds by default. If the VM doesn't stop within this time, the platform terminates it forcibly. Increase this value if the applications in the VM need more time to stop correctly. Then the platform starts the VM again on a suitable node if the [`.spec.runPolicy`](cr.html#virtualmachine-v1alpha2-spec-runpolicy) startup policy is `AlwaysOn` or `AlwaysOnUnlessStoppedManually`. With `Manual`, the VM stays off until you start it manually. So assign critical VMs a higher class than the other workloads on the same nodes.
+
+The priority class also applies to live migration. The VM keeps its class on the target node. So migrating a VM with a high priority can preempt workloads with a lower priority from that node.
 
 ### Attaching block devices (disks and images)
 
@@ -4075,12 +4061,68 @@ To make such interfaces configure themselves, use one of the following approache
 
 Interfaces present at VM boot (included in the initial network configuration) don't need any extra setup, because the guest OS configures them at startup through Cloud-Init.
 
-## Snapshots, recovery, and cloning
-
-Snapshots let you capture the current state of a resource for later recovery or cloning. A disk snapshot saves only the data of the selected disk, while a virtual machine (VM) snapshot includes its parameters and the state of all its disks.
+### Connecting to a physical network through SR-IOV
 
 {{< alert level="info" >}}
-To work with snapshots, the [storage-foundation](/modules/storage-foundation/) and [state-snapshotter](/modules/state-snapshotter/) modules must be enabled. The deprecated [snapshot-controller](/modules/snapshot-controller/) module is also supported (not recommended for new installations).
+Connecting to a physical network through SR-IOV is an experimental feature available in commercial Deckhouse Platform editions.
+{{< /alert >}}
+
+You can connect a VM directly to a physical network through a virtual function (VF) of a node network card that supports SR-IOV. The VF goes to the VM as a PCI device, and the guest OS works with it under the vendor driver. This gives the VM the full bandwidth of the link and lets it use DPDK.
+
+The administrator prepares the physical network (the [UnderlayNetwork](/modules/sdn/cr.html#underlaynetwork) resource of the `sdn` module) and the project namespace, so ask them for the network name.
+
+To connect a VM to a physical network, add an entry with the `UnderlayNetwork` type and the network name to the [`.spec.networks`](cr.html#virtualmachine-v1alpha2-spec-networks) block. The optional [`vlanID`](cr.html#virtualmachine-v1alpha2-spec-networks-vlanid) parameter sets the VLAN tag of the VM traffic in this network and accepts values from 1 to 4094.
+
+Example of connecting a VM to the main cluster network and the `fast-net` physical network:
+
+```yaml
+spec:
+  networks:
+    - type: Main
+    - type: UnderlayNetwork
+      name: fast-net # UnderlayNetwork name.
+      vlanID: 300 # Optional VLAN tag.
+```
+
+After the VM starts, the VF appears in the guest OS as a network card, for example, in the `lspci` output. The platform allocates the MAC address of the interface from the pool of [VirtualMachineMACAddress](cr.html#virtualmachinemacaddress) resources and shows it in the VM status:
+
+```yaml
+status:
+  networks:
+    - type: Main
+    - type: UnderlayNetwork
+      name: fast-net
+      macAddress: 5e:e6:19:54:f9:be
+      virtualMachineMACAddressName: linux-vm-5jqxg
+```
+
+The guest OS must have the VF driver for the node network card model installed. The platform doesn't assign an IP address on this interface, so configure addressing in the guest OS, for example, with Cloud-Init. The guest OS also assigns the interface name, and the `id` parameter doesn't affect it.
+
+#### SR-IOV connection specifics
+
+When you connect a VM to a physical network, consider the following specifics:
+
+- A VM starts only on a node with a free VF of this network. If there are no free VFs, the VM stays in the `Pending` phase until one of them becomes free.
+- If the UnderlayNetwork isn't ready yet, the VM starts without this interface, and the `NetworkReady` condition gets the `False` status and the `NetworkNotReady` reason.
+- Adding, removing, and changing entries with the `UnderlayNetwork` type apply only after the VM restarts.
+- A VM connected to a physical network can't be moved by live migration, so you have to stop it before the node is put into maintenance. The `Migratable` condition of such a VM gets the `VirtualMachineHostDevicesNotMigratable` reason.
+- You can't set the [`ipAddressName`](cr.html#virtualmachine-v1alpha2-spec-networks-ipaddressname) parameter for this network type, a specification with it is rejected.
+- Network security policies (NetworkPolicy) don't apply to this interface.
+
+## Snapshots, recovery, and cloning
+
+A snapshot captures the state of a virtual machine (VM) or its disk at a point in time. For example, before you update the guest OS, you can take a VM snapshot, and if the update fails, return the VM to the state from the snapshot. You can also create a new VM or a new disk from a snapshot, that is, clone them.
+
+Deckhouse Platform has three kinds of snapshots:
+
+- A [disk snapshot](#creating-disk-snapshots) saves the data of one disk. It helps to recover the disk or create a new one from it.
+- A [VM snapshot](#creating-vm-snapshots) saves the VM parameters and the data of all its disks. It helps to return the VM to a previous state or clone it.
+- A [project snapshot](#project-snapshots) saves all VMs of the project at once together with their disks and the other project resources. It helps to export VMs from the cluster and restore them in another project or cluster.
+
+Snapshots are stored in the same cluster and the same storage as the VMs. They help after an error inside a VM, but not after the storage or the cluster is lost. For this case, keep a [VM copy outside the cluster](#exporting-and-importing-vms).
+
+{{< alert level="info" >}}
+Snapshots require the [`storage-foundation`](/modules/storage-foundation/) and [`state-snapshotter`](/modules/state-snapshotter/) modules. Snapshots taken before the `state-snapshotter` module was enabled can also be used for recovery and cloning.
 {{< /alert >}}
 
 ### Consistent snapshots
@@ -4243,6 +4285,8 @@ If the virtual machine has changes pending a restart at the moment the snapshot 
 {{< /alert >}}
 
 When a snapshot is created, the dynamic IP address of the VM is automatically converted to a static one and saved for recovery. If you don't need the conversion and the reuse of the old address, set the [`.spec.keepIPAddress`](cr.html#virtualmachinesnapshot-v1alpha2-spec-keepipaddress) parameter to `Never`, and the address type stays as it is (`Auto` or `Static`).
+
+A VM snapshot includes the data of all VM disks. To keep a disk out of the snapshot, for example a disk with temporary data, add the `state-snapshotter.deckhouse.io/exclude` label to the disk before you take the snapshot. The label value is ignored, and the disk is excluded with any value.
 
 The following example shows how to create a virtual machine snapshot:
 
@@ -4627,6 +4671,379 @@ spec:
 ```
 
 As a result, a VM named `clone-database-prod` and a disk named `clone-database-root-prod` are created.
+
+### Project snapshots
+
+A project snapshot saves all VMs of the project together with their disks and the other project resources in one operation. It is used to export a whole VM from the cluster and later restore it in another namespace or cluster.
+
+For each VM, the project snapshot includes a [VM snapshot](#creating-vm-snapshots) with the VM parameters and disk data. Disks that aren't attached to a VM are saved as disk snapshots, and the other project resources are saved in the snapshot as well. Image data, cluster images, and VM classes aren't part of the project snapshot.
+
+A snapshot of a running VM is taken with a filesystem freeze, which the [guest OS agent](#guest-os-agent) performs. Because of this, a project snapshot is taken only if the agent runs in each running VM of the project.
+
+The freeze applies to all VM disks at once, and the disks of one VM are saved consistently with each other. Different VMs of the project are frozen independently, so ensure data consistency between them, for example between the nodes of a database cluster, with the application itself.
+
+To keep a VM or a disk out of the project snapshot, add the `state-snapshotter.deckhouse.io/exclude` label to this resource before you take the snapshot. The label on a VM doesn't exclude its disks, so add it to each disk of this VM as well.
+
+{{< tabs name="namespace-snapshot-create" >}}
+
+{{% tab name="Using the CLI" %}}
+
+Take a project snapshot and wait until it is ready:
+
+```bash
+d8 snapshot create <SNAPSHOT_NAME> -n <NAMESPACE> --wait
+```
+
+Here, `<SNAPSHOT_NAME>` is the snapshot name, and `<NAMESPACE>` is the project namespace.
+
+List the project snapshots:
+
+```bash
+d8 k -n <NAMESPACE> get snap
+```
+
+Example output:
+
+```console {.nowrap-default}
+NAME            READY   REASON      CONTENT                        AGE
+project-backup  True    Completed   nss-content-1f4b0c9d2a3e5f76   30s
+```
+
+The snapshot is ready when the `READY` column shows `True` and the `REASON` column shows `Completed`.
+
+To see which VMs, disks, and resources went into the snapshot, run the command:
+
+```bash
+d8 snapshot describe <SNAPSHOT_NAME> -n <NAMESPACE>
+```
+
+{{% /tab %}}
+
+{{% tab name="Using the web interface" %}}
+
+1. Go to the **Projects** tab and select the project you need.
+1. Go to the **Snapshots** section.
+1. Click **Create** and confirm the snapshot creation.
+1. Wait until the **Status** column shows that the snapshot is ready. The snapshot contents are shown on its page in the **Snapshot contents** tab.
+
+{{% /tab %}}
+
+{{< /tabs >}}
+
+To delete a project snapshot, run the `d8 snapshot delete <SNAPSHOT_NAME> -n <NAMESPACE> --wait` command. The VM and disk snapshots in it are deleted together with it and are protected from separate deletion. After the snapshot is deleted, the platform keeps its data for 30 more days, and during this time the data takes up space in the storage. This period is set by the [`snapshotTtlAfterDelete`](/modules/state-snapshotter/configuration.html#parameters-snapshotttlafterdelete) parameter of the `state-snapshotter` module.
+
+## Exporting and importing VMs
+
+Export saves a copy of a virtual machine (VM) or its disk outside the Deckhouse Platform cluster, and import loads such a copy back into the same or another cluster. Export is useful in the following cases:
+
+- **Backup.** VM snapshots are stored in the same cluster and storage as the VM and are lost with it if the storage or the cluster fails. A copy exported outside the cluster lets you restore the VM even after such a failure.
+- **A VM copy in another cluster.** You can upload an exported VM to another cluster and run it there, for example in a reserve cluster. The source VM stays in place.
+- **Disk data outside the cluster.** You can download a disk image to check its contents or hand it over to another team.
+
+{{< alert level="info" >}}
+Export and import require the [`storage-foundation`](/modules/storage-foundation/) and [`state-snapshotter`](/modules/state-snapshotter/) modules and, on the command line, the `d8` utility version 0.33.14 or later.
+{{< /alert >}}
+
+What to export depends on the task:
+
+- Export a [VM disk](#exporting-a-vm-disk) if you need the data of one disk and can stop the VM. The disk is saved to a file in the RAW format, which you later upload to the cluster as a new disk or image.
+- Export a [VM snapshot](#exporting-a-vm-snapshot) if you need the disk data of a running VM. Each disk from the snapshot is saved to a separate file in the RAW format, and the VM parameters aren't saved.
+- Export a [whole VM](#exporting-a-whole-vm) if you need to restore the VM later together with its parameters, for example for backup. The VM is exported as part of a project snapshot together with its disks and the other project resources and is restored by an [import](#importing-a-vm-from-an-exported-copy).
+
+### Requirements and limitations
+
+A disk is exported only from a stopped VM, but the disk storage can be any. A VM snapshot and a whole VM can be exported without stopping the VM. For this, the [guest OS agent](#guest-os-agent) must run in a running VM, and the VM disks must be on a storage with snapshot support. The storage needs this support because it takes the disk snapshots itself. Ask the cluster administrator which storage classes support snapshots.
+
+A user with the `manager` or `admin` role in the project can take snapshots. Exporting and importing disk data requires the `admin` role or the data transfer permission, which the cluster administrator grants. If the `d8` command fails with the `not authorized to use this resource` error, request this permission from the cluster administrator.
+
+The `d8` utility detects whether it runs in the cluster network and chooses how to transfer the data. If the detection fails, set the `--publish=false` flag in the cluster network or `--publish=true` outside it. Outside the cluster network, the data is transferred only if the kubeconfig uses token authentication.
+
+Keep in mind the following export limitations:
+
+- You can't export a disk snapshot taken before the `state-snapshotter` module was enabled. Take a new snapshot of such a disk.
+- Image data isn't part of the export, so detach images from the VM before you take the snapshot.
+- Cluster images ([ClusterVirtualImage](cr.html#clustervirtualimage)) and VM classes ([VirtualMachineClass](cr.html#virtualmachineclass)) aren't part of the project snapshot. They must exist in advance in the cluster where the VM is restored.
+
+### Storing exported copies
+
+An exported copy is saved on the computer you run the export from. The `d8` utility saves a disk to a file and a whole VM to a directory, and the web interface saves a disk to a file and a whole VM to a ZIP archive. After that, you can move the copy to any file storage and import it back when you need it.
+
+The size of a VM copy can reach the total size of its disks. To make the copy smaller, the `d8` utility compresses the disk data with zstd by default, and in the web interface you turn this compression on when you download.
+
+You can import a VM copy exported with the `d8` utility in the web interface, and the other way around. The `d8` utility accepts only a directory, so unpack a ZIP archive from the web interface before you upload it.
+
+{{< alert level="warning" >}}
+A VM copy contains the project Secrets as they are, including the Secrets with cloud-init and Sysprep settings, which can hold passwords and keys. Keep the copy in a protected storage and restrict access to it.
+{{< /alert >}}
+
+Before you move a VM copy to a storage, check its integrity:
+
+```bash
+d8 snapshot local describe ./<DIRECTORY>
+```
+
+Here, `<DIRECTORY>` is the directory with the copy. The command verifies the checksums of all data in the copy and works without a cluster connection. For large disks, the check can take a long time.
+
+### Exporting a VM disk
+
+Disk export saves the disk contents to a file in the RAW format. You can export a disk only while the VM it is attached to is stopped. While the export runs, the disk is in the `Exporting` phase, and a VM with this disk won't start. To export disk data without stopping the VM, export a [VM snapshot](#exporting-a-vm-snapshot).
+
+{{< tabs name="data-export" >}}
+
+{{% tab name="Using the CLI" %}}
+
+Export the disk to a file:
+
+```bash
+d8 data export download -n <NAMESPACE> vd/<VD_NAME> -o disk.img --cleanup=true
+```
+
+Here, `<NAMESPACE>` is the project namespace, and `<VD_NAME>` is the disk name.
+
+The `--cleanup=true` flag ends the export right after the download, and the disk becomes available to the VM again. Without this flag, the utility asks for confirmation, and in non-interactive mode the export ends after two minutes of inactivity.
+
+{{% /tab %}}
+
+{{% tab name="Using the web interface" %}}
+
+1. Go to the **Projects** tab and select the project you need.
+1. Stop the virtual machine the disk is attached to. While the disk is in use, the **Download** item isn't available.
+1. Go to **Virtualization** → **Disks**.
+1. In the row of the disk you need, click the ellipsis button and select **Download**.
+1. Wait until the **Preparing...** step in the **Download** window changes to **Complete**. The file downloads automatically as soon as it's created. If that doesn't happen, click **Download** in the window.
+
+{{% /tab %}}
+
+{{< /tabs >}}
+
+### Exporting a VM snapshot
+
+A VM snapshot export saves the data of the VM disks without stopping the VM. Each disk in a [VM snapshot](#creating-vm-snapshots) is stored as a separate disk snapshot, and each such snapshot is exported to its own file in the RAW format. The VM parameters aren't exported, so to save a VM with its parameters, export the [whole VM](#exporting-a-whole-vm).
+
+A snapshot of a single disk ([VirtualDiskSnapshot](cr.html#virtualdisksnapshot)) is exported the same way.
+
+{{< tabs name="data-export-snapshot" >}}
+
+{{% tab name="Using the CLI" %}}
+
+To export the disks from a VM snapshot, follow these steps:
+
+1. Get the names of the disk snapshots that are part of the VM snapshot:
+
+   ```bash
+   d8 k -n <NAMESPACE> get vmsnapshot <VM_SNAPSHOT_NAME> -o jsonpath='{.status.childrenSnapshotRefs[*].name}'
+   ```
+
+   Here, `<NAMESPACE>` is the project namespace, and `<VM_SNAPSHOT_NAME>` is the VM snapshot name.
+
+1. Export each disk snapshot to a separate file:
+
+   ```bash
+   d8 data export download -n <NAMESPACE> vds/<VD_SNAPSHOT_NAME> -o disk.img --cleanup=true
+   ```
+
+   Here, `<VD_SNAPSHOT_NAME>` is the disk snapshot name.
+
+{{% /tab %}}
+
+{{% tab name="Using the web interface" %}}
+
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Virtualization** → **Disk snapshots**.
+1. In the row of the snapshot you need, click the ellipsis button and select **Download**.
+1. Wait until the **Preparing...** step in the **Download** window changes to **Complete**. The file downloads automatically as soon as it's created. If that doesn't happen, click **Download** in the window.
+
+{{% /tab %}}
+
+{{< /tabs >}}
+
+### Exporting a whole VM
+
+A whole VM is exported as part of a [project snapshot](#project-snapshots), so the copy contains its parameters, the data of its disks, and the other project resources. From such a copy, the VM can be restored in another namespace or cluster. To skip extra VMs and disks, exclude them from the project snapshot before you take it.
+
+{{< tabs name="namespace-snapshot-export" >}}
+
+{{% tab name="Using the CLI" %}}
+
+To export a whole VM, follow these steps:
+
+1. Take a project snapshot and wait until it is ready:
+
+   ```bash
+   d8 snapshot create <SNAPSHOT_NAME> -n <NAMESPACE> --wait
+   ```
+
+   Here, `<SNAPSHOT_NAME>` is the snapshot name, and `<NAMESPACE>` is the project namespace.
+
+1. Download the snapshot to a directory:
+
+   ```bash
+   d8 snapshot download <SNAPSHOT_NAME> -n <NAMESPACE> -o ./<DIRECTORY>
+   ```
+
+   Here, `<DIRECTORY>` is the directory where the copy is saved.
+
+1. Check the integrity of the copy:
+
+   ```bash
+   d8 snapshot local describe ./<DIRECTORY>
+   ```
+
+{{% /tab %}}
+
+{{% tab name="Using the web interface" %}}
+
+1. Go to the **Projects** tab and select the project you need.
+1. Go to the **Snapshots** section.
+1. Open the snapshot you need and click **Download snapshot**.
+1. To reduce the archive size, select `zstd` in the **Volume data compression** field.
+1. Wait until the ZIP archive download is complete.
+
+{{% /tab %}}
+
+{{< /tabs >}}
+
+### Importing a disk and a disk snapshot
+
+An exported disk and an exported disk snapshot are stored in the same RAW format and are uploaded to the cluster the same way, as a new disk or image. The steps are described in the [Uploading a disk from the command line](#uploading-a-disk-from-the-command-line) and [Uploading an image from the command line](#uploading-an-image-from-the-command-line) sections.
+
+### Importing a VM from an exported copy
+
+A VM import restores the VM from a copy exported [together with the project](#exporting-a-whole-vm). It is needed to bring a VM back after it is deleted or the cluster fails and to run a VM copy in another cluster. The copy is uploaded to the target namespace, and the VMs, their disks, and the other project resources are restored from it. The target namespace must exist in advance. To upload the copy to another cluster, set the connection context of that cluster with the `--context` flag or the kubeconfig file with the `--kubeconfig` flag.
+
+A restore applies the resources from the copy over existing resources with the same names, so upload the copy to a namespace without such resources.
+
+The VM is restored with the IP and MAC addresses from the snapshot. Its IP address must belong to the VM subnets of the target cluster and must be free. In the same cluster, the address of the source VM stays bound to its project even after the VM is deleted, so the restored VM can't get this address.
+
+{{< tabs name="namespace-snapshot-import" >}}
+
+{{% tab name="Using the CLI" %}}
+
+To import a VM, follow these steps:
+
+1. Upload the directory with the copy to the target namespace:
+
+   ```bash
+   d8 snapshot upload -n <TARGET_NAMESPACE> -i ./<DIRECTORY>
+   ```
+
+   Here, `<TARGET_NAMESPACE>` is the target namespace, and `<DIRECTORY>` is the directory with the copy.
+
+1. Check that the uploaded snapshot is ready:
+
+   ```bash
+   d8 snapshot describe <SNAPSHOT_NAME> -n <TARGET_NAMESPACE>
+   ```
+
+   Here, `<SNAPSHOT_NAME>` is the snapshot name, which matches the name of the source snapshot.
+
+1. Check that the resources from the snapshot can be applied without saving the changes:
+
+   ```bash
+   d8 snapshot restore <SNAPSHOT_NAME> -n <TARGET_NAMESPACE> --dry-run
+   ```
+
+1. Restore the resources:
+
+   ```bash
+   d8 snapshot restore <SNAPSHOT_NAME> -n <TARGET_NAMESPACE> --wait
+   ```
+
+1. Wait until the disks and the VMs are ready. The restore command doesn't wait for them, so track the resource phases:
+
+   ```bash
+   d8 k -n <TARGET_NAMESPACE> get vd,vm
+   ```
+
+{{% /tab %}}
+
+{{% tab name="Using the web interface" %}}
+
+1. Go to the **Projects** tab and select the target project.
+1. Go to the **Snapshots** section and click **Upload snapshot**.
+1. Select the ZIP archive downloaded in the web interface or the directory created by the `d8 snapshot download` command.
+1. Wait until the uploaded snapshot is ready.
+1. Open the uploaded snapshot and, in the **Snapshot contents** tab, select the VMs and the resources to restore.
+1. Click **Restore selected**, review the list of resources, and click **Restore**.
+
+{{% /tab %}}
+
+{{< /tabs >}}
+
+### Restoring a previous version of a VM
+
+You can return a VM to a previous version from a snapshot in the cluster or from an exported copy. The way depends on where the version you need is stored:
+
+- If the VM snapshot is in the cluster, return the VM to it with a [restore operation](#recovering-a-vm). The VM is restored in place together with its disks.
+- If the snapshot is no longer in the cluster, for example after the project is deleted, [import the VM from an exported copy](#importing-a-vm-from-an-exported-copy).
+
+### Example of backing up and restoring a VM
+
+The following example shows how to create a backup copy of a VM and restore it in a reserve cluster. Suppose the `prod` project runs the `db` VM with the guest OS agent started. The connection contexts of the main and reserve clusters are named `main` and `reserve`, the VM subnets in both clusters match, and an empty `prod` project exists in the reserve cluster.
+
+To create a backup copy of the `db` VM, follow these steps:
+
+1. Take a snapshot of the `prod` project:
+
+   ```bash
+   d8 snapshot create db-backup -n prod --context main --wait
+   ```
+
+1. Download the snapshot to the `./db-backup` directory:
+
+   ```bash
+   d8 snapshot download db-backup -n prod --context main -o ./db-backup
+   ```
+
+1. Check the integrity of the copy and move the directory to the backup storage:
+
+   ```bash
+   d8 snapshot local describe ./db-backup
+   ```
+
+To restore the `db` VM in the reserve cluster, follow these steps:
+
+1. Upload the copy to the `prod` project of the reserve cluster:
+
+   ```bash
+   d8 snapshot upload -n prod --context reserve -i ./db-backup
+   ```
+
+1. Check that the uploaded snapshot is ready:
+
+   ```bash
+   d8 snapshot describe db-backup -n prod --context reserve
+   ```
+
+1. Restore the project resources together with the `db` VM and its disks:
+
+   ```bash
+   d8 snapshot restore db-backup -n prod --context reserve --wait
+   ```
+
+1. Wait until the disks and the VM are ready:
+
+   ```bash
+   d8 k -n prod --context reserve get vd,vm
+   ```
+
+### Troubleshooting VM export
+
+A project snapshot doesn't become ready if a snapshot of at least one VM in it fails. To find such a VM snapshot, view the project snapshot tree:
+
+```bash
+d8 snapshot describe <SNAPSHOT_NAME> -n <NAMESPACE>
+```
+
+The following command shows the cause of the VM snapshot error:
+
+```bash
+d8 k -n <NAMESPACE> get vmsnapshot <VM_SNAPSHOT_NAME> -o jsonpath='{.status.captureState.domainSpecificController.message}'
+```
+
+Here, `<VM_SNAPSHOT_NAME>` is the name of the VM snapshot from the project snapshot tree.
+
+A VM snapshot fails, for example, if the guest OS agent doesn't run in a running VM. Start the agent, stop the VM, or exclude it from the project snapshot. A failed project snapshot doesn't recover on its own, so after you fix the cause, delete it and take a new one.
 
 ## Virtual machine pools
 

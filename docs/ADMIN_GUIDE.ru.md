@@ -167,6 +167,10 @@ spec:
 
 Устаревший ресурс остаётся у каждой ВМ, которая получила из него адрес: и у той, где он указан в параметре [`.spec.virtualMachineIPAddressName`](cr.html#virtualmachine-v1alpha2-spec-virtualmachineipaddressname), и у той, для которой его создал DP. Перевести такую ВМ на ресурс [IPAddress](/modules/sdn/cr.html#ipaddress) может только владелец проекта: указать имя устаревшего ресурса в параметре [`ipAddressName`](cr.html#virtualmachine-v1alpha2-spec-networks-ipaddressname) сети `Main`, убрать параметр `.spec.virtualMachineIPAddressName`, если он задан, и перезапустить ВМ. Ресурс IPAddress с этим именем и адресом DP создаёт заранее, поэтому адрес ВМ не меняется. После перезапуска устаревший ресурс можно удалить.
 
+{{< alert level="warning" >}}
+После перехода на выдачу адресов модулем `sdn` откат модуля на предыдущую версию не поддерживается.
+{{< /alert >}}
+
 ## Хранилище образов виртуальных машин
 
 Образы виртуальных машин DP хранит во внутреннем хранилище образов контейнеров (DVCR), которое размещается на постоянном томе кластера. Оттуда образы попадают на диски виртуальных машин, поэтому от размера тома зависит, сколько образов поместится в кластер.
@@ -263,6 +267,59 @@ VirtualImage           default              ubuntu-2404
 {{% /tab %}}
 
 {{< /tabs >}}
+
+## Снимки и перенос данных
+
+Deckhouse Platform позволяет владельцам проектов создавать снимки ВМ и дисков, выгружать ВМ из кластера и загружать их обратно. Для этого в кластере должны работать модули снимков, а хранилища дисков должны поддерживать снимки.
+
+{{< alert level="info" >}}
+Для снимков и экспорта ВМ необходимы модули [`storage-foundation`](/modules/storage-foundation/) и [`state-snapshotter`](/modules/state-snapshotter/), которые по умолчанию включены в наборах модулей `Default` и `Managed`. Выключите устаревший модуль [`snapshot-controller`](/modules/snapshot-controller/).
+{{< /alert >}}
+
+Снимки, созданные до включения модуля `state-snapshotter`, можно использовать для восстановления и клонирования, но нельзя выгрузить из кластера.
+
+### Классы хранения для снимков
+
+Снимок диска создаёт CSI-драйвер хранилища, поэтому драйвер должен поддерживать снимки. Хранилища с поддержкой снимков перечислены в [документации модуля `storage-foundation`](/modules/storage-foundation/). Кроме того, у класса хранения должна быть аннотация `storage.deckhouse.io/volumesnapshotclass` с именем VolumeSnapshotClass этого драйвера, иначе снимок диска завершится ошибкой.
+
+Проверьте аннотацию у классов хранения:
+
+```bash
+d8 k get storageclass -o custom-columns='NAME:.metadata.name,VOLUME_SNAPSHOT_CLASS:.metadata.annotations.storage\.deckhouse\.io/volumesnapshotclass'
+```
+
+Если у класса хранения нет аннотации, посмотрите доступные классы снимков и добавьте аннотацию с классом, который относится к тому же CSI-драйверу:
+
+```bash
+d8 k get volumesnapshotclasses
+d8 k annotate storageclass <STORAGE_CLASS> storage.deckhouse.io/volumesnapshotclass=<VOLUME_SNAPSHOT_CLASS>
+```
+
+Здесь `<STORAGE_CLASS>` — имя класса хранения, `<VOLUME_SNAPSHOT_CLASS>` — имя класса снимков.
+
+### Права на перенос данных
+
+Выгружать и загружать данные дисков может пользователь с ролью `admin` в проекте. Чтобы дать это право пользователю с другой ролью, привяжите в неймспейсе проекта ClusterRole `d8:namespace-capability:storage-foundation:transfer_volume_data`.
+
+Пример привязки роли к пользователю в неймспейсе `project`:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: volume-transfer
+  namespace: project
+subjects:
+  - kind: User
+    name: <USER_NAME>
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: d8:namespace-capability:storage-foundation:transfer_volume_data
+  apiGroup: rbac.authorization.k8s.io
+```
+
+Здесь `<USER_NAME>` — имя пользователя. В Deckhouse Platform версий 1.76.9–1.77 роль `admin` этого права не даёт, поэтому привязывайте всем пользователям ClusterRole `d8:use:capability:module:storage-foundation:transfer_volume_data`.
 
 ## Образы
 
@@ -840,6 +897,23 @@ spec:
             values: ["green"]
     type: Discovery
 ```
+
+#### Вложенная виртуализация
+
+Вложенная виртуализация позволяет ВМ запускать собственный гипервизор, например чтобы развернуть внутри ВМ тестовый кластер. По умолчанию вложенная виртуализация включена у всех классов.
+
+Чтобы выключить вложенную виртуализацию у класса, задайте параметру [`.spec.cpu.enableNestedVirtualization`](cr.html#virtualmachineclass-v1alpha3-spec-cpu-enablenestedvirtualization) значение `false`:
+
+```yaml
+spec:
+  cpu:
+    enableNestedVirtualization: false
+    type: Host
+```
+
+На узлах Intel гипервизор в ВМ класса с типом `Discovery` или `Features` работает, только если набор инструкций класса включает `vmx`. Для типа `Discovery` все узлы, по которым Deckhouse Platform подбирает набор, должны поддерживать `vmx`. Для типа `Features` укажите `vmx` в списке инструкций. Нельзя одновременно указать `vmx` или `svm` в списке и выключить вложенную виртуализацию.
+
+Значение параметра нельзя изменить после создания класса. Чтобы включить или выключить вложенную виртуализацию у существующих ВМ, переведите их на класс с нужным значением. Если ВМ работает, она переходит на новый класс после перезапуска.
 
 #### Размещение по узлам
 
@@ -1827,6 +1901,76 @@ DP обнаруживает устройства на подходящих уз�
 - устройства подключаются при запуске ВМ, поэтому изменение параметра [`.spec.pciDevices`](cr.html#virtualmachine-v1alpha2-spec-pcidevices) требует её перезапуска;
 - устройство подключается только к одной ВМ, а к каждой ВМ подключается не более восьми устройств;
 - проброшенная сетевая карта работает в обход сетевой подсистемы кластера. Она не отражается в параметре [`.spec.networks`](cr.html#virtualmachine-v1alpha2-spec-networks), а адреса IP и MAC на ней DP не выдаёт и не учитывает.
+
+## Подключение к физической сети через SR-IOV
+
+{{< alert level="info" >}}
+Подключение к физической сети через SR-IOV — экспериментальная возможность, доступная в коммерческих редакциях Deckhouse Platform.
+{{< /alert >}}
+
+Deckhouse Platform может подключить виртуальную машину (ВМ) напрямую к физической сети через виртуальную функцию сетевой карты с поддержкой SR-IOV. Виртуальная функция передаётся в ВМ как PCI-устройство, и гостевая ОС работает с ней под драйвером производителя в обход сетевой подсистемы узла. Так ВМ получает полную пропускную способность канала и может использовать DPDK. Владелец проекта подключает ВМ к сети в блоке [`.spec.networks`](cr.html#virtualmachine-v1alpha2-spec-networks), а сеть и неймспейс проекта к этому готовите вы.
+
+Чтобы подключение заработало, обеспечьте следующее:
+
+- [Kubernetes](/products/kubernetes-platform/documentation/v1/reference/supported_versions.html#kubernetes) версии не ниже 1.34, в kube-apiserver которого включены feature gates `DRAResourceClaimDeviceStatus`, `DRADeviceBindingConditions` и `DRAConsumableCapacity`;
+- включённый модуль [`sdn`](/modules/sdn/);
+- сетевые карты с поддержкой SR-IOV на узлах, где будут работать ВМ;
+- включённую на этих узлах аппаратную виртуализацию ввода-вывода.
+
+Чтобы включить аппаратную виртуализацию ввода-вывода, задайте в BIOS узла `VT-d` у Intel или `AMD-Vi` у AMD и добавьте в параметры ядра `intel_iommu=on` или `amd_iommu=on`.
+
+### Подготовка физической сети
+
+Физическую сеть для ВМ описывает ресурс [UnderlayNetwork](/modules/sdn/cr.html#underlaynetwork) модуля `sdn`. Чтобы предоставить такую сеть проекту, выполните следующие шаги.
+
+1. Создайте ресурс [UnderlayNetwork](/modules/sdn/cr.html#underlaynetwork) в режиме `Shared` с включённым SR-IOV:
+
+   ```bash
+   d8 k apply -f - <<EOF
+   apiVersion: network.deckhouse.io/v1alpha1
+   kind: UnderlayNetwork
+   metadata:
+     name: fast-net
+   spec:
+     mode: Shared
+     memberNodeNetworkInterfaces:
+       - labelSelector:
+           matchLabels:
+             nic-group: fast
+     shared:
+       sriov:
+         enabled: true
+         numVFs: 8
+   EOF
+   ```
+
+   Сеть включает порты сетевых карт, ресурсы [NodeNetworkInterface](/modules/sdn/cr.html#nodenetworkinterface) которых отмечены лейблом из параметра [`memberNodeNetworkInterfaces`](/modules/sdn/cr.html#underlaynetwork-v1alpha1-spec-membernodenetworkinterfaces). Каждое подключение ВМ к сети занимает одну виртуальную функцию, поэтому параметр [`numVFs`](/modules/sdn/cr.html#underlaynetwork-v1alpha1-spec-shared-sriov-numvfs) определяет, сколько ВМ можно подключить через один порт.
+
+1. Убедитесь, что сеть готова к работе:
+
+   ```bash
+   d8 k get underlaynetwork fast-net -o jsonpath='{.status.conditions[?(@.type=="InterfacesAvailable")].status}'
+   ```
+
+   Значение `True` означает, что виртуальные функции доступны для подключения. Пока сеть не готова, ВМ запускаются без её интерфейса.
+
+1. Назначьте неймспейсу проекта лейбл `direct-nic-access.network.deckhouse.io/enabled`:
+
+   ```bash
+   d8 k label namespace my-project direct-nic-access.network.deckhouse.io/enabled=""
+   ```
+
+   Без этого лейбла ВМ, подключённые к физической сети, в неймспейсе не запустятся.
+
+После этого сообщите владельцу проекта имя ресурса UnderlayNetwork.
+
+### Ограничения подключения через SR-IOV
+
+Планируя подключение ВМ к физической сети, учитывайте следующие ограничения:
+
+- ВМ запускается только на узле со свободной виртуальной функцией этой сети. Если свободных виртуальных функций нет, ВМ остаётся в фазе `Pending`;
+- ВМ, подключённая к физической сети, живой миграцией не переносится, поэтому перед выводом узла на обслуживание её придётся остановить. Условие `Migratable` такой ВМ получает причину `VirtualMachineHostDevicesNotMigratable`;
+- IP-адреса на интерфейсе физической сети платформа не выдаёт, поэтому адресацию настраивают в гостевой ОС.
 
 ## Аудит событий безопасности
 
