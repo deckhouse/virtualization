@@ -305,6 +305,8 @@ func (f *Framework) Delete(ctx context.Context, objs ...client.Object) error {
 						Name: obj.GetName(),
 					},
 				}
+			} else if err != nil && !k8serrors.IsNotFound(err) {
+				GinkgoWriter.Printf("Failed to get namespace %q to find its parent Project, deleting the namespace directly: %v\n", nsKey.Name, err)
 			}
 		}
 
