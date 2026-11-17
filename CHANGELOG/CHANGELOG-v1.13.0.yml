@@ -1,0 +1,346 @@
+ci:
+  features:
+    - summary: The nightly e2e Loop report now shows which storage class each OS stand ran on.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/636
+    - summary: The nightly e2e storage rotation now spreads the OS stands so they do not run the same class on the same day (never two on replicated).
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/636
+  fixes:
+    - summary: The changelog job no longer fails when two milestones of one minor version are open.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/811
+    - summary: The e2e check of the peering access policy sends an object that reaches the policy.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/770
+    - summary: A hung e2e suite is stopped before the job timeout, so the cluster is cleaned up and the logs are kept.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/675
+    - summary: The nightly e2e Loop report links now point at the GitLab pipeline instead of a 404.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/636
+    - summary: Nightly and release e2e workflows install the Go version required by the repository again.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/629
+    - summary: "The lint:go CI job pulls the golangci-lint image again after the pinned digest disappeared from the registry."
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/601
+    - summary: Nightly e2e no longer fails the SDN setup step on a brief nested API outage.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/585
+    - summary: Pin the TRDL binary during fuzz build setup to avoid failures when concurrent jobs replace the shared current symlink.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/582
+    - summary: Nightly e2e on nested clusters no longer fails at kubeconfig generation on DKP 1.77.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/579
+    - summary: Approve manual-approval-gated module releases (state-snapshotter, storage-foundation) before e2e storage setup so nightly and release pipelines roll out the latest versions.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/540
+    - summary: Wait for the nfs StorageProfile in the configure-virtualization stage instead of configure-storage, where the virtualization module is not yet installed.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/540
+    - summary: Nightly E2E cleanup now removes old nested clusters instead of leaving them to drain the resource pool.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/524
+    - summary: Nightly E2E resource cleanup no longer stalls on VMs that cannot be stopped.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/524
+    - summary: Nightly E2E report is now posted to the channel even when a run produces no artifacts.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/524
+    - summary: Stabilize nightly e2e storage setup by enabling storage module dependencies in order and waiting for StorageProfile readiness.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/507
+    - summary: Fuzz image build restores the corpus with AWS CLI, no longer depending on the removed MinIO Client download.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/451
+core:
+  features:
+    - summary: Added the ability to move a running virtual machine without stopping it to another site. The virtual machine keeps its IP and MAC addresses. The functionality is available in the commercial editions of the platform. To use it, pair the clusters through the `peering` module and run the `d8 v migrate --project-peer` command.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/587
+    - summary: Mass live migrations no longer stall on a few nodes. The parallel migration limit now counts only the migrations that transfer memory. Previously, migrations waiting for their turn took it up too, so only a small part of the allowed migrations transferred data at the same time.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/564
+    - summary: A live migration now prefers a target node that is not receiving another migration, so migrations no longer pile up on one node.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/564
+  fixes:
+    - summary: The virtualization controller no longer fails to start when the `sdn` module is enabled in the editions where this module supports only the main network.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/794
+    - summary: Improve failure reporting and recovery when migrating a virtual machine to a peer cluster.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/780
+    - summary: The USB passthrough component no longer fails to start on nodes where USB/IP is built into the kernel.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/760
+    - summary: Running virtual machines no longer risk losing connectivity when the module hands VM routing over to sdn on an upgrade.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/749
+    - summary: The synchronization controller no longer crashes on start with an unknown flag error.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/744
+    - summary: virt-handler no longer crashes when a virtual machine that has never been migrated is stopped or deleted.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/735
+    - summary: Running virtual machines no longer risk losing connectivity when the module hands VM routing over to sdn on an upgrade.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/723
+    - summary: Virtual machines, disks and images now work in a cluster without the VolumeSnapshot CRDs. Previously, virtualization did not work in such a cluster at all.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/653
+    - summary: A disk that cannot be expanded no longer blocks detaching other disks of the virtual machine.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/641
+    - summary: Live migration of a virtual machine no longer fails if the previous migration of this virtual machine failed.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/609
+    - summary: Health checks of the device passthrough components are no longer reachable from other nodes. Port `4108` is no longer open on nodes, and port `4107` accepts only local connections.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/602
+    - summary: A virtual machine is no longer restarted if virtualization components restart on the target node shortly after its live migration.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/576
+    - summary: Live migration of a virtual machine running without a restart since a version earlier than 1.9 no longer fails.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/569
+    - summary: DVCR no longer floods its log with trace export errors.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/549
+    - summary: A virtual machine no longer stays paused if virtualization components restart on the source node during its live migration.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/538
+    - summary: Live migration of a VirtualMachine with a USB device no longer fails on the target node.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/474
+    - summary: Virtualization components are no longer blocked by the restricted pod security policy.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/461
+    - summary: Live migration of a virtual machine with additional networks no longer fails when the network interface on the target node is not ready yet.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/441
+    - summary: The KubeVirt install strategy job now runs with the same restricted security context as the rest of the module.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/423
+disks:
+  fixes:
+    - summary: The external upload URL of an image or a disk now appears only when it is ready to accept data. Previously, an upload started right after the URL appeared could fail with the `503` error.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/520
+module:
+  features:
+    - summary: Added the ability to restrict which VirtualMachineClass and ClusterVirtualImage resources each project can use with ClusterResourceGrantPolicy. Until an administrator creates a policy, all classes and images stay available to every project. To use it, the cluster must run Deckhouse Platform 1.78 or newer with the `multitenancy-manager` module enabled.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/784
+    - summary: Access rights now follow the role model of Deckhouse Platform 1.78, so project users keep access to virtual machines after the platform is upgraded to 1.78.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/547
+      impact: "On Deckhouse Platform 1.78 and later, bindings to the old capability names (`d8:use:capability:virtualization:*`, `d8:manage:permission:subsystem:virtualization:*`) no longer grant access. Use `d8:namespace-capability:virtualization:*` and `d8:system-capability:virtualization:*` instead. Bindings to the old role names keep working."
+    - summary: The `virtualMachineCIDRs` list in the module settings can now be cleared entirely once no VirtualMachineIPAddress resources are left in the cluster. Previously, the list had to keep at least one subnet.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/518
+  fixes:
+    - summary: Users with access granted through ClusterAuthorizationRule can now view VirtualMachinePool resources.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/537
+    - summary: Live migration over a dedicated migration network is no longer limited to 640 MiB/s by default. Over the node network, the limit still applies.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/509
+    - summary: Updating the module in the Community Edition no longer stalls the Deckhouse queue.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/496
+    - summary: Invalid TLS certificates of virtualization components are now reissued automatically and no longer stop the delivery of audit events.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/477
+    - summary: Virtualization audit is no longer blocked by the restricted pod security policy.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/464
+    - summary: Pod security policy checks are enabled again in the `d8-virtualization` namespace.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/430
+    - summary: PCIDevice and NodePCIDevice resources are now accessible through the legacy user-authz roles and protected by the device access admission policy, the same way as USB devices.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/428
+observability:
+  features:
+    - summary: The Virtualization Overview dashboard now shows how many disks are created from each image and the CPU and memory overhead of virtual machines per namespace.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/634
+    - summary: The `d8_virtualization_virtualdisk_info` metric now shows the data source of each disk.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/634
+    - summary: The dashboards of virtual machines show how fast a machine changes the contents of its memory, which tells in advance whether its live migration will be slow.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/331
+    - summary: The cluster overview shows the CPU stolen from virtual machines, by node and by project, both as a share of the vCPU given out and as the steal an average machine sees.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/331
+  fixes:
+    - summary: The Virtualization Overview dashboard no longer leaves out the disks, images and snapshots of namespaces without virtual machines.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/634
+    - summary: The hypervisor overhead on the CPU charts is one line per virtual machine again, without the dead negative line left by a migration.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/331
+    - summary: Memory, file system, disk and network figures of a virtual machine are no longer counted twice, or halved, while the machine is visible from two nodes.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/331
+    - summary: The packet rate, packet drops and interface errors of a virtual machine are shown in packets per second instead of eight times that.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/331
+    - summary: The Agent and Config tiles of a virtual machine show its actual state instead of always showing the good one.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/331
+    - summary: The dashboards of virtual machines count objects once in a cluster where the controller runs in several replicas.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/331
+    - summary: The share of the CPU stolen from virtual machines is not diluted by the vCPU of the machines that are switched off.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/331
+    - summary: The snapshot column of the disk tables is filled again in a cluster where the controller runs in several replicas.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/331
+test:
+  features:
+    - summary: "Run the module upgrade suite with `task run:upgrade`, one parallel spec per virtual machine, with the StorageClasses taken from STORAGE_CLASS_NAME and LOCAL_STORAGE_CLASS_NAME."
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/764
+  fixes:
+    - summary: A short network failure between CI and the cluster no longer fails e2e specs or removes the results of the whole run.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/772
+    - summary: The e2e readiness checks no longer fail on a deckhouse pod left after a node shutdown.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/765
+    - summary: The nested e2e clusters bootstrap again with two additional networks per node.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/619
+    - summary: e2e stand pool no longer drains because the janitor readiness gate waits on a DRA driver that never runs on stands.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/497
+    - summary: The e2e precreated CVI precheck fails at once, naming the URL, when an image is unreachable, and recreates a CVI left in the Failed phase instead of waiting out the 20-minute timeout.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/404
+vd:
+  fixes:
+    - summary: If a virtual machine restarts while its disks are migrating, the disks no longer end up on different nodes, and the virtual machine no longer hangs in `Pending`.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/655
+    - summary: A disk or an image can now be created from a snapshot without a storage class even if the default storage class uses another CSI driver. Such a resource is created in the storage class of the snapshot.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/639
+    - summary: Reject scientific-notation VirtualDisk sizes so a crafted size can no longer hang the admission webhook.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/572
+    - summary: A disk is now attached to another virtual machine only after it is detached from the previous one. Previously, two virtual machines could write to the same disk and corrupt its file system.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/554
+    - summary: A disk restored from a snapshot no longer gets a size too small to attach. Previously, on some storage such as NFS, such a disk could get a size of a few bytes, and a virtual machine with it did not start.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/484
+    - summary: A disk volume migration no longer hangs in `Migrating` when the namespace storage quota is almost used up. Disks already stuck finish the migration after the upgrade.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/471
+    - summary: If virtualization components restart during a disk volume migration, the migration no longer deletes both volumes together with the disk data.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/453
+    - summary: Restoring a disk from a snapshot into a size smaller than the source disk is now rejected with a message about the minimum size. Previously, such a disk got the source disk size, and with the `WaitForFirstConsumer` binding mode it was not created at all.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/427
+vdsnapshot:
+  fixes:
+    - summary: Without the state-snapshotter module, a disk snapshot is marked consistent only when the guest stayed frozen for the whole capture.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/710
+    - summary: Without the state-snapshotter module, a snapshot of a disk attached to a running virtual machine fails with DeadlineExceeded when it is not ready within 13 minutes.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/710
+    - summary: Without the state-snapshotter module, snapshots in progress during the virtualization module update fail with AbortedByModuleUpdate and unfreeze the virtual machine. Take them again.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/710
+    - summary: A consistent snapshot of a disk of a running virtual machine is now taken with the guest filesystem frozen instead of failing when state-snapshotter module is enabled.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/709
+    - summary: A snapshot of a disk attached to a running virtual machine fails with DeadlineExceeded when it is not ready within 13 minutes.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/709
+    - summary: Snapshots taken before the `state-snapshotter` module is enabled are no longer taken again after it is enabled, and failed ones can now be deleted.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/624
+    - summary: A disk snapshot deleted during its creation no longer hangs in `Terminating` and no longer leaves the guest file system frozen.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/597
+vm:
+  features:
+    - summary: The VirtualMachinePool status now explains why the pool does not reach the requested number of virtual machines.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/550
+    - summary: If the guest OS is paused, for example because of a disk I/O error or a failed live migration, the `Running` condition now reports it and names the cause. Previously, such a virtual machine looked running, because there is no separate phase for a pause and the phase stays `Running`.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/538
+    - summary: The vm-route-forge component is no longer shipped where the sdn module programs the routes to virtual machines.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/529
+    - summary: The VirtualMachineIPAddress and VirtualMachineIPAddressLease resources are deprecated but keep working.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/528
+      impact: If the `sdn` module serves the main cluster network, running virtual machines switch to its IPAddress resources without a restart and keep their addresses. Rolling back to the previous version after that is not supported.
+    - summary: Added the ability to get the `Main` network address of a virtual machine from the IPAddress resource of the `sdn` module. The switch starts automatically when the `sdn` module serves the main cluster network.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/527
+    - summary: Added the ability to connect a virtual machine to a physical network through SR-IOV with the `UnderlayNetwork` network type. The functionality is available in the commercial editions of the platform and is experimental. To use it, the cluster must run the `sdn` module and Kubernetes `1.34` or newer. A virtual machine with such an interface cannot be live migrated.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/374
+  fixes:
+    - summary: Moving a virtual machine to another cluster now waits for an active snapshot session instead of rejecting the move.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/795
+    - summary: A move of a VM to a peer cluster is shown and can be cancelled in the operations of the VM.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/785
+    - summary: A move of a virtual machine to a peer cluster no longer leaves labels or annotations of the module on the virtual machine and its disks, never leaves the virtual machine running in both clusters, and ends with the cause reported by the receiving cluster.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/783
+    - summary: With sdn serving the Main network, new virtual machines no longer hang in `Pending` without an IP address when sdn refuses an address of another VirtualMachineIPAddress.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/748
+    - summary: With sdn serving the Main network, a VirtualMachineIPAddress deleted and recreated under the same name no longer waits about 10 minutes for its address.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/748
+    - summary: The module upgrade no longer restarts running virtual machines of a VirtualMachineClass with the `Discovery` CPU type.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/726
+    - summary: The module upgrade no longer restarts running virtual machines of a VirtualMachineClass with the `Discovery` CPU type.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/714
+    - summary: With sdn serving the Main network, new virtual machines no longer hang in `Pending` without an IP address when sdn refuses an address of another VirtualMachineIPAddress.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/711
+    - summary: With sdn serving the Main network, a VirtualMachineIPAddress deleted and recreated under the same name no longer waits about 10 minutes for its address.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/711
+    - summary: A virtual machine with a disk on NFS no longer hangs in deletion when the NFS export is removed first.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/668
+    - summary: "A virtual machine with `coreFraction: Auto` is now live migrated instead of restarted when its node cannot apply a new CPU fraction in place."
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/640
+    - summary: Fixed an Auto VirtualMachineIPAddress looping on an address the sdn module does not know.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/625
+    - summary: Virtual machines with additional networks no longer lose their MAC address while they use it. Previously, the platform could release such an address, and after a restart the virtual machine hung in `Pending` waiting for a new one.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/623
+    - summary: A virtual machine no longer loses the MAC address of an additional network and hangs in Pending.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/620
+    - summary: Replacing an additional network of a running virtual machine in one change no longer hangs or requires a restart.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/613
+    - summary: A stopped virtual machine now always starts when its run policy is switched from `AlwaysOff` to `AlwaysOnUnlessStoppedManually`. Previously, it started only in some cases.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/612
+    - summary: Live migration to a node with an older Linux kernel now fails with a clear reason instead of an internal QEMU error.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/610
+    - summary: A CPU or memory change of a running virtual machine is no longer silently left unapplied if its live migration fails or is interrupted by another operation. The migration is now retried, and the `ConfigurationApplied` condition explains what blocks the change.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/598
+    - summary: After many disks are attached to a running virtual machine at once, it no longer falsely requires a restart and can still be live migrated.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/595
+    - summary: PCI devices of a node no longer disappear after the container runtime and kubelet restart on the node. Previously, virtual machines that used them could not start without a manual intervention.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/588
+    - summary: The `Main` network can now be added back to a virtual machine whose additional network already uses id `1`.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/586
+      impact: Network ids of new virtual machines are now assigned in the order of `.spec.networks` starting from `1`, without reserving `1` for the `Main` network. As a result, interface names in the guest OS of a new virtual machine change if it has no `Main` network or `Main` is not first in the list.
+    - summary: A new VNC, serial console or SPICE connection that replaces an open one no longer drops all console sessions on the node.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/577
+    - summary: A disk can now be attached right after its previous VirtualMachineBlockDeviceAttachment is deleted. The new attachment waits until the disk is released instead of being rejected.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/568
+    - summary: Enabling the HotplugMemoryWithLiveMigration feature gate no longer restarts running virtual machines.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/566
+    - summary: Disks attached to a running virtual machine no longer become inaccessible after systemd on the node reloads its configuration, for example after `systemctl daemon-reload`. Previously, live migration of the virtual machine or attaching another disk then failed.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/557
+    - summary: A disk removed from a running virtual machine is now detached even if another of its disks is not ready.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/554
+    - summary: A VirtualMachinePool no longer gives the same reusable disk to two virtual machines. If it has already happened, the disk stays with the virtual machine that uses it.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/553
+    - summary: A VirtualMachinePool no longer reports itself unavailable while its virtual machines migrate.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/550
+    - summary: After the upgrade, virtual machines started before it no longer require a restart for changes that do not need one.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/548
+    - summary: wait for a deferred in-place resize and re-enable HotplugCPU e2e
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/546
+    - summary: Attaching a disk to a running virtual machine no longer resets its uptime and no longer sets the `Running` condition to `False` for a few seconds.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/543
+    - summary: System devices of a node, such as the security processor, integrated USB controllers and audio devices, are no longer offered as PCI devices for virtual machines.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/531
+    - summary: Disks used by node processes, such as Ceph OSD disks, are no longer offered as PCI devices for virtual machines. Attaching them could break the node.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/530
+    - summary: A migration now fails at once with the reason if no other node can accept the virtual machine, for example because of `nodeSelector`. Previously, the migration waited for the scheduler to time out.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/526
+    - summary: The OperationInProgress condition of a virtual machine is shown only while an operation is being performed; a failed operation no longer leaves a stale error on the machine and is reported by its VirtualMachineOperation.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/525
+    - summary: Additional network interfaces of a virtual machine no longer move to other networks after a restart or a node failure. Previously, a guest with static network settings lost connectivity.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/521
+    - summary: A virtual machine without the `Main` network no longer gets an address from the pod network while none of its additional networks is ready.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/488
+    - summary: A stopped virtual machine no longer switches to `Pending` for a few seconds and rejects a start when its disk is replaced right after the stop.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/454
+    - summary: Attaching a disk to a running virtual machine that was live migrated with its local disks no longer restarts it.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/429
+    - summary: Live migration of a virtual machine with the `EFIWithSecureBoot` bootloader no longer stays `InProgress` for hours after the virtual machine has already moved to the target node.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/425
+    - summary: A virtual machine with a USB device attached from another node no longer freezes when that node loses network connectivity. After about 15 seconds, the guest OS sees the device as disconnected, and the virtual machine keeps running.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/419
+vmbda:
+  fixes:
+    - summary: If an attached disk is deleted and then its VirtualMachineBlockDeviceAttachment, both resources no longer hang in `Terminating`.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/635
+vmclass:
+  features:
+    - summary: Nested virtualization (`vmx`, `svm`) can now be turned off in a VirtualMachineClass. It stays enabled by default.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/447
+  fixes:
+    - summary: Discovery VirtualMachineClass no longer strands VMs in Pending when a qemu upgrade drops arch-capabilities-derived CPU features on AMD nodes.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/479
+    - summary: The virtualization controller no longer stops working when a VirtualMachineClass was created through v1alpha3 before the module finished installing, for example by the upmeter module.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/414
+vmip:
+  fixes:
+    - summary: A Static VirtualMachineIPAddress whose address sdn still reserves now reports that instead of asking to delete a non-existent IPAddress.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/748
+    - summary: A Static VirtualMachineIPAddress whose address sdn still reserves now reports that instead of asking to delete a non-existent IPAddress.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/711
+    - summary: A VirtualMachineIPAddress is no longer reported as attached to a VirtualMachine that does not use its address.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/628
+vmop:
+  features:
+    - summary: A migration of a virtual machine, including one started by a node drain or a move to another site, now waits for a snapshot of the virtual machine in progress to finish.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/763
+  fixes:
+    - summary: Eviction and migration of a virtual machine now wait up to 15 minutes for a disk that is still being created or attached. Previously, they failed.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/649
+    - summary: If the target node is not ready for a migration within 5 minutes, the operation now fails only after the migration is actually canceled. Because of that, the next migration of the virtual machine is no longer blocked.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/505
+vmsnapshot:
+  fixes:
+    - summary: Without the state-snapshotter module, snapshots of one virtual machine no longer unfreeze the guest under each other or leave it frozen, and a second snapshot of a virtual machine being snapshotted fails at once.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/710
+    - summary: Without the state-snapshotter module, a snapshot of a running virtual machine fails with DeadlineExceeded when it is not ready within 13 minutes.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/710
+    - summary: "Without the state-snapshotter module, a snapshot without requiredConsistency no longer freezes the guest filesystem and is marked consistent: false. Set requiredConsistency: true for a consistent snapshot."
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/710
+    - summary: Without the state-snapshotter module, a snapshot without requiredConsistency fails with VirtualMachineStateChanged when the virtual machine is stopped, started, restarted or migrated during the capture. Take the snapshot again.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/710
+    - summary: Snapshots of one virtual machine no longer leave the guest frozen or unfreeze it under each other, and a snapshot is marked consistent only when the guest stayed frozen for the whole capture. A second snapshot of a virtual machine being snapshotted fails at once.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/709
+    - summary: A snapshot without requiredConsistency fails with VirtualMachineStateChanged when the virtual machine is stopped, started, restarted or migrated during the capture.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/709
+    - summary: Snapshots in progress during the virtualization module update fail with AbortedByModuleUpdate and unfreeze the virtual machine.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/709
+    - summary: With the `state-snapshotter` module enabled, a failed snapshot now reports the storage error.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/626
+    - summary: A virtual machine snapshot no longer leaves the guest file system frozen when the unfreeze request fails.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/608
+    - summary: A failed VirtualMachineSnapshot now reports why it failed, for example a storage error. Previously, it only reported waiting for the file system.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/591
+    - summary: A snapshot no longer leaves the guest filesystem frozen when the reported freeze state flaps.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/562
+    - summary: A snapshot waiting for the guest filesystem freeze no longer flood API server.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/562
+
