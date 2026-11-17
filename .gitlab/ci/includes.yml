@@ -6,7 +6,7 @@
 # explicitly extend stages via .gitlab/ci/stages.yml so the final list is the
 # union of both.
 #
-# Upstream template names (deckhouse/ssdlc/gitlab-ci, v1.0.5):
+# Upstream template names (deckhouse/ssdlc/gitlab-ci, v1):
 #   - Setup.gitlab-ci.yml           (trdl + werf + ci-env + dev/stage/primary
 #                                   registry login)
 #   - Build.gitlab-ci.yml           (.build_base — werf build + bundle/attestation
@@ -29,17 +29,13 @@
 # drive gating.
 
 include:
-  # --- Upstream ssdlc/gitlab-ci (ref v1.0.5) ---
-  # Pinned to a release tag on purpose: the templates have no compatibility
-  # contract or test suite, and every release-channel rollout (Run pipeline,
-  # release-channels.yml) is a new pipeline that would otherwise pick up a new
-  # template version in the middle of a release. Bump the ref by hand in a
-  # dedicated MR. It is the only template ref in the pipeline: every template,
-  # Translate_Changelog included, is listed here, and FUZZ_REPLAY_TEMPLATE_REF
-  # below reuses the anchor (YAML anchors do not cross files, and include:ref
-  # does not expand variables from `variables:`).
+  # --- Upstream ssdlc/gitlab-ci (ref v1) ---
+  # Track the v1 release alias so shared CI fixes reach new pipelines.
+  # Every template, including Translate_Changelog, uses the same ref.
+  # FUZZ_REPLAY_TEMPLATE_REF below reuses the anchor (YAML anchors do not
+  # cross files, and include:ref does not expand variables from `variables:`).
   - project: "deckhouse/ssdlc/gitlab-ci"
-    ref: &templates_ref v1.0.5
+    ref: &templates_ref v1
     file:
       # Setup.gitlab-ci.yml provides trdl + werf setup + `werf cr login` into
       # the primary registry (plus DEV/STAGE when their credentials are set)
