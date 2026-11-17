@@ -1548,7 +1548,7 @@ Here's the recovery sequence, using a cluster of three nodes, `master`, `workerA
 Deckhouse Platform moves a running virtual machine (VM) to another site with live migration and does not reboot the guest OS. A site is a Deckhouse Platform cluster that the current cluster is connected to with a peering. Use the move to free a site for maintenance or to move the workload to another data center, and bring the VM back after the work. The project owner starts the move, and you prepare both sites for it.
 
 {{< alert level="info" >}}
-Moving VMs to another site is available in commercial Deckhouse Platform editions as an experimental feature.
+Moving VMs to another site is available in commercial Deckhouse Platform editions.
 {{< /alert >}}
 
 The [`peering`](/modules/peering/) module connects sites with ClusterPeer resources. In each cluster, this resource describes the other site, and the project owner selects the name of this resource as the destination site when they start a move. The `peering` module pairs the projects with the same name on the connected sites automatically, and a move works only between paired projects.
