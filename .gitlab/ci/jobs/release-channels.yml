@@ -509,12 +509,18 @@ prod:check-version:
           CHANNEL="${RELEASE_CHANNEL}" VERSION="${RELEASE_TAG}" task -d tools/moduleversions check:registry
           ;;
         releases)
-          echo "Checking the version is deployed on the releases site (10 attempts, 60s apart)"
-          CHANNEL="${RELEASE_CHANNEL}" VERSION="${RELEASE_TAG}" COUNT=10 task -d tools/moduleversions check:releases
+          echo -e "\033[93m========= SKIP ===========\033[0m"
+          echo -e "\033[93mSkip checking version deploy. Promote mechanism is in use now, consider rework this check soon.\033[0m"
+          echo -e "\033[93m==========================\033[0m"
+          # echo "Checking the version is deployed on the releases site (10 attempts, 60s apart)"
+          # CHANNEL="${RELEASE_CHANNEL}" VERSION="${RELEASE_TAG}" COUNT=10 task -d tools/moduleversions check:releases
           ;;
         documentation)
-          echo "Checking the version is deployed on the docs site (5 attempts, 60s apart)"
-          CHANNEL="${RELEASE_CHANNEL}" VERSION="${RELEASE_TAG}" COUNT=5 task -d tools/moduleversions check:docs
+          echo -e "\033[93m========= SKIP ===========\033[0m"
+          echo -e "\033[93mSkip checking documentation deploy. Documentation site is reworked and promote mechanism is in use now, consider rework this check soon.\033[0m"
+          echo -e "\033[93m==========================\033[0m"
+          # echo "Checking the version is deployed on the docs site (5 attempts, 60s apart)"
+          # CHANNEL="${RELEASE_CHANNEL}" VERSION="${RELEASE_TAG}" COUNT=5 task -d tools/moduleversions check:docs
           ;;
       esac
 
