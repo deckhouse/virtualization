@@ -139,6 +139,10 @@ func collectMilestone(request collectRequest) error {
 		return err
 	}
 
+	if err := resetToBase(request.projectDir, request.baseSHA); err != nil {
+		return err
+	}
+
 	ymlPath, markdownPath, err := writeFiles(request.projectDir, request.sections, request.milestone.Title, result)
 	if err != nil {
 		return err
@@ -279,30 +283,8 @@ func pushChangelogMR(request collectRequest, files []string, description string)
 	branch := "changelog/" + request.milestone.Title
 	directory := request.projectDir
 
-	if _, err := git(directory, "config", "user.email", "ci-changelog@flant.com"); err != nil {
-		return err
-	}
-
-	if _, err := git(directory, "config", "user.name", "GitLab CI Changelog Bot"); err != nil {
-		return err
-	}
-
-	if _, err := git(directory, "checkout", "-B", branch, request.baseSHA); err != nil {
-		return err
-	}
-	// Only the files of this milestone: `git add CHANGELOG` would sweep in the
-	// files written for the other milestones of the same run.
-	if _, err := git(directory, append([]string{"add"}, files...)...); err != nil {
-		return err
-	}
-
-	if _, err := git(directory, "diff", "--cached", "--quiet"); err == nil {
-		logf("no changes for %s; nothing to commit", request.milestone.Title)
-		return nil
-	}
-	// The push rule of the project rejects a commit without a Signed-off-by
-	// trailer; the committer set above signs it.
-	if _, err := git(directory, "commit", "--signoff", "-m", "Re-generate changelog "+request.milestone.Title); err != nil {
+	committed, err := commitChangelog(directory, branch, request.milestone.Title, files)
+	if err != nil || !committed {
 		return err
 	}
 
@@ -350,6 +332,55 @@ func pushChangelogMR(request collectRequest, files []string, description string)
 	logf("opened the changelog merge request !%d", created.IID)
 
 	return nil
+}
+
+// resetToBase puts the working copy back on the commit the pipeline checked out
+// before a milestone writes its files. Two milestones of one minor version share
+// CHANGELOG-<minor>.md: without the reset the second one reads that file from
+// the branch of the first, carries its block, and cannot leave that branch with
+// the file modified.
+func resetToBase(directory, baseSHA string) error {
+	if _, err := git(directory, "checkout", "--force", "--detach", baseSHA); err != nil {
+		return err
+	}
+	// A file that is not on the base, such as the cumulative file of a new
+	// minor version, would otherwise survive the checkout above.
+	_, err := git(directory, "clean", "--force", "-d", "--", "CHANGELOG")
+
+	return err
+}
+
+// commitChangelog commits the files of a milestone to its branch, cut from the
+// commit the working copy is on. It reports false when the files match it.
+func commitChangelog(directory, branch, milestone string, files []string) (bool, error) {
+	if _, err := git(directory, "config", "user.email", "ci-changelog@flant.com"); err != nil {
+		return false, err
+	}
+
+	if _, err := git(directory, "config", "user.name", "GitLab CI Changelog Bot"); err != nil {
+		return false, err
+	}
+
+	if _, err := git(directory, "checkout", "-B", branch); err != nil {
+		return false, err
+	}
+	// Only the files of this milestone: `git add CHANGELOG` would sweep in the
+	// files written for the other milestones of the same run.
+	if _, err := git(directory, append([]string{"add"}, files...)...); err != nil {
+		return false, err
+	}
+
+	if _, err := git(directory, "diff", "--cached", "--quiet"); err == nil {
+		logf("no changes for %s; nothing to commit", milestone)
+		return false, nil
+	}
+	// The push rule of the project rejects a commit without a Signed-off-by
+	// trailer; the committer set above signs it.
+	if _, err := git(directory, "commit", "--signoff", "-m", "Re-generate changelog "+milestone); err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
 
 // targetMilestones is the milestone that was asked for, or every open one.
