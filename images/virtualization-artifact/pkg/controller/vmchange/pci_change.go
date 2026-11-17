@@ -19,18 +19,21 @@ package vmchange
 import (
 	"reflect"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func comparePCIDevices(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
-	currentValue := NewValue(current.PCIDevices, current.PCIDevices == nil, false)
-	desiredValue := NewValue(desired.PCIDevices, desired.PCIDevices == nil, false)
+	currentPCIDevices := kvbuilder.SortPCIDevices(current.PCIDevices)
+	desiredPCIDevices := kvbuilder.SortPCIDevices(desired.PCIDevices)
+	currentValue := NewValue(currentPCIDevices, len(currentPCIDevices) == 0, false)
+	desiredValue := NewValue(desiredPCIDevices, len(desiredPCIDevices) == 0, false)
 
 	return compareValues(
 		"pciDevices",
 		currentValue,
 		desiredValue,
-		reflect.DeepEqual(current.PCIDevices, desired.PCIDevices),
+		reflect.DeepEqual(currentPCIDevices, desiredPCIDevices),
 		ActionRestart,
 	)
 }

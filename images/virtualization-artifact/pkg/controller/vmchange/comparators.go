@@ -53,7 +53,7 @@ func compareRunPolicy(current, desired *v1alpha2.VirtualMachineSpec) []FieldChan
 
 func compareVirtualMachineIPAddress(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
 	return compareStrings(
-		"virtualMachineIPAddress",
+		"virtualMachineIPAddressName",
 		current.VirtualMachineIPAddress,
 		desired.VirtualMachineIPAddress,
 		"",

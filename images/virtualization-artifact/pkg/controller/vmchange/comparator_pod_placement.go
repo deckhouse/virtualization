@@ -21,6 +21,8 @@ import (
 	"maps"
 	"reflect"
 
+	"k8s.io/utils/ptr"
+
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -163,7 +165,8 @@ func isOnlyNetworkIDAutofillChange(current, desired []v1alpha2.NetworksSpec) boo
 		if current[i].Type != desired[i].Type ||
 			current[i].Name != desired[i].Name ||
 			current[i].VirtualMachineMACAddressName != desired[i].VirtualMachineMACAddressName ||
-			current[i].IPAddressName != desired[i].IPAddressName {
+			current[i].IPAddressName != desired[i].IPAddressName ||
+			!ptr.Equal(current[i].VLANID, desired[i].VLANID) {
 			return false
 		}
 
