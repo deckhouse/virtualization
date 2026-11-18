@@ -89,7 +89,7 @@ const (
 	// PrecheckVerticalPodAutoscaler - test requires the vertical-pod-autoscaler module to be enabled.
 	PrecheckVerticalPodAutoscaler = "vertical-pod-autoscaler-precheck"
 
-	// PrecheckPeering - test requires the synchronization controller to be available.
+	// PrecheckPeering - self-peer tests require DEV controller binaries and an available synchronization controller.
 	PrecheckPeering = "peering-precheck"
 
 	// PrecheckUpgradeStorageClasses verifies the two StorageClasses the module

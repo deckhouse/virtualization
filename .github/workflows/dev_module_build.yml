@@ -15,6 +15,7 @@
 name: Build and push for dev
 
 env:
+  DEV_BUILD: "true"
   MODULES_REGISTRY: ${{ vars.DEV_REGISTRY }}
   CI_COMMIT_REF_NAME: ${{ github.ref_name }}
   WERF_EXPERIMENTAL_IMPORT_BY_SOURCE_IMAGE_TAG: "true"
@@ -277,6 +278,13 @@ jobs:
             else
               echo "::group::📂 Linting directory ✅: $dir"
               echo -e "✅ All check passed\n"
+            fi
+
+            if [[ "$dir" == "./images/virtualization-artifact" ]]; then
+              echo "Linting: ${dir} (DEV)"
+              if ! golangci-lint run --build-tags DEV; then
+                error_count=$(( error_count + 1 ))
+              fi
             fi
 
             cd - &>/dev/null

@@ -15,6 +15,7 @@
 name: Build and push for prod
 
 env:
+  DEV_BUILD: "false"
   MODULES_REGISTRY: ${{ vars.PROD_REGISTRY }}
   CI_COMMIT_REF_NAME: ${{ github.ref_name }}
   WERF_EXPERIMENTAL_IMPORT_BY_SOURCE_IMAGE_TAG: "true"

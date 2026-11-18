@@ -24,6 +24,7 @@
 name: Check dev images and rebuild
 
 env:
+  DEV_BUILD: "true"
   MODULES_REGISTRY: ${{ vars.DEV_REGISTRY }}
   CI_COMMIT_REF_NAME: ${{ github.event.inputs.tag }}
   WERF_EXPERIMENTAL_IMPORT_BY_SOURCE_IMAGE_TAG: "true"

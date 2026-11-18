@@ -48,6 +48,8 @@ tasks:
     cmds:
       - |
         go tool ginkgo -v -r --keep-going --output-dir=tmp/junit --junit-report=junit.xml pkg/
+      - |
+        go tool ginkgo --tags=DEV -v -r --keep-going --output-dir=tmp/junit --junit-report=junit-dev.xml pkg/
 
   lint:
     desc: "Run linters locally"
@@ -61,11 +63,15 @@ tasks:
     cmds:
       - |
         golangci-lint run
+      - |
+        golangci-lint run --build-tags DEV
 
   dlv:host-build:
     internal: true
     desc: "Cross-build a debug binary and dlv on the host in workspace mode"
     dir: ../..
+    vars:
+      GO_BUILD_TAGS: '{{ .BUILD_TAGS }}{{ if eq (.DEV_BUILD | default "false") "true" }}{{ if .BUILD_TAGS }},{{ end }}DEV{{ end }}'
     cmds:
       - GOOS=linux GOARCH=amd64 go install github.com/go-delve/delve/cmd/dlv@latest
       - mkdir -p images/virtualization-artifact/hack/out
@@ -73,7 +79,7 @@ tasks:
         DLV_SRC="$(go env GOPATH)/bin/linux_amd64/dlv"
         [ -f "$DLV_SRC" ] || DLV_SRC="$(go env GOPATH)/bin/dlv"
         cp "$DLV_SRC" images/virtualization-artifact/hack/out/dlv
-      - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build {{ .BUILD_TAGS }} -gcflags "all=-N -l" -o images/virtualization-artifact/hack/out/{{ .BIN }} ./images/virtualization-artifact/cmd/{{ .CMD }}
+      - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -tags "{{ .GO_BUILD_TAGS }}" -gcflags "all=-N -l" -o images/virtualization-artifact/hack/out/{{ .BIN }} ./images/virtualization-artifact/cmd/{{ .CMD }}
 
   dlv:build:controller:
     desc: "Build image virtualization-controller with dlv"
@@ -84,7 +90,7 @@ tasks:
           {
             BIN: virtualization-controller,
             CMD: virtualization-controller,
-            BUILD_TAGS: "-tags EE",
+            BUILD_TAGS: "EE",
           }
       - docker build -f ./images/virtualization-artifact/hack/dlv-controller.Dockerfile -t "{{ .DLV_IMAGE }}" --platform linux/amd64 .
 

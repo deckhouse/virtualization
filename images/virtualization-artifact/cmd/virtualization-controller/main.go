@@ -130,6 +130,9 @@ const (
 )
 
 func main() {
+	var printBuildInfo bool
+	pflag.BoolVar(&printBuildInfo, "print-build-info", false, "print build information as JSON and exit")
+
 	var logLevel string
 	pflag.StringVar(&logLevel, "log-level", os.Getenv(logLevelEnv), "log level")
 
@@ -225,6 +228,11 @@ func main() {
 	featuregates.AddFlags(pflag.CommandLine)
 
 	pflag.Parse()
+
+	if printBuildInfo {
+		fmt.Printf("{\"devBuild\":%t,\"edition\":%q}\n", version.IsDevBuild(), version.GetEdition())
+		return
+	}
 
 	log := logger.NewLogger(logLevel, logOutput, logDebugVerbosity)
 	logger.SetDefaultLogger(log)

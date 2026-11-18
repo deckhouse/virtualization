@@ -42,6 +42,7 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/version"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	intvirtv1alpha1 "github.com/deckhouse/virtualization/api/internalvirtualization/v1alpha1"
 )
@@ -60,24 +61,22 @@ const (
 	peerRecheck = 30 * time.Second
 	// peerRequestTimeout bounds one API call so an unresponsive peer cannot hold a reconcile worker.
 	peerRequestTimeout = 30 * time.Second
-	// DevPeerSecretPrefix names a Secret in the module namespace with a kubeconfig of a peer: for stands
-	// without the peering module only. The kubeconfig must act as virtualization-controller of the
-	// peer, the identity its webhook lets create requests to receive.
+	// DevPeerSecretPrefix identifies UNSAFE TEST-ONLY peer kubeconfigs for isolated self-peer stands.
+	// These Secrets bypass normal peer discovery and pairing and may remap namespaces.
+	// Never use them for real peer migrations. Release builds ignore them entirely.
 	DevPeerSecretPrefix = "peering-dev-peer-"
 	devPeerSecretKey    = "kubeconfig"
-	// devPeerNamespacesKey maps namespaces here to the ones of the peer, "a=b,c=d", and devPeerNewAddressKey
-	// gives the VM an address of the peer: a cluster that is its own peer moves a VM between namespaces and
-	// cannot keep its address.
+	// devPeerNamespacesKey maps source namespaces to the ones of the peer, "a=b,c=d".
 	devPeerNamespacesKey = "namespaces"
 	devPeerNewAddressKey = "newAddress"
 )
 
 // Target is where a VM moves in the peer.
 type Target struct {
+	// NewAddress requests a fresh address for legacy self-peer test fixtures in DEV builds.
+	NewAddress bool
 	// Namespace of the VM in the peer: the paired project has the same name.
 	Namespace string
-	// NewAddress gives the VM an address of the peer instead of keeping its own.
-	NewAddress bool
 }
 
 // ErrPeerNotSupported tells that the peer cannot be used to move virtual machines: it is unknown, not
@@ -253,26 +252,28 @@ func (p *PeerClients) Client(ctx context.Context, peer string) (client.Client, e
 
 // config returns the connection to the peer and a version of its source, to know when to rebuild it.
 func (p *PeerClients) config(ctx context.Context, peer string) (*rest.Config, string, map[string][]byte, error) {
-	var secret corev1.Secret
+	if version.IsDevBuild() {
+		var secret corev1.Secret
 
-	err := p.reader.Get(ctx, types.NamespacedName{Namespace: p.namespace, Name: DevPeerSecretPrefix + peer}, &secret)
-	if err == nil {
-		cfg, err := clientcmd.RESTConfigFromKubeConfig(secret.Data[devPeerSecretKey])
-		if err != nil {
-			return nil, "", nil, fmt.Errorf("the kubeconfig of the peer %q in Secret %s: %w", peer, secret.Name, err)
+		err := p.reader.Get(ctx, types.NamespacedName{Namespace: p.namespace, Name: DevPeerSecretPrefix + peer}, &secret)
+		if err == nil {
+			cfg, err := clientcmd.RESTConfigFromKubeConfig(secret.Data[devPeerSecretKey])
+			if err != nil {
+				return nil, "", nil, fmt.Errorf("the kubeconfig of the peer %q in Secret %s: %w", peer, secret.Name, err)
+			}
+
+			return cfg, "secret/" + secret.ResourceVersion, secret.Data, nil
 		}
 
-		return cfg, "secret/" + secret.ResourceVersion, secret.Data, nil
-	}
-
-	if !k8serrors.IsNotFound(err) {
-		return nil, "", nil, err
+		if !k8serrors.IsNotFound(err) {
+			return nil, "", nil, err
+		}
 	}
 
 	cp := &unstructured.Unstructured{}
 	cp.SetGroupVersionKind(clusterPeerGVK)
 
-	if err = p.reader.Get(ctx, types.NamespacedName{Name: peer}, cp); err != nil {
+	if err := p.reader.Get(ctx, types.NamespacedName{Name: peer}, cp); err != nil {
 		if k8serrors.IsNotFound(err) || meta.IsNoMatchError(err) {
 			return nil, "", nil, fmt.Errorf("%w: no ClusterPeer %q", ErrPeerNotSupported, peer)
 		}
@@ -295,22 +296,25 @@ func (p *PeerClients) config(ctx context.Context, peer string) (*rest.Config, st
 // Paired tells whether the project of the namespace is paired with the peer and the peer offers
 // virtualization to it: the peering module keeps a ProjectPeer per paired peer in the main namespace
 // of the project, named after the peer, with the state of the pair and its capabilities. A dev Secret
-// for the peer stands for a pair.
+// for the peer stands for a pair only in a DEV build.
 func (p *PeerClients) Paired(ctx context.Context, peer, namespace string) error {
-	var secret corev1.Secret
+	if version.IsDevBuild() {
+		var secret corev1.Secret
 
-	err := p.reader.Get(ctx, types.NamespacedName{Namespace: p.namespace, Name: DevPeerSecretPrefix + peer}, &secret)
-	if err == nil {
-		return nil
+		err := p.reader.Get(ctx, types.NamespacedName{Namespace: p.namespace, Name: DevPeerSecretPrefix + peer}, &secret)
+		if err == nil {
+			return nil
+		}
+
+		if !k8serrors.IsNotFound(err) {
+			return err
+		}
 	}
 
-	if !k8serrors.IsNotFound(err) {
-		return err
-	}
 	// An additional namespace of a project (<project>-<name>) carries the project in a label; the
 	// ProjectPeer lives in the main namespace, named after the project.
 	var ns corev1.Namespace
-	if err = p.reader.Get(ctx, types.NamespacedName{Name: namespace}, &ns); err != nil {
+	if err := p.reader.Get(ctx, types.NamespacedName{Name: namespace}, &ns); err != nil {
 		return err
 	}
 
@@ -322,7 +326,7 @@ func (p *PeerClients) Paired(ctx context.Context, peer, namespace string) error 
 	pp := &unstructured.Unstructured{}
 	pp.SetGroupVersionKind(projectPeerGVK)
 
-	if err = p.reader.Get(ctx, types.NamespacedName{Namespace: project, Name: peer}, pp); err != nil {
+	if err := p.reader.Get(ctx, types.NamespacedName{Namespace: project, Name: peer}, pp); err != nil {
 		if k8serrors.IsNotFound(err) || meta.IsNoMatchError(err) {
 			return fmt.Errorf("%w: no ProjectPeer %q in project %q", ErrPeerNotPaired, peer, project)
 		}
@@ -344,10 +348,13 @@ func (p *PeerClients) Paired(ctx context.Context, peer, namespace string) error 
 	return fmt.Errorf("%w: ProjectPeer %q offers no %s capability", ErrPeerNotPaired, peer, Capability)
 }
 
-// Target returns where a VM of the namespace moves in the peer: the namespace of the same name and the own
-// address, unless a dev Secret of the peer says otherwise.
+// Target returns the namespace where a VM moves in the peer: the same namespace by default.
+// Only DEV builds honor namespace overrides from a dev Secret.
 func (p *PeerClients) Target(ctx context.Context, peer, namespace string) (Target, error) {
 	target := Target{Namespace: namespace}
+	if !version.IsDevBuild() {
+		return target, nil
+	}
 
 	p.mu.Lock()
 	c, ok := p.clients[peer]

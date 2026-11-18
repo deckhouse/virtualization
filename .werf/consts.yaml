@@ -1,6 +1,9 @@
 # Edition module settings
 {{- $_ := set . "MODULE_EDITION" (env "MODULE_EDITION" "EE") }}
 
+# Development-only code is excluded unless the build explicitly opts in.
+{{- $_ := set . "DEV_BUILD" (eq (env "DEV_BUILD" "false") "true") }}
+
 # Component versions
 {{- $_ := set . "Firmware" dict -}}
 {{- $_ := set . "Core" dict -}}

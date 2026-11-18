@@ -1,3 +1,9 @@
+{{- $devTags := "" }}
+{{- $controllerTags := .MODULE_EDITION }}
+{{- if .DEV_BUILD }}
+{{-   $devTags = "DEV" }}
+{{-   $controllerTags = printf "%s,DEV" .MODULE_EDITION }}
+{{- end }}
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
@@ -54,9 +60,9 @@ shell:
     {{- $_ := set $ "ProjectName" "virtualization-controller/virtualization-controller" }}
 
     {{- if eq $.DEBUG_COMPONENT "delve/virtualization-controller" }}
-    go build -tags {{ .MODULE_EDITION }} -v -a -o /out/virtualization-controller ./cmd/virtualization-controller
+    go build -tags {{ $controllerTags }} -v -a -o /out/virtualization-controller ./cmd/virtualization-controller
     {{- else }}
-    {{-   $buildCommand := printf "go build -ldflags=\"-s -w\" -tags %s -v -a -o /out/virtualization-controller ./cmd/virtualization-controller" .MODULE_EDITION -}}
+    {{-   $buildCommand := printf "go build -ldflags=\"-s -w\" -tags %s -v -a -o /out/virtualization-controller ./cmd/virtualization-controller" $controllerTags -}}
     {{-   include "image-build.build" (set $ "BuildCommand" $buildCommand) | nindent 4 }}
     {{- end }}
 
@@ -65,9 +71,9 @@ shell:
     {{- $_ := set $ "ProjectName" "virtualization-api/virtualization-api" }}
 
     {{- if eq $.DEBUG_COMPONENT "delve/virtualization-api" }}
-    go build -v -o /out/virtualization-api ./cmd/virtualization-api
+    go build -tags "{{ $devTags }}" -v -o /out/virtualization-api ./cmd/virtualization-api
     {{- else }}
-    {{-   include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -v -o /out/virtualization-api ./cmd/virtualization-api`) | nindent 4 }}
+    {{-   include "image-build.build" (set $ "BuildCommand" (printf `go build -ldflags="-s -w" -tags %q -v -o /out/virtualization-api ./cmd/virtualization-api` $devTags)) | nindent 4 }}
     {{- end }}
 
 {{- if or (eq .MODULE_EDITION "EE") (eq .SVACE_ENABLED "true") }}
@@ -75,9 +81,9 @@ shell:
     echo "Build virtualization-audit binary"
     {{- $_ := set $ "ProjectName" "virtualization-audit/virtualization-audit" }}
     {{- if eq $.DEBUG_COMPONENT "delve/virtualization-audit" }}
-    go build -v -o /out/virtualization-audit ./cmd/virtualization-audit
+    go build -tags "{{ $devTags }}" -v -o /out/virtualization-audit ./cmd/virtualization-audit
     {{- else }}
-    {{-   include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -v -o /out/virtualization-audit ./cmd/virtualization-audit`) | nindent 4 }}
+    {{-   include "image-build.build" (set $ "BuildCommand" (printf `go build -ldflags="-s -w" -tags %q -v -o /out/virtualization-audit ./cmd/virtualization-audit` $devTags)) | nindent 4 }}
     {{- end }}
 {{- end }}
 

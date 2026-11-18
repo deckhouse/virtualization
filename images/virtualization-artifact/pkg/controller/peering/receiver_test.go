@@ -38,6 +38,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/version"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	intvirtv1alpha1 "github.com/deckhouse/virtualization/api/internalvirtualization/v1alpha1"
 )
@@ -781,8 +782,14 @@ var _ = Describe("ReceiverIPAddress", func() {
 	It("keeps the address of the source unless the request asks for one of this cluster", func() {
 		r := &intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{Spec: intvirtv1alpha1.VirtualMachineReceiverSpec{IPAddress: "10.66.10.5"}}
 		Expect(ReceiverIPAddress(r)).To(Equal("10.66.10.5"))
+
 		r.Annotations = map[string]string{annotations.AnnReceiverNewIPAddress: "true"}
-		Expect(ReceiverIPAddress(r)).To(BeEmpty())
+		if version.IsDevBuild() {
+			Expect(ReceiverIPAddress(r)).To(BeEmpty())
+		} else {
+			Expect(ReceiverIPAddress(r)).To(Equal("10.66.10.5"))
+		}
+
 		Expect(ReceiverIPAddress(nil)).To(BeEmpty())
 	})
 })

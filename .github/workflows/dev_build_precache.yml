@@ -14,6 +14,9 @@
 
 name: Build main every 8 hours for dev
 
+env:
+  DEV_BUILD: "true"
+
 on:
   workflow_dispatch:
 defaults:

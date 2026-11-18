@@ -43,6 +43,12 @@ for dir in "${config_dirs[@]}"; do
   if ! golangci-lint run; then
     error_count=$((error_count + 1))
   fi
+  if [[ "$dir" == "./images/virtualization-artifact" ]]; then
+    echo "Linting: ${dir} (DEV)"
+    if ! golangci-lint run --build-tags DEV; then
+      error_count=$((error_count + 1))
+    fi
+  fi
   popd >/dev/null
 done
 

@@ -15,6 +15,17 @@ Login to `dev-registry.deckhouse.io` registry to pull virtualization-importer an
 docker login dev-registry.deckhouse.io
 ```
 
+## Development build tag
+
+CI builds for the dev registry set `DEV_BUILD=true`. Werf adds the Go build tag
+`DEV` to virtualization-controller, virtualization-api, and virtualization-audit,
+including Delve builds. The controller also keeps its edition tag (`CE` or `EE`).
+Stage and production release builds set `DEV_BUILD=false`; local werf builds
+also omit `DEV` by default. Set `DEV_BUILD=true` explicitly to build development-only
+code locally. Guard development-only behavior with `version.IsDevBuild()`, whose
+value is selected by `//go:build DEV` and `//go:build !DEV` in `pkg/version`.
+The tag is fixed at compilation and cannot be changed at runtime.
+
 ## Test in local cluster
 
 ### Run

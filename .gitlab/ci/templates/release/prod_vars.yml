@@ -28,3 +28,4 @@
   variables:
     MODULES_MODULE_SOURCE: "${PROD_REGISTRY}/${PROD_MODULE_SOURCE_NAME}/${EDITION}/modules"
     ENV: PROD
+    DEV_BUILD: "false"

@@ -32,6 +32,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	"github.com/deckhouse/virtualization-controller/pkg/version"
 )
 
 func clusterPeer(phase string, capabilities []any, endpoint string) *unstructured.Unstructured {
@@ -116,7 +118,7 @@ var _ = Describe("PeerClients", func() {
 		}()),
 	)
 
-	It("moves to the namespace of the same name with the own address, unless a dev Secret says otherwise", func() {
+	It("maps a dev peer namespace only in a DEV build", func() {
 		secret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{Name: DevPeerSecretPrefix + "self", Namespace: "d8-virtualization"},
 			Data:       map[string][]byte{"namespaces": []byte("src=dst, other=x"), "newAddress": []byte("true")},
@@ -129,7 +131,12 @@ var _ = Describe("PeerClients", func() {
 		Expect(target).To(Equal(Target{Namespace: "src"}))
 		target, err = p.Target(context.Background(), "self", "src")
 		Expect(err).NotTo(HaveOccurred())
-		Expect(target).To(Equal(Target{Namespace: "dst", NewAddress: true}))
+
+		if version.IsDevBuild() {
+			Expect(target).To(Equal(Target{Namespace: "dst", NewAddress: true}))
+		} else {
+			Expect(target).To(Equal(Target{Namespace: "src"}), "release builds ignore the dev namespace mapping")
+		}
 	})
 
 	It("tells whether the project of a namespace is paired with a peer that offers virtualization", func() {
@@ -158,14 +165,19 @@ var _ = Describe("PeerClients", func() {
 
 		Expect(p.Paired(ctx, "cluster-b", "app-x")).To(Succeed())
 		Expect(p.Paired(ctx, "cluster-b", "app-x-extra")).To(Succeed(), "an additional namespace of the project")
-		Expect(p.Paired(ctx, "self", "orphan")).To(Succeed(), "a dev Secret stands for a pair")
+
+		if version.IsDevBuild() {
+			Expect(p.Paired(ctx, "self", "orphan")).To(Succeed(), "a dev Secret stands for a pair")
+		} else {
+			Expect(p.Paired(ctx, "self", "orphan")).To(MatchError(ContainSubstring(ErrPeerNotPaired.Error())), "release builds must not let a dev Secret bypass pairing")
+		}
 
 		for peer, ns := range map[string]string{"cluster-c": "app-x", "cluster-d": "app-x", "cluster-e": "app-x", "cluster-b": "orphan"} {
 			Expect(errors.Is(p.Paired(ctx, peer, ns), ErrPeerNotPaired)).To(BeTrue(), "%s in %s", peer, ns)
 		}
 	})
 
-	It("prefers the kubeconfig of a dev Secret", func() {
+	It("uses the dev kubeconfig instead of ClusterPeer only in a DEV build", func() {
 		kubeconfig := `apiVersion: v1
 kind: Config
 clusters: [{name: b, cluster: {server: "https://api.b.example"}}]
@@ -177,13 +189,20 @@ current-context: b
 			ObjectMeta: metav1.ObjectMeta{Name: DevPeerSecretPrefix + "cluster-b", Namespace: "d8-virtualization", ResourceVersion: "3"},
 			Data:       map[string][]byte{"kubeconfig": []byte(kubeconfig)},
 		}
-		reader := fake.NewClientBuilder().WithObjects(secret).Build()
+		cp := clusterPeer("Active", []any{Capability}, "https://production-peer.example")
+		reader := fake.NewClientBuilder().WithObjects(secret, cp).Build()
 		p, err := NewPeerClients(reader, nil, "d8-virtualization")
 		Expect(err).NotTo(HaveOccurred())
 		cfg, _, _, err := p.config(context.Background(), "cluster-b")
 		Expect(err).NotTo(HaveOccurred())
-		Expect(cfg.Host).To(Equal("https://api.b.example"))
-		Expect(cfg.BearerToken).To(Equal("t"))
+
+		if version.IsDevBuild() {
+			Expect(cfg.Host).To(Equal("https://api.b.example"))
+			Expect(cfg.BearerToken).To(Equal("t"))
+		} else {
+			Expect(cfg.Host).To(Equal("https://production-peer.example"))
+			Expect(cfg.BearerToken).To(BeEmpty(), "release builds must not use the token in a dev Secret")
+		}
 	})
 
 	It("reads the peer again only after a while", func() {
@@ -198,7 +217,9 @@ current-context: b
 			ObjectMeta: metav1.ObjectMeta{Name: DevPeerSecretPrefix + "cluster-b", Namespace: "d8-virtualization"},
 			Data:       map[string][]byte{"kubeconfig": []byte(kubeconfig), "namespaces": []byte("src=dst")},
 		}
-		reader := fake.NewClientBuilder().WithObjects(secret).Build()
+		cp := clusterPeer("Active", []any{Capability}, "https://api.b.example")
+		Expect(unstructured.SetNestedField(cp.Object, "", "status", "access", "caBundle")).To(Succeed())
+		reader := fake.NewClientBuilder().WithObjects(secret, cp).Build()
 		p, err := NewPeerClients(reader, nil, "d8-virtualization")
 		Expect(err).NotTo(HaveOccurred())
 
@@ -207,13 +228,19 @@ current-context: b
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(reader.Delete(ctx, secret)).To(Succeed())
+		Expect(reader.Delete(ctx, cp)).To(Succeed())
 		again, err := p.Client(ctx, "cluster-b")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(again).To(BeIdenticalTo(first))
 
 		target, err := p.Target(ctx, "cluster-b", "src")
 		Expect(err).NotTo(HaveOccurred())
-		Expect(target.Namespace).To(Equal("dst"))
+
+		if version.IsDevBuild() {
+			Expect(target.Namespace).To(Equal("dst"))
+		} else {
+			Expect(target.Namespace).To(Equal("src"))
+		}
 
 		c := p.clients["cluster-b"]
 		c.checked = time.Now().Add(-peerRecheck)
@@ -240,7 +267,9 @@ contexts: [{name: peer, context: {cluster: peer}}]
 current-context: peer
 `, server.URL))},
 		}
-		p, err := NewPeerClients(fake.NewClientBuilder().WithObjects(cp, secret).Build(), nil, "d8-virtualization")
+		devCP := cp.DeepCopy()
+		devCP.SetName("dev")
+		p, err := NewPeerClients(fake.NewClientBuilder().WithObjects(cp, devCP, secret).Build(), nil, "d8-virtualization")
 		Expect(err).NotTo(HaveOccurred())
 
 		p.issueToken = func(context.Context, string) (string, time.Time, error) {
