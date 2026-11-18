@@ -58,11 +58,23 @@ var _ = Describe("PeerMigrationLockError", func() {
 		},
 	}
 
-	It("names the peer of a VM that moves there", func() {
+	It("names the peer and the operation to cancel", func() {
 		vm := newVM("web", "web-root", nil)
 		c, err := newClient(vm, move, movingKVVM("web", "move"))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(PeerMigrationLockError(ctx(), c, vm)).To(MatchError(ContainSubstring(`migrated to peer cluster "cluster-b"`)))
+		Expect(PeerMigrationLockError(ctx(), c, vm)).To(MatchError(ContainSubstring(`deleting VirtualMachineOperation "move" first`)))
+	})
+
+	It("keeps the lock and operation name when the marked operation is not a peer migration", func() {
+		vm := newVM("web", "web-root", nil)
+		localMove := move.DeepCopy()
+		localMove.Spec.Migrate = nil
+		c, err := newClient(vm, localMove, movingKVVM("web", "move"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(PeerMigrationLockError(ctx(), c, vm)).To(MatchError(
+			`the virtual machine is being migrated to a peer cluster. Cancel the migration by deleting VirtualMachineOperation "move" first`,
+		))
 	})
 
 	It("locks a VM whose operation is not found", func() {
@@ -70,6 +82,7 @@ var _ = Describe("PeerMigrationLockError", func() {
 		c, err := newClient(vm, movingKVVM("web", "gone"))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(PeerMigrationLockError(ctx(), c, vm)).To(MatchError(ContainSubstring("migrated to a peer cluster")))
+		Expect(PeerMigrationLockError(ctx(), c, vm)).To(MatchError(ContainSubstring(`VirtualMachineOperation "gone"`)))
 	})
 
 	// The KubeVirt VM may not be seen: the condition the VM controller set from the mark stands for it.
@@ -79,6 +92,17 @@ var _ = Describe("PeerMigrationLockError", func() {
 		c, err := newClient(vm)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(PeerMigrationLockError(ctx(), c, vm)).To(MatchError(ContainSubstring("migrated to a peer cluster")))
+	})
+
+	It("keeps the operation name from the condition when the KubeVirt VM is not seen", func() {
+		vm := newVM("web", "web-root", nil)
+		vm.Status.Conditions = []metav1.Condition{{
+			Type: vmcondition.TypeMovedToPeer.String(), Status: metav1.ConditionTrue,
+			Message: `The virtual machine is being moved to peer cluster "cluster-b" by VirtualMachineOperation "move".`,
+		}}
+		c, err := newClient(vm)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(PeerMigrationLockError(ctx(), c, vm)).To(MatchError(ContainSubstring(`VirtualMachineOperation "move"`)))
 	})
 
 	It("leaves alone a VM whose KubeVirt VM carries no mark", func() {

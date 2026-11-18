@@ -40,6 +40,12 @@ spec:
       message: >-
         the virtual machine is being migrated to a peer cluster: deleting it now would leave it running there.
         Cancel the migration by deleting the VirtualMachineOperation first
+      messageExpression: >-
+        oldObject.status.conditions.filter(c, c.type == "MovedToPeer" && c.status == "True").map(c,
+          has(c.message) && c.message != "" ?
+            c.message + " Cancel the migration by deleting the VirtualMachineOperation first" :
+            "the virtual machine is being migrated to a peer cluster. Cancel the migration by deleting the VirtualMachineOperation first"
+        )[0]
       reason: Forbidden
 ---
 apiVersion: {{ $apiVersion }}

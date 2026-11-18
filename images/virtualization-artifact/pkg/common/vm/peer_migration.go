@@ -51,11 +51,17 @@ func PeerMigrationLockError(ctx context.Context, c client.Client, v *v1alpha2.Vi
 	}
 
 	if op != "" || meta.IsStatusConditionTrue(v.Status.Conditions, vmcondition.TypeMovedToPeer.String()) {
-		var vmop v1alpha2.VirtualMachineOperation
 		if op != "" {
+			var vmop v1alpha2.VirtualMachineOperation
 			if err := c.Get(ctx, types.NamespacedName{Name: op, Namespace: v.Namespace}, &vmop); err == nil && commonvmop.PeerName(&vmop) != "" {
-				return fmt.Errorf("the virtual machine is being migrated to peer cluster %q. Cancel the migration by deleting the VirtualMachineOperation first", commonvmop.PeerName(&vmop))
+				return fmt.Errorf("the virtual machine is being migrated to peer cluster %q. Cancel the migration by deleting VirtualMachineOperation %q first", commonvmop.PeerName(&vmop), op)
 			}
+
+			return fmt.Errorf("the virtual machine is being migrated to a peer cluster. Cancel the migration by deleting VirtualMachineOperation %q first", op)
+		}
+
+		if c := meta.FindStatusCondition(v.Status.Conditions, vmcondition.TypeMovedToPeer.String()); c != nil && c.Message != "" {
+			return fmt.Errorf("%s Cancel the migration by deleting the VirtualMachineOperation first", c.Message)
 		}
 
 		return errors.New("the virtual machine is being migrated to a peer cluster. Cancel the migration by deleting the VirtualMachineOperation first")
