@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -651,7 +652,8 @@ var _ = Describe("PeerMigrationHandler", func() {
 	It("rolls back when the peer rejects the VM", func() {
 		handle()
 		setReceiverPhase(intvirtv1alpha1.ReceiverFailed, "the IP address is not available")
-		handle()
+		handle() // save the failure
+		handle() // clean up after the saved failure
 		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
 		Expect(completed().Reason).To(Equal(string(vmopcondition.ReasonPeerRejected)))
 		Expect(completed().Message).To(ContainSubstring("the IP address is not available"))
@@ -833,7 +835,8 @@ var _ = Describe("PeerMigrationHandler", func() {
 
 		h.peers = fakePeers{client: terminatingPeer{Client: peer, since: time.Now().Add(-peerRequestTimeout - time.Minute)}}
 
-		handle()
+		handle() // save the failure
+		handle() // clean up after the saved failure
 		Expect(movedMark()).To(Equal("move"))
 		Expect(sourceMigration().DeletionTimestamp).NotTo(BeNil())
 		Expect(vmop.Finalizers).To(ContainElement(v1alpha2.FinalizerVMOPCleanup))
@@ -942,7 +945,8 @@ var _ = Describe("PeerMigrationHandler", func() {
 
 		stale := vmop.DeepCopy()
 
-		handle()
+		handle() // save the failure
+		handle() // clean up after the saved failure
 		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
 
 		// The stale copy marks the VM again and, once the VM shows the move, asks the peer again; its status
@@ -1081,9 +1085,10 @@ var _ = Describe("PeerMigrationHandler", func() {
 		h.client = refusingMigrationClient{Client: local}
 
 		handle()
+		handle() // cleanup follows the saved failure
 		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
 		Expect(completed().Reason).To(Equal(string(vmopcondition.ReasonOperationFailed)))
-		Expect(completed().Message).To(Equal(`The migration to the peer cluster was refused: admission webhook "migration-create-validator.kubevirt.io" denied the request: the guest has no invariant TSC. The virtual machine keeps running in this cluster; retry the move.`))
+		Expect(completed().Message).To(Equal(`The migration to the peer cluster was refused: admission webhook "migration-create-validator.kubevirt.io" denied the request: the guest has no invariant TSC.`))
 		Expect(isGone(peer, &intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: "web"}})).To(BeTrue())
 	})
 
@@ -1112,7 +1117,7 @@ var _ = Describe("PeerMigrationHandler", func() {
 		handle()
 		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
 		Expect(completed().Reason).To(Equal(string(vmopcondition.ReasonOperationFailed)))
-		Expect(completed().Message).To(Equal(`The migration to the peer cluster failed: in peer cluster "cluster-b" the receiving node cannot prepare the virtual machine: no device; then the receiving migration failed: Target pod is down. The virtual machine keeps running in this cluster; retry the move.`))
+		Expect(completed().Message).To(Equal(`The migration to the peer cluster failed: in peer cluster "cluster-b" the receiving node cannot prepare the virtual machine: no device; then the receiving migration failed: Target pod is down.`))
 	})
 
 	It("fails with what it knows when the peer does not report why the migration failed in time", func() {
@@ -1129,7 +1134,7 @@ var _ = Describe("PeerMigrationHandler", func() {
 		handle()
 		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
 		Expect(completed().Reason).To(Equal(string(vmopcondition.ReasonOperationFailed)))
-		Expect(completed().Message).To(Equal(`The migration to the peer cluster failed: in peer cluster "cluster-b" the receiving node cannot prepare the virtual machine: no device. The virtual machine keeps running in this cluster; retry the move.`))
+		Expect(completed().Message).To(Equal(`The migration to the peer cluster failed: in peer cluster "cluster-b" the receiving node cannot prepare the virtual machine: no device.`))
 	})
 
 	It("shows only the latest problem of the peer while the migration waits", func() {
@@ -1166,10 +1171,15 @@ var _ = Describe("PeerMigrationHandler", func() {
 		// The peer removing the request wakes nothing here: the operation must come back by itself.
 		Expect(handleResult().RequeueAfter).To(Equal(peerRequeue))
 		// The receiving migration of the peer may still succeed: the VM stays locked here meanwhile.
-		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseInProgress))
-		Expect(completed().Reason).To(Equal(string(vmopcondition.ReasonWaitingForPeer)))
-		Expect(completed().Message).To(ContainSubstring(`is released once peer cluster "cluster-b" removes the request`))
-		Expect(isGone(local, mig)).To(BeFalse())
+		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
+		Expect(completed().Reason).To(Equal(string(vmopcondition.ReasonOperationFailed)))
+		failure := completed()
+
+		Expect(peer.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web"}, &r)).To(Succeed())
+		Expect(r.DeletionTimestamp).To(BeNil())
+		handle() // cleanup starts only after the failure has been saved
+		Expect(completed()).To(Equal(failure))
+		Expect(isGone(local, mig)).To(BeTrue())
 
 		var vm v1alpha2.VirtualMachine
 		Expect(local.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web"}, &vm)).To(Succeed())
@@ -1181,7 +1191,7 @@ var _ = Describe("PeerMigrationHandler", func() {
 		// The copy from before the failure starts nothing meanwhile.
 		_, _ = h.Handle(ctx, stale)
 
-		Expect(isGone(local, mig)).To(BeFalse())
+		Expect(isGone(local, mig)).To(BeTrue())
 		Expect(local.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web"}, &vm)).To(Succeed())
 		Expect(movedMark()).To(Equal("move"))
 
@@ -1195,6 +1205,115 @@ var _ = Describe("PeerMigrationHandler", func() {
 		Expect(movedMark()).To(BeEmpty())
 	})
 
+	DescribeTable("preserves a rejection after the source migration disappears during cleanup", func(reconcileBeforeRemoval, sourceGoneBeforeFailure bool, interruption string) {
+		creates := 0
+		reachable := interceptor.NewClient(peer.(client.WithWatch), interceptor.Funcs{
+			Create: func(ctx context.Context, cl client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+				if _, ok := obj.(*intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver); ok {
+					creates++
+				}
+
+				return cl.Create(ctx, obj, opts...)
+			},
+		})
+		h.peers = fakePeers{client: reachable}
+
+		handle()
+		setReceiverPhase(intvirtv1alpha1.ReceiverReady, "")
+		handle()
+
+		var r intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver
+		Expect(peer.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web"}, &r)).To(Succeed())
+		r.Finalizers = append(r.Finalizers, "internal.virtualization.deckhouse.io/vmr-cleanup")
+		Expect(peer.Update(ctx, &r)).To(Succeed())
+
+		message := "ResourceQuota prevents receiving the virtual machine"
+		if interruption == "long-message" {
+			message += strings.Repeat(" \u20ac", 10000)
+		}
+
+		setReceiverPhase(intvirtv1alpha1.ReceiverFailed, message)
+
+		mig := sourceMigration()
+		if sourceGoneBeforeFailure {
+			Expect(local.Delete(ctx, mig)).To(Succeed())
+		}
+
+		handle()
+		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
+		Expect(peer.Get(ctx, client.ObjectKeyFromObject(&r), &r)).To(Succeed())
+		Expect(r.DeletionTimestamp).To(BeNil(), "cleanup must wait until the failure is persisted")
+		Expect(local.Create(ctx, vmop)).To(Succeed())
+		vmop = &v1alpha2.VirtualMachineOperation{}
+		Expect(local.Get(ctx, types.NamespacedName{Namespace: ns, Name: "move"}, vmop)).To(Succeed())
+
+		failure := completed()
+		h = NewPeerMigrationHandler(local, local, fakePeers{client: reachable}, service.NewMigrationService(local, featuregates.Default()), recorder)
+
+		Expect(completed().Message).To(ContainSubstring("ResourceQuota"))
+
+		if !sourceGoneBeforeFailure {
+			Expect(local.Delete(ctx, mig)).To(Succeed())
+		}
+
+		if reconcileBeforeRemoval {
+			handle()
+			Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
+			Expect(movedMark()).To(Equal("move"))
+		}
+
+		switch interruption {
+		case "network":
+			h.peers = fakePeers{client: unreachablePeer{Client: reachable}}
+			_, err := h.Handle(ctx, vmop)
+			Expect(err).To(MatchError(ContainSubstring("connection refused")))
+		case "delete":
+			h.peers = fakePeers{client: interceptor.NewClient(reachable, interceptor.Funcs{
+				Delete: func(ctx context.Context, cl client.WithWatch, obj client.Object, opts ...client.DeleteOption) error {
+					if err := cl.Delete(ctx, obj, opts...); err != nil {
+						return err
+					}
+
+					return errors.New("delete reply lost")
+				},
+			})}
+			_, err := h.Handle(ctx, vmop)
+			Expect(err).To(MatchError(ContainSubstring("delete reply lost")))
+		case "client":
+			h.peers = fakePeers{err: errors.New("peer temporarily unavailable")}
+			_, err := h.Handle(ctx, vmop)
+			Expect(err).To(MatchError(ContainSubstring("peer temporarily unavailable")))
+		}
+
+		Expect(completed()).To(Equal(failure))
+		Expect(movedMark()).To(Equal("move"))
+
+		h.peers = fakePeers{client: reachable}
+
+		finishRequest()
+		handle()
+		Expect(creates).To(Equal(1), "the rejected operation must not create another receiver")
+		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
+		Expect(completed().Reason).To(Equal(string(vmopcondition.ReasonPeerRejected)))
+		Expect(completed()).To(Equal(failure))
+		Expect(movedMark()).To(BeEmpty())
+
+		if interruption == "network" {
+			Expect(recorder.EventCalls()).To(ContainElement(HaveField("Message", ContainSubstring("connection refused"))))
+		}
+
+		Expect(isGone(peer, &r)).To(BeTrue())
+		Expect(isGone(local, &virtv1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: "web"}})).To(BeFalse())
+	},
+		Entry("when both objects disappear before reconciliation", false, false, ""),
+		Entry("when the source disappears before the receiver", true, false, ""),
+		Entry("when the source is gone before the rejection is handled", true, true, ""),
+		Entry("when the peer becomes unreachable during cleanup", true, false, "network"),
+		Entry("when the peer client fails during cleanup", true, false, "client"),
+		Entry("when deletion succeeds but its reply is lost", false, true, "delete"),
+		Entry("when the rejection message exceeds the condition limit", false, true, "long-message"),
+	)
+
 	It("releases the VM when the peer does not remove the request in time", func() {
 		handle()
 		setReceiverPhase(intvirtv1alpha1.ReceiverReady, "")
@@ -1206,7 +1325,8 @@ var _ = Describe("PeerMigrationHandler", func() {
 		// The request has been going for longer than the wait allows.
 		h.peers = fakePeers{client: terminatingPeer{Client: peer, since: time.Now().Add(-peerRequestTimeout - time.Minute)}}
 
-		handle()
+		handle() // save the failure
+		handle() // clean up after the saved failure
 		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
 		Expect(completed().Reason).To(Equal(string(vmopcondition.ReasonOperationFailed)))
 		Expect(isGone(local, mig)).To(BeTrue())
@@ -1222,7 +1342,8 @@ var _ = Describe("PeerMigrationHandler", func() {
 
 		h.peers = fakePeers{client: terminatingPeer{Client: peer, since: time.Now().Add(-peerRequestTimeout - time.Minute)}}
 
-		handle()
+		handle() // save the failure
+		handle() // clean up after the saved failure
 		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
 		Expect(completed().Reason).To(Equal(string(vmopcondition.ReasonPeerNotConfirmed)))
 		Expect(completed().Message).To(ContainSubstring("did not remove the request to receive the virtual machine"))
@@ -1252,7 +1373,8 @@ var _ = Describe("PeerMigrationHandler", func() {
 		// The peer finishes its receiving migration and removes the request right after it.
 		h.peers = fakePeers{client: finishingPeer{Client: peer, migration: received}}
 
-		handle()
+		handle() // save the failure
+		handle() // clean up after the saved failure
 		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseCompleted))
 		Expect(isGone(local, &v1alpha2.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: "web"}})).To(BeTrue())
 		Expect(isGone(local, &v1alpha2.VirtualDisk{ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: "web-root"}})).To(BeTrue())
@@ -1267,7 +1389,8 @@ var _ = Describe("PeerMigrationHandler", func() {
 		left := mig.DeepCopy()
 
 		setSourcePhase(virtv1.MigrationFailed, nil)
-		handle()
+		handle() // save the failure
+		handle() // clean up after the saved failure
 		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
 		Expect(isGone(local, mig)).To(BeTrue())
 
@@ -1671,9 +1794,10 @@ var _ = Describe("PeerMigrationHandler", func() {
 
 		setReceiverPhase(intvirtv1alpha1.ReceiverFailed, "the receiving migration failed")
 		handle()
+		handle() // cleanup follows the saved failure
 		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
 		Expect(completed().Reason).To(Equal(string(vmopcondition.ReasonPeerRejected)))
-		Expect(completed().Message).To(Equal(`The migration to the peer cluster failed: in peer cluster "cluster-b" the receiving migration failed. The virtual machine keeps running in this cluster; retry the move.`))
+		Expect(completed().Message).To(Equal(`The migration to the peer cluster failed: in peer cluster "cluster-b" the receiving migration failed.`))
 		Expect(isGone(local, mig)).To(BeTrue())
 
 		var vm v1alpha2.VirtualMachine
@@ -1697,13 +1821,13 @@ var _ = Describe("PeerMigrationHandler", func() {
 		setReceiverPhase(intvirtv1alpha1.ReceiverFailed, `the receiving VirtualMachine "web" was deleted`)
 
 		handle()
-		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseInProgress))
-		Expect(completed().Reason).To(Equal(string(vmopcondition.ReasonWaitingForPeer)))
+		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
+		Expect(completed().Reason).To(Equal(string(vmopcondition.ReasonPeerRejected)))
 		finishRequest()
 		handle()
 		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
 		Expect(completed().Reason).To(Equal(string(vmopcondition.ReasonPeerRejected)))
-		Expect(completed().Message).To(Equal(`The migration to the peer cluster failed: in peer cluster "cluster-b" the receiving VirtualMachine "web" was deleted. The virtual machine keeps running in this cluster; retry the move.`))
+		Expect(completed().Message).To(Equal(`The migration to the peer cluster failed: in peer cluster "cluster-b" the receiving VirtualMachine "web" was deleted.`))
 		Expect(isGone(local, mig)).To(BeTrue())
 		Expect(movedMark()).To(BeEmpty())
 	})
@@ -1717,9 +1841,10 @@ var _ = Describe("PeerMigrationHandler", func() {
 
 		Expect(peer.Delete(ctx, &intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: "web"}})).To(Succeed())
 		handle()
+		handle() // cleanup follows the saved failure
 		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
 		Expect(completed().Reason).To(Equal(string(vmopcondition.ReasonPeerRejected)))
-		Expect(completed().Message).To(Equal(`Peer cluster "cluster-b" removed the request to receive the virtual machine. The virtual machine keeps running in this cluster; retry the move.`))
+		Expect(completed().Message).To(Equal(`Peer cluster "cluster-b" removed the request to receive the virtual machine.`))
 		Expect(isGone(local, mig)).To(BeTrue())
 		Expect(movedMark()).To(BeEmpty())
 	})
@@ -1739,13 +1864,13 @@ var _ = Describe("PeerMigrationHandler", func() {
 		setReceiverPhase(intvirtv1alpha1.ReceiverFailed, "the receiving virtual machine was shut down before the migration ended")
 
 		handle()
-		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseInProgress))
-		Expect(completed().Reason).To(Equal(string(vmopcondition.ReasonWaitingForPeer)))
+		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
+		Expect(completed().Reason).To(Equal(string(vmopcondition.ReasonOperationFailed)))
 		finishRequest()
 		handle()
 		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
 		Expect(completed().Reason).To(Equal(string(vmopcondition.ReasonOperationFailed)))
-		Expect(completed().Message).To(Equal(`The migration to the peer cluster failed: in peer cluster "cluster-b" the receiving virtual machine was shut down before the migration ended. The virtual machine keeps running in this cluster; retry the move.`))
+		Expect(completed().Message).To(Equal(`The migration to the peer cluster failed: in peer cluster "cluster-b" the receiving virtual machine was shut down before the migration ended.`))
 		Expect(movedMark()).To(BeEmpty())
 	})
 
@@ -1770,7 +1895,7 @@ var _ = Describe("PeerMigrationHandler", func() {
 
 		handle()
 		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
-		Expect(completed().Message).To(Equal(`The migration to the peer cluster failed: in peer cluster "cluster-b" the receiving virtual machine was shut down before the migration ended. The virtual machine is not running here and may run in peer cluster "cluster-b": it is left stopped with the Manual run policy, check it there before starting it here.`))
+		Expect(completed().Message).To(Equal(`The migration to the peer cluster failed: in peer cluster "cluster-b" the receiving virtual machine was shut down before the migration ended.`))
 
 		var vm v1alpha2.VirtualMachine
 		Expect(local.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web"}, &vm)).To(Succeed())
@@ -1788,12 +1913,16 @@ var _ = Describe("PeerMigrationHandler", func() {
 		}
 
 		const cause = "The peer rejected the migration for a newly worded reason."
-		Expect(h.fail(ctx, vmop, peer, vmopcondition.ReasonPeerRejected, cause)).To(Succeed())
+
+		_, err := h.fail(vmop, vmopcondition.ReasonPeerRejected, cause)
+		Expect(err).NotTo(HaveOccurred())
 		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
-		Expect(completed().Message).To(Equal(cause + suffix))
+		Expect(completed().Message).To(Equal(cause))
+		handle()
+		Expect(completed().Message).To(Equal(cause))
 		Expect(movedMark()).To(BeEmpty())
 		Expect(recorder.EventCalls()).NotTo(BeEmpty())
-		Expect(recorder.EventCalls()[len(recorder.EventCalls())-1].Message).To(Equal(completed().Message))
+		Expect(recorder.EventCalls()[len(recorder.EventCalls())-1].Message).To(Equal(strings.TrimSpace(suffix)))
 	},
 		Entry("the source VM is running", true, " The virtual machine keeps running in this cluster; retry the move."),
 		Entry("the source VM is no longer running", false, ` The virtual machine is not running here and may run in peer cluster "cluster-b": it is left stopped with the Manual run policy, check it there before starting it here.`),
@@ -1811,7 +1940,7 @@ var _ = Describe("PeerMigrationHandler", func() {
 
 		handle()
 		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
-		Expect(completed().Message).To(Equal(`Peer cluster "cluster-b" removed the request to receive the virtual machine. The virtual machine is not running here and may run in peer cluster "cluster-b": it is left stopped with the Manual run policy, check it there before starting it here.`))
+		Expect(completed().Message).To(Equal(`Peer cluster "cluster-b" removed the request to receive the virtual machine.`))
 	})
 
 	It("fails with the cause of KubeVirt when the migration failed and the request is gone", func() {
@@ -1821,9 +1950,10 @@ var _ = Describe("PeerMigrationHandler", func() {
 		setSourcePhase(virtv1.MigrationFailed, &virtv1.VirtualMachineInstanceMigrationState{FailureReason: "Target pod is down"})
 		Expect(peer.Delete(ctx, &intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: "web"}})).To(Succeed())
 		handle()
+		handle() // cleanup follows the saved failure
 		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
 		Expect(completed().Reason).To(Equal(string(vmopcondition.ReasonOperationFailed)))
-		Expect(completed().Message).To(Equal("The migration to the peer cluster failed: Target pod is down. The virtual machine keeps running in this cluster; retry the move."))
+		Expect(completed().Message).To(Equal("The migration to the peer cluster failed: Target pod is down."))
 		Expect(movedMark()).To(BeEmpty())
 	})
 
@@ -1920,6 +2050,11 @@ var _ = Describe("PeerMigrationHandler", func() {
 		}
 
 		handle()
+
+		if !deleting {
+			handle()
+		}
+
 		Expect(sourceMigration().DeletionTimestamp).NotTo(BeNil())
 		Expect(movedMark()).To(Equal("move"), "a pending abort is not proof that the guest cannot switch over")
 
@@ -1963,7 +2098,11 @@ var _ = Describe("PeerMigrationHandler", func() {
 		result, err := h.Handle(ctx, vmop)
 		Expect(errors.Is(err, reconciler.ErrStopHandlerChain)).To(BeTrue(), "unexpected error: %v", err)
 		Expect(result.RequeueAfter).To(Equal(peerRequeue))
-		Expect(vmop.Status.Phase).NotTo(Equal(v1alpha2.VMOPPhaseFailed))
+
+		if !deleting {
+			Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
+		}
+
 		Expect(vmop.Finalizers).To(ContainElement(v1alpha2.FinalizerVMOPCleanup))
 
 		var vm v1alpha2.VirtualMachine
@@ -1985,7 +2124,8 @@ var _ = Describe("PeerMigrationHandler", func() {
 
 		h.peers = peers
 
-		handle()
+		handle() // save the failure
+		handle() // clean up after the saved failure
 		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
 		Expect(completed().Reason).To(Equal(string(reason)))
 
@@ -2001,7 +2141,8 @@ var _ = Describe("PeerMigrationHandler", func() {
 	It("fails and releases the VM when the peer refuses to create the request", func() {
 		h.peers = fakePeers{client: refusingCreatePeer{Client: peer}}
 
-		handle()
+		handle() // save the failure
+		handle() // clean up after the saved failure
 		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
 		Expect(completed().Reason).To(Equal(string(vmopcondition.ReasonPeerRejected)))
 

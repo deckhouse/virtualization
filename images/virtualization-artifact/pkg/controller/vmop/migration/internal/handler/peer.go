@@ -228,14 +228,14 @@ func (h PeerMigrationHandler) handle(ctx context.Context, vmop *v1alpha2.Virtual
 	case err == nil:
 	case switched:
 		peerClient = nil
-	case errors.Is(err, peering.ErrPeerNotSupported) || k8serrors.IsUnauthorized(err) || k8serrors.IsForbidden(err):
+	case isPeerRefusal(err):
 		// Revoked access cannot recover through a retry. Cancel the source migration before releasing its VM.
 		if !deleting {
 			if errors.Is(err, peering.ErrPeerNotSupported) {
-				return reconcile.Result{}, h.fail(ctx, vmop, nil, vmopcondition.ReasonPeerNotSupported, err.Error())
+				return h.fail(vmop, vmopcondition.ReasonPeerNotSupported, err.Error())
 			}
 
-			return reconcile.Result{}, h.fail(ctx, vmop, nil, vmopcondition.ReasonPeerRejected, refusedMessage(peer, err))
+			return h.fail(vmop, vmopcondition.ReasonPeerRejected, refusedMessage(peer, err))
 		}
 
 		if released, releaseErr := h.releaseOnDeletionTimeout(ctx, vmop); released || releaseErr != nil {
@@ -255,9 +255,9 @@ func (h PeerMigrationHandler) handle(ctx context.Context, vmop *v1alpha2.Virtual
 		case switched:
 			// Once switched, finish without a receiver: the timeout hands the VM back stopped.
 			peerClient = nil
-		case k8serrors.IsUnauthorized(err) || k8serrors.IsForbidden(err):
+		case isPeerRefusal(err):
 			if !deleting {
-				return reconcile.Result{}, h.fail(ctx, vmop, nil, vmopcondition.ReasonPeerRejected, refusedMessage(peer, err))
+				return h.fail(vmop, vmopcondition.ReasonPeerRejected, refusedMessage(peer, err))
 			}
 
 			if released, releaseErr := h.releaseOnDeletionTimeout(ctx, vmop); released || releaseErr != nil {
@@ -319,7 +319,7 @@ func (h PeerMigrationHandler) handle(ctx context.Context, vmop *v1alpha2.Virtual
 	// The migration here is started only for a ready request, and the peer removes a request only once its
 	// receiving migration is over without the guest: with the request gone, nothing can arrive there.
 	if src != nil && receiver == nil {
-		return reconcile.Result{}, h.failWithoutReceiver(ctx, vmop, peerClient, src)
+		return h.failWithoutReceiver(vmop, src)
 	}
 
 	if src != nil {
@@ -328,7 +328,7 @@ func (h PeerMigrationHandler) handle(ctx context.Context, vmop *v1alpha2.Virtual
 
 	switch {
 	case foreign:
-		return reconcile.Result{}, h.fail(ctx, vmop, peerClient, vmopcondition.ReasonPeerRejected,
+		return h.fail(vmop, vmopcondition.ReasonPeerRejected,
 			receiverConflictMessage(peer, vmop.Spec.VirtualMachine, vmop.Namespace))
 	case receiver == nil:
 		// A migration to the peer aborts a snapshot in progress as a local one does. The wait comes before the
@@ -343,16 +343,16 @@ func (h PeerMigrationHandler) handle(ctx context.Context, vmop *v1alpha2.Virtual
 		// The request goes, so the move has been undone: this is a copy of the operation older than its
 		// failure, and a migration started now would be left without a receiver, locking the VM.
 		if time.Since(receiver.DeletionTimestamp.Time) > peerRequestTimeout {
-			return reconcile.Result{}, h.fail(ctx, vmop, peerClient, vmopcondition.ReasonPeerNotConfirmed,
+			return h.fail(vmop, vmopcondition.ReasonPeerNotConfirmed,
 				fmt.Sprintf("Peer cluster %q did not remove the request to receive the virtual machine in %s.", peer, peerRequestTimeout))
 		}
 
 		return reconcile.Result{RequeueAfter: peerRequeue}, nil
 	case receiver.Status.Phase == intvirtv1alpha1.ReceiverFailed:
-		return reconcile.Result{}, h.fail(ctx, vmop, peerClient, vmopcondition.ReasonPeerRejected,
+		return h.fail(vmop, vmopcondition.ReasonPeerRejected,
 			fmt.Sprintf("Peer cluster %q rejected the virtual machine: %s", peer, receiver.Status.Message))
 	case receiver.Status.Phase == intvirtv1alpha1.ReceiverReady:
-		return h.start(ctx, peerClient, vmop, receiver)
+		return h.start(ctx, vmop, receiver)
 	default:
 		if !receiver.CreationTimestamp.IsZero() && time.Since(receiver.CreationTimestamp.Time) > peerPrepareTimeout {
 			msg := fmt.Sprintf("Peer cluster %q did not prepare the virtual machine in %s", peer, peerPrepareTimeout)
@@ -360,7 +360,7 @@ func (h PeerMigrationHandler) handle(ctx context.Context, vmop *v1alpha2.Virtual
 				msg += ": " + receiver.Status.Message
 			}
 
-			return reconcile.Result{}, h.fail(ctx, vmop, peerClient, vmopcondition.ReasonPeerRejected, msg+".")
+			return h.fail(vmop, vmopcondition.ReasonPeerRejected, msg+".")
 		}
 
 		h.progress(vmop, vmopcondition.ReasonWaitingForPeer, fmt.Sprintf("Waiting for peer cluster %q to prepare the virtual machine.", peer))
@@ -532,13 +532,13 @@ func (h PeerMigrationHandler) createReceiver(ctx context.Context, peer client.Cl
 		}
 
 		if existing != nil && existing.Labels[labelPeerVMOPUID] != mid {
-			return reconcile.Result{}, h.fail(ctx, vmop, peer, vmopcondition.ReasonPeerRejected,
+			return h.fail(vmop, vmopcondition.ReasonPeerRejected,
 				receiverConflictMessage(commonvmop.PeerName(vmop), vm.Name, target.Namespace))
 		}
 	case k8serrors.IsUnauthorized(err) || k8serrors.IsForbidden(err):
-		return reconcile.Result{}, h.fail(ctx, vmop, nil, vmopcondition.ReasonPeerRejected, refusedMessage(peerName, err))
+		return h.fail(vmop, vmopcondition.ReasonPeerRejected, refusedMessage(peerName, err))
 	case k8serrors.IsInvalid(err):
-		return reconcile.Result{}, h.fail(ctx, vmop, peer, vmopcondition.ReasonPeerRejected,
+		return h.fail(vmop, vmopcondition.ReasonPeerRejected,
 			fmt.Sprintf("Peer cluster %q rejected the virtual machine: %s", commonvmop.PeerName(vmop), err))
 	default:
 		return reconcile.Result{}, err
@@ -552,7 +552,7 @@ func (h PeerMigrationHandler) createReceiver(ctx context.Context, peer client.Cl
 // start creates the migration to the peer once its receiver is ready and has published the address of its
 // synchronization controller and the pin of the key it generated for this migration: the controller here
 // trusts the peer by the pin, and the peer trusts the pin of this cluster from the request.
-func (h PeerMigrationHandler) start(ctx context.Context, peer client.Client, vmop *v1alpha2.VirtualMachineOperation, receiver *intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver) (reconcile.Result, error) {
+func (h PeerMigrationHandler) start(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation, receiver *intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver) (reconcile.Result, error) {
 	vm := &v1alpha2.VirtualMachine{}
 	if err := h.reader.Get(ctx, types.NamespacedName{Namespace: vmop.Namespace, Name: vmop.Spec.VirtualMachine}, vm); err != nil {
 		return reconcile.Result{}, err
@@ -562,7 +562,7 @@ func (h PeerMigrationHandler) start(ctx context.Context, peer client.Client, vmo
 		// A peer whose KubeVirt knows no keys per migration never publishes the pin: a bounded wait
 		// tells the user instead of an endless one.
 		if !receiver.CreationTimestamp.IsZero() && time.Since(receiver.CreationTimestamp.Time) > peerPrepareTimeout+peerPinTimeout {
-			return reconcile.Result{}, h.fail(ctx, vmop, peer, vmopcondition.ReasonPeerRejected,
+			return h.fail(vmop, vmopcondition.ReasonPeerRejected,
 				fmt.Sprintf("Peer cluster %q did not get ready for the migration in %s. Check that the virtualization module there is of the same version as in this cluster.", commonvmop.PeerName(vmop), peerPrepareTimeout+peerPinTimeout))
 		}
 
@@ -593,7 +593,7 @@ func (h PeerMigrationHandler) start(ctx context.Context, peer client.Client, vmo
 		// the VM in progress) with 400 or 422: a retry changes nothing, and the operation would stay in
 		// progress with the VM locked for good.
 		if k8serrors.IsBadRequest(err) || k8serrors.IsInvalid(err) || k8serrors.IsForbidden(err) {
-			return reconcile.Result{}, h.fail(ctx, vmop, peer, vmopcondition.ReasonOperationFailed,
+			return h.fail(vmop, vmopcondition.ReasonOperationFailed,
 				fmt.Sprintf("The migration to the peer cluster was refused: %s.", strings.TrimSuffix(apiErrorMessage(err), ".")))
 		}
 
@@ -674,22 +674,22 @@ func (h PeerMigrationHandler) watchMigration(ctx context.Context, peer client.Cl
 			return reconcile.Result{RequeueAfter: peerRequeue}, nil
 		}
 
-		return reconcile.Result{}, h.fail(ctx, vmop, peer, vmopcondition.ReasonOperationFailed, peerFailureMessage(src, peerName, peerMessage))
+		return h.fail(vmop, vmopcondition.ReasonOperationFailed, peerFailureMessage(src, peerName, peerMessage))
 	}
 
 	started := src.Status.MigrationState != nil && src.Status.MigrationState.StartTimestamp != nil
-	// Fail promptly if the peer stops receiving; fail() rechecks whether the guest arrived meanwhile.
+	// Cleanup rechecks arrival before releasing the source when the peer stops receiving.
 	if receiver != nil && receiver.Status.Phase == intvirtv1alpha1.ReceiverFailed {
-		return reconcile.Result{}, h.fail(ctx, vmop, peer, vmopcondition.ReasonPeerRejected, peerFailureMessage(src, peerName, peerMessage))
+		return h.fail(vmop, vmopcondition.ReasonPeerRejected, peerFailureMessage(src, peerName, peerMessage))
 	}
 
 	if !started && time.Since(src.CreationTimestamp.Time) > peerSyncTimeout {
 		if peerMessage != "" {
-			return reconcile.Result{}, h.fail(ctx, vmop, peer, vmopcondition.ReasonPeerRejected,
+			return h.fail(vmop, vmopcondition.ReasonPeerRejected,
 				fmt.Sprintf("The migration did not start in %s: in peer cluster %q %s.", peerSyncTimeout, peerName, peerMessage))
 		}
 
-		return reconcile.Result{}, h.fail(ctx, vmop, peer, vmopcondition.ReasonMigrationNetworkUnreachable,
+		return h.fail(vmop, vmopcondition.ReasonMigrationNetworkUnreachable,
 			fmt.Sprintf("The migration did not start in %s: the nodes of this cluster may not reach peer cluster %q.", peerSyncTimeout, peerName))
 	}
 
@@ -1095,7 +1095,7 @@ func (h PeerMigrationHandler) abortSourceMigration(ctx context.Context, src *vir
 	return current, nil
 }
 
-// cleanupFailed undoes work recreated by a stale reconcile after failure.
+// cleanupFailed undoes a failed move, including work recreated by a stale reconcile.
 // It reports completion and keeps the VM locked until cancellation and peer cleanup finish.
 func (h PeerMigrationHandler) cleanupFailed(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (bool, error) {
 	src, err := h.migration.GetMigration(ctx, vmop)
@@ -1114,25 +1114,24 @@ func (h PeerMigrationHandler) cleanupFailed(ctx context.Context, vmop *v1alpha2.
 	}
 
 	peerClient, err := h.peers.Client(ctx, commonvmop.PeerName(vmop))
-	if err != nil {
-		// Keep polling even though the operation is Failed: an unknown peer outcome
-		// cannot safely restore the source's automatic restart strategy.
-		if src != nil && src.Status.Phase == virtv1.MigrationSucceeded {
-			res, finishErr := h.finish(ctx, nil, vmop, src, nil)
-			return res.IsZero() && finishErr == nil, finishErr
-		}
 
-		return false, err
+	var receiver *intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver
+	if err == nil {
+		receiver, err = h.ownReceiver(ctx, peerClient, vmop)
 	}
 
-	receiver, err := h.ownReceiver(ctx, peerClient, vmop)
 	if err != nil {
 		if src != nil && src.Status.Phase == virtv1.MigrationSucceeded {
 			res, finishErr := h.finish(ctx, nil, vmop, src, nil)
 			return res.IsZero() && finishErr == nil, finishErr
 		}
 
-		return false, err
+		if !isPeerRefusal(err) {
+			return false, err
+		}
+
+		// Revoked access still requires source cancellation before its VM is released.
+		peerClient, receiver = nil, nil
 	}
 
 	if receiver != nil {
@@ -1155,6 +1154,18 @@ func (h PeerMigrationHandler) cleanupFailed(ctx context.Context, vmop *v1alpha2.
 	if err != nil || (!gone && !timedOut) {
 		return false, err
 	}
+
+	if receiver != nil {
+		received, err := h.receiverMigrationSucceeded(ctx, peerClient, receiver)
+		if err != nil {
+			return false, err
+		}
+
+		if received {
+			return true, h.moved(ctx, peerClient, vmop, receiver)
+		}
+	}
+
 	// Deleting a running migration only requests cancellation. Do not release its
 	// VM until KubeVirt has finished it, even if the peer request is already gone.
 	current, err := h.abortSourceMigration(ctx, src)
@@ -1172,9 +1183,19 @@ func (h PeerMigrationHandler) cleanupFailed(ctx context.Context, vmop *v1alpha2.
 			fmt.Sprintf("The request to receive in peer cluster %q was not removed in %s. The virtual machine is released here: check peer cluster %q before starting it.", commonvmop.PeerName(vmop), peerRequestTimeout, commonvmop.PeerName(vmop)))
 	}
 
-	_, err = h.release(ctx, vmop)
+	stayed, err := h.release(ctx, vmop)
+	if err != nil {
+		return false, err
+	}
 
-	return err == nil, err
+	msg := stoppedSuffix(commonvmop.PeerName(vmop))
+	if stayed {
+		msg = keepsRunningSuffix
+	}
+
+	h.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, strings.TrimSpace(msg))
+
+	return true, nil
 }
 
 // failBeforeReceiverCreation ends an operation whose request was never created: there is nothing to undo in the peer,
@@ -1194,99 +1215,13 @@ func (h PeerMigrationHandler) failBeforeReceiverCreation(ctx context.Context, vm
 	return nil
 }
 
-// fail ends the operation and undoes what it did here and in the peer. The VM is handed back to this
-// cluster only when the peer says its VM has not run there and has finished with the request; otherwise the
-// guest is there and the move is finished instead.
-func (h PeerMigrationHandler) fail(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation, peer client.Client, reason vmopcondition.ReasonCompleted, msg string) error {
-	peerName := commonvmop.PeerName(vmop)
-
-	receiver, err := h.ownReceiver(ctx, peer, vmop)
-	if err != nil {
-		return err
-	}
-
-	if receiver != nil {
-		received, err := h.receiverMigrationSucceeded(ctx, peer, receiver)
-		if err != nil {
-			return err
-		}
-
-		if receiver.Status.ReceiverStarted || received {
-			return h.moved(ctx, peer, vmop, receiver)
-		}
-	}
-
-	src, err := h.migration.GetMigration(ctx, vmop)
-	if err != nil {
-		return err
-	}
-
-	gone, timedOut, err := h.removeReceiver(ctx, peer, receiver)
-	if err != nil {
-		return err
-	}
-	// The peer may still finish its receiving migration while the guest has not arrived here. The migration
-	// here stays then, and with it the lock of the VM: the next reconcile comes back to this failure instead
-	// of starting a new move, the way the rollback waits for the same answer.
-	if !gone && !timedOut && src != nil {
-		h.progress(vmop, vmopcondition.ReasonWaitingForPeer, msg+awaitingRemovalSuffix(peerName))
-		return nil
-	}
-
-	if receiver != nil && (gone || timedOut) {
-		// The request is done with, but the receiving migration may have succeeded before the peer removed it:
-		// the guest is in the peer then, and the move is finished instead of undone.
-		received, err := h.receiverMigrationSucceeded(ctx, peer, receiver)
-		if err != nil {
-			return err
-		}
-
-		if received {
-			return h.moved(ctx, peer, vmop, receiver)
-		}
-	}
-
-	if src != nil {
-		current, err := h.abortSourceMigration(ctx, src)
-		if err != nil {
-			return err
-		}
-
-		if current != nil && current.Status.Phase == virtv1.MigrationSucceeded {
-			_, err = h.finish(ctx, peer, vmop, current, receiver)
-			return err
-		}
-
-		if current != nil && !current.IsFinal() {
-			h.progress(vmop, reason, msg)
-			return nil
-		}
-	}
-
-	if timedOut {
-		h.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed,
-			fmt.Sprintf("The request to receive in peer cluster %q was not removed in %s. The virtual machine is released here: check peer cluster %q before starting it.", peerName, peerRequestTimeout, peerName))
-	}
-
-	stayed, err := h.release(ctx, vmop)
-	if err != nil {
-		return err
-	}
-
-	if stayed {
-		msg += keepsRunningSuffix
-	} else {
-		msg += stoppedSuffix(peerName)
-	}
-
+// fail saves the rejection before cleanup can remove the objects carrying its cause.
+// Cleanup runs on the next reconcile, after the failed status has been persisted.
+func (h PeerMigrationHandler) fail(vmop *v1alpha2.VirtualMachineOperation, reason vmopcondition.ReasonCompleted, msg string) (reconcile.Result, error) {
 	h.complete(vmop, v1alpha2.VMOPPhaseFailed, reason, msg)
 	h.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, msg)
 
-	if !vmop.DeletionTimestamp.IsZero() {
-		controllerutil.RemoveFinalizer(vmop, v1alpha2.FinalizerVMOPCleanup)
-	}
-
-	return nil
+	return reconcile.Result{RequeueAfter: peerRequeue}, nil
 }
 
 const keepsRunningSuffix = " The virtual machine keeps running in this cluster; retry the move."
@@ -1295,29 +1230,15 @@ func stoppedSuffix(peer string) string {
 	return fmt.Sprintf(" The virtual machine is not running here and may run in peer cluster %q: it is left stopped with the Manual run policy, check it there before starting it here.", peer)
 }
 
-func awaitingRemovalSuffix(peer string) string {
-	return fmt.Sprintf(" The virtual machine is released once peer cluster %q removes the request to receive it.", peer)
-}
-
-// failWithoutReceiver ends a move whose request the peer has removed before the guest arrived. The failure
-// that removed it waited for the removal with its cause in the condition, and the cause is all that is left
-// of it.
-func (h PeerMigrationHandler) failWithoutReceiver(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation, peer client.Client, src *virtv1.VirtualMachineInstanceMigration) error {
+// failWithoutReceiver records a failure when the peer removed the receiving request.
+func (h PeerMigrationHandler) failWithoutReceiver(vmop *v1alpha2.VirtualMachineOperation, src *virtv1.VirtualMachineInstanceMigration) (reconcile.Result, error) {
 	peerName := commonvmop.PeerName(vmop)
-	reason := vmopcondition.ReasonPeerRejected
-
-	msg := fmt.Sprintf("Peer cluster %q removed the request to receive the virtual machine.", peerName)
 	if src.Status.Phase == virtv1.MigrationFailed {
-		reason, msg = vmopcondition.ReasonOperationFailed, peerFailureMessage(src, peerName, "")
+		return h.fail(vmop, vmopcondition.ReasonOperationFailed, peerFailureMessage(src, peerName, ""))
 	}
 
-	if c, ok := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions); ok && c.Reason == string(vmopcondition.ReasonWaitingForPeer) {
-		if cause, waited := strings.CutSuffix(c.Message, awaitingRemovalSuffix(peerName)); waited {
-			msg = cause
-		}
-	}
-
-	return h.fail(ctx, vmop, peer, reason, msg)
+	return h.fail(vmop, vmopcondition.ReasonPeerRejected,
+		fmt.Sprintf("Peer cluster %q removed the request to receive the virtual machine.", peerName))
 }
 
 // removeReceiver deletes the receiver and reports cleanup completion and timeout.
@@ -1368,6 +1289,10 @@ func refusedMessage(peer string, err error) string {
 
 func unreachableMessage(peer string) string {
 	return fmt.Sprintf("Peer cluster %q is unreachable. The migration continues when the connection is restored. The virtual machine keeps running in this cluster.", peer)
+}
+
+func isPeerRefusal(err error) bool {
+	return errors.Is(err, peering.ErrPeerNotSupported) || k8serrors.IsUnauthorized(err) || k8serrors.IsForbidden(err)
 }
 
 // isAPIError tells an answer of the API server of the peer from a failure to reach it.
