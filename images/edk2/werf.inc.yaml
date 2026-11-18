@@ -105,7 +105,9 @@ shell:
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
-from: {{ index $.Images "builder/alt" }}
+# An ALT builder of the container factory: the factory packages have neither iasl
+# nor virt-firmware, which enrolls the Secure Boot keys into the firmware vars.
+from: {{ index $.Images "builder/golang-alt-1.26" }}
 import:
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
   add: /src

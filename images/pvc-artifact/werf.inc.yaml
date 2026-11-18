@@ -76,6 +76,8 @@ pmPackages:
 - libfuse liburing libaio
 - libaudit libcap-ng numactl
 - linux-pam zstd gnu-glibc
+# blockdev, mount and umount.
+- util-linux
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -95,17 +97,11 @@ import:
   add: /qemu-img
   to: /relocate
   before: install
-- from: {{ index $.Images "tools/util-linux" }}
-  add: /
-  to: /relocate/usr
-  after: setup
-  includePaths:
-  - sbin/blockdev
-  - bin/mount
-  - bin/umount
 shell:
   install:
   {{- include "pm packages install" (list $builderDependencies.pmPackages "/relocate") | nindent 2 }}
+  - |
+    {{- include "pin utility paths" (list "/relocate" "usr/sbin/blockdev usr/bin/mount usr/bin/umount") | nindent 4 }}
 
 # Corpus restore and replay run in the CI child pipeline, after image publication.
 ---

@@ -1,7 +1,7 @@
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
-from: {{ index $.Images "builder/scratch" }}
+from: scratch
 import:
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
   add: /out
@@ -66,6 +66,8 @@ pmPackages:
 - numactl-devel libpciaccess-devel udev-devel udev cyrus-sasl cyrus-sasl-devel
 - meson ninja-build make pkgconf perl binutils
 - python python-devel git
+# meson of libvirt requires xmllint and xsltproc; factory v4 ships them in the -utils packages.
+- libxml2-utils libxslt-utils
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

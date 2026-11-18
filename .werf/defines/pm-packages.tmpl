@@ -30,3 +30,29 @@ Emits shell lines, so include it in a shell stage:
 {{-   $destination := index . 1 -}}
 - pm install {{ $packages | join " " }} -d {{ $destination }}
 {{- end }}
+
+{{/*
+Keep the paths the module calls utilities by. A package can put a binary into
+usr/bin while the code calls usr/sbin, or the reverse: link such a binary to the
+expected path. Fails the build when no installed package has the binary.
+
+Arguments: a list of (root, paths), where paths are relative to root and
+separated by spaces. Emits shell lines for a "- |" block.
+*/}}
+{{- define "pin utility paths" -}}
+{{-   $root := index . 0 -}}
+{{-   $paths := index . 1 -}}
+for p in {{ $paths }}; do
+  [ -e "{{ $root }}/$p" ] && continue
+  b=$(basename "$p")
+  for d in usr/bin usr/sbin; do
+    if [ -e "{{ $root }}/$d/$b" ]; then
+      mkdir -p "{{ $root }}/$(dirname "$p")"
+      ln -s "/$d/$b" "{{ $root }}/$p"
+      continue 2
+    fi
+  done
+  echo "$p: no installed package has $b" >&2
+  exit 1
+done
+{{- end }}

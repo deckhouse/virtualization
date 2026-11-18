@@ -53,7 +53,7 @@ shell:
 ---
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
-from: {{ index $.Images "builder/scratch" }}
+from: scratch
 git:
   {{- include "image mount points" . }}
 import:

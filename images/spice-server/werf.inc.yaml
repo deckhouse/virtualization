@@ -1,7 +1,7 @@
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
-from: {{ index $.Images "builder/scratch" }}
+from: scratch
 import:
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
   add: /out

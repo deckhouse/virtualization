@@ -14,29 +14,13 @@ build:
 # Base image for VEX attestations (cosign attest --type openvex).
 # Consumed by the "vex mitigation" template in .werf/defines/vex.tmpl.
 image: base/vex
-from: {{ index $.Images "tools/coreutils" }}
+from: {{ index $.Images "builder/distroless" }}
 final: false
-import:
-- from: {{ index $.Images "builder/alpine" }}
-  add: /etc/ssl/certs/ca-certificates.crt
-  to: /etc/ssl/certs/ca-certificates.crt
-  before: install
-- from: {{ index $.Images "tools/cosign" }}
-  add: /usr/bin/cosign
-  to: /usr/bin/cosign
-  before: install
-- from: {{ index $.Images "tools/jq" }}
-  add: /usr/bin/jq
-  to: /usr/bin/jq
-  before: install
-- from: {{ index $.Images "tools/curl" }}
-  add: /usr/bin/curl-static
-  to: /usr/bin/curl
-  before: install
-- from: {{ index $.Images "tools/bash" }}
-  add: /usr/bin/bash
-  to: /bin/bash
-  before: install
+shell:
+  beforeInstall:
+  # cosign 3 rejects --tlog-upload=false of the vex template unless a signing
+  # config is given, so the attestation stays on cosign 2.
+  - pm install coreutils cosign@2.6.5 jq-static-bin curl
 ---
 
 # Source repo settings
@@ -71,7 +55,7 @@ import:
 
 ---
 image: images-digests
-from: {{ index $.Images "builder/alpine" }}
+from: {{ index $.Images "builder/distroless" }}
 dependencies:
   {{- range $ImageID := $.ImagesIDList }}
   {{- $ImageName := $ImageID | splitList "/" | last }}
@@ -84,12 +68,9 @@ dependencies:
       targetEnv: MODULE_IMAGE_DIGEST_{{ $ImageNameCamel }}
   {{- end }}
   {{- end }}
-import:
-- from: {{ index $.Images "tools/jq" }}
-  add: /usr/bin/jq
-  to: /usr/bin/jq
-  before: setup
 shell:
+  beforeInstall:
+    - pm install grep coreutils jq-static-bin
   setup:
     - |
       env | grep MODULE_IMAGE_DIGEST | jq -Rn '
@@ -165,7 +146,7 @@ shell:
 {{- end }}
 ---
 image: bundle
-from: {{ index $.Images "builder/scratch" }}
+from: scratch
 import:
 - image: prepare-bundle
   add: /prep-bundle
@@ -174,7 +155,7 @@ import:
 
 ---
 image: prepare-bundle
-from: {{ index $.Images "builder/alpine" }}
+from: {{ index $.Images "builder/distroless" }}
 import:
 - image: images-digests
   add: /
@@ -227,13 +208,15 @@ git:
       - templates/virtualization-dra
     {{- end }}
 shell:
+  beforeInstall:
+    - pm install coreutils
   install:
     # The version of the module for the templates: PeeringCapability tells it to peers.
     - echo '{"version":"{{ env "MODULES_MODULE_TAG" "dev" }}"}' > /prep-bundle/version.json
     - ls -la /prep-bundle
 ---
 image: release-channel-version
-from: {{ index $.Images "builder/scratch" }}
+from: scratch
 import:
 - image: prepare-bundle
   add: /prep-bundle
@@ -248,9 +231,8 @@ import:
     - crds
     - docs
     - openapi
-shell:
-  install:
-    - echo  '{"version":"{{ env "MODULES_MODULE_TAG" "dev" }}"}' > version.json
+    # Written by prepare-bundle: an image from scratch has no shell to write it.
+    - version.json
 
 # VEX attestation for the module (bundle) image. Covers GO-2026-5932
 # (golang.org/x/crypto/openpgp) carried by the hooks/go/virtualization-module-hooks

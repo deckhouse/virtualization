@@ -1,6 +1,6 @@
 module github.com/deckhouse/virtualization/images/pvc-artifact
 
-go 1.26.10
+go 1.26.11
 
 require (
 	github.com/containers/image/v5 v5.32.0

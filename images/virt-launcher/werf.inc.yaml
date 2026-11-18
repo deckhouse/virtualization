@@ -21,6 +21,9 @@ pmPackages:
 - xorriso libburn attr libaudit
 - gnutls acl libbsd libgcrypt libmd
 - util-linux libfuse nettle
+- coreutils iproute2 tini
+# nologin, the shell of the deckhouse user, is in util-linux-login in factory v4.
+- util-linux-login
 - libnbd libcap-ng libcapstone curl
 - json-c keyutils libisofs
 - zlib zstd p11-kit
@@ -44,7 +47,7 @@ pmPackages:
 - openldap openssl
 - e2fsprogs libxcrypt lvm2 json-glib
 - libffi
-- brotli libstdc++ libcap libgpg-error lz4
+- brotli libstdc++ libcap libgpg-error lz4 liblz4-1
 - userspace-rcu lzo
 - udev libfdt libblkio libusb pulseaudio libepoxy librbd libatomic libquadmath gnu-gcc-lib  # runtime dependencies of the in-repo qemu build
 # libjpeg-turbo is needed by qemu itself (--enable-vnc-jpeg) and by libspice-server;
@@ -89,10 +92,6 @@ git:
     includePaths:
     - nsswitch.conf
 import:
-- from: {{ index $.Images "tools/tini-v0.19.0" }}
-  add: /usr/bin/tini
-  to: /relocate/usr/bin/tini
-  before: setup
 # QEMU libraries and binaries. /BINS is the full install; /qemu-img holds only
 # qemu-img and qemu-nbd and is what the images that just need those two import.
 # This is the one image that runs virtual machines, so it needs qemu-system-x86_64,
@@ -156,30 +155,6 @@ import:
   - node-labeller
   - vlctl
 
-- from: {{ index $.Images "tools/util-linux" }}
-  add: /
-  to: /relocate/usr
-  after: setup
-  includePaths:
-  - sbin/hwclock
-  - sbin/nologin
-
-# GNU utilities
-- from: {{ index $.Images "tools/coreutils" }}
-  add: /
-  to: /relocate
-  after: setup
-  includePaths:
-  - usr/bin/cp
-  - usr/bin/sleep
-  - usr/bin/coreutils
-- from: {{ index $.Images "tools/iproute2" }}
-  add: /
-  to: /relocate/usr
-  after: setup
-  includePaths:
-  - sbin/tc
-
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-cbuilder
   add: /bins
   to: /relocate/usr/bin
@@ -208,6 +183,10 @@ shell:
     echo "Create runtime folder hierarchy"
     mkdir -p /relocate/{etc,root}
     mkdir -p /relocate/var/{log/libvirt/qemu,log/swtpm/libvirt/qemu,lib/libvirt/qemu,run/libvirt/qemu,lib/swtpm-localca,lib/libvirt/swtpm}
+
+    # The utilities used to come from the tools/* images at these paths. The
+    # packages may put them into the other bin directory: link them back.
+    {{- include "pin utility paths" (list "/relocate" "usr/bin/tini usr/sbin/hwclock usr/sbin/nologin usr/sbin/tc usr/bin/cp usr/bin/sleep") | nindent 4 }}
 
   setup:
   - |
@@ -248,7 +227,11 @@ shell:
     ln -s var/run run
 
   - |
-    SETCAP="/relocate/lib64/ld-linux-x86-64.so.2 --library-path /relocate/lib64:/relocate/usr/lib:/relocate/usr/lib64 /relocate/usr/sbin/setcap"
+    # The factory v4 glibc puts the loader into usr/lib, older packages into lib64.
+    LDSO=$(ls /relocate/lib64/ld-linux-x86-64.so.2 /relocate/usr/lib/ld-linux-x86-64.so.2 /relocate/usr/lib64/ld-linux-x86-64.so.2 2>/dev/null | head -n1)
+    SETCAP_BIN=$(ls /relocate/usr/sbin/setcap /relocate/usr/bin/setcap 2>/dev/null | head -n1)
+    [ -n "$LDSO" ] && [ -n "$SETCAP_BIN" ] || { echo "no ld-linux or setcap in /relocate" >&2; exit 1; }
+    SETCAP="$LDSO --library-path /relocate/lib64:/relocate/usr/lib:/relocate/usr/lib64 $SETCAP_BIN"
     $SETCAP cap_net_bind_service=+ep /relocate/usr/bin/virt-launcher-monitor
     $SETCAP cap_net_bind_service=+ep /relocate/usr/bin/tini
 

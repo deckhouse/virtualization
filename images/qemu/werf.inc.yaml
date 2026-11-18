@@ -5,7 +5,7 @@
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
-from: {{ index $.Images "builder/src" }}
+from: {{ index $.Images "builder/distroless" }}
 git:
 - add: {{ .ModuleDir }}/images/{{ .ImageName }}
   to: /
@@ -27,9 +27,9 @@ secrets:
   value: {{ .PACKAGE_CLONE_REPO }}
 shell:
   beforeInstall:
-  {{- include "alt packages proxy" . | nindent 2}}
-  - apt-get install -y meson
-  {{- include "alt packages clean" . | nindent 2}}
+  # meson downloads the subprojects; builder/src has no package manager for it.
+  # SOURCE_REPO can be an SSH remote, so git needs the ssh client.
+  - pm install git openssh meson sed grep coreutils
   install:
   - |
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config

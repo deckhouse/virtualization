@@ -8,15 +8,6 @@ import:
   add: /relocate
   to: /
   after: install
-# GNU utilities
-# deps for 031-hotplug-container-disk.patch
-- from: {{ index $.Images "tools/coreutils" }}
-  add: /
-  to: /
-  after: install
-  includePaths:
-  - usr/bin/cp
-  - usr/bin/coreutils
 - image: {{ .ModuleNamePrefix }}virt-artifact
   add: /kubevirt-binaries/
   to: /usr/bin
@@ -72,6 +63,8 @@ pmPackages:
 - linux-pam libunistring gmp gnutls nettle libidn2 p11-kit libtasn1
 - libffi zlib zstd liburing glib2 libfuse libburn readline libisofs ncurses
 - libxml2 json-c libssh libssh2 libtirpc
+# mount and umount; cp is a dependency of 031-hotplug-container-disk.patch.
+- util-linux coreutils
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -80,13 +73,6 @@ image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
 final: false
 from: {{ index $.Images "builder/distroless" }}
 import:
-- from: {{ index $.Images "tools/util-linux" }}
-  add: /
-  to: /relocate/usr
-  after: setup
-  includePaths:
-  - bin/mount
-  - bin/umount
 - image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img
   to: /relocate
@@ -94,6 +80,8 @@ import:
 shell:
   install:
   {{- include "pm packages install" (list $builderDependencies.pmPackages "/relocate") | nindent 2 }}
+  - |
+    {{- include "pin utility paths" (list "/relocate" "usr/bin/mount usr/bin/umount usr/bin/cp") | nindent 4 }}
 
   setup:
   - |
