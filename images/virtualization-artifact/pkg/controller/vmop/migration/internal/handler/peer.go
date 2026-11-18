@@ -47,6 +47,7 @@ import (
 	migrationprogress "github.com/deckhouse/virtualization-controller/pkg/controller/vmop/migration/internal/progress"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/migration/internal/service"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
+	"github.com/deckhouse/virtualization-controller/pkg/version"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
@@ -494,6 +495,12 @@ func (h PeerMigrationHandler) createReceiver(ctx context.Context, peer client.Cl
 	if err != nil {
 		return reconcile.Result{}, h.failBeforeReceiverCreation(ctx, vmop,
 			fmt.Sprintf("The virtual machine cannot move to peer cluster %q: %s", peerName, err))
+	}
+
+	if version.IsDevBuild() {
+		if address := vmop.Annotations[annotations.AnnVMOPNewIPAddress]; address != "" {
+			receiver.Spec.IPAddress = address
+		}
 	}
 
 	// The VM is locked only when the request is ready to be created: a disk that is not ready yet or a
@@ -1520,14 +1527,9 @@ func makeReceiver(vm *v1alpha2.VirtualMachine, spec *v1alpha2.VirtualMachineSpec
 		return nil, err
 	}
 
-	anns := map[string]string{}
-	if target.NewAddress {
-		anns[annotations.AnnReceiverNewIPAddress] = "true"
-	}
-
 	return &intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{
 		TypeMeta:   metav1.TypeMeta{APIVersion: intvirtv1alpha1.SchemeGroupVersion.String(), Kind: intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiverKind},
-		ObjectMeta: metav1.ObjectMeta{Namespace: target.Namespace, Name: vm.Name, Labels: map[string]string{labelPeerVMOPUID: mid}, Annotations: anns},
+		ObjectMeta: metav1.ObjectMeta{Namespace: target.Namespace, Name: vm.Name, Labels: map[string]string{labelPeerVMOPUID: mid}},
 		Spec: intvirtv1alpha1.VirtualMachineReceiverSpec{
 			VirtualMachineTemplate:                       runtime.RawExtension{Raw: rawVM},
 			VirtualDiskTemplates:                         rawVDs,

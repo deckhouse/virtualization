@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-     http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,21 +13,15 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
 package vm
 
 import (
-	"context"
-	"encoding/base64"
-	"fmt"
-	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	authnv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,179 +29,329 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/ptr"
-	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/deckhouse/virtualization-controller/pkg/builder/vd"
-	"github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	vmopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 	intvirtv1alpha1 "github.com/deckhouse/virtualization/api/internalvirtualization/v1alpha1"
 	"github.com/deckhouse/virtualization/test/e2e/eventually"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/label"
-	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	vmobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vm"
-	vmopobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vmop"
+	peertest "github.com/deckhouse/virtualization/test/e2e/internal/peering"
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-// The cluster is its own peer: a dev Secret gives virtualization-controller a kubeconfig of this cluster and
-// maps the namespace of the source to another one. The VM gets an address there, as the address of the
-// source stays taken in the same cluster.
 var _ = Describe("PeeringMigration", label.EE(), Label(label.SIGCompute, precheck.PrecheckPeering), func() {
-	var (
-		src, dst       *framework.Framework
-		ctx            context.Context
-		peer           string
-		virtualDisk    *v1alpha2.VirtualDisk
-		virtualMachine *v1alpha2.VirtualMachine
-	)
+	var h *peertest.PeerMigration
 
-	BeforeEach(func() {
-		ctx = context.Background()
-		src = framework.NewFramework("peering-src")
-		DeferCleanup(src.After)
-		src.Before()
+	BeforeEach(func() { h = peertest.NewPeerMigration() })
 
-		dst = framework.NewFramework("peering-dst")
-		DeferCleanup(dst.After)
-		dst.Before()
-		peer = dst.Namespace().Name
-
-		secret, err := newSelfPeerSecret(ctx, src, peer, src.Namespace().Name, dst.Namespace().Name)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(src.GenericClient().Create(ctx, secret)).To(Succeed())
-		src.DeferDelete(secret)
-
-		virtualDisk = object.NewVDFromCVI("vd-root", src.Namespace().Name, object.PrecreatedCVICustomBIOS,
-			vd.WithSize(ptr.To(resource.MustParse(vdCustomImageSize))))
-		virtualMachine = object.NewMinimalVM("vm-", src.Namespace().Name, vm.WithBootloader(v1alpha2.BIOS), vm.WithDisks(virtualDisk))
+	It("uses the preallocated target address and preserves the guest and disk", func() {
+		h.Start()
+		address := h.ReserveAddress(h.Target)
+		h.MigrateAndVerify(address)
 	})
 
-	runVM := func() {
-		GinkgoHelper()
-		Expect(src.CreateWithDeferredDeletion(ctx, virtualDisk, virtualMachine)).To(Succeed())
-		vmObs := vmobs.StartObserver(ctx, src, virtualMachine)
-		vmObs.Never(vmobs.BeFailed())
-		Expect(vmObs.WaitFor(vmobs.BeRunning(), framework.LongTimeout)).To(Succeed())
-	}
+	It("returns immediately after Completed and preserves the guest and disk", func() {
+		h.Start()
+		outboundAddress := h.ReserveAddress(h.Target)
+		returnAddress := h.ReserveAddress(h.Source)
+		h.RenewUntil(h.Source, returnAddress.Status.Address)
+		outbound := h.Operation(h.Source, outboundAddress)
+		h.Create(h.Source, outbound, false)
+		h.WaitPhase(outbound, v1alpha2.VMOPPhaseCompleted, framework.MaxTimeout)
+		// Waiting for guest SSH or MachineRunning here would hide a premature Completed.
+		returning := h.Operation(h.Target, returnAddress)
+		h.Create(h.Target, returning, false)
+		h.WaitPhase(returning, v1alpha2.VMOPPhaseCompleted, framework.MaxTimeout)
+		h.AssertMigrationCleanup(h.Target, h.Source)
+		h.AssertGuest(h.Source, returnAddress)
+		h.AssertTerminal(returning, v1alpha2.VMOPPhaseCompleted)
+		h.AssertTerminal(outbound, v1alpha2.VMOPPhaseCompleted)
+	})
 
-	move := func() *v1alpha2.VirtualMachineOperation {
-		GinkgoHelper()
+	// Regression for https://flant.kaiten.ru/74595165: a returned VM's new instance
+	// was deleted immediately after creation, leaving Start in progress.
+	It("restarts and starts after a round trip with AlwaysOnUnlessStoppedManually", func() {
+		By("Move an AlwaysOn VM to the peer and back without rebooting the guest")
 
-		vmop := vmopbuilder.New(
-			vmopbuilder.WithGenerateName(fmt.Sprintf("%s-move-", util.VmopE2ePrefix)),
-			vmopbuilder.WithNamespace(src.Namespace().Name),
-			vmopbuilder.WithType(v1alpha2.VMOPTypeMigrate),
-			vmopbuilder.WithVirtualMachine(virtualMachine.Name),
+		h.VM.Spec.RunPolicy = v1alpha2.AlwaysOnPolicy
+		h.Start()
+
+		outboundAddress := h.ReserveAddress(h.Target)
+		returnAddress := h.ReserveAddress(h.Source)
+		h.RenewUntil(h.Source, returnAddress.Status.Address)
+		outbound := h.Operation(h.Source, outboundAddress)
+		h.Create(h.Source, outbound, false)
+		h.WaitPhase(outbound, v1alpha2.VMOPPhaseCompleted, framework.MaxTimeout)
+		util.UntilObjectsDeleted(h.Context, framework.MiddleTimeout, h.VM, h.Disk)
+		h.AssertGuest(h.Target, outboundAddress)
+		returning := h.Operation(h.Target, returnAddress)
+		h.Create(h.Target, returning, false)
+		h.WaitPhase(returning, v1alpha2.VMOPPhaseCompleted, framework.MaxTimeout)
+		h.AssertGuest(h.Source, returnAddress)
+		h.AssertTerminal(outbound, v1alpha2.VMOPPhaseCompleted)
+
+		By("Change the returned VM policy to AlwaysOnUnlessStoppedManually")
+
+		returned := &v1alpha2.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: h.VM.Name, Namespace: h.Source.Namespace().Name}}
+
+		Expect(h.Source.GenericClient().Get(h.Context, client.ObjectKeyFromObject(returned), returned)).To(Succeed())
+		running := meta.FindStatusCondition(returned.Status.Conditions, string(vmcondition.TypeRunning))
+		Expect(running).NotTo(BeNil(), "the returned VM must report its running state")
+		previousRunningTime := running.LastTransitionTime.Time
+		observer := vmobs.StartObserver(h.Context, h.Source, returned)
+
+		Eventually(func(g Gomega) {
+			g.Expect(h.Source.GenericClient().Get(h.Context, client.ObjectKeyFromObject(returned), returned)).To(Succeed())
+			before := returned.DeepCopy()
+			returned.Spec.RunPolicy = v1alpha2.AlwaysOnUnlessStoppedManually
+			returned.Spec.Disruptions = &v1alpha2.Disruptions{RestartApprovalMode: v1alpha2.Automatic}
+			g.Expect(h.Source.GenericClient().Patch(h.Context, returned, client.MergeFrom(before))).To(Succeed())
+		}).WithTimeout(framework.ShortTimeout).WithPolling(framework.PollingInterval).Should(Succeed(), "update the returned VM's run policy")
+
+		Expect(observer.WaitFor(vmobs.BeRunningAfterRebootAfter(previousRunningTime), framework.LongTimeout)).To(Succeed(), "automatic restart must apply the new run policy")
+		eventually.SSHReadyAsRoot(h.Source, returned, framework.LongTimeout)
+
+		for _, action := range []v1alpha2.VMOPType{v1alpha2.VMOPTypeRestart, v1alpha2.VMOPTypeStop} {
+			By("Run " + string(action) + " on the returned VM")
+
+			bootBefore, diskBefore := peertest.PeerGuestIdentity(h.Source, returned)
+			op := vmopbuilder.New(
+				vmopbuilder.WithGenerateName("vmop-peer-power-"),
+				vmopbuilder.WithNamespace(returned.Namespace),
+				vmopbuilder.WithVirtualMachine(returned.Name),
+				vmopbuilder.WithType(action),
+			)
+			Expect(util.CreateVMOPRetryingStaleActiveDenial(h.Context, h.Source, op)).To(Succeed(), "create %s for %s/%s", action, returned.Namespace, returned.Name)
+			h.WaitPhase(op, v1alpha2.VMOPPhaseCompleted, framework.LongTimeout)
+
+			if action == v1alpha2.VMOPTypeStop {
+				util.UntilObjectPhase(h.Context, string(v1alpha2.MachineStopped), framework.MiddleTimeout, returned)
+				By("Start the stopped VM and wait for the operation to complete")
+
+				start := util.StartVirtualMachine(h.Context, h.Source, returned)
+				h.WaitPhase(start, v1alpha2.VMOPPhaseCompleted, framework.LongTimeout)
+			}
+
+			util.UntilObjectPhase(h.Context, string(v1alpha2.MachineRunning), framework.LongTimeout, returned)
+			eventually.SSHReadyAsRoot(h.Source, returned, framework.LongTimeout)
+			bootAfter, diskAfter := peertest.PeerGuestIdentity(h.Source, returned)
+			Expect(bootAfter).NotTo(Equal(bootBefore), "%s must create a new guest boot", action)
+			Expect(diskAfter).To(Equal(diskBefore), "%s must preserve the received disk", action)
+			Expect(h.Source.GenericClient().Get(h.Context, client.ObjectKeyFromObject(returned), returned)).To(Succeed())
+			Expect(returned.Spec.RunPolicy).To(Equal(v1alpha2.AlwaysOnUnlessStoppedManually), "power operations must preserve the user's run policy")
+			Expect(returned.Status.IPAddress).To(Equal(returnAddress.Status.Address), "the VM must keep its reserved address after %s", action)
+		}
+	})
+
+	DescribeTable("cancels and immediately allows a new move", Label(framework.LabelTolerateFailedMigrations), func(stage string) {
+		h.Start()
+		saved := h.Runtime()
+		address := h.ReserveAddress(h.Target)
+		op := h.Operation(h.Source, address)
+		h.Create(h.Source, op, true)
+
+		switch stage {
+		case "preparing":
+			h.WaitPreparing(op)
+		case "copying":
+			h.WaitCopying(op)
+		}
+
+		h.CancelAndVerify(op, address, saved)
+		h.MigrateAndVerify(address)
+	}, Entry("deleted immediately", "immediate"), Entry("deleted on WaitingForPeer", "preparing"), Entry("deleted during copying", "copying"))
+
+	It("keeps the quota cause on every rejection and succeeds once the quota is raised", Label(framework.LabelTolerateFailedMigrations), func() {
+		h.Start()
+		saved := h.Runtime()
+		address := h.ReserveAddress(h.Target)
+		quota := &corev1.ResourceQuota{ObjectMeta: metav1.ObjectMeta{Name: "peer-pods", Namespace: h.Target.Namespace().Name}, Spec: corev1.ResourceQuotaSpec{Hard: corev1.ResourceList{corev1.ResourcePods: resource.MustParse("0")}}}
+		Expect(h.Target.CreateWithDeferredDeletion(h.Context, quota)).To(Succeed())
+
+		for range 2 {
+			op := h.Operation(h.Source, address)
+			h.Create(h.Source, op, true)
+			h.WaitPhase(op, v1alpha2.VMOPPhaseFailed, framework.MiddleTimeout)
+			completed := meta.FindStatusCondition(op.Status.Conditions, string(vmopcondition.TypeCompleted))
+			Expect(completed).NotTo(BeNil())
+			Expect(completed.Message).To(ContainSubstring("quota"))
+			Expect(completed.Message).To(ContainSubstring(quota.Name))
+			h.AssertRollbackCleanup(address)
+			h.AssertSource(saved)
+			h.AssertTerminal(op, v1alpha2.VMOPPhaseFailed)
+		}
+
+		Expect(h.Target.GenericClient().Delete(h.Context, quota)).To(Succeed())
+		Eventually(func() bool {
+			return apierrors.IsNotFound(h.Target.GenericClient().Get(h.Context, client.ObjectKeyFromObject(quota), &corev1.ResourceQuota{}))
+		}).WithTimeout(framework.ShortTimeout).Should(BeTrue())
+		h.MigrateAndVerify(address)
+	})
+
+	DescribeTable("keeps the source when the receiving workload is deleted", Label(framework.LabelTolerateFailedMigrations), func(kind string) {
+		h.Start()
+		saved := h.Runtime()
+		address := h.ReserveAddress(h.Target)
+		target := &v1alpha2.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: h.VM.Name, Namespace: h.Target.Namespace().Name}}
+		h.Target.ExpectFailure(target)
+		op := h.Operation(h.Source, address)
+		h.Create(h.Source, op, true)
+
+		if kind == "VirtualMachine" {
+			h.WaitCopying(op)
+			Expect(h.Target.GenericClient().Delete(h.Context, target)).To(Succeed())
+		} else {
+			h.WaitPreparing(op)
+
+			var pod *corev1.Pod
+
+			Eventually(func(g Gomega) {
+				pod = getActiveVirtLauncherPod(h.Context, h.Target, h.VM.Name, h.Target.Namespace().Name)
+				g.Expect(pod).NotTo(BeNil())
+			}).WithTimeout(framework.MiddleTimeout).WithPolling(100 * time.Millisecond).Should(Succeed())
+			Expect(h.Target.GenericClient().Delete(h.Context, pod)).To(Succeed())
+		}
+
+		h.WaitPhase(op, v1alpha2.VMOPPhaseFailed, framework.MiddleTimeout)
+		completed := meta.FindStatusCondition(op.Status.Conditions, string(vmopcondition.TypeCompleted))
+		Expect(completed).NotTo(BeNil())
+
+		if kind == "VirtualMachine" {
+			Expect(completed.Message).To(ContainSubstring(h.VM.Name))
+			Expect(completed.Message).To(ContainSubstring("deleted"))
+		}
+
+		h.AssertRollbackCleanup(address)
+		h.AssertSource(saved)
+		h.MigrateAndVerify(address)
+	}, Entry("the receiving VirtualMachine", "VirtualMachine"), Entry("the receiving launcher pod", "Pod"))
+
+	DescribeTable("retries after a rejected receive once its dependency is fixed", Label(framework.LabelTolerateFailedMigrations), func(conflict string) {
+		var (
+			foreign *v1alpha2.VirtualMachine
+			secret  *corev1.Secret
 		)
-		vmop.Spec.Migrate = &v1alpha2.VirtualMachineOperationMigrateSpec{ProjectPeerName: peer}
-		Expect(src.CreateWithDeferredDeletion(ctx, vmop)).To(Succeed())
+		if conflict == "Secret" {
+			secret = &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "peer-cloud-init", Namespace: h.Source.Namespace().Name}, Type: v1alpha2.SecretTypeCloudInit, StringData: map[string]string{"userData": "#cloud-config\n"}}
+			Expect(h.Source.CreateWithDeferredDeletion(h.Context, secret)).To(Succeed())
+			h.VM.Spec.Provisioning = &v1alpha2.Provisioning{Type: v1alpha2.ProvisioningTypeUserDataRef, UserDataRef: &v1alpha2.UserDataRef{Kind: v1alpha2.UserDataRefKindSecret, Name: secret.Name}}
+		}
 
-		return vmop
-	}
+		h.Start()
+		saved := h.Runtime()
 
-	It("moves a running VM to a peer with a InternalVirtualizationVirtualMachineReceiver", func() {
-		var bootID, serial string
+		address := h.ReserveAddress(h.Target)
+		if conflict == "VirtualMachine" {
+			foreign = h.VM.DeepCopy()
+			foreign.ObjectMeta = metav1.ObjectMeta{Name: h.VM.Name, Namespace: h.Target.Namespace().Name}
+			foreign.Status = v1alpha2.VirtualMachineStatus{}
+			foreign.Spec.RunPolicy = v1alpha2.AlwaysOffPolicy
+			Expect(h.Target.CreateWithDeferredDeletion(h.Context, foreign)).To(Succeed())
+		}
 
-		marker := src.Namespace().Name
+		op := h.Operation(h.Source, address)
+		h.Create(h.Source, op, true)
+		h.WaitPhase(op, v1alpha2.VMOPPhaseFailed, framework.MiddleTimeout)
+		completed := meta.FindStatusCondition(op.Status.Conditions, string(vmopcondition.TypeCompleted))
+		Expect(completed).NotTo(BeNil())
 
-		By("Run a VM in the source namespace", runVM)
+		if foreign != nil {
+			Expect(completed.Message).To(ContainSubstring(foreign.Name))
 
-		By("Write a marker to the disk", func() {
-			eventually.SSHReadyAsRoot(src, virtualMachine, framework.LongTimeout)
-			bootID, serial = guestBootIDAndSerial(src, virtualMachine)
-			_, err := src.SSHCommand(virtualMachine.Name, virtualMachine.Namespace,
-				fmt.Sprintf("echo %s > %s && sync", marker, peeringMarkerFile), framework.WithSSHUser("root"))
-			Expect(err).NotTo(HaveOccurred())
-			// The peer gives the VM another address, and a live guest keeps its lease: renew it until the address
-			// changes, not after, as every renewal flushes the address and breaks the SSH sessions.
-			_, err = src.SSHCommand(virtualMachine.Name, virtualMachine.Namespace,
-				fmt.Sprintf("echo %s | base64 -d > /root/renew.sh && (nohup sh /root/renew.sh >/dev/null 2>&1 &)",
-					base64.StdEncoding.EncodeToString([]byte(renewUntilAddressChanges))),
-				framework.WithSSHUser("root"))
-			Expect(err).NotTo(HaveOccurred())
-		})
+			current := &v1alpha2.VirtualMachine{}
+			Expect(h.Target.GenericClient().Get(h.Context, client.ObjectKeyFromObject(foreign), current)).To(Succeed())
+			Expect(current.UID).To(Equal(foreign.UID))
+			Expect(h.Target.GenericClient().Delete(h.Context, foreign)).To(Succeed())
+		} else {
+			Expect(completed.Message).To(ContainSubstring(secret.Name))
+			copy := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: secret.Name, Namespace: h.Target.Namespace().Name}, Type: secret.Type, StringData: map[string]string{"userData": "#cloud-config\n"}}
+			Expect(h.Target.CreateWithDeferredDeletion(h.Context, copy)).To(Succeed())
+		}
 
-		By("Move the VM to the peer", func() {
-			vmop := move()
-			vmopObs := vmopobs.StartObserver(ctx, vmop)
-			// The peer publishes the address and the key pin of its synchronization controller in the request;
-			// without them the source never starts, and the move fails only by a timeout.
+		h.AssertSource(saved)
+		h.AssertRollbackCleanup(address)
+		h.MigrateAndVerify(address)
+	}, Entry("a VM name conflict", "VirtualMachine"), Entry("a missing cloud-init Secret", "Secret"))
+
+	DescribeTable("rejects invalid operations before starting migration", func(stopped bool) {
+		if stopped {
+			h.VM.Spec.RunPolicy = v1alpha2.AlwaysOffPolicy
+			Expect(h.Source.CreateWithDeferredDeletion(h.Context, h.Disk, h.VM)).To(Succeed())
 			Eventually(func(g Gomega) {
-				request := &intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{}
-				g.Expect(dst.GenericClient().Get(ctx, client.ObjectKey{Namespace: dst.Namespace().Name, Name: virtualMachine.Name}, request)).To(Succeed())
-				g.Expect(request.Status.Synchronization.SyncAddress).NotTo(BeEmpty(), "the peer published the address of its synchronization controller")
-				g.Expect(request.Status.Synchronization.SyncPin).To(HavePrefix("sha256:"), "the peer published the pin of its synchronization key")
-			}).WithTimeout(framework.MiddleTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
-			Expect(vmopObs.WaitFor(vmopobs.BeCompleted(), framework.MaxTimeout)).To(Succeed())
-		})
+				g.Expect(h.Source.GenericClient().Get(h.Context, client.ObjectKeyFromObject(h.VM), h.VM)).To(Succeed())
+				g.Expect(h.VM.Status.Phase).To(Equal(v1alpha2.MachineStopped))
+			}).WithTimeout(framework.LongTimeout).Should(Succeed())
+		} else {
+			h.Start()
+		}
 
-		By("Check the guest kept running with its disk", func() {
-			moved := &v1alpha2.VirtualMachine{}
+		address := h.ReserveAddress(h.Target)
 
-			Eventually(func(g Gomega) {
-				g.Expect(dst.GenericClient().Get(ctx, client.ObjectKey{Namespace: dst.Namespace().Name, Name: virtualMachine.Name}, moved)).To(Succeed())
-				g.Expect(moved.Status.Phase).To(Equal(v1alpha2.MachineRunning))
-			}).WithTimeout(framework.LongTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
+		op := h.Operation(h.Source, address)
+		if !stopped {
+			op.Spec.Migrate.ProjectPeerName = "no-such-e2e-peer"
+		}
 
-			Eventually(func(g Gomega) {
-				out, err := dst.SSHCommand(moved.Name, moved.Namespace, "ip -4 addr show dev eth0",
-					framework.WithSSHUser("root"), framework.WithSSHTimeout(5*time.Second))
-				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(out).To(ContainSubstring(moved.Status.IPAddress+"/"), "the guest took the address of the peer")
-			}).WithTimeout(framework.LongTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
+		err := h.Source.GenericClient().Create(h.Context, op)
+		Expect(err).To(HaveOccurred())
 
-			movedBootID, movedSerial := guestBootIDAndSerial(dst, moved)
-			Expect(movedBootID).To(Equal(bootID), "the guest did not reboot")
-			Expect(movedSerial).To(Equal(serial), "the guest sees the same disk serial")
+		if stopped {
+			Expect(err.Error()).To(ContainSubstring("running"))
+		} else {
+			Expect(err.Error()).To(ContainSubstring("paired"))
+		}
+	}, Entry("an unknown peer", false), Entry("a stopped VM", true))
 
-			// The page cache came with the memory: only a read past it proves the data is on the new disk.
-			out, err := dst.SSHCommand(moved.Name, moved.Namespace,
-				fmt.Sprintf("echo 3 > /proc/sys/vm/drop_caches && cat %s", peeringMarkerFile), framework.WithSSHUser("root"))
-			Expect(err).NotTo(HaveOccurred())
-			Expect(strings.TrimSpace(out)).To(Equal(marker), "the disk data is in the peer")
+	It("rejects conflicting changes during copying and completes the first operation", func() {
+		h.Start()
+		address := h.ReserveAddress(h.Target)
+		h.RenewAddress(h.Source)
+		op := h.Operation(h.Source, address)
+		h.Create(h.Source, op, false)
+		h.WaitCopying(op)
+		Expect(h.Source.GenericClient().Create(h.Context, h.Operation(h.Source, address))).To(
+			MatchError(And(ContainSubstring("Previously created operation"), ContainSubstring(op.Name))),
+			"the active VMOP rejects a second operation",
+		)
+		err := h.Source.GenericClient().Delete(h.Context, h.VM)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring(op.Name), "the denial names the VMOP to cancel")
 
-			// The received disk keeps the serial of the source in its status, and nothing created for the move
-			// refers to the request once the VM runs: the request goes, the VM and its disk stay.
-			Eventually(func(g Gomega) {
-				disk := &v1alpha2.VirtualDisk{}
-				g.Expect(dst.GenericClient().Get(ctx, client.ObjectKey{Namespace: dst.Namespace().Name, Name: virtualDisk.Name}, disk)).To(Succeed())
-				g.Expect(disk.Status.Serial).To(Equal(serial))
-				g.Expect(disk.OwnerReferences).To(BeEmpty())
-
-				vm := &v1alpha2.VirtualMachine{}
-				g.Expect(dst.GenericClient().Get(ctx, client.ObjectKeyFromObject(moved), vm)).To(Succeed())
-				g.Expect(vm.OwnerReferences).To(BeEmpty())
-			}).WithTimeout(framework.MiddleTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
-		})
-
-		By("Check the source is cleaned up", func() {
-			Eventually(func(g Gomega) {
-				err := src.GenericClient().Get(ctx, client.ObjectKeyFromObject(virtualMachine), &v1alpha2.VirtualMachine{})
-				g.Expect(k8serrors.IsNotFound(err)).To(BeTrue(), "the VM is deleted in the source")
-				err = src.GenericClient().Get(ctx, client.ObjectKeyFromObject(virtualDisk), &v1alpha2.VirtualDisk{})
-				g.Expect(k8serrors.IsNotFound(err)).To(BeTrue(), "the disk is deleted in the source")
-
-				vmips := &v1alpha2.VirtualMachineIPAddressList{}
-				g.Expect(src.GenericClient().List(ctx, vmips, client.InNamespace(src.Namespace().Name))).To(Succeed())
-				g.Expect(vmips.Items).To(BeEmpty(), "the address is released in the source")
-
-				err = dst.GenericClient().Get(ctx, client.ObjectKey{Namespace: dst.Namespace().Name, Name: virtualMachine.Name}, &intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{})
-				g.Expect(k8serrors.IsNotFound(err)).To(BeTrue(), "the request is deleted in the peer")
-			}).WithTimeout(framework.MiddleTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
-		})
+		old := h.Disk.DeepCopy()
+		resized := h.Disk.DeepCopy()
+		resized.Spec.PersistentVolumeClaim.Size = ptr.To(resource.MustParse("3Gi"))
+		Expect(h.Source.GenericClient().Patch(h.Context, resized, client.MergeFrom(old))).To(
+			MatchError(And(ContainSubstring("migrat"), ContainSubstring(op.Name))),
+			"disk resize is rejected because this VMOP locks the virtual machine",
+		)
+		vmSnapshot := &v1alpha2.VirtualMachineSnapshot{ObjectMeta: metav1.ObjectMeta{Name: "during-move", Namespace: h.VM.Namespace}, Spec: v1alpha2.VirtualMachineSnapshotSpec{VirtualMachineName: h.VM.Name}}
+		diskSnapshot := &v1alpha2.VirtualDiskSnapshot{ObjectMeta: metav1.ObjectMeta{Name: "during-move", Namespace: h.VM.Namespace}, Spec: v1alpha2.VirtualDiskSnapshotSpec{VirtualDiskName: h.Disk.Name}}
+		Expect(h.Source.GenericClient().Create(h.Context, vmSnapshot)).To(
+			MatchError(And(ContainSubstring("migrat"), ContainSubstring(op.Name))),
+			"a virtual machine snapshot is rejected because this VMOP locks the virtual machine",
+		)
+		Expect(h.Source.GenericClient().Create(h.Context, diskSnapshot)).To(
+			MatchError(And(ContainSubstring("migrat"), ContainSubstring(op.Name))),
+			"a disk snapshot is rejected because this VMOP locks the virtual machine",
+		)
+		h.WaitPhase(op, v1alpha2.VMOPPhaseCompleted, framework.MaxTimeout)
+		h.AssertMigrationCleanup(h.Source, h.Target)
+		h.AssertGuest(h.Target, address)
+		h.AssertTerminal(op, v1alpha2.VMOPPhaseCompleted)
 	})
-
 	It("admits a request to receive from a peer cluster through the restricted access policy", func() {
 		// The peering module presents a peer cluster as the service account of its synchronization controller
 		// in the group of the capability it acts for: peering:peer:<peer>:system:serviceaccount:<ns>:<sa>,
 		// with the group peering:peer:<peer>:cap:virtualization. The policy closing the internal API group
 		// must let it write the requests to receive and nothing else; system:masters keeps RBAC out of the
 		// way, so a failure here is the policy and not a missing binding.
+		dst, ctx, peer := h.Target, h.Context, h.Peer
 		peerUser := "peering:peer:" + peer + ":system:serviceaccount:" + framework.ModuleNamespace + ":kubevirt-internal-virtualization-synchronization-controller"
 		asPeer, err := framework.GetClients().ImpersonatedClient(peerUser,
 			"peering:peer:"+peer+":cap:virtualization", "system:authenticated", "system:masters")
@@ -243,182 +387,4 @@ var _ = Describe("PeeringMigration", label.EE(), Label(label.SIGCompute, prechec
 		Expect(err).To(HaveOccurred(), "the peer may not write other internal resources")
 		Expect(err.Error()).To(ContainSubstring("virtualization-restricted-access-policy"))
 	})
-
-	It("keeps the VM in the source when the peer rejects it", func() {
-		foreign := object.NewBlankVD(virtualDisk.Name, dst.Namespace().Name, nil, ptr.To(resource.MustParse(vdCustomImageSize)))
-
-		By("Take the name of the disk in the peer", func() {
-			Expect(dst.CreateWithDeferredDeletion(ctx, foreign)).To(Succeed())
-		})
-
-		By("Run a VM in the source namespace", runVM)
-
-		By("Move the VM to the peer", func() {
-			vmop := move()
-			src.ExpectFailure(vmop)
-			Eventually(func(g Gomega) {
-				g.Expect(src.GenericClient().Get(ctx, client.ObjectKeyFromObject(vmop), vmop)).To(Succeed())
-				g.Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
-				completed := meta.FindStatusCondition(vmop.Status.Conditions, string(vmopcondition.TypeCompleted))
-				g.Expect(completed).NotTo(BeNil())
-				g.Expect(completed.Reason).To(Equal(string(vmopcondition.ReasonPeerRejected)))
-				g.Expect(completed.Message).To(ContainSubstring(virtualDisk.Name))
-			}).WithTimeout(framework.LongTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
-		})
-
-		By("Check nothing moved", func() {
-			Eventually(func(g Gomega) {
-				err := dst.GenericClient().Get(ctx, client.ObjectKey{Namespace: dst.Namespace().Name, Name: virtualMachine.Name}, &intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{})
-				g.Expect(k8serrors.IsNotFound(err)).To(BeTrue(), "the request is deleted in the peer")
-			}).WithTimeout(framework.MiddleTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
-
-			err := dst.GenericClient().Get(ctx, client.ObjectKey{Namespace: dst.Namespace().Name, Name: virtualMachine.Name}, &v1alpha2.VirtualMachine{})
-			Expect(k8serrors.IsNotFound(err)).To(BeTrue(), "no VM is created in the peer")
-
-			disk := &v1alpha2.VirtualDisk{}
-			Expect(dst.GenericClient().Get(ctx, client.ObjectKeyFromObject(foreign), disk)).To(Succeed(), "the disk of the peer is kept")
-			Expect(disk.UID).To(Equal(foreign.UID))
-
-			kept := &v1alpha2.VirtualMachine{}
-			Expect(src.GenericClient().Get(ctx, client.ObjectKeyFromObject(virtualMachine), kept)).To(Succeed())
-			Expect(kept.Status.Phase).To(Equal(v1alpha2.MachineRunning))
-			eventually.SSHReadyAsRoot(src, kept, framework.MiddleTimeout)
-		})
-	})
-
-	It("reports the peer failure promptly when its receiving pod is deleted", func() {
-		// Deleting the receiving pod while migration is pending or running must report the peer's cause
-		// without waiting for the synchronization timeout and leave the guest in the source.
-		By("Run a VM in the source namespace", runVM)
-
-		var vmop *v1alpha2.VirtualMachineOperation
-
-		By("Start the move and wait for a pending or running migration", func() {
-			vmop = move()
-			src.ExpectFailure(vmop)
-			Eventually(func(g Gomega) {
-				g.Expect(src.GenericClient().Get(ctx, client.ObjectKeyFromObject(vmop), vmop)).To(Succeed())
-				completed := meta.FindStatusCondition(vmop.Status.Conditions, string(vmopcondition.TypeCompleted))
-				g.Expect(completed).NotTo(BeNil(), "the operation reports its state")
-				g.Expect(completed.Reason).To(BeElementOf(
-					string(vmopcondition.ReasonMigrationPending), string(vmopcondition.ReasonMigrationRunning),
-				), "the migration is pending or running before deleting the receiving pod: %s", completed.Message)
-			}).WithTimeout(framework.LongTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
-		})
-
-		var receivingPod *corev1.Pod
-
-		By("Wait for the receiving pod of the peer", func() {
-			Eventually(func(g Gomega) {
-				receivingPod = getActiveVirtLauncherPod(ctx, dst, virtualMachine.Name, dst.Namespace().Name)
-				g.Expect(receivingPod).NotTo(BeNil(), "the peer runs the pod that receives the virtual machine")
-			}).WithTimeout(framework.LongTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
-		})
-
-		By("Delete the receiving pod", func() {
-			Expect(dst.GenericClient().Delete(ctx, receivingPod)).To(Succeed())
-		})
-
-		By("The operation fails with the cause of the peer", func() {
-			Eventually(func(g Gomega) {
-				g.Expect(src.GenericClient().Get(ctx, client.ObjectKeyFromObject(vmop), vmop)).To(Succeed())
-				g.Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed),
-					"the operation fails in %s, not by the synchronization timeout", framework.MiddleTimeout)
-				completed := meta.FindStatusCondition(vmop.Status.Conditions, string(vmopcondition.TypeCompleted))
-				g.Expect(completed).NotTo(BeNil())
-				// Both migrations report the same loss, and whichever fails first names the reason: the cause is
-				// the one of the peer in either case, and it is what the user has to see.
-				g.Expect(completed.Reason).To(BeElementOf(
-					string(vmopcondition.ReasonPeerRejected), string(vmopcondition.ReasonOperationFailed),
-				))
-				g.Expect(completed.Message).To(ContainSubstring(fmt.Sprintf("in peer cluster %q", peer)),
-					"the cause is the one the peer found: %s", completed.Message)
-			}).WithTimeout(framework.MiddleTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
-		})
-
-		By("Check nothing moved and nothing stays behind", func() {
-			kept := &v1alpha2.VirtualMachine{}
-
-			Eventually(func(g Gomega) {
-				g.Expect(src.GenericClient().Get(ctx, client.ObjectKeyFromObject(virtualMachine), kept)).To(Succeed())
-				g.Expect(kept.Status.Phase).To(Equal(v1alpha2.MachineRunning), "the guest stayed in this cluster")
-			}).WithTimeout(framework.MiddleTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
-			eventually.SSHReadyAsRoot(src, kept, framework.MiddleTimeout)
-
-			Eventually(func(g Gomega) {
-				// A migration left by a failed move blocks every next one with "in-flight migration detected".
-				migrations := &virtv1.VirtualMachineInstanceMigrationList{}
-				g.Expect(src.GenericClient().List(ctx, migrations, client.InNamespace(src.Namespace().Name))).To(Succeed())
-				g.Expect(migrations.Items).To(BeEmpty(), "no migration of the failed move is left here")
-
-				err := dst.GenericClient().Get(ctx, client.ObjectKey{Namespace: dst.Namespace().Name, Name: virtualMachine.Name}, &intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{})
-				g.Expect(k8serrors.IsNotFound(err)).To(BeTrue(), "the request is deleted in the peer")
-				err = dst.GenericClient().Get(ctx, client.ObjectKey{Namespace: dst.Namespace().Name, Name: virtualMachine.Name}, &v1alpha2.VirtualMachine{})
-				g.Expect(k8serrors.IsNotFound(err)).To(BeTrue(), "the peer removed the virtual machine it created")
-				err = dst.GenericClient().Get(ctx, client.ObjectKey{Namespace: dst.Namespace().Name, Name: virtualDisk.Name}, &v1alpha2.VirtualDisk{})
-				g.Expect(k8serrors.IsNotFound(err)).To(BeTrue(), "the peer removed the disk it created")
-			}).WithTimeout(framework.MiddleTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
-		})
-	})
 })
-
-const (
-	peeringMarkerFile = "/root/peering-marker"
-
-	// renewUntilAddressChanges skips the moment of a renewal when eth0 has no address.
-	renewUntilAddressChanges = `old=$(ip -4 addr show dev eth0 | grep inet)
-while :; do
-	cur=$(ip -4 addr show dev eth0 | grep inet)
-	[ -n "$cur" ] && [ "$cur" != "$old" ] && break
-	kill -USR1 $(cat /var/run/udhcpc.eth0.pid)
-	sleep 5
-done
-`
-)
-
-// guestBootIDAndSerial reads the serial from the SCSI page 0x80 past its 4-byte header: the custom image has
-// no udev for lsblk to take it from.
-func guestBootIDAndSerial(f *framework.Framework, vm *v1alpha2.VirtualMachine) (string, string) {
-	GinkgoHelper()
-
-	out, err := f.SSHCommand(vm.Name, vm.Namespace, "cat /proc/sys/kernel/random/boot_id && tail -c +5 /sys/block/sda/device/vpd_pg80",
-		framework.WithSSHUser("root"))
-	Expect(err).NotTo(HaveOccurred())
-
-	fields := strings.Fields(out)
-	Expect(fields).To(HaveLen(2), "boot id and serial of the root disk: %q", out)
-
-	return fields[0], fields[1]
-}
-
-// newSelfPeerSecret is the dev Secret of a peer that is this cluster: virtualization-controller reaches its
-// own apiserver with its own token, which the webhook of the request accepts.
-func newSelfPeerSecret(ctx context.Context, f *framework.Framework, peer, from, to string) (*corev1.Secret, error) {
-	token, err := f.KubeClient().CoreV1().ServiceAccounts(framework.ModuleNamespace).CreateToken(ctx, "virtualization-controller",
-		&authnv1.TokenRequest{Spec: authnv1.TokenRequestSpec{ExpirationSeconds: ptr.To[int64](3600)}}, metav1.CreateOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("create a token of virtualization-controller: %w", err)
-	}
-
-	rootCA, err := f.KubeClient().CoreV1().ConfigMaps(framework.ModuleNamespace).Get(ctx, "kube-root-ca.crt", metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	kubeconfig := fmt.Sprintf(`apiVersion: v1
-kind: Config
-clusters: [{name: self, cluster: {server: "https://kubernetes.default.svc", certificate-authority-data: %q}}]
-users: [{name: self, user: {token: %q}}]
-contexts: [{name: self, context: {cluster: self, user: self}}]
-current-context: self
-`, base64.StdEncoding.EncodeToString([]byte(rootCA.Data["ca.crt"])), token.Status.Token)
-
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{Name: "peering-dev-peer-" + peer, Namespace: framework.ModuleNamespace},
-		Data: map[string][]byte{
-			"kubeconfig": []byte(kubeconfig),
-			"namespaces": []byte(from + "=" + to),
-			"newAddress": []byte("true"),
-		},
-	}, nil
-}

@@ -27,6 +27,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
+	peertest "github.com/deckhouse/virtualization/test/e2e/internal/peering"
 )
 
 type peeringPrecheck struct{}
@@ -108,4 +109,17 @@ func checkPeeringDevBuild(ctx context.Context, kube kubernetes.Interface, readBu
 	}
 
 	return nil
+}
+
+// Recovery tests restart the synchronization controller shared by all namespaces.
+type peeringRecoveryPrecheck struct{}
+
+func (*peeringRecoveryPrecheck) Label() string { return PrecheckPeeringRecovery }
+
+func (*peeringRecoveryPrecheck) Run(ctx context.Context, f *framework.Framework) error {
+	return peertest.CheckMigrationIsolation(ctx, f.RewriteClient(), "")
+}
+
+func init() {
+	RegisterPrecheck(&peeringRecoveryPrecheck{}, false)
 }

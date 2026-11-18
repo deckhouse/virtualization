@@ -121,7 +121,7 @@ var _ = Describe("PeerClients", func() {
 	It("maps a dev peer namespace only in a DEV build", func() {
 		secret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{Name: DevPeerSecretPrefix + "self", Namespace: "d8-virtualization"},
-			Data:       map[string][]byte{"namespaces": []byte("src=dst, other=x"), "newAddress": []byte("true")},
+			Data:       map[string][]byte{"namespaces": []byte("src=dst, other=x")},
 		}
 		p, err := NewPeerClients(fake.NewClientBuilder().WithObjects(secret).Build(), nil, "d8-virtualization")
 		Expect(err).NotTo(HaveOccurred())
@@ -133,7 +133,7 @@ var _ = Describe("PeerClients", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		if version.IsDevBuild() {
-			Expect(target).To(Equal(Target{Namespace: "dst", NewAddress: true}))
+			Expect(target).To(Equal(Target{Namespace: "dst"}))
 		} else {
 			Expect(target).To(Equal(Target{Namespace: "src"}), "release builds ignore the dev namespace mapping")
 		}

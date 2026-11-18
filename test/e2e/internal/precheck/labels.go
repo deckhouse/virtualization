@@ -92,6 +92,9 @@ const (
 	// PrecheckPeering - self-peer tests require DEV controller binaries and an available synchronization controller.
 	PrecheckPeering = "peering-precheck"
 
+	// PrecheckPeeringRecovery requires a dedicated cluster without unrelated active peer migrations.
+	PrecheckPeeringRecovery = "peering-recovery-precheck"
+
 	// PrecheckUpgradeStorageClasses verifies the two StorageClasses the module
 	// upgrade suite is pointed at (STORAGE_CLASS_NAME and LOCAL_STORAGE_CLASS_NAME).
 	PrecheckUpgradeStorageClasses = "upgrade-sc-precheck"
@@ -121,6 +124,7 @@ func KnownPrecheckLabels() []string {
 		HotplugInPlaceResizePrecheck,
 		PrecheckVerticalPodAutoscaler,
 		PrecheckPeering,
+		PrecheckPeeringRecovery,
 		PrecheckUpgradeStorageClasses,
 	}
 }

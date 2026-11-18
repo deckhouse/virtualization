@@ -43,11 +43,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kubevirt"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/volumemode"
-	"github.com/deckhouse/virtualization-controller/pkg/version"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	intvirtv1alpha1 "github.com/deckhouse/virtualization/api/internalvirtualization/v1alpha1"
 )
@@ -866,9 +864,9 @@ const (
 	receiverIdleTTL = 30 * time.Minute
 )
 
-// ReceiverIPAddress is the address the VM keeps here, empty when it gets an address of this cluster.
+// ReceiverIPAddress returns the address requested by the source operation.
 func ReceiverIPAddress(r *intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver) string {
-	if r == nil || (version.IsDevBuild() && r.Annotations[annotations.AnnReceiverNewIPAddress] == "true") {
+	if r == nil {
 		return ""
 	}
 

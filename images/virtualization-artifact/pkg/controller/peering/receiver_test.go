@@ -38,7 +38,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
-	"github.com/deckhouse/virtualization-controller/pkg/version"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	intvirtv1alpha1 "github.com/deckhouse/virtualization/api/internalvirtualization/v1alpha1"
 )
@@ -133,6 +132,26 @@ var _ = Describe("ReceiverReconciler", func() {
 			}}).Build()
 		r = &ReceiverReconciler{client: cl, apiReader: cl, namespace: "d8-virtualization"}
 	}
+
+	It("uses the address reserved before the request without replacing its VMIPAddress", func() {
+		reserved := &v1alpha2.VirtualMachineIPAddress{
+			ObjectMeta: metav1.ObjectMeta{Name: "reserved", Namespace: ns, UID: "reserved-ip-uid"},
+			Spec:       v1alpha2.VirtualMachineIPAddressSpec{Type: v1alpha2.VirtualMachineIPAddressTypeAuto},
+			Status:     v1alpha2.VirtualMachineIPAddressStatus{Phase: v1alpha2.VirtualMachineIPAddressPhaseBound, Address: "10.66.10.25"},
+		}
+		request := newReceiverNotCreated()
+		request.Spec.IPAddress = reserved.Status.Address
+		setup(request, reserved)
+		reconcileOnce()
+
+		var vm v1alpha2.VirtualMachine
+		Expect(cl.Get(ctx, key, &vm)).To(Succeed())
+		Expect(vm.Spec.VirtualMachineIPAddress).To(Equal(reserved.Name))
+
+		var current v1alpha2.VirtualMachineIPAddress
+		Expect(cl.Get(ctx, client.ObjectKeyFromObject(reserved), &current)).To(Succeed())
+		Expect(current.UID).To(Equal(reserved.UID))
+	})
 
 	It("publishes the address of this cluster and hands the pin of the source to the receiving migration", func() {
 		rcvr := newReceiver()
@@ -779,17 +798,9 @@ var _ = Describe("ReceiverReconciler", func() {
 })
 
 var _ = Describe("ReceiverIPAddress", func() {
-	It("keeps the address of the source unless the request asks for one of this cluster", func() {
+	It("uses the address in the receive specification", func() {
 		r := &intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{Spec: intvirtv1alpha1.VirtualMachineReceiverSpec{IPAddress: "10.66.10.5"}}
 		Expect(ReceiverIPAddress(r)).To(Equal("10.66.10.5"))
-
-		r.Annotations = map[string]string{annotations.AnnReceiverNewIPAddress: "true"}
-		if version.IsDevBuild() {
-			Expect(ReceiverIPAddress(r)).To(BeEmpty())
-		} else {
-			Expect(ReceiverIPAddress(r)).To(Equal("10.66.10.5"))
-		}
-
 		Expect(ReceiverIPAddress(nil)).To(BeEmpty())
 	})
 })

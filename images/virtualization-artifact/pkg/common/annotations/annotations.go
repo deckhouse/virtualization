@@ -173,9 +173,10 @@ const (
 	// recover when that VMOP disappears. KubeVirt does not interpret this annotation.
 	AnnPeerMigrationVMOP = "internal.virtualization.deckhouse.io/peer-migration-vmop"
 
-	// AnnReceiverNewIPAddress on a InternalVirtualizationVirtualMachineReceiver gives the VM an address of the receiving cluster
-	// instead of the one of the source.
-	AnnReceiverNewIPAddress = "internal.virtualization.deckhouse.io/new-ip-address"
+	// AnnVMOPNewIPAddress is an UNSAFE TEST-ONLY override for isolated self-peer e2e tests.
+	// It breaks source IP preservation. Never use it for real peer migrations or production workloads.
+	// Only binaries compiled with the DEV build tag honor it.
+	AnnVMOPNewIPAddress = "internal.virtualization.deckhouse.io/new-ip-address"
 
 	// AnnVMOPWorkloadUpdate is an annotation on vmop that represents a vmop created by workload-updater controller.
 	AnnVMOPWorkloadUpdate                    = AnnAPIGroupV + "/workload-update"

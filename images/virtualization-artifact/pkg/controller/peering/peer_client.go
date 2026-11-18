@@ -68,13 +68,10 @@ const (
 	devPeerSecretKey    = "kubeconfig"
 	// devPeerNamespacesKey maps source namespaces to the ones of the peer, "a=b,c=d".
 	devPeerNamespacesKey = "namespaces"
-	devPeerNewAddressKey = "newAddress"
 )
 
 // Target is where a VM moves in the peer.
 type Target struct {
-	// NewAddress requests a fresh address for legacy self-peer test fixtures in DEV builds.
-	NewAddress bool
 	// Namespace of the VM in the peer: the paired project has the same name.
 	Namespace string
 }
@@ -383,8 +380,6 @@ func (p *PeerClients) Target(ctx context.Context, peer, namespace string) (Targe
 			target.Namespace = to
 		}
 	}
-
-	target.NewAddress = string(dev[devPeerNewAddressKey]) == "true"
 
 	return target, nil
 }

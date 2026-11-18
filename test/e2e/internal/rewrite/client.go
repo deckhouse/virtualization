@@ -28,6 +28,7 @@ import (
 
 type Client interface {
 	Get(ctx context.Context, name string, obj Object, opts ...Option) error
+	List(ctx context.Context, obj Object, opts ...Option) error
 }
 
 func NewRewriteClient(dynamicClient dynamic.Interface) Client {
@@ -89,4 +90,26 @@ func (r rewriteClient) Get(ctx context.Context, name string, obj Object, opts ..
 	}
 
 	return json.Unmarshal(bytes, obj)
+}
+
+// List reads the internal resource group while decoding the native API type.
+func (r rewriteClient) List(ctx context.Context, obj Object, opts ...Option) error {
+	o := makeOptions(opts...)
+
+	var resource dynamic.ResourceInterface = r.dynamicClient.Resource(obj.GVR())
+	if o.namespace != "" {
+		resource = r.dynamicClient.Resource(obj.GVR()).Namespace(o.namespace)
+	}
+
+	list, err := resource.List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+
+	data, err := json.Marshal(list)
+	if err != nil {
+		return err
+	}
+
+	return json.Unmarshal(data, obj)
 }

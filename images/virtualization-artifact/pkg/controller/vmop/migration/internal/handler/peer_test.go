@@ -44,6 +44,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/migration/internal/service"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
+	"github.com/deckhouse/virtualization-controller/pkg/version"
 	coordinationv1alpha1 "github.com/deckhouse/virtualization/api/coordination/v1alpha1"
 	"github.com/deckhouse/virtualization/api/coordination/v1alpha1/vmaccondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -496,6 +497,30 @@ var _ = Describe("PeerMigrationHandler", func() {
 		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseInProgress))
 		Expect(sourceMigration().Spec.SendTo).NotTo(BeNil())
 	})
+
+	DescribeTable("receiving IP address", func(override, expected string) {
+		if !version.IsDevBuild() {
+			expected = "10.66.10.5"
+		}
+
+		if override != "" {
+			vmop.Annotations = map[string]string{annotations.AnnVMOPNewIPAddress: override}
+		}
+
+		handle()
+
+		var request intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver
+		Expect(peer.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web"}, &request)).To(Succeed())
+		Expect(request.Spec.IPAddress).To(Equal(expected))
+		Expect(request.Annotations).NotTo(HaveKey(annotations.AnnVMOPNewIPAddress))
+
+		var source v1alpha2.VirtualMachine
+		Expect(local.Get(ctx, types.NamespacedName{Namespace: ns, Name: "web"}, &source)).To(Succeed())
+		Expect(source.Status.IPAddress).To(Equal("10.66.10.5"))
+	},
+		Entry("keeps the source address by default", "", "10.66.10.5"),
+		Entry("honors the address override only in development builds", "10.66.10.25", "10.66.10.25"),
+	)
 
 	It("asks the peer to receive, starts the migration and deletes the VM once the peer confirms", func() {
 		handle()

@@ -60,6 +60,10 @@ logFilter:
   - "Failed to update lock optimistically: context deadline exceeded" # API-proxy blip during leader-election renewal; the controller falls back to the slow path and keeps the lease. "msg": "Failed to update lock optimistically: context deadline exceeded, falling back to slow path"
   - "Unable to write event (may retry after sleeping)" # the event recorder retries on its own; a lost event says nothing about virtualization.
 regexpLogFilter:
+  # Expected admission rejections exercised by PeeringMigration negative tests.
+  - 'only a running virtual machine can move to a peer cluster, \\"vm-peer-[a-z0-9-]+\\" is Stopped'
+  - 'the peer cluster \\"no-such-e2e-peer\\" is not paired with this project or does not support virtual machine migration'
+  - 'the virtual machine is being migrated to peer cluster \\"v12n-e2e-peering-dst-[a-z0-9-]+\\"\. Cancel the migration by deleting VirtualMachineOperation \\"vmop-peer-[a-z0-9-]+\\" first'
   - "failed to detach: .* not found" # "err" "failed to detach: virtualmachine.kubevirt.io \"head-497d17b-vm-automatic-with-hotplug\" not found",
   - "error patching .* not found" # "err" "error patching *** virtualimages.virtualization.deckhouse.io \"head-497d17b-vi-pvc-oref-vi-oref-vd\" not found",
   - "failed to get vmSnapshot: VirtualMachineSnapshot\\.virtualization\\.deckhouse.io .* not found" # "msg": "failed to get vmSnapshot: VirtualMachineSnapshot.virtualization.deckhouse.io \"main-to-pr14969-ynv-0-ef17ba-20250908-142437\" not found"
