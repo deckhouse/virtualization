@@ -1,6 +1,6 @@
 firmware:
   qemu: v10.2.4
-  libvirt: v10.9.0
+  libvirt: v12.9.0
   spice-server: v0.15.2
   edk2: stable202411
 core:

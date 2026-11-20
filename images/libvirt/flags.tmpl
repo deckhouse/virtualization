@@ -23,6 +23,11 @@ file and break both the cleanup in werf.inc.yaml and virt-launcher, which
 expects the libraries in /usr/lib64 and the configs in /etc/libvirt. Pin them,
 the way container-factory pins them for the same reason.
 
+runstatedir is pinned to /var/run to preserve the paths used by 10.9.0.
+libvirt 12.x defaults to /run; virt-launcher uses /var/run for its sockets
+and runtime directories. Keep the compiled paths consistent with those
+callers even though the image also links /run to /var/run.
+
 nls is off because container-factory's gettext ships a msgfmt that cannot
 start — it links a libgettextsrc.so the package does not contain — and the
 package arrives transitively, so its absence cannot be relied on. Note that
@@ -41,6 +46,11 @@ Every other option libvirt leaves on auto is pinned to the state this build
 already produces, read off its own configuration summary, so the feature set
 stops depending on what pm happens to drag into the builder.
 
+polkit is disabled: libvirt 12.x installs its policy files through
+i18n.merge_file, which requires the broken msgfmt described above even with
+nls disabled. virt-launcher uses Unix socket authentication and the PID
+restriction patch rather than polkit. Disabling it skips these policy files.
+
 attr and libnl are pinned disabled, not enabled: neither libattr nor
 libnl-devel is in the builder, and meson turns enabled-without-dependency
 into a hard error. container-factory's libvirt package builds without both
@@ -54,6 +64,7 @@ decision.
 --prefix=/usr \
 -Dlibdir=/usr/lib64 \
 -Dsysconfdir=/etc \
+-Drunstatedir=/var/run \
 -Dgit_werror=disabled \
 -Dnls=disabled \
 -Dinit_script=systemd \
@@ -62,7 +73,6 @@ decision.
 -Djson_c=enabled \
 -Dpciaccess=enabled \
 -Dsasl=enabled \
--Dpolkit=enabled \
 -Dlibssh=enabled \
 -Dlibssh2=enabled \
 -Dnumactl=enabled \
@@ -76,7 +86,7 @@ decision.
 -Dselinux=enabled \
 -Dselinux_mount=enabled \
 -Dblkid=enabled \
--Ddriver_secrets=enabled \
+-Ddriver_secret=enabled \
 -Dhost_validate=enabled \
 -Dnss=enabled \
 -Dsecdriver_selinux=enabled \
@@ -85,7 +95,6 @@ decision.
 -Dstorage_scsi=enabled \
 -Dsysctl_config=enabled \
 -Dtests=enabled \
--Duserfaultfd_sysctl=enabled \
 -Dapparmor=disabled \
 -Dapparmor_profiles=disabled \
 -Dattr=disabled \
@@ -102,6 +111,7 @@ decision.
 -Dnetcf=disabled \
 -Dnumad=disabled \
 -Dpm_utils=disabled \
+-Dpolkit=disabled \
 -Dreadline=disabled \
 -Drpath=disabled \
 -Dsanlock=disabled \

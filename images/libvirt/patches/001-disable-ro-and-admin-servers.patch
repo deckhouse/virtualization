@@ -1,5 +1,5 @@
 diff --git a/src/logging/log_daemon.c b/src/logging/log_daemon.c
-index daf7ef4b2f..7877ab03f7 100644
+index 16a5dce..3896e47 100644
 --- a/src/logging/log_daemon.c
 +++ b/src/logging/log_daemon.c
 @@ -550,6 +550,7 @@ virLogDaemonUsage(const char *argv0, bool privileged)
@@ -47,7 +47,7 @@ index daf7ef4b2f..7877ab03f7 100644
          case '?':
          default:
              virLogDaemonUsage(argv[0], privileged);
-@@ -732,16 +740,18 @@ int main(int argc, char **argv) {
+@@ -728,16 +736,18 @@ int main(int argc, char **argv) {
      VIR_DEBUG("Decided on pid file path '%s'", NULLSTR(pid_file));
  
      if (virDaemonUnixSocketPaths("virtlogd",
@@ -73,7 +73,7 @@ index daf7ef4b2f..7877ab03f7 100644
  
      if (virLogDaemonExecRestartStatePath(privileged,
                                           &state_file) < 0) {
-@@ -819,7 +829,6 @@ int main(int argc, char **argv) {
+@@ -815,7 +825,6 @@ int main(int argc, char **argv) {
          }
  
          logSrv = virNetDaemonGetServer(logDaemon->dmn, "virtlogd");
@@ -81,7 +81,7 @@ index daf7ef4b2f..7877ab03f7 100644
  
          if (virNetServerAddServiceUNIX(logSrv,
                                         act, "virtlogd.socket",
-@@ -829,13 +838,16 @@ int main(int argc, char **argv) {
+@@ -825,13 +834,16 @@ int main(int argc, char **argv) {
              ret = VIR_DAEMON_ERR_NETWORK;
              goto cleanup;
          }
@@ -105,7 +105,7 @@ index daf7ef4b2f..7877ab03f7 100644
          }
  
          if (act &&
-@@ -847,7 +859,7 @@ int main(int argc, char **argv) {
+@@ -843,7 +855,7 @@ int main(int argc, char **argv) {
          logSrv = virNetDaemonGetServer(logDaemon->dmn, "virtlogd");
          /* If exec-restarting from old virtlogd, we won't have an
           * admin server present */
@@ -114,9 +114,9 @@ index daf7ef4b2f..7877ab03f7 100644
              adminSrv = virNetDaemonGetServer(logDaemon->dmn, "admin");
      }
  
-@@ -873,7 +885,7 @@ int main(int argc, char **argv) {
-         goto cleanup;
+@@ -866,7 +878,7 @@ int main(int argc, char **argv) {
      }
+     virNetServerAddProgram(logSrv, logProgram);
  
 -    if (adminSrv != NULL) {
 +    if (!no_admin_srv && adminSrv != NULL) {
@@ -124,10 +124,10 @@ index daf7ef4b2f..7877ab03f7 100644
                                                      ADMIN_PROTOCOL_VERSION,
                                                      adminProcs,
 diff --git a/src/remote/remote_daemon.c b/src/remote/remote_daemon.c
-index 9e82132654..522aad2177 100644
+index ee3d10b..0a2c32b 100644
 --- a/src/remote/remote_daemon.c
 +++ b/src/remote/remote_daemon.c
-@@ -722,6 +722,8 @@ daemonUsage(const char *argv0, bool privileged)
+@@ -701,6 +701,8 @@ daemonUsage(const char *argv0, bool privileged)
          { "-f | --config <file>", N_("Configuration file") },
          { "-V | --version", N_("Display version information") },
          { "-p | --pid-file <file>", N_("Change name of PID file") },
@@ -136,7 +136,7 @@ index 9e82132654..522aad2177 100644
      };
  
      fprintf(stderr, "\n");
-@@ -806,6 +808,9 @@ int main(int argc, char **argv) {
+@@ -785,6 +787,9 @@ int main(int argc, char **argv) {
      bool implicit_conf = false;
      char *run_dir = NULL;
      mode_t old_umask;
@@ -146,7 +146,7 @@ index 9e82132654..522aad2177 100644
  
      struct option opts[] = {
          { "verbose", no_argument, &verbose, 'v' },
-@@ -818,6 +823,8 @@ int main(int argc, char **argv) {
+@@ -797,6 +802,8 @@ int main(int argc, char **argv) {
          { "pid-file", required_argument, NULL, 'p' },
          { "version", no_argument, NULL, 'V' },
          { "help", no_argument, NULL, 'h' },
@@ -155,7 +155,7 @@ index 9e82132654..522aad2177 100644
          { 0, 0, 0, 0 },
      };
  
-@@ -834,9 +841,9 @@ int main(int argc, char **argv) {
+@@ -813,9 +820,9 @@ int main(int argc, char **argv) {
          int c;
          char *tmp;
  #if defined(WITH_IP) && defined(LIBVIRTD)
@@ -167,7 +167,7 @@ index 9e82132654..522aad2177 100644
  #endif /* !(WITH_IP && LIBVIRTD) */
  
          c = getopt_long(argc, argv, optstr, opts, &optidx);
-@@ -889,6 +896,14 @@ int main(int argc, char **argv) {
+@@ -868,6 +875,14 @@ int main(int argc, char **argv) {
              daemonUsage(argv[0], privileged);
              exit(EXIT_SUCCESS);
  
@@ -182,7 +182,7 @@ index 9e82132654..522aad2177 100644
          case '?':
          default:
              daemonUsage(argv[0], privileged);
-@@ -966,15 +981,18 @@ int main(int argc, char **argv) {
+@@ -945,15 +960,18 @@ int main(int argc, char **argv) {
                                   privileged,
                                   config->unix_sock_dir,
                                   &sock_file,
@@ -207,7 +207,7 @@ index 9e82132654..522aad2177 100644
  
      if (godaemon) {
          if (chdir("/") < 0) {
-@@ -1172,8 +1190,8 @@ int main(int argc, char **argv) {
+@@ -1139,8 +1157,8 @@ int main(int argc, char **argv) {
                                privileged,
  #endif /* !WITH_IP */
                                sock_file,
