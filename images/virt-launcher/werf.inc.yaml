@@ -20,6 +20,8 @@ pmPackages:
 - swtpm libtpms numactl dmidecode
 - xorriso libburn attr libaudit
 - gnutls acl libbsd libgcrypt libmd
+# certtool, which swtpm_setup runs to create the local CA of a virtual TPM, is in gnutls-utils in factory v4.
+- gnutls-utils
 - util-linux libfuse nettle
 - coreutils iproute2 tini
 # nologin, the shell of the deckhouse user, is in util-linux-login in factory v4.
